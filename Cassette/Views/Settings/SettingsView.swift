@@ -101,6 +101,13 @@ struct SettingsView: View {
                     SettingsIcon(systemImage: "info.circle.fill", color: .blue)
                 }
             }
+            Link(destination: URL(string: "https://github.com/MathieuDubart/cassette")!) {
+                Label {
+                    Text("GitHub Repository")
+                } icon: {
+                    SettingsIcon(systemImage: "chevron.left.forwardslash.chevron.right", color: .gray)
+                }
+            }
             // TODO(v1.0): display Bundle version, add GPL license note, SwiftSonic MIT attribution
         }
     }
