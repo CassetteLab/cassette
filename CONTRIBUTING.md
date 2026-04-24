@@ -58,6 +58,35 @@ Testing parallelises tests, so each test must own its own in-memory store.
 4. All dependencies injected via `init`. No singletons except `AppContainer`.
 5. `NowPlayingService` is active from v1 (lockscreen / Control Center / AirPods).
 
+### nonisolated on static properties in system type extensions
+
+When `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` is active (our project build
+setting), every `static let` or `static var` inside an `extension` on **any**
+type — including system types like `Logger`, `DateFormatter`, or `JSONDecoder` —
+is implicitly `@MainActor`. Reading those properties from a non-MainActor context
+(an `actor`, a detached task, a `nonisolated` function) produces a Swift 6
+concurrency warning today and will be a compiler error in strict mode.
+
+**Rule**: any `static let/var` in an extension on a system type that is accessed
+outside the main actor must be annotated `nonisolated`:
+
+```swift
+// ✗ implicitly @MainActor under SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor
+extension Logger {
+    static let keychain = Logger(subsystem: "...", category: "...")
+}
+
+// ✓ safe across all isolation boundaries
+extension Logger {
+    nonisolated static let keychain = Logger(subsystem: "...", category: "...")
+}
+```
+
+This is safe whenever the type is `Sendable` and holds no mutable state.
+`Logger` (OSLog), `DateFormatter` created once, immutable `JSONDecoder`, and
+similar value-type constants all qualify. When in doubt, add `nonisolated` —
+the compiler will tell you if it cannot be applied.
+
 ### Keychain policy
 
 Credentials (passwords, `customHeaders`) are **never** in:
@@ -72,3 +101,55 @@ Keychain only. `ServerCredentials` carries an `// IMPORTANT: Never persist outsi
 Conventional commits: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 One atomic commit per subtask. Propose a plan and wait for validation before
 implementing each numbered Étape.
+
+---
+
+## Quality gates
+
+Before pushing to `origin/main`, the build must be **warning-free** (excluding
+the known acceptable warnings listed below).
+
+Run the following commands and inspect the filtered output — it must be empty:
+
+```sh
+# iOS (required)
+xcodebuild -scheme Cassette \
+  -destination 'generic/platform=iOS Simulator' \
+  clean build 2>&1 \
+  | grep -E "warning:|error:" \
+  | grep -v "/SourcePackages/" \
+  | grep -v "appintentsmetadataprocessor"
+
+# macOS — enabled in v1.1
+# xcodebuild -scheme Cassette \
+#   -destination 'generic/platform=macOS' \
+#   clean build 2>&1 \
+#   | grep -E "warning:|error:" \
+#   | grep -v "/SourcePackages/" \
+#   | grep -v "appintentsmetadataprocessor"
+```
+
+Any new warning must be fixed or explicitly added to the "Known acceptable
+warnings" section with full justification before merging.
+
+---
+
+## Known acceptable warnings
+
+These warnings appear during normal builds and are **intentionally not fixed**.
+Each entry records source, cause, action taken, and when to revisit.
+
+---
+
+### AppIntents metadata extraction skipped
+
+```
+warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+```
+
+| Field    | Details |
+|----------|---------|
+| **Source** | Xcode build system — `appintentsmetadataprocessor` runs on every project |
+| **Cause** | The processor is injected by Xcode regardless of whether the project uses AppIntents. It emits this warning when `AppIntents.framework` is absent from the dependency graph. |
+| **Action** | Suppressed by the `-v "appintentsmetadataprocessor"` filter in the quality-gate commands above. No code change possible without adding the AppIntents dependency. |
+| **Revisit** | If Cassette adopts App Intents (Siri shortcuts, Spotlight actions) in a future version — integrate AppIntents properly and remove this entry. |
