@@ -16,6 +16,7 @@ final class AppContainer {
     // before actors are initialized (actors receive them via init injection).
     let playerState = PlayerState()
     let serverState = ServerState()
+    let cacheSettings = CacheSettings()
 
     let modelContainer: ModelContainer
     let keychainService: any KeychainServiceProtocol
@@ -26,6 +27,7 @@ final class AppContainer {
     let mediaResolver: any MediaResolverProtocol
     let playerService: any PlayerServiceProtocol
     let nowPlayingService: any NowPlayingServiceProtocol
+    let networkMonitor = NetworkMonitor()
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -47,14 +49,21 @@ final class AppContainer {
         let resolver = MediaResolver(
             downloadService: download,
             cacheService: cache,
-            serverService: server
+            serverService: server,
+            serverState: serverState
         )
         mediaResolver = resolver
 
         let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server)
         playerService = player
 
-        nowPlayingService = NowPlayingService(playerService: player)
+        let nowPlaying = NowPlayingService(playerService: player)
+        nowPlayingService = nowPlaying
+
+        // Break the circular dependency: PlayerService holds a weak-captured ref to NowPlayingService
+        // so it can push explicit snapshots (decision B). Task is fine — both actors are
+        // created synchronously above, and setNowPlayingService has no meaningful ordering requirement.
+        Task { await player.setNowPlayingService(nowPlaying) }
     }
 }
 
@@ -70,6 +79,7 @@ extension ModelContainer {
             CachedTrack.self,
             DownloadedTrack.self,
             DownloadedAlbum.self,
+            DownloadedPlaylist.self,
             QueueSnapshot.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)

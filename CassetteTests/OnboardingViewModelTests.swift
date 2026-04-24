@@ -5,13 +5,14 @@
 
 import Testing
 import Foundation
+import SwiftSonic
 @testable import Cassette
 
 // MARK: - Mock service
 
 @MainActor
 final class MockServerService: ServerServiceProtocol {
-    nonisolated let state: ServerState = ServerState()
+    let state: ServerState = ServerState()
 
     // Configurable outcomes
     var testConnectionError: (any Error)? = nil
@@ -49,7 +50,11 @@ final class MockServerService: ServerServiceProtocol {
 @MainActor
 struct OnboardingViewModelTests {
 
-    private func makeViewModel(service: MockServerService = MockServerService()) -> OnboardingViewModel {
+    private func makeViewModel() -> OnboardingViewModel {
+        makeViewModel(service: MockServerService())
+    }
+
+    private func makeViewModel(service: MockServerService) -> OnboardingViewModel {
         let vm = OnboardingViewModel(serverService: service)
         vm.serverURL = "https://music.example.com"
         vm.username = "admin"

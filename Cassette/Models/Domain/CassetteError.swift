@@ -21,6 +21,8 @@ nonisolated enum CassetteError: Error, Sendable {
     case invalidHeaderValue(key: String)
     case serverNotFound(id: UUID)
     case notImplemented
+    /// Requested media is not downloaded and device is offline.
+    case offlineUnavailable(songId: String)
 }
 
 extension CassetteError: LocalizedError {
@@ -52,6 +54,8 @@ extension CassetteError: LocalizedError {
             return "No server found with ID \(id.uuidString)."
         case .notImplemented:
             return "This feature is not yet implemented."
+        case .offlineUnavailable(let id):
+            return "'\(id)' is not downloaded and device is offline."
         }
     }
 }

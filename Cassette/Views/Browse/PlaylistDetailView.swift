@@ -24,8 +24,15 @@ struct PlaylistDetailView: View {
         .navigationTitle(playlist.name)
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            guard let svc = container?.libraryService else { return }
-            if viewModel == nil { viewModel = PlaylistDetailViewModel(playlistId: playlist.id, libraryService: svc) }
+            guard let c = container else { return }
+            if viewModel == nil {
+                viewModel = PlaylistDetailViewModel(
+                    playlistId: playlist.id,
+                    libraryService: c.libraryService,
+                    downloadService: c.downloadService,
+                    serverState: c.serverState
+                )
+            }
             await viewModel?.load()
         }
     }
@@ -50,13 +57,22 @@ struct PlaylistDetailView: View {
                     coverArtId: playlist.coverArt ?? playlist.id,
                     name: playlist.name,
                     owner: playlist.owner,
-                    songCount: playlist.songCount
+                    songs: songs,
+                    vm: vm
                 )
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
 
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    PlaylistSongRow(song: song, index: index + 1)
+                    PlaylistSongRow(
+                        song: song,
+                        index: index + 1,
+                        isDownloaded: vm.downloadedSongIds.contains(song.id)
+                    )
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                    }
                 }
             }
             .listStyle(.plain)
@@ -64,7 +80,13 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playlistHeader(coverArtId: String, name: String, owner: String?, songCount: Int) -> some View {
+    private func playlistHeader(
+        coverArtId: String,
+        name: String,
+        owner: String?,
+        songs: [Song],
+        vm: PlaylistDetailViewModel
+    ) -> some View {
         VStack(spacing: 16) {
             CoverArtView(id: coverArtId, size: 300)
                 .frame(width: 220, height: 220)
@@ -80,20 +102,49 @@ struct PlaylistDetailView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Text("\(songCount) track\(songCount == 1 ? "" : "s")")
+                Text("\(songs.count) track\(songs.count == 1 ? "" : "s")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            // TODO(Étape 4): wire to PlayerService
-            Button {
-            } label: {
-                Label("Play", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 12) {
+                Button {
+                    Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
+                } label: {
+                    Label("Play", systemImage: "play.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(songs.isEmpty)
+
+                if vm.isDownloadingPlaylist {
+                    Button {
+                        Task { await vm.cancelPlaylistDownload() }
+                    } label: {
+                        Label("Cancel", systemImage: "xmark")
+                    }
+                    .buttonStyle(.bordered)
+                } else {
+                    Button {
+                        Task { await vm.downloadPlaylist() }
+                    } label: {
+                        Label("Download", systemImage: "arrow.down.circle")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(songs.isEmpty)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(true)
             .padding(.horizontal)
+
+            if vm.isDownloadingPlaylist {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Downloading…")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding(.vertical, 24)
         .frame(maxWidth: .infinity)
@@ -103,6 +154,7 @@ struct PlaylistDetailView: View {
 private struct PlaylistSongRow: View {
     let song: Song
     let index: Int
+    let isDownloaded: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -118,6 +170,11 @@ private struct PlaylistSongRow: View {
                 }
             }
             Spacer()
+            if isDownloaded {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if let duration = song.duration {
                 Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
                     .font(.caption)

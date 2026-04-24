@@ -24,6 +24,10 @@ struct CassetteApp: App {
                 guard let newContainer = try? AppContainer() else { return }
                 container = newContainer
                 await newContainer.serverService.loadPersistedState()
+                await newContainer.nowPlayingService.start()
+                newContainer.networkMonitor.start(serverState: newContainer.serverState)
+                // Best-effort TTL eviction at launch — runs concurrently, never blocks UI.
+                Task { await newContainer.cacheService.evictExpired() }
             }
         }
     }

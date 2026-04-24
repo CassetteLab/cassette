@@ -30,6 +30,8 @@ final class ServerState {
     var servers: [ServerSnapshot] = []
     var activeServer: ServerSnapshot?
     var isConnected: Bool = false
+    /// Updated by NetworkMonitor. False when NWPathMonitor reports no connectivity.
+    var isOnline: Bool = true
     // Prevents OnboardingView flash before persisted state is restored on launch.
     var isLoadingPersistedState: Bool = true
 }

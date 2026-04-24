@@ -20,13 +20,20 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
 
     func downloadedURL(forSongId songId: String, serverId: UUID) async -> URL?
     func isDownloaded(songId: String, serverId: UUID) async -> Bool
+    /// Returns all song IDs that have been fully downloaded for a given server.
+    func downloadedSongIds(serverId: UUID) async -> Set<String>
 
-    // TODO(v1.x): switch both methods to background URLSession with resume support.
+    /// Returns the local file URL for a downloaded cover art, or nil if not cached.
+    func localCoverArtURL(forId coverArtId: String) async -> URL?
+
+    // TODO(v1.x): switch to background URLSession with resume support.
     // v1 uses foreground URLSession — user must keep the app open during download.
     func download(song: Song, serverId: UUID) async throws
-    func download(albumId: String, serverId: UUID) async throws
+    func download(album: AlbumID3, serverId: UUID) async throws
+    func download(playlist: PlaylistWithSongs, serverId: UUID) async throws
 
     func cancelDownload(songId: String, serverId: UUID) async
     func remove(songId: String, serverId: UUID) async throws
     func remove(albumId: String, serverId: UUID) async throws
+    func remove(playlistId: String, serverId: UUID) async throws
 }

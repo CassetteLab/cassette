@@ -14,15 +14,18 @@ actor MediaResolver: MediaResolverProtocol {
     private let downloadService: any DownloadServiceProtocol
     private let cacheService: any CacheServiceProtocol
     private let serverService: any ServerServiceProtocol
+    private let serverState: ServerState
 
     init(
         downloadService: any DownloadServiceProtocol,
         cacheService: any CacheServiceProtocol,
-        serverService: any ServerServiceProtocol
+        serverService: any ServerServiceProtocol,
+        serverState: ServerState
     ) {
         self.downloadService = downloadService
         self.cacheService = cacheService
         self.serverService = serverService
+        self.serverState = serverState
     }
 
     func resolve(songId: String, serverId: UUID) async throws -> MediaSource {
@@ -39,7 +42,14 @@ actor MediaResolver: MediaResolverProtocol {
             return .cached(url)
         }
 
-        // 3. Stream. Custom headers injected so AVPlayer reaches Cloudflare-protected hosts.
+        // 3. Offline guard — no local copy available, device has no connectivity.
+        let isOnline = await MainActor.run { serverState.isOnline }
+        guard isOnline else {
+            Logger.resolver.warning("'\(songId, privacy: .public)' not available offline.")
+            throw CassetteError.offlineUnavailable(songId: songId)
+        }
+
+        // 4. Stream. Custom headers injected so AVPlayer reaches Cloudflare-protected hosts.
         // AVURLAssetHTTPHeaderFieldsKey is used at the PlayerService call site.
         // TODO(v1.x): trigger background cache write alongside the stream.
         let client = try await serverService.makeSwiftSonicClient()
