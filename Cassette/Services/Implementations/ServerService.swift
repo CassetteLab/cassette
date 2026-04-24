@@ -102,11 +102,17 @@ actor ServerService: ServerServiceProtocol {
     }
 
     func loadPersistedState() async {
-        // TODO(Étape 2-5): fetch ServerConfig records from SwiftData, retrieve credentials from
-        // Keychain, and restore state.servers + state.activeServer.
-        // ModelContext must always be created and used on MainActor — access via:
-        //   let context = await MainActor.run { ModelContext(modelContainer) }
-        await MainActor.run { state.isLoadingPersistedState = false }
+        do {
+            try await MainActor.run {
+                let context = ModelContext(modelContainer)
+                let configs = try context.fetch(FetchDescriptor<ServerConfig>())
+                state.servers = configs.map { ServerSnapshot(from: $0) }
+                state.activeServer = configs.first(where: { $0.isActive }).map { ServerSnapshot(from: $0) }
+                state.isLoadingPersistedState = false
+            }
+        } catch {
+            await MainActor.run { state.isLoadingPersistedState = false }
+        }
     }
 
     func testConnection() async throws {
