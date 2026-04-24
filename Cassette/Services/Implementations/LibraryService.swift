@@ -9,49 +9,56 @@ import OSLog
 
 actor LibraryService: LibraryServiceProtocol {
     private let serverService: any ServerServiceProtocol
+    private var cachedClient: SwiftSonicClient?
+    private var cachedServerId: UUID?
 
     init(serverService: any ServerServiceProtocol) {
         self.serverService = serverService
     }
 
+    private func client() async throws -> SwiftSonicClient {
+        let activeId = await MainActor.run { serverService.state.activeServer?.id }
+        if let cached = cachedClient, cachedServerId == activeId, activeId != nil {
+            return cached
+        }
+        let fresh = try await serverService.makeSwiftSonicClient()
+        cachedClient = fresh
+        cachedServerId = activeId
+        return fresh
+    }
+
     func artists() async throws -> [ArtistIndex] {
-        let client = try await serverService.makeSwiftSonicClient()
-        return try await client.getArtists()
+        try await client().getArtists()
     }
 
     func artist(id: String) async throws -> ArtistID3 {
-        let client = try await serverService.makeSwiftSonicClient()
-        return try await client.getArtist(id: id)
+        try await client().getArtist(id: id)
     }
 
     func album(id: String) async throws -> AlbumID3 {
-        let client = try await serverService.makeSwiftSonicClient()
-        return try await client.getAlbum(id: id)
+        try await client().getAlbum(id: id)
     }
 
     func playlists() async throws -> [Playlist] {
-        let client = try await serverService.makeSwiftSonicClient()
-        return try await client.getPlaylists()
+        try await client().getPlaylists()
     }
 
     func playlist(id: String) async throws -> PlaylistWithSongs {
-        let client = try await serverService.makeSwiftSonicClient()
-        return try await client.getPlaylist(id: id)
+        try await client().getPlaylist(id: id)
     }
 
     func search(_ query: String) async throws -> SearchResult3 {
-        let client = try await serverService.makeSwiftSonicClient()
-        return try await client.search3(query)
+        try await client().search3(query)
     }
 
     func coverArtURL(id: String, size: Int?) async -> URL? {
-        guard let client = try? await serverService.makeSwiftSonicClient() else { return nil }
-        return client.coverArtURL(id: id, size: size)
+        guard let c = try? await client() else { return nil }
+        return c.coverArtURL(id: id, size: size)
     }
 
     func streamURL(songId: String) async -> URL? {
-        guard let client = try? await serverService.makeSwiftSonicClient() else { return nil }
-        return client.streamURL(id: songId)
+        guard let c = try? await client() else { return nil }
+        return c.streamURL(id: songId)
     }
 
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
