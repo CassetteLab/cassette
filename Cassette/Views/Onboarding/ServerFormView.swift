@@ -27,6 +27,8 @@ struct ServerFormView: View {
 
             generalError
 
+            customHeadersSection
+
             Section {
                 Button {
                     Task { await viewModel.addServer() }
@@ -88,6 +90,65 @@ struct ServerFormView: View {
                 EmptyView()
             }
         }
+    }
+
+    private var customHeadersSection: some View {
+        Section {
+            DisclosureGroup("Custom Headers") {
+                ForEach(viewModel.customHeaders.indices, id: \.self) { index in
+                    headerRow(at: index)
+                }
+                Button(action: viewModel.addCustomHeader) {
+                    Label("Add Header", systemImage: "plus")
+                }
+            }
+        } footer: {
+            Text("Optional headers sent with every request — useful for Cloudflare Access or other reverse-proxy authentication.")
+                .font(.footnote)
+        }
+    }
+
+    private func headerRow(at index: Int) -> some View {
+        let key = viewModel.customHeaders[index].key
+        let value = viewModel.customHeaders[index].value
+
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("Name", text: Binding(
+                        get: { viewModel.customHeaders[index].key },
+                        set: { viewModel.customHeaders[index].key = $0 }
+                    ))
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    #endif
+
+                    TextField("Value", text: Binding(
+                        get: { viewModel.customHeaders[index].value },
+                        set: { viewModel.customHeaders[index].value = $0 }
+                    ))
+                    .autocorrectionDisabled()
+                    .foregroundStyle(.secondary)
+                }
+
+                Button(role: .destructive) {
+                    viewModel.removeCustomHeader(at: index)
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .foregroundStyle(.red)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if !key.isEmpty && !HeaderValidator.isValidName(key) {
+                inlineError("Name '\(key)' contains characters not allowed by RFC 7230.")
+            }
+            if !value.isEmpty && !HeaderValidator.isValidValue(value) {
+                inlineError("Value contains CR, LF, or NUL — not allowed in HTTP headers.")
+            }
+        }
+        .padding(.vertical, 2)
     }
 
     private func inlineError(_ message: String) -> some View {
