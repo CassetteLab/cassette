@@ -122,6 +122,7 @@ private struct SettingsIcon: View {
 
     var body: some View {
         Image(systemName: systemImage)
+            .font(.system(size: 14))
             .foregroundStyle(.white)
             .frame(width: 28, height: 28)
             .background(color)
