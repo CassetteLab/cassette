@@ -25,76 +25,73 @@ struct MiniPlayerView: View {
         let coverArtId = playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? ""
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
 
-        return ZStack(alignment: .bottom) {
-            // Blurred album cover background
+        return VStack(spacing: 0) {
+            HStack(spacing: CassetteSpacing.m) {
+                CoverArtCard(id: coverArtId, size: 44)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(playerState.currentTrack?.title ?? "")
+                        .font(.cassetteCellTitle)
+                        .lineLimit(1)
+                    if let artist = playerState.currentTrack?.artist {
+                        Text(artist)
+                            .font(.cassetteCaption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer()
+
+                HStack(spacing: CassetteSpacing.s) {
+                    Button {
+                        Task { try? await container?.playerService.skipToPrevious() }
+                    } label: {
+                        Image(systemName: "backward.fill")
+                            .font(.title3)
+                    }
+
+                    Button {
+                        Task {
+                            if playerState.playbackState == .playing {
+                                await container?.playerService.pause()
+                            } else {
+                                await container?.playerService.resume()
+                            }
+                        }
+                    } label: {
+                        Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
+                            .font(.title3)
+                    }
+
+                    Button {
+                        Task { try? await container?.playerService.skipToNext() }
+                    } label: {
+                        Image(systemName: "forward.fill")
+                            .font(.title3)
+                    }
+                }
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+            .padding(.vertical, CassetteSpacing.m)
+
+            // 3pt non-interactive progress bar
+            GeometryReader { geo in
+                Capsule()
+                    .fill(Color.cassetteAccent)
+                    .frame(width: geo.size.width * CGFloat(progress), height: 3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(height: 3)
+        }
+        // Use .background modifier so the blur is constrained to the VStack's natural
+        // height — never fills the full screen like a ZStack with maxHeight: .infinity would.
+        .background(.ultraThinMaterial)
+        .background {
             CoverArtView(id: coverArtId, size: 100)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .scaleEffect(2)
                 .blur(radius: 60)
                 .clipped()
-
-            Rectangle()
-                .fill(.ultraThinMaterial)
-
-            VStack(spacing: 0) {
-                HStack(spacing: CassetteSpacing.m) {
-                    CoverArtCard(id: coverArtId, size: 44)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(playerState.currentTrack?.title ?? "")
-                            .font(.cassetteCellTitle)
-                            .lineLimit(1)
-                        if let artist = playerState.currentTrack?.artist {
-                            Text(artist)
-                                .font(.cassetteCaption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-
-                    Spacer()
-
-                    HStack(spacing: CassetteSpacing.s) {
-                        Button {
-                            Task { try? await container?.playerService.skipToPrevious() }
-                        } label: {
-                            Image(systemName: "backward.fill")
-                                .font(.title3)
-                        }
-
-                        Button {
-                            Task {
-                                if playerState.playbackState == .playing {
-                                    await container?.playerService.pause()
-                                } else {
-                                    await container?.playerService.resume()
-                                }
-                            }
-                        } label: {
-                            Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
-                                .font(.title3)
-                        }
-
-                        Button {
-                            Task { try? await container?.playerService.skipToNext() }
-                        } label: {
-                            Image(systemName: "forward.fill")
-                                .font(.title3)
-                        }
-                    }
-                }
-                .padding(.horizontal, CassetteSpacing.l)
-                .padding(.vertical, CassetteSpacing.m)
-
-                // 3pt progress bar, non-interactive
-                GeometryReader { geo in
-                    Capsule()
-                        .fill(Color.cassetteAccent)
-                        .frame(width: geo.size.width * CGFloat(progress), height: 3)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(height: 3)
-            }
         }
         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
         .padding(.horizontal, CassetteSpacing.s)
