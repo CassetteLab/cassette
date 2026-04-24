@@ -2,6 +2,8 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Environment(\.appContainer) private var container
+    @State private var viewModel: OnboardingViewModel?
+    @State private var showingServerForm = false
 
     var body: some View {
         VStack(spacing: 24) {
@@ -24,14 +26,25 @@ struct OnboardingView: View {
 
             Spacer()
 
-            // TODO: implement in Étape 2 — open ServerFormView sheet
-            // ServerFormView includes: URL, username, password, and
-            // an "Advanced" disclosure group for custom HTTP headers (Cloudflare Access etc.)
-            Button("Add Server") { }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+            Button("Add Server") {
+                showingServerForm = true
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(viewModel == nil)
         }
         .padding(32)
+        .onAppear {
+            guard viewModel == nil, let container else { return }
+            viewModel = OnboardingViewModel(serverService: container.serverService)
+        }
+        .sheet(isPresented: $showingServerForm) {
+            if let viewModel {
+                NavigationStack {
+                    ServerFormView(viewModel: viewModel)
+                }
+            }
+        }
     }
 }
 
