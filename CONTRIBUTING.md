@@ -29,6 +29,25 @@ Three deliberate simplifications for v1. Each is marked with
 | Permanent downloads | Foreground `URLSession` (user keeps app open) | Background `URLSession` with resume after app kill |
 | Server queue sync | Best-effort `savePlayQueue`/`getPlayQueue`, silently ignored on failure | Robust bidirectional sync with multi-device merge |
 
+### SwiftData + Actor pattern
+
+`ModelContext` is main-thread-bound. Actor methods that read or write SwiftData
+must always create and use a `ModelContext` on the MainActor:
+
+```swift
+try await MainActor.run {
+    let context = ModelContext(modelContainer)
+    // fetch, insert, delete, save here
+}
+```
+
+`@Model` objects (e.g. `ServerConfig`) **never** leave the `MainActor.run` closure.
+Return a `Sendable` DTO (`ServerSnapshot`, etc.) instead. This is the single rule
+that makes the entire service layer actor-safe with SwiftData.
+
+Tests must pass `inMemory: true` to `ModelContainer.cassette(inMemory:)` — Swift
+Testing parallelises tests, so each test must own its own in-memory store.
+
 ### Architecture invariants
 
 1. Files under `Services/` never `import SwiftUI`, `UIKit`, or `AppKit`.
