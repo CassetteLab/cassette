@@ -1,0 +1,86 @@
+import Foundation
+import SwiftUI
+import SwiftData
+
+/// DI root. Creates and wires all services in dependency order.
+/// Passed into the SwiftUI environment via \.appContainer.
+/// All stored service references are protocol existentials — fully mockable in tests.
+@MainActor
+final class AppContainer {
+    // Observable state objects — created here so they exist on the MainActor
+    // before actors are initialized (actors receive them via init injection).
+    let playerState = PlayerState()
+    let serverState = ServerState()
+
+    let modelContainer: ModelContainer
+    let keychainService: any KeychainServiceProtocol
+    let serverService: any ServerServiceProtocol
+    let libraryService: any LibraryServiceProtocol
+    let cacheService: any CacheServiceProtocol
+    let downloadService: any DownloadServiceProtocol
+    let mediaResolver: any MediaResolverProtocol
+    let playerService: any PlayerServiceProtocol
+    let nowPlayingService: any NowPlayingServiceProtocol
+
+    init(inMemory: Bool = false) throws {
+        modelContainer = try ModelContainer.cassette(inMemory: inMemory)
+
+        let keychain = KeychainService()
+        keychainService = keychain
+
+        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer)
+        serverService = server
+
+        libraryService = LibraryService(serverService: server)
+
+        let cache = CacheService(modelContainer: modelContainer)
+        cacheService = cache
+
+        let download = DownloadService(serverService: server, modelContainer: modelContainer)
+        downloadService = download
+
+        let resolver = MediaResolver(
+            downloadService: download,
+            cacheService: cache,
+            serverService: server
+        )
+        mediaResolver = resolver
+
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server)
+        playerService = player
+
+        nowPlayingService = NowPlayingService(playerService: player)
+    }
+}
+
+// MARK: - ModelContainer factory
+
+extension ModelContainer {
+    /// Creates the Cassette ModelContainer.
+    /// - Parameter inMemory: Pass `true` in tests — Swift Testing parallelises tests,
+    ///   so each test must create its own in-memory container (never shared).
+    static func cassette(inMemory: Bool = false) throws -> ModelContainer {
+        let schema = Schema([
+            ServerConfig.self,
+            CachedTrack.self,
+            DownloadedTrack.self,
+            DownloadedAlbum.self,
+            QueueSnapshot.self
+        ])
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        return try ModelContainer(for: schema, configurations: config)
+    }
+}
+
+// MARK: - SwiftUI environment key
+
+private struct AppContainerKey: EnvironmentKey {
+    static let defaultValue: AppContainer? = nil
+}
+
+extension EnvironmentValues {
+    var appContainer: AppContainer? {
+        get { self[AppContainerKey.self] }
+        set { self[AppContainerKey.self] = newValue }
+    }
+}
