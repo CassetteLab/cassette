@@ -45,6 +45,7 @@ struct SettingsView: View {
             serverSection()
             aboutSection()
         }
+        .formStyle(.grouped)
         .refreshable {
             await cacheVM.loadUsedBytes()
             await downloadsVM.loadData()
