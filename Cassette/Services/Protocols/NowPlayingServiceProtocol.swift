@@ -15,6 +15,6 @@ protocol NowPlayingServiceProtocol: AnyObject, Sendable {
     /// Deregisters all handlers and clears now playing info.
     func stop() async
 
-    /// Pushes an updated playback position (called on scrub or periodic timer tick).
-    func update(position: TimeInterval) async
+    /// Pushes a full metadata + artwork update (called from PlayerService on track change or seek).
+    func update(with snapshot: NowPlayingSnapshot) async
 }

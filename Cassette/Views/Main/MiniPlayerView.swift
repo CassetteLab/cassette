@@ -4,38 +4,75 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftSonic
 
 /// Persistent mini-player bar anchored above the tab bar.
-/// Visible only when a track is loaded in PlayerState.
-/// Full implementation in Étape 4 (PlayerService wiring).
+/// Tap anywhere to expand into FullPlayerView.
 struct MiniPlayerView: View {
-    // TODO(Étape 4): replace with real playback controls wired to PlayerService
+    @Environment(\.appContainer) private var container
+    @State private var showingFullPlayer = false
+
     var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 6)
-                .fill(.quaternary)
-                .frame(width: 44, height: 44)
-                .overlay {
-                    Image(systemName: "music.note")
-                        .foregroundStyle(.secondary)
+        if let playerState = container?.playerState {
+            bar(playerState)
+                .sheet(isPresented: $showingFullPlayer) {
+                    FullPlayerView()
                 }
+        }
+    }
+
+    private func bar(_ playerState: PlayerState) -> some View {
+        HStack(spacing: 12) {
+            CoverArtView(
+                id: playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? "",
+                size: 44
+            )
+            .frame(width: 44, height: 44)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Nothing playing")
+                Text(playerState.currentTrack?.title ?? "")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                Text("—")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let artist = playerState.currentTrack?.artist {
+                    Text(artist)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer()
 
-            Button { } label: {
-                Image(systemName: "play.fill")
-                    .font(.title3)
+            HStack(spacing: 8) {
+                Button {
+                    Task { try? await container?.playerService.skipToPrevious() }
+                } label: {
+                    Image(systemName: "backward.fill")
+                        .font(.title3)
+                }
+
+                Button {
+                    Task {
+                        if playerState.playbackState == .playing {
+                            await container?.playerService.pause()
+                        } else {
+                            await container?.playerService.resume()
+                        }
+                    }
+                } label: {
+                    Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
+                        .font(.title3)
+                }
+
+                Button {
+                    Task { try? await container?.playerService.skipToNext() }
+                } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.title3)
+                }
             }
-            .disabled(true)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -43,5 +80,7 @@ struct MiniPlayerView: View {
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { showingFullPlayer = true }
     }
 }
