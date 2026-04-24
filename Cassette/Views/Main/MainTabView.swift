@@ -25,10 +25,8 @@ struct MainTabView: View {
             }
             .tabItem { Label("Playlists", systemImage: "list.bullet") }
 
-            // TODO(v1.0): add "About" screen in Settings with license info and third-party attributions (SwiftSonic MIT)
             NavigationStack {
-                Text("Settings")
-                    .navigationTitle("Settings")
+                SettingsView()
             }
             .tabItem { Label("Settings", systemImage: "gear") }
         }
