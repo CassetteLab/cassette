@@ -52,34 +52,31 @@ struct PlaylistDetailView: View {
             )
         } else {
             let songs = vm.playlist?.entry ?? []
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    playlistHeader(
-                        coverArtId: playlist.coverArt ?? playlist.id,
-                        name: playlist.name,
-                        owner: playlist.owner,
-                        songs: songs,
-                        vm: vm
+            List {
+                playlistHeader(
+                    coverArtId: playlist.coverArt ?? playlist.id,
+                    name: playlist.name,
+                    owner: playlist.owner,
+                    songs: songs,
+                    vm: vm
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    SongRow(
+                        song: song,
+                        index: index + 1,
+                        showCoverArt: true,
+                        isDownloaded: vm.downloadedSongIds.contains(song.id)
                     )
-
-                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                        SongRow(
-                            song: song,
-                            index: index + 1,
-                            showCoverArt: true,
-                            isDownloaded: vm.downloadedSongIds.contains(song.id)
-                        )
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
-                        }
-                        .padding(.horizontal, CassetteSpacing.l)
-
-                        Divider()
-                            .padding(.leading, CassetteSpacing.l)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
                     }
                 }
             }
+            .listStyle(.plain)
             .refreshable { await vm.load() }
         }
     }
