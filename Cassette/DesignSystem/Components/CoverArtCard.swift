@@ -22,9 +22,10 @@ struct CoverArtCard: View {
     let id: String
     let size: CGFloat
     var cornerRadius: CGFloat = CassetteCornerRadius.standard
+    var placeholderSystemImage: String = "music.note"
 
     var body: some View {
-        CoverArtView(id: id, size: Int(size * 2))  // 2× for @2x sharpness
+        CoverArtView(id: id, size: Int(size * 2), placeholderSystemImage: placeholderSystemImage)  // 2× for @2x sharpness
             .frame(width: size, height: size)
             .cassetteCoverStyle(cornerRadius: cornerRadius)
     }

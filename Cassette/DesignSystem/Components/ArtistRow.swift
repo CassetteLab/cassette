@@ -13,7 +13,13 @@ struct ArtistRow: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
-            initialsAvatar
+            CoverArtView(
+                id: artist.coverArt ?? artist.id,
+                size: 88,
+                placeholderSystemImage: "person.fill"
+            )
+            .frame(width: 44, height: 44)
+            .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(artist.name)
@@ -31,31 +37,5 @@ struct ArtistRow: View {
         }
         .padding(.vertical, CassetteSpacing.xs)
         .contentShape(Rectangle())
-    }
-
-    private var initialsAvatar: some View {
-        ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.cassetteAccentSecondary, Color.cassetteAccent],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            Text(initials)
-                .font(.system(.callout, design: .rounded, weight: .semibold))
-                .foregroundStyle(Color.cassetteAccentText)
-        }
-        .frame(width: 44, height: 44)
-    }
-
-    private var initials: String {
-        let words = artist.name.split(separator: " ")
-        switch words.count {
-        case 0: return "?"
-        case 1: return String(words[0].prefix(2)).uppercased()
-        default: return (String(words[0].prefix(1)) + String(words[1].prefix(1))).uppercased()
-        }
     }
 }

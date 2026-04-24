@@ -10,6 +10,7 @@ import SwiftUI
 struct CoverArtView: View {
     let id: String
     let size: Int?
+    var placeholderSystemImage: String = "music.note"
 
     @Environment(\.appContainer) private var container
     @State private var url: URL?
@@ -39,7 +40,7 @@ struct CoverArtView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            Image(systemName: "music.note")
+            Image(systemName: placeholderSystemImage)
                 .font(.title2)
                 .foregroundStyle(.secondary)
         }
