@@ -62,6 +62,7 @@ struct PlaylistDetailView: View {
                 )
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
 
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                     SongRow(
@@ -77,6 +78,7 @@ struct PlaylistDetailView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
         }
     }

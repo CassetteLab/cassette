@@ -72,6 +72,7 @@ struct AlbumDetailView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
         }
     }
