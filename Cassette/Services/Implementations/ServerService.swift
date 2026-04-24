@@ -82,7 +82,18 @@ actor ServerService: ServerServiceProtocol {
     }
 
     func setActiveServer(id: UUID) async throws {
-        // TODO: implement in Étape 2
+        try await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let all = try context.fetch(FetchDescriptor<ServerConfig>())
+            guard let target = all.first(where: { $0.id == id }) else {
+                throw CassetteError.serverNotFound(id: id)
+            }
+            for config in all { config.isActive = false }
+            target.isActive = true
+            try context.save()
+            state.activeServer = ServerSnapshot(from: target)
+            state.isConnected = false
+        }
     }
 
     func updateCustomHeaders(_ headers: [String: String], forServer id: UUID) async throws {
