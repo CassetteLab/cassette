@@ -52,33 +52,34 @@ struct PlaylistDetailView: View {
             )
         } else {
             let songs = vm.playlist?.entry ?? []
-            List {
-                playlistHeader(
-                    coverArtId: playlist.coverArt ?? playlist.id,
-                    name: playlist.name,
-                    owner: playlist.owner,
-                    songs: songs,
-                    vm: vm
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(
-                        song: song,
-                        index: index + 1,
-                        showCoverArt: true,
-                        isDownloaded: vm.downloadedSongIds.contains(song.id)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    playlistHeader(
+                        coverArtId: playlist.coverArt ?? playlist.id,
+                        name: playlist.name,
+                        owner: playlist.owner,
+                        songs: songs,
+                        vm: vm
                     )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        SongRow(
+                            song: song,
+                            index: index + 1,
+                            showCoverArt: true,
+                            isDownloaded: vm.downloadedSongIds.contains(song.id)
+                        )
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                        }
+                        .padding(.horizontal, CassetteSpacing.l)
+
+                        Divider()
+                            .padding(.leading, CassetteSpacing.l)
                     }
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
         }
     }

@@ -53,26 +53,26 @@ struct AlbumDetailView: View {
         } else {
             let loaded = vm.album ?? album
             let songs = loaded.song ?? []
-            List {
-                albumHeader(loaded, songs: songs, vm: vm)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    albumHeader(loaded, songs: songs, vm: vm)
 
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(
-                        song: song,
-                        index: index + 1,
-                        isDownloaded: vm.downloadedSongIds.contains(song.id)
-                    )
-                    .onTapGesture {
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        SongRow(
+                            song: song,
+                            index: index + 1,
+                            isDownloaded: vm.downloadedSongIds.contains(song.id)
+                        )
+                        .onTapGesture {
+                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                        }
+                        .padding(.horizontal, CassetteSpacing.l)
+
+                        Divider()
+                            .padding(.leading, CassetteSpacing.l)
                     }
-                    .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 }
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
         }
     }
