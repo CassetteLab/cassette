@@ -5,8 +5,8 @@
 
 import SwiftUI
 
-/// Async cover art view. Resolves the URL via LibraryService (cached client),
-/// then hands it to AsyncImage. Shows a placeholder while loading or on error.
+/// Async cover art loader. Resolves the URL via LibraryService, then hands it to AsyncImage.
+/// Use `CoverArtCard` in views — it wraps this with clip, shadow, and border handling.
 struct CoverArtView: View {
     let id: String
     let size: Int?
@@ -21,9 +21,7 @@ struct CoverArtView: View {
                 image
                     .resizable()
                     .scaledToFill()
-            case .failure:
-                placeholder
-            case .empty:
+            case .failure, .empty:
                 placeholder
             @unknown default:
                 placeholder
@@ -35,12 +33,15 @@ struct CoverArtView: View {
     }
 
     private var placeholder: some View {
-        Rectangle()
-            .fill(.quaternary)
-            .overlay {
-                Image(systemName: "music.note")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-            }
+        ZStack {
+            LinearGradient(
+                colors: [Color.cassetteAccentSecondary.opacity(0.3), Color.cassetteAccent.opacity(0.15)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Image(systemName: "music.note")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+        }
     }
 }
