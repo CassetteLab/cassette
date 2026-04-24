@@ -22,64 +22,83 @@ struct MiniPlayerView: View {
     }
 
     private func bar(_ playerState: PlayerState) -> some View {
-        HStack(spacing: 12) {
-            CoverArtView(
-                id: playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? "",
-                size: 44
-            )
-            .frame(width: 44, height: 44)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+        let coverArtId = playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? ""
+        let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(playerState.currentTrack?.title ?? "")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                if let artist = playerState.currentTrack?.artist {
-                    Text(artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
+        return ZStack(alignment: .bottom) {
+            // Blurred album cover background
+            CoverArtView(id: coverArtId, size: 100)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scaleEffect(2)
+                .blur(radius: 60)
+                .clipped()
 
-            Spacer()
+            Rectangle()
+                .fill(.ultraThinMaterial)
 
-            HStack(spacing: 8) {
-                Button {
-                    Task { try? await container?.playerService.skipToPrevious() }
-                } label: {
-                    Image(systemName: "backward.fill")
-                        .font(.title3)
-                }
+            VStack(spacing: 0) {
+                HStack(spacing: CassetteSpacing.m) {
+                    CoverArtCard(id: coverArtId, size: 44)
 
-                Button {
-                    Task {
-                        if playerState.playbackState == .playing {
-                            await container?.playerService.pause()
-                        } else {
-                            await container?.playerService.resume()
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(playerState.currentTrack?.title ?? "")
+                            .font(.cassetteCellTitle)
+                            .lineLimit(1)
+                        if let artist = playerState.currentTrack?.artist {
+                            Text(artist)
+                                .font(.cassetteCaption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
                     }
-                } label: {
-                    Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
-                        .font(.title3)
-                }
 
-                Button {
-                    Task { try? await container?.playerService.skipToNext() }
-                } label: {
-                    Image(systemName: "forward.fill")
-                        .font(.title3)
+                    Spacer()
+
+                    HStack(spacing: CassetteSpacing.s) {
+                        Button {
+                            Task { try? await container?.playerService.skipToPrevious() }
+                        } label: {
+                            Image(systemName: "backward.fill")
+                                .font(.title3)
+                        }
+
+                        Button {
+                            Task {
+                                if playerState.playbackState == .playing {
+                                    await container?.playerService.pause()
+                                } else {
+                                    await container?.playerService.resume()
+                                }
+                            }
+                        } label: {
+                            Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
+                                .font(.title3)
+                        }
+
+                        Button {
+                            Task { try? await container?.playerService.skipToNext() }
+                        } label: {
+                            Image(systemName: "forward.fill")
+                                .font(.title3)
+                        }
+                    }
                 }
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.vertical, CassetteSpacing.m)
+
+                // 3pt progress bar, non-interactive
+                GeometryReader { geo in
+                    Capsule()
+                        .fill(Color.cassetteAccent)
+                        .frame(width: geo.size.width * CGFloat(progress), height: 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: 3)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal, 8)
-        .padding(.bottom, 4)
+        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+        .padding(.horizontal, CassetteSpacing.s)
+        .padding(.bottom, CassetteSpacing.xs)
         .contentShape(Rectangle())
         .onTapGesture { showingFullPlayer = true }
     }

@@ -33,33 +33,34 @@ struct PlaylistListView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.playlists.isEmpty {
-            ContentUnavailableView {
-                Label("Unable to load playlists", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error.localizedDescription)
-            } actions: {
-                Button("Retry") { Task { await vm.load() } }
-            }
+            EmptyStateView(
+                systemImage: "exclamationmark.triangle",
+                title: "Unable to Load Playlists",
+                subtitle: error.localizedDescription,
+                action: .init(label: "Retry") { Task { await vm.load() } }
+            )
         } else if vm.playlists.isEmpty {
-            ContentUnavailableView(
-                "No playlists",
+            EmptyStateView(
                 systemImage: "list.bullet",
-                description: Text("Create playlists on your server to see them here.")
+                title: "No Playlists",
+                subtitle: "Create playlists on your server to see them here."
             )
         } else {
             List(vm.playlists) { playlist in
                 NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
-                    HStack(spacing: 12) {
-                        CoverArtView(id: playlist.coverArt ?? playlist.id, size: 44)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                    HStack(spacing: CassetteSpacing.m) {
+                        CoverArtCard(id: playlist.coverArt ?? playlist.id, size: 56)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(playlist.name)
+                                .font(.cassetteCellTitle)
+                                .lineLimit(1)
                             Text("\(playlist.songCount) track\(playlist.songCount == 1 ? "" : "s")")
-                                .font(.caption)
+                                .font(.cassetteCaption)
                                 .foregroundStyle(.secondary)
                         }
+                        Spacer(minLength: 0)
                     }
+                    .padding(.vertical, CassetteSpacing.xs)
                 }
             }
             .listStyle(.plain)

@@ -37,6 +37,7 @@ struct SearchView: View {
                 .listRowSeparator(.hidden)
             } else if let error = vm.error {
                 Text(error.localizedDescription)
+                    .font(.cassetteBody)
                     .foregroundStyle(.secondary)
                     .listRowSeparator(.hidden)
             } else if let results = vm.results {
@@ -44,12 +45,13 @@ struct SearchView: View {
                 albumSection(results.album ?? [])
                 songSection(results.song ?? [])
             } else if vm.query.isEmpty {
-                ContentUnavailableView(
-                    "Search your library",
+                EmptyStateView(
                     systemImage: "magnifyingglass",
-                    description: Text("Search for artists, albums, or songs.")
+                    title: "Search Your Library",
+                    subtitle: "Search for artists, albums, or songs."
                 )
                 .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
             }
         }
         .listStyle(.plain)
@@ -74,12 +76,7 @@ struct SearchView: View {
             Section("Artists") {
                 ForEach(artists) { artist in
                     NavigationLink(value: artist) {
-                        HStack(spacing: 12) {
-                            CoverArtView(id: artist.coverArt ?? artist.id, size: 44)
-                                .frame(width: 44, height: 44)
-                                .clipShape(Circle())
-                            Text(artist.name)
-                        }
+                        ArtistRow(artist: artist)
                     }
                 }
             }
@@ -92,19 +89,13 @@ struct SearchView: View {
             Section("Albums") {
                 ForEach(albums) { album in
                     NavigationLink(value: album) {
-                        HStack(spacing: 12) {
-                            CoverArtView(id: album.coverArt ?? album.id, size: 44)
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(album.name)
-                                if let artist = album.artist {
-                                    Text(artist)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
+                        AlbumRow(
+                            albumId: album.id,
+                            name: album.name,
+                            artist: album.artist,
+                            year: album.year,
+                            coverArtId: album.coverArt
+                        )
                     }
                 }
             }
@@ -115,20 +106,12 @@ struct SearchView: View {
     private func songSection(_ songs: [Song]) -> some View {
         if !songs.isEmpty {
             Section("Songs") {
-                ForEach(songs) { song in
-                    HStack(spacing: 12) {
-                        CoverArtView(id: song.coverArt ?? song.id, size: 44)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(song.title)
-                            if let artist = song.artist {
-                                Text(artist)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    SongRow(song: song, index: index + 1, showCoverArt: true)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
                         }
-                    }
                 }
             }
         }

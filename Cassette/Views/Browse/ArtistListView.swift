@@ -33,37 +33,24 @@ struct ArtistListView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.indexes.isEmpty {
-            ContentUnavailableView {
-                Label("Unable to load artists", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error.localizedDescription)
-            } actions: {
-                Button("Retry") { Task { await vm.load() } }
-            }
+            EmptyStateView(
+                systemImage: "exclamationmark.triangle",
+                title: "Unable to Load Artists",
+                subtitle: error.localizedDescription,
+                action: .init(label: "Retry") { Task { await vm.load() } }
+            )
         } else if vm.indexes.isEmpty {
-            ContentUnavailableView(
-                "No artists",
+            EmptyStateView(
                 systemImage: "music.mic",
-                description: Text("Your library appears to be empty.")
+                title: "No Artists",
+                subtitle: "Your library appears to be empty."
             )
         } else {
             List(vm.indexes, id: \.name) { index in
                 Section(index.name) {
                     ForEach(index.artist) { artist in
                         NavigationLink(value: artist) {
-                            HStack(spacing: 12) {
-                                CoverArtView(id: artist.coverArt ?? artist.id, size: 44)
-                                    .frame(width: 44, height: 44)
-                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(artist.name)
-                                    if let count = artist.albumCount {
-                                        Text("\(count) album\(count == 1 ? "" : "s")")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
+                            ArtistRow(artist: artist)
                         }
                     }
                 }

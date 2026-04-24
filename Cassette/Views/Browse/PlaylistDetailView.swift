@@ -43,13 +43,12 @@ struct PlaylistDetailView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.playlist == nil {
-            ContentUnavailableView {
-                Label("Unable to load playlist", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error.localizedDescription)
-            } actions: {
-                Button("Retry") { Task { await vm.load() } }
-            }
+            EmptyStateView(
+                systemImage: "exclamationmark.triangle",
+                title: "Unable to Load Playlist",
+                subtitle: error.localizedDescription,
+                action: .init(label: "Retry") { Task { await vm.load() } }
+            )
         } else {
             let songs = vm.playlist?.entry ?? []
             List {
@@ -88,66 +87,67 @@ struct PlaylistDetailView: View {
         songs: [Song],
         vm: PlaylistDetailViewModel
     ) -> some View {
-        VStack(spacing: 16) {
-            CoverArtView(id: coverArtId, size: 300)
-                .frame(width: 220, height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(radius: 8)
+        VStack(spacing: CassetteSpacing.l) {
+            CoverArtCard(
+                id: coverArtId,
+                size: 220,
+                cornerRadius: CassetteCornerRadius.large
+            )
+            .padding(.top, CassetteSpacing.xxl)
 
-            VStack(spacing: 4) {
+            VStack(spacing: CassetteSpacing.s) {
                 Text(name)
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.cassetteDetailTitle)
+                    .multilineTextAlignment(.center)
                 if let owner {
                     Text("by \(owner)")
-                        .font(.subheadline)
+                        .font(.cassetteCellSubtitle)
                         .foregroundStyle(.secondary)
                 }
                 Text("\(songs.count) track\(songs.count == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.tertiary)
             }
+            .padding(.horizontal, CassetteSpacing.l)
 
-            HStack(spacing: 12) {
-                Button {
+            HStack(spacing: CassetteSpacing.m) {
+                PlayButton(action: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
-                } label: {
-                    Label("Play", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(songs.isEmpty)
+                }, isDisabled: songs.isEmpty)
 
                 if vm.isDownloadingPlaylist {
-                    Button {
-                        Task { await vm.cancelPlaylistDownload() }
-                    } label: {
-                        Label("Cancel", systemImage: "xmark")
+                    Button { Task { await vm.cancelPlaylistDownload() } } label: {
+                        Image(systemName: "xmark")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(Color.cassetteAccent)
+                            .frame(width: 44, height: 44)
+                            .background(Color.cassetteAccent.opacity(0.12))
+                            .clipShape(Circle())
                     }
-                    .buttonStyle(.bordered)
                 } else {
-                    Button {
-                        Task { await vm.downloadPlaylist() }
-                    } label: {
-                        Label("Download", systemImage: "arrow.down.circle")
+                    Button { Task { await vm.downloadPlaylist() } } label: {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(Color.cassetteAccent)
+                            .frame(width: 44, height: 44)
+                            .background(Color.cassetteAccent.opacity(0.12))
+                            .clipShape(Circle())
                     }
-                    .buttonStyle(.bordered)
                     .disabled(songs.isEmpty)
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, CassetteSpacing.l)
 
             if vm.isDownloadingPlaylist {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.8)
+                HStack(spacing: CassetteSpacing.s) {
+                    ProgressView().scaleEffect(0.8)
                     Text("Downloading…")
-                        .font(.caption)
+                        .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding(.vertical, 24)
+        .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
     }
 }

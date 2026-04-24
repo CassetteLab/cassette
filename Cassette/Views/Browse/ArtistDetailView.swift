@@ -13,8 +13,8 @@ struct ArtistDetailView: View {
     @State private var viewModel: ArtistDetailViewModel?
 
     private let columns = [
-        GridItem(.flexible(), spacing: 16),
-        GridItem(.flexible(), spacing: 16)
+        GridItem(.flexible(), spacing: CassetteSpacing.l),
+        GridItem(.flexible(), spacing: CassetteSpacing.l)
     ]
 
     var body: some View {
@@ -41,25 +41,24 @@ struct ArtistDetailView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.artist == nil {
-            ContentUnavailableView {
-                Label("Unable to load artist", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error.localizedDescription)
-            } actions: {
-                Button("Retry") { Task { await vm.load() } }
-            }
+            EmptyStateView(
+                systemImage: "exclamationmark.triangle",
+                title: "Unable to Load Artist",
+                subtitle: error.localizedDescription,
+                action: .init(label: "Retry") { Task { await vm.load() } }
+            )
         } else {
             let albums = vm.artist?.album ?? []
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
+                LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                     ForEach(albums) { album in
                         NavigationLink(value: album) {
-                            AlbumCell(album: album)
+                            AlbumGridCell(album: album)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(16)
+                .padding(CassetteSpacing.l)
             }
             .refreshable { await vm.load() }
             .navigationDestination(for: AlbumID3.self) { album in
@@ -69,22 +68,24 @@ struct ArtistDetailView: View {
     }
 }
 
-private struct AlbumCell: View {
+private struct AlbumGridCell: View {
     let album: AlbumID3
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            CoverArtView(id: album.coverArt ?? album.id, size: 200)
-                .aspectRatio(1, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            CoverArtCard(
+                id: album.coverArt ?? album.id,
+                size: 0,
+                cornerRadius: CassetteCornerRadius.standard
+            )
+            .aspectRatio(1, contentMode: .fit)
             Text(album.name)
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.cassetteCellTitle)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let year = album.year {
                 Text(String(year))
-                    .font(.caption)
+                    .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
             }
         }

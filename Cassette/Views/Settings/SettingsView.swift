@@ -55,9 +55,33 @@ struct SettingsView: View {
     private func serverSection() -> some View {
         Section("Server") {
             if let server = container?.serverState.activeServer {
-                LabeledContent("Connected to", value: server.displayName)
-                LabeledContent("Address", value: server.baseURL)
-                LabeledContent("Username", value: server.username)
+                LabeledContent {
+                    Text(server.displayName)
+                } label: {
+                    Label {
+                        Text("Connected to")
+                    } icon: {
+                        SettingsIcon(systemImage: "server.rack", color: Color.cassetteAccent)
+                    }
+                }
+                LabeledContent {
+                    Text(server.baseURL)
+                } label: {
+                    Label {
+                        Text("Address")
+                    } icon: {
+                        SettingsIcon(systemImage: "link", color: .blue)
+                    }
+                }
+                LabeledContent {
+                    Text(server.username)
+                } label: {
+                    Label {
+                        Text("Username")
+                    } icon: {
+                        SettingsIcon(systemImage: "person.fill", color: .purple)
+                    }
+                }
             } else {
                 Text("No server configured.")
                     .foregroundStyle(.secondary)
@@ -68,9 +92,32 @@ struct SettingsView: View {
 
     private func aboutSection() -> some View {
         Section("About") {
-            LabeledContent("App", value: "Cassette")
+            LabeledContent {
+                Text("Cassette")
+            } label: {
+                Label {
+                    Text("App")
+                } icon: {
+                    SettingsIcon(systemImage: "info.circle.fill", color: .blue)
+                }
+            }
             // TODO(v1.0): display Bundle version, add GPL license note, SwiftSonic MIT attribution
         }
+    }
+}
+
+// MARK: - Shared icon component
+
+private struct SettingsIcon: View {
+    let systemImage: String
+    let color: Color
+
+    var body: some View {
+        Image(systemName: systemImage)
+            .foregroundStyle(.white)
+            .frame(width: 28, height: 28)
+            .background(color)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -83,39 +130,57 @@ private struct CacheSectionView: View {
 
     var body: some View {
         Section {
-            LabeledContent("Used") {
+            LabeledContent {
                 Text(vm.usedBytesFormatted)
                     .foregroundStyle(.secondary)
+            } label: {
+                Label {
+                    Text("Used")
+                } icon: {
+                    SettingsIcon(systemImage: "internaldrive", color: .gray)
+                }
             }
 
-            Picker("Quota", selection: $settings.quotaBytes) {
+            Picker(selection: $settings.quotaBytes) {
                 Text("250 MB").tag(262_144_000.0)
                 Text("500 MB").tag(524_288_000.0)
                 Text("1 GB").tag(1_073_741_824.0)
                 Text("2 GB").tag(2_147_483_648.0)
                 Text("5 GB").tag(5_368_709_120.0)
                 Text("No limit").tag(Double.greatestFiniteMagnitude)
+            } label: {
+                Label {
+                    Text("Quota")
+                } icon: {
+                    SettingsIcon(systemImage: "gauge", color: .blue)
+                }
             }
 
-            Picker("Keep tracks for", selection: $settings.ttlSeconds) {
+            Picker(selection: $settings.ttlSeconds) {
                 Text("1 hour").tag(3_600.0)
                 Text("1 day").tag(86_400.0)
                 Text("3 days").tag(259_200.0)
                 Text("7 days").tag(604_800.0)
                 Text("30 days").tag(2_592_000.0)
                 Text("Until cache is full").tag(Double.greatestFiniteMagnitude)
+            } label: {
+                Label {
+                    Text("Keep tracks for")
+                } icon: {
+                    SettingsIcon(systemImage: "clock.fill", color: .teal)
+                }
             }
 
             Button(role: .destructive) {
                 Task { await vm.clearCache() }
             } label: {
                 if vm.isClearing {
-                    HStack(spacing: 8) {
+                    HStack(spacing: CassetteSpacing.s) {
                         ProgressView().scaleEffect(0.8)
                         Text("Clearing…")
                     }
                 } else {
-                    Text("Clear cache now")
+                    Label("Clear cache now", systemImage: "trash.fill")
                 }
             }
             .disabled(vm.isClearing)
@@ -137,13 +202,19 @@ private struct DownloadsSectionView: View {
 
     var body: some View {
         Section {
-            LabeledContent("Used") {
+            LabeledContent {
                 Text(vm.usedBytesFormatted)
                     .foregroundStyle(.secondary)
+            } label: {
+                Label {
+                    Text("Used")
+                } icon: {
+                    SettingsIcon(systemImage: "arrow.down.circle.fill", color: .green)
+                }
             }
 
             if !vm.downloadedAlbums.isEmpty {
-                DisclosureGroup("Albums (\(vm.downloadedAlbums.count))") {
+                DisclosureGroup {
                     ForEach(vm.downloadedAlbums) { album in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
@@ -163,11 +234,17 @@ private struct DownloadsSectionView: View {
                             .buttonStyle(.borderless)
                         }
                     }
+                } label: {
+                    Label {
+                        Text("Albums (\(vm.downloadedAlbums.count))")
+                    } icon: {
+                        SettingsIcon(systemImage: "music.note.list", color: Color.cassetteAccent)
+                    }
                 }
             }
 
             if !vm.downloadedPlaylists.isEmpty {
-                DisclosureGroup("Playlists (\(vm.downloadedPlaylists.count))") {
+                DisclosureGroup {
                     ForEach(vm.downloadedPlaylists) { playlist in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
@@ -187,6 +264,12 @@ private struct DownloadsSectionView: View {
                             .buttonStyle(.borderless)
                         }
                     }
+                } label: {
+                    Label {
+                        Text("Playlists (\(vm.downloadedPlaylists.count))")
+                    } icon: {
+                        SettingsIcon(systemImage: "list.bullet", color: .indigo)
+                    }
                 }
             }
 
@@ -200,12 +283,12 @@ private struct DownloadsSectionView: View {
                 Task { await vm.clearAll() }
             } label: {
                 if vm.isClearingAll {
-                    HStack(spacing: 8) {
+                    HStack(spacing: CassetteSpacing.s) {
                         ProgressView().scaleEffect(0.8)
                         Text("Clearing…")
                     }
                 } else {
-                    Text("Clear all downloads")
+                    Label("Clear all downloads", systemImage: "trash.fill")
                 }
             }
             .disabled(vm.isClearingAll || (vm.downloadedAlbums.isEmpty && vm.downloadedPlaylists.isEmpty))

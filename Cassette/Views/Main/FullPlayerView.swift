@@ -18,70 +18,78 @@ struct FullPlayerView: View {
 
     @ViewBuilder
     private func content(_ playerState: PlayerState) -> some View {
+        let coverArtId = playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? ""
+
         NavigationStack {
-            VStack(spacing: 0) {
-                // Cover art
-                CoverArtView(
-                    id: playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? "",
-                    size: 600
-                )
-                .aspectRatio(1, contentMode: .fit)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .shadow(radius: 12)
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
+            ZStack {
+                // Blurred album cover background
+                CoverArtView(id: coverArtId, size: 200)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scaleEffect(2)
+                    .blur(radius: 60)
+                    .clipped()
+                    .ignoresSafeArea()
 
-                // Track metadata
-                VStack(spacing: 4) {
-                    Text(playerState.currentTrack?.title ?? "")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .lineLimit(1)
-                    if let artist = playerState.currentTrack?.artist {
-                        Text(artist)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                Rectangle()
+                    .fill(.ultraThinMaterial)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    CoverArtCard(
+                        id: coverArtId,
+                        size: 320,
+                        cornerRadius: CassetteCornerRadius.large
+                    )
+                    .padding(.horizontal, CassetteSpacing.xxxl)
+                    .padding(.top, CassetteSpacing.xxl)
+
+                    VStack(spacing: CassetteSpacing.xs) {
+                        Text(playerState.currentTrack?.title ?? "")
+                            .font(.cassettePlayerTitle)
                             .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 32)
-                .padding(.top, 24)
-
-                // Scrubber
-                ScrubberView(playerState: playerState, playerService: container?.playerService)
-                    .padding(.horizontal, 32)
-                    .padding(.top, 16)
-
-                // Playback controls
-                PlaybackControlsView(playerState: playerState, playerService: container?.playerService)
-                    .padding(.horizontal, 32)
-                    .padding(.top, 16)
-
-                // Repeat / Shuffle
-                HStack(spacing: 40) {
-                    Button {
-                        Task {
-                            let next = playerState.repeatMode.next
-                            await container?.playerService.setRepeatMode(next)
+                        if let artist = playerState.currentTrack?.artist {
+                            Text(artist)
+                                .font(.cassetteCellSubtitle)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
                         }
-                    } label: {
-                        Image(systemName: playerState.repeatMode.systemImage)
-                            .font(.title3)
-                            .foregroundStyle(playerState.repeatMode == .off ? .secondary : .primary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, CassetteSpacing.xxxl)
+                    .padding(.top, CassetteSpacing.xxl)
 
-                    Button {
-                        Task { await container?.playerService.toggleShuffle() }
-                    } label: {
-                        Image(systemName: "shuffle")
-                            .font(.title3)
-                            .foregroundStyle(playerState.isShuffled ? .primary : .secondary)
+                    ScrubberView(playerState: playerState, playerService: container?.playerService)
+                        .padding(.horizontal, CassetteSpacing.xxxl)
+                        .padding(.top, CassetteSpacing.l)
+
+                    PlaybackControlsView(playerState: playerState, playerService: container?.playerService)
+                        .padding(.horizontal, CassetteSpacing.xxxl)
+                        .padding(.top, CassetteSpacing.l)
+
+                    HStack(spacing: CassetteSpacing.xxxxl) {
+                        Button {
+                            Task {
+                                let next = playerState.repeatMode.next
+                                await container?.playerService.setRepeatMode(next)
+                            }
+                        } label: {
+                            Image(systemName: playerState.repeatMode.systemImage)
+                                .font(.title3)
+                                .foregroundStyle(playerState.repeatMode == .off ? .secondary : Color.cassetteAccent)
+                        }
+
+                        Button {
+                            Task { await container?.playerService.toggleShuffle() }
+                        } label: {
+                            Image(systemName: "shuffle")
+                                .font(.title3)
+                                .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .secondary)
+                        }
                     }
+                    .padding(.top, CassetteSpacing.l)
+
+                    Spacer()
                 }
-                .padding(.top, 16)
-
-                Spacer()
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -107,7 +115,7 @@ private struct ScrubberView: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: CassetteSpacing.xs) {
             // On-release scrubbing: scrubPosition tracks the drag, seek fires on release.
             Slider(
                 value: Binding(
@@ -121,15 +129,16 @@ private struct ScrubberView: View {
                     Task { await playerService?.seek(to: scrubPosition) }
                 }
             }
+            .tint(Color.cassetteAccent)
 
             HStack {
                 Text(Duration.seconds(displayPosition).formatted(.time(pattern: .minuteSecond)))
-                    .font(.caption)
+                    .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Spacer()
                 Text(Duration.seconds(max(playerState.duration - displayPosition, 0)).formatted(.time(pattern: .minuteSecond)))
-                    .font(.caption)
+                    .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
@@ -144,7 +153,7 @@ private struct PlaybackControlsView: View {
     let playerService: (any PlayerServiceProtocol)?
 
     var body: some View {
-        HStack(spacing: 40) {
+        HStack(spacing: CassetteSpacing.xxxxl) {
             Button {
                 Task { try? await playerService?.skipToPrevious() }
             } label: {
@@ -162,7 +171,11 @@ private struct PlaybackControlsView: View {
                 }
             } label: {
                 Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
-                    .font(.system(size: 44))
+                    .font(.title)
+                    .foregroundStyle(Color.cassetteAccentText)
+                    .frame(width: 72, height: 64)
+                    .background(Color.cassetteAccent)
+                    .clipShape(Capsule())
             }
 
             Button {

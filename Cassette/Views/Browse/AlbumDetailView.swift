@@ -43,13 +43,12 @@ struct AlbumDetailView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.album == nil {
-            ContentUnavailableView {
-                Label("Unable to load album", systemImage: "exclamationmark.triangle")
-            } description: {
-                Text(error.localizedDescription)
-            } actions: {
-                Button("Retry") { Task { await vm.load() } }
-            }
+            EmptyStateView(
+                systemImage: "exclamationmark.triangle",
+                title: "Unable to Load Album",
+                subtitle: error.localizedDescription,
+                action: .init(label: "Retry") { Task { await vm.load() } }
+            )
         } else {
             let loaded = vm.album ?? album
             let songs = loaded.song ?? []
@@ -57,6 +56,7 @@ struct AlbumDetailView: View {
                 albumHeader(loaded, songs: songs, vm: vm)
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
 
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                     SongRow(
@@ -64,10 +64,10 @@ struct AlbumDetailView: View {
                         index: index + 1,
                         isDownloaded: vm.downloadedSongIds.contains(song.id)
                     )
-                    .contentShape(Rectangle())
                     .onTapGesture {
                         Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
                     }
+                    .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 }
             }
             .listStyle(.plain)
@@ -76,72 +76,71 @@ struct AlbumDetailView: View {
     }
 
     private func albumHeader(_ album: AlbumID3, songs: [Song], vm: AlbumDetailViewModel) -> some View {
-        VStack(spacing: 16) {
-            CoverArtView(id: album.coverArt ?? album.id, size: 300)
-                .frame(width: 220, height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .shadow(radius: 8)
+        VStack(spacing: CassetteSpacing.l) {
+            CoverArtCard(
+                id: album.coverArt ?? album.id,
+                size: 220,
+                cornerRadius: CassetteCornerRadius.large
+            )
+            .padding(.top, CassetteSpacing.xxl)
 
-            VStack(spacing: 4) {
+            VStack(spacing: CassetteSpacing.s) {
                 Text(album.name)
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(.cassetteDetailTitle)
                     .multilineTextAlignment(.center)
                 if let artist = album.artist {
                     Text(artist)
-                        .font(.headline)
+                        .font(.cassetteCellSubtitle)
                         .foregroundStyle(.secondary)
                 }
-                HStack(spacing: 8) {
+                HStack(spacing: CassetteSpacing.s) {
                     if let year = album.year { Text(String(year)) }
                     if let genre = album.genre { Text("·"); Text(genre) }
                     Text("·"); Text("\(album.songCount) tracks")
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.cassetteCaption)
+                .foregroundStyle(.tertiary)
             }
+            .padding(.horizontal, CassetteSpacing.l)
 
-            HStack(spacing: 12) {
-                Button {
+            HStack(spacing: CassetteSpacing.m) {
+                PlayButton(action: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
-                } label: {
-                    Label("Play", systemImage: "play.fill")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(songs.isEmpty)
+                }, isDisabled: songs.isEmpty)
 
                 if vm.isDownloadingAlbum {
-                    Button {
-                        Task { await vm.cancelAlbumDownload() }
-                    } label: {
-                        Label("Cancel", systemImage: "xmark")
+                    Button { Task { await vm.cancelAlbumDownload() } } label: {
+                        Image(systemName: "xmark")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(Color.cassetteAccent)
+                            .frame(width: 44, height: 44)
+                            .background(Color.cassetteAccent.opacity(0.12))
+                            .clipShape(Circle())
                     }
-                    .buttonStyle(.bordered)
                 } else {
-                    Button {
-                        Task { await vm.downloadAlbum() }
-                    } label: {
-                        Label("Download", systemImage: "arrow.down.circle")
+                    Button { Task { await vm.downloadAlbum() } } label: {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(Color.cassetteAccent)
+                            .frame(width: 44, height: 44)
+                            .background(Color.cassetteAccent.opacity(0.12))
+                            .clipShape(Circle())
                     }
-                    .buttonStyle(.bordered)
                     .disabled(songs.isEmpty)
                 }
             }
-            .padding(.horizontal)
+            .padding(.horizontal, CassetteSpacing.l)
 
             if vm.isDownloadingAlbum {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.8)
+                HStack(spacing: CassetteSpacing.s) {
+                    ProgressView().scaleEffect(0.8)
                     Text("Downloading…")
-                        .font(.caption)
+                        .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
-        .padding(.vertical, 24)
+        .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
     }
 }
-
