@@ -24,6 +24,16 @@ protocol ServerServiceProtocol: AnyObject, Sendable {
     /// Pings the active server via SwiftSonic. Throws if no active server or ping fails.
     func testConnection() async throws
 
+    /// Tests connectivity to the given parameters without persisting anything.
+    /// Runs ping then getUser for full credential validation.
+    /// Throws `ConnectionTestError` for differentiated UI error handling.
+    func testConnection(
+        url: String,
+        username: String,
+        password: String,
+        customHeaders: [String: String]
+    ) async throws
+
     /// Returns a SwiftSonicClient configured with CustomHeadersTransport for the active server.
     /// Callers must NOT cache this client — always request a fresh one to pick up config changes.
     func makeSwiftSonicClient() async throws -> SwiftSonicClient

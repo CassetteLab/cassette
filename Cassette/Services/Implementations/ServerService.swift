@@ -120,6 +120,35 @@ actor ServerService: ServerServiceProtocol {
         try await client.ping()
     }
 
+    func testConnection(
+        url: String,
+        username: String,
+        password: String,
+        customHeaders: [String: String]
+    ) async throws {
+        guard let serverURL = URL(string: url.trimmingCharacters(in: .whitespaces)),
+              serverURL.scheme != nil, serverURL.host != nil else {
+            throw ConnectionTestError.invalidURL
+        }
+        let transport = CustomHeadersTransport(headers: customHeaders)
+        let client = SwiftSonicClient(
+            serverURL: serverURL,
+            username: username,
+            password: password,
+            transport: transport
+        )
+        do {
+            try await client.ping()
+        } catch {
+            throw mapToConnectionTestError(error)
+        }
+        do {
+            _ = try await client.getUser(username: username)
+        } catch {
+            throw mapToConnectionTestError(error)
+        }
+    }
+
     func makeSwiftSonicClient() async throws -> SwiftSonicClient {
         let snapshot = await MainActor.run { state.activeServer }
         guard let snapshot else { throw CassetteError.serverNotConfigured }
@@ -156,6 +185,16 @@ actor ServerService: ServerServiceProtocol {
     }
 
     // MARK: - Private
+
+    private func mapToConnectionTestError(_ error: Error) -> ConnectionTestError {
+        guard let sonic = error as? SwiftSonicError else {
+            return .unknown(description: error.localizedDescription)
+        }
+        if case .network = sonic { return .unreachable }
+        if sonic.isAuthenticationFailure { return .authenticationFailed }
+        if case .api(let apiError) = sonic { return .serverError(message: apiError.message) }
+        return .unknown(description: sonic.localizedDescription)
+    }
 
     private func validateHeaders(_ headers: [String: String]) throws {
         for (key, value) in headers {
