@@ -41,6 +41,14 @@ actor ServerService: ServerServiceProtocol {
         // TODO: implement in Settings (Étape 7)
     }
 
+    func loadPersistedState() async {
+        // TODO(Étape 2-5): fetch ServerConfig records from SwiftData, retrieve credentials from
+        // Keychain, and restore state.servers + state.activeServer.
+        // ModelContext must always be created and used on MainActor — access via:
+        //   let context = await MainActor.run { ModelContext(modelContainer) }
+        await MainActor.run { state.isLoadingPersistedState = false }
+    }
+
     func testConnection() async throws {
         let client = try await makeSwiftSonicClient()
         try await client.ping()

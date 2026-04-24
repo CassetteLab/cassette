@@ -31,4 +31,8 @@ protocol ServerServiceProtocol: AnyObject, Sendable {
     /// Returns the stored credentials for the active server.
     /// Used by MediaResolver and DownloadService to inject headers into AVPlayer / URLSession.
     func activeCredentials() async throws -> ServerCredentials
+
+    /// Restores servers and activeServer from SwiftData + Keychain on app launch.
+    /// Sets state.isLoadingPersistedState = false when complete (even on failure).
+    func loadPersistedState() async
 }

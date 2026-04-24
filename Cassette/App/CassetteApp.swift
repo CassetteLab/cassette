@@ -12,11 +12,13 @@ struct CassetteApp: App {
                         .environment(\.appContainer, container)
                 } else {
                     ProgressView()
-                        .task {
-                            guard container == nil else { return }
-                            container = try? AppContainer()
-                        }
                 }
+            }
+            .task {
+                guard container == nil else { return }
+                guard let newContainer = try? AppContainer() else { return }
+                container = newContainer
+                await newContainer.serverService.loadPersistedState()
             }
         }
     }

@@ -25,4 +25,6 @@ final class ServerState {
     var servers: [ServerSnapshot] = []
     var activeServer: ServerSnapshot?
     var isConnected: Bool = false
+    // Prevents OnboardingView flash before persisted state is restored on launch.
+    var isLoadingPersistedState: Bool = true
 }
