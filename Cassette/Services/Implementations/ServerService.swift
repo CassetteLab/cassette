@@ -23,7 +23,38 @@ actor ServerService: ServerServiceProtocol {
         customHeaders: [String: String]
     ) async throws {
         try validateHeaders(customHeaders)
-        // TODO: implement in Étape 2 (persist ServerConfig to SwiftData + credentials to Keychain)
+
+        let configId = UUID()
+        let creds = ServerCredentials(password: password, customHeaders: customHeaders)
+        let credKey = ServerCredentials.keychainKey(for: configId)
+
+        // Keychain first: if SwiftData save fails below, we can roll back with a single delete.
+        try await keychain.store(creds, forKey: credKey)
+
+        do {
+            try await MainActor.run {
+                let context = ModelContext(modelContainer)
+                let existingCount = (try? context.fetchCount(FetchDescriptor<ServerConfig>())) ?? 0
+                let isFirst = existingCount == 0
+                let config = ServerConfig(
+                    id: configId,
+                    displayName: displayName,
+                    baseURL: baseURL,
+                    username: username,
+                    isActive: isFirst
+                )
+                context.insert(config)
+                try context.save()
+                let snapshot = ServerSnapshot(from: config)
+                state.servers.append(snapshot)
+                if isFirst {
+                    state.activeServer = snapshot
+                }
+            }
+        } catch {
+            try? await keychain.delete(forKey: credKey)
+            throw error
+        }
     }
 
     func removeServer(id: UUID) async throws {
