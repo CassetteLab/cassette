@@ -20,7 +20,7 @@ struct FullPlayerView: View {
     private func content(_ playerState: PlayerState) -> some View {
         let coverArtId = playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? ""
 
-        NavigationStack {
+        GeometryReader { geo in
             ZStack {
                 // Blurred album cover background
                 CoverArtView(id: coverArtId, size: 200)
@@ -35,37 +35,53 @@ struct FullPlayerView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // Bug 5 fix: replace Done toolbar with centered chevron.down
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.title2)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .padding(.top, CassetteSpacing.s)
+
+                    // Bug 6 fix: cover art responsive at ~67% of sheet width, centered
                     CoverArtCard(
                         id: coverArtId,
-                        size: 320,
+                        size: geo.size.width * 0.67,
                         cornerRadius: CassetteCornerRadius.large
                     )
-                    .padding(.horizontal, CassetteSpacing.xxxl)
                     .padding(.top, CassetteSpacing.xxl)
 
+                    // Bug 1 fix: centered text, constrained to available width, truncates correctly
                     VStack(spacing: CassetteSpacing.xs) {
                         Text(playerState.currentTrack?.title ?? "")
                             .font(.cassettePlayerTitle)
                             .lineLimit(1)
+                            .truncationMode(.tail)
+                            .multilineTextAlignment(.center)
                         if let artist = playerState.currentTrack?.artist {
                             Text(artist)
                                 .font(.cassetteCellSubtitle)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
+                                .truncationMode(.tail)
+                                .multilineTextAlignment(.center)
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, CassetteSpacing.xxxl)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, CassetteSpacing.xl)
                     .padding(.top, CassetteSpacing.xxl)
 
+                    // Bug 2 fix: scrubber uses same xl horizontal padding as text
                     ScrubberView(playerState: playerState, playerService: container?.playerService)
-                        .padding(.horizontal, CassetteSpacing.xxxl)
+                        .padding(.horizontal, CassetteSpacing.xl)
                         .padding(.top, CassetteSpacing.l)
 
                     PlaybackControlsView(playerState: playerState, playerService: container?.playerService)
-                        .padding(.horizontal, CassetteSpacing.xxxl)
+                        .padding(.horizontal, CassetteSpacing.xl)
                         .padding(.top, CassetteSpacing.l)
 
+                    // Bug 4 fix: 44pt tap area on each toggle
                     HStack(spacing: CassetteSpacing.xxxxl) {
                         Button {
                             Task {
@@ -76,6 +92,7 @@ struct FullPlayerView: View {
                             Image(systemName: playerState.repeatMode.systemImage)
                                 .font(.title3)
                                 .foregroundStyle(playerState.repeatMode == .off ? .secondary : Color.cassetteAccent)
+                                .frame(width: 44, height: 44)
                         }
 
                         Button {
@@ -84,18 +101,14 @@ struct FullPlayerView: View {
                             Image(systemName: "shuffle")
                                 .font(.title3)
                                 .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .secondary)
+                                .frame(width: 44, height: 44)
                         }
                     }
                     .padding(.top, CassetteSpacing.l)
 
                     Spacer()
                 }
-            }
-            .navigationBarTitleDisplayModeInline()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -154,11 +167,13 @@ private struct PlaybackControlsView: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
+            // Bug 3 fix: explicit white foreground on prev/next so they're not system blue
             Button {
                 Task { try? await playerService?.skipToPrevious() }
             } label: {
                 Image(systemName: "backward.fill")
                     .font(.title)
+                    .foregroundStyle(.white)
             }
 
             Button {
@@ -183,6 +198,7 @@ private struct PlaybackControlsView: View {
             } label: {
                 Image(systemName: "forward.fill")
                     .font(.title)
+                    .foregroundStyle(.white)
             }
         }
     }
