@@ -44,8 +44,43 @@ final class OnboardingViewModel {
         }
     }
 
+    /// Validates, tests, and persists the server in a single flow.
+    /// On success state.activeServer becomes non-nil and RootView transitions automatically.
     func addServer() async {
-        // TODO: implement in next commit
+        guard !isLoading else { return }
+        connectionError = nil
+        isLoading = true
+        defer { isLoading = false }
+
+        let trimmedURL = serverURL.trimmingCharacters(in: .whitespaces)
+        let headers = headersDict()
+
+        do {
+            try await serverService.testConnection(
+                url: trimmedURL,
+                username: username,
+                password: password,
+                customHeaders: headers
+            )
+        } catch let error as ConnectionTestError {
+            connectionError = error
+            return
+        } catch {
+            connectionError = .unknown(description: error.localizedDescription)
+            return
+        }
+
+        do {
+            try await serverService.addServer(
+                displayName: derivedDisplayName,
+                baseURL: trimmedURL,
+                username: username,
+                password: password,
+                customHeaders: headers
+            )
+        } catch {
+            connectionError = .unknown(description: error.localizedDescription)
+        }
     }
 
     func addCustomHeader() {
