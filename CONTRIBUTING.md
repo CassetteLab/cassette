@@ -153,3 +153,20 @@ warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 | **Cause** | The processor is injected by Xcode regardless of whether the project uses AppIntents. It emits this warning when `AppIntents.framework` is absent from the dependency graph. |
 | **Action** | Suppressed by the `-v "appintentsmetadataprocessor"` filter in the quality-gate commands above. No code change possible without adding the AppIntents dependency. |
 | **Revisit** | If Cassette adopts App Intents (Siri shortcuts, Spotlight actions) in a future version — integrate AppIntents properly and remove this entry. |
+
+---
+
+## Licensing
+
+By contributing code to this repository, you agree that your contributions will be licensed under the GNU General Public License v3.0 or later, the same license that covers the project.
+
+All new Swift files must include the GPL header at the top of the file:
+
+```swift
+// Cassette — Music client for Subsonic/OpenSubsonic servers
+// Copyright (C) 2026 Mathieu Dubart
+// Licensed under the GNU General Public License v3.0 or later.
+// See LICENSE file in the project root for full license information.
+```
+
+Dependencies added to the project must use GPL-compatible licenses (MIT, Apache 2.0, BSD, LGPL, or GPL itself). Non-compatible licenses (proprietary, CC-BY-NC, AGPL for certain use cases) must be discussed and approved before inclusion.
