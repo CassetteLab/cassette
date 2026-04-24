@@ -159,7 +159,10 @@ actor ServerService: ServerServiceProtocol {
 
     private func validateHeaders(_ headers: [String: String]) throws {
         for (key, value) in headers {
-            guard !value.contains("\r"), !value.contains("\n") else {
+            guard HeaderValidator.isValidName(key) else {
+                throw CassetteError.invalidHeaderName(key: key)
+            }
+            guard HeaderValidator.isValidValue(value) else {
                 throw CassetteError.invalidHeaderValue(key: key)
             }
         }

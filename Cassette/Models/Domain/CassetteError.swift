@@ -10,7 +10,9 @@ nonisolated enum CassetteError: Error, Sendable {
     case keychainWriteFailed(OSStatus)
     case keychainDeleteFailed(OSStatus)
     case invalidServerURL(String)
-    /// Header value contains \r or \n — would enable header-splitting attacks.
+    /// Header name contains characters outside the RFC 7230 tchar set.
+    case invalidHeaderName(key: String)
+    /// Header value contains \r, \n, or \0 — would enable header-splitting attacks.
     case invalidHeaderValue(key: String)
     case serverNotFound(id: UUID)
     case notImplemented
@@ -37,8 +39,10 @@ extension CassetteError: LocalizedError {
             return "Keychain delete failed (OSStatus \(status))."
         case .invalidServerURL(let url):
             return "Invalid server URL: \(url)"
+        case .invalidHeaderName(let key):
+            return "Header name '\(key)' contains characters not allowed by RFC 7230."
         case .invalidHeaderValue(let key):
-            return "Header '\(key)' contains invalid characters (\\r or \\n are not allowed)."
+            return "Header '\(key)' value contains invalid characters (\\r, \\n, or \\0 are not allowed)."
         case .serverNotFound(let id):
             return "No server found with ID \(id.uuidString)."
         case .notImplemented:
