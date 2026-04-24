@@ -22,7 +22,7 @@ struct PlaylistDetailView: View {
             }
         }
         .navigationTitle(playlist.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayModeInline()
         .task {
             guard let c = container else { return }
             if viewModel == nil {

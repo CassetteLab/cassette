@@ -22,7 +22,7 @@ struct AlbumDetailView: View {
             }
         }
         .navigationTitle(album.name)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayModeInline()
         .task {
             guard let c = container else { return }
             if viewModel == nil {

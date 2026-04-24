@@ -27,7 +27,7 @@ struct ArtistDetailView: View {
             }
         }
         .navigationTitle(artist.name)
-        .navigationBarTitleDisplayMode(.large)
+        .navigationBarTitleDisplayModeLarge()
         .task {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistDetailViewModel(artistId: artist.id, libraryService: svc) }

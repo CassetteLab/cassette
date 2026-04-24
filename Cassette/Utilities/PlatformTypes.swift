@@ -10,3 +10,23 @@ typealias PlatformImage = UIImage
 import AppKit
 typealias PlatformImage = NSImage
 #endif
+
+import SwiftUI
+
+extension View {
+    func navigationBarTitleDisplayModeInline() -> some View {
+        #if os(iOS)
+        self.navigationBarTitleDisplayMode(.inline)
+        #else
+        self
+        #endif
+    }
+
+    func navigationBarTitleDisplayModeLarge() -> some View {
+        #if os(iOS)
+        self.navigationBarTitleDisplayMode(.large)
+        #else
+        self
+        #endif
+    }
+}
