@@ -87,6 +87,21 @@ This is safe whenever the type is `Sendable` and holds no mutable state.
 similar value-type constants all qualify. When in doubt, add `nonisolated` —
 the compiler will tell you if it cannot be applied.
 
+### Design system
+
+All UI code must use the design system. Never write magic-number spacing, hardcoded colors, or one-off font modifiers in view files.
+
+| Resource | Rule |
+|----------|------|
+| Spacing | Use `CassetteSpacing.*` (`l` = 16, `xxl` = 24, etc.) — never a raw `CGFloat` literal |
+| Corner radii | Use `CassetteCornerRadius.*` — never `RoundedRectangle(cornerRadius: 8)` with a bare number |
+| Typography | Use `Font` extensions from `CassetteTypography.swift` (`.cassetteCellTitle`, `.cassetteCaption`, etc.) |
+| Cover art | Use `CoverArtCard` — never `CoverArtView + .clipShape + .shadow` inline |
+| Colors | Semantic SwiftUI colors for text/background; `cassetteAccent` only on primary interactive elements |
+| Empty/error states | Use `EmptyStateView` — never `ContentUnavailableView` |
+
+See `Cassette/DesignSystem/README.md` for the full component catalogue, token reference, and rules for adding new components or colors.
+
 ### Keychain policy
 
 Credentials (passwords, `customHeaders`) are **never** in:
