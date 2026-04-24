@@ -42,16 +42,14 @@ struct PlaylistDetailView: View {
                 description: Text(error.localizedDescription)
             )
         } else {
-            let loaded = vm.playlist
-            let songs = loaded?.entry ?? []
+            let songs = vm.playlist?.entry ?? []
             List {
-                playlistHeader(loaded ?? PlaylistWithSongs(
-                    id: playlist.id, name: playlist.name, comment: playlist.comment,
-                    owner: playlist.owner, isPublic: playlist.isPublic,
-                    songCount: playlist.songCount, duration: playlist.duration,
-                    created: playlist.created, changed: playlist.changed,
-                    coverArt: playlist.coverArt, entry: nil
-                ))
+                playlistHeader(
+                    coverArtId: playlist.coverArt ?? playlist.id,
+                    name: playlist.name,
+                    owner: playlist.owner,
+                    songCount: playlist.songCount
+                )
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
 
@@ -63,23 +61,23 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playlistHeader(_ playlist: PlaylistWithSongs) -> some View {
+    private func playlistHeader(coverArtId: String, name: String, owner: String?, songCount: Int) -> some View {
         VStack(spacing: 16) {
-            CoverArtView(id: playlist.coverArt ?? playlist.id, size: 300)
+            CoverArtView(id: coverArtId, size: 300)
                 .frame(width: 220, height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .shadow(radius: 8)
 
             VStack(spacing: 4) {
-                Text(playlist.name)
+                Text(name)
                     .font(.title2)
                     .fontWeight(.bold)
-                if let owner = playlist.owner {
+                if let owner {
                     Text("by \(owner)")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                Text("\(playlist.songCount) track\(playlist.songCount == 1 ? "" : "s")")
+                Text("\(songCount) track\(songCount == 1 ? "" : "s")")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -46,7 +46,7 @@ struct PlaylistListView: View {
             )
         } else {
             List(vm.playlists) { playlist in
-                NavigationLink(value: playlist) {
+                NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
                     HStack(spacing: 12) {
                         CoverArtView(id: playlist.coverArt ?? playlist.id, size: 44)
                             .frame(width: 44, height: 44)
@@ -61,9 +61,6 @@ struct PlaylistListView: View {
                 }
             }
             .listStyle(.plain)
-            .navigationDestination(for: Playlist.self) { playlist in
-                PlaylistDetailView(playlist: playlist)
-            }
         }
     }
 }
