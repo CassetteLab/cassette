@@ -21,6 +21,7 @@ struct PlaylistDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .cassetteContentWidth()
         .navigationTitle(playlist.name)
         .navigationBarTitleDisplayModeInline()
         .task {

@@ -19,6 +19,7 @@ struct ArtistListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .cassetteContentWidth()
         .navigationTitle("Browse")
         .task {
             guard let svc = container?.libraryService else { return }

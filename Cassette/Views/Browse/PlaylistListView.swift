@@ -19,6 +19,7 @@ struct PlaylistListView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .cassetteContentWidth()
         .navigationTitle("Playlists")
         .task {
             guard let svc = container?.libraryService else { return }

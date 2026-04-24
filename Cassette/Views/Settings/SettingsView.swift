@@ -19,6 +19,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .cassetteContentWidth()
         .navigationTitle("Settings")
         .task {
             guard let container else { return }

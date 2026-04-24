@@ -21,6 +21,7 @@ struct AlbumDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .cassetteContentWidth()
         .navigationTitle(album.name)
         .navigationBarTitleDisplayModeInline()
         .task {

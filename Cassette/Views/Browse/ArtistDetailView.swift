@@ -26,6 +26,7 @@ struct ArtistDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .cassetteContentWidth()
         .navigationTitle(artist.name)
         .navigationBarTitleDisplayModeLarge()
         .task {

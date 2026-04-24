@@ -39,6 +39,28 @@ enum CassetteShadow {
     static let coverOpacity: Double  = 0.15
 }
 
+// MARK: - View modifier: content width (macOS)
+
+/// Constrains content to a max width on macOS so iPhone-designed layouts don't stretch
+/// grotesquely in wide windows. On iOS this is a no-op.
+struct ContentWidthModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        content
+            .frame(maxWidth: 600)
+            .frame(maxWidth: .infinity)
+        #else
+        content
+        #endif
+    }
+}
+
+extension View {
+    func cassetteContentWidth() -> some View {
+        modifier(ContentWidthModifier())
+    }
+}
+
 // MARK: - View modifier: cover art style
 
 struct CassetteCoverModifier: ViewModifier {
