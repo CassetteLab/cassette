@@ -1,7 +1,7 @@
 import Foundation
 
 /// Differentiated errors from a server connection test (ping + getUser).
-nonisolated enum ConnectionTestError: Error, Sendable {
+nonisolated enum ConnectionTestError: Error, Sendable, Equatable {
     /// The URL string is malformed or missing a scheme/host.
     case invalidURL
     /// A network-level error — server was not reached at all.
