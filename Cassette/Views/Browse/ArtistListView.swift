@@ -33,10 +33,18 @@ struct ArtistListView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.indexes.isEmpty {
+            ContentUnavailableView {
+                Label("Unable to load artists", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error.localizedDescription)
+            } actions: {
+                Button("Retry") { Task { await vm.load() } }
+            }
+        } else if vm.indexes.isEmpty {
             ContentUnavailableView(
-                "Unable to load artists",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
+                "No artists",
+                systemImage: "music.mic",
+                description: Text("Your library appears to be empty.")
             )
         } else {
             List(vm.indexes, id: \.name) { index in
@@ -61,6 +69,7 @@ struct ArtistListView: View {
                 }
             }
             .listStyle(.plain)
+            .refreshable { await vm.load() }
             .navigationDestination(for: ArtistID3.self) { artist in
                 ArtistDetailView(artist: artist)
             }

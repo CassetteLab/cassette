@@ -41,11 +41,13 @@ struct ArtistDetailView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.artist == nil {
-            ContentUnavailableView(
-                "Unable to load artist",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
-            )
+            ContentUnavailableView {
+                Label("Unable to load artist", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error.localizedDescription)
+            } actions: {
+                Button("Retry") { Task { await vm.load() } }
+            }
         } else {
             let albums = vm.artist?.album ?? []
             ScrollView {
@@ -59,6 +61,7 @@ struct ArtistDetailView: View {
                 }
                 .padding(16)
             }
+            .refreshable { await vm.load() }
             .navigationDestination(for: AlbumID3.self) { album in
                 AlbumDetailView(album: album)
             }

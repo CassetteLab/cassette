@@ -36,11 +36,13 @@ struct PlaylistDetailView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.playlist == nil {
-            ContentUnavailableView(
-                "Unable to load playlist",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
-            )
+            ContentUnavailableView {
+                Label("Unable to load playlist", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error.localizedDescription)
+            } actions: {
+                Button("Retry") { Task { await vm.load() } }
+            }
         } else {
             let songs = vm.playlist?.entry ?? []
             List {
@@ -58,6 +60,7 @@ struct PlaylistDetailView: View {
                 }
             }
             .listStyle(.plain)
+            .refreshable { await vm.load() }
         }
     }
 

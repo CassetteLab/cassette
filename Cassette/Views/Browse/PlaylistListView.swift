@@ -33,11 +33,13 @@ struct PlaylistListView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.playlists.isEmpty {
-            ContentUnavailableView(
-                "Unable to load playlists",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
-            )
+            ContentUnavailableView {
+                Label("Unable to load playlists", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error.localizedDescription)
+            } actions: {
+                Button("Retry") { Task { await vm.load() } }
+            }
         } else if vm.playlists.isEmpty {
             ContentUnavailableView(
                 "No playlists",
@@ -61,6 +63,7 @@ struct PlaylistListView: View {
                 }
             }
             .listStyle(.plain)
+            .refreshable { await vm.load() }
         }
     }
 }

@@ -36,11 +36,13 @@ struct AlbumDetailView: View {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let error = vm.error, vm.album == nil {
-            ContentUnavailableView(
-                "Unable to load album",
-                systemImage: "exclamationmark.triangle",
-                description: Text(error.localizedDescription)
-            )
+            ContentUnavailableView {
+                Label("Unable to load album", systemImage: "exclamationmark.triangle")
+            } description: {
+                Text(error.localizedDescription)
+            } actions: {
+                Button("Retry") { Task { await vm.load() } }
+            }
         } else {
             let loaded = vm.album ?? album
             List {
@@ -55,6 +57,7 @@ struct AlbumDetailView: View {
                 }
             }
             .listStyle(.plain)
+            .refreshable { await vm.load() }
         }
     }
 
