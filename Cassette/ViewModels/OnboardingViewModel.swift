@@ -18,6 +18,12 @@ final class OnboardingViewModel {
         URL(string: serverURL.trimmingCharacters(in: .whitespaces))?.host ?? serverURL
     }
 
+    var canSubmit: Bool {
+        !serverURL.trimmingCharacters(in: .whitespaces).isEmpty &&
+        !username.isEmpty &&
+        !password.isEmpty
+    }
+
     private let serverService: any ServerServiceProtocol
 
     init(serverService: any ServerServiceProtocol) {
