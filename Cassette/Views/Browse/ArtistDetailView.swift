@@ -73,11 +73,11 @@ private struct AlbumGridCell: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            CoverArtCard(
-                id: album.coverArt ?? album.id,
-                size: 0,
-                cornerRadius: CassetteCornerRadius.standard
-            )
+            GeometryReader { geo in
+                CoverArtView(id: album.coverArt ?? album.id, size: Int(geo.size.width * 2))
+                    .frame(width: geo.size.width, height: geo.size.width)
+                    .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+            }
             .aspectRatio(1, contentMode: .fit)
             Text(album.name)
                 .font(.cassetteCellTitle)
