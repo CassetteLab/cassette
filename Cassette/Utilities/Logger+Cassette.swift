@@ -1,13 +1,16 @@
 import OSLog
 
+// All properties are `nonisolated` to prevent SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor
+// from implicitly isolating them, which would cause concurrency warnings when accessed
+// from non-MainActor contexts (actors, background tasks, etc.). Logger is Sendable.
 extension Logger {
-    static let server     = Logger(subsystem: "app.cassette.server",     category: "ServerService")
-    static let player     = Logger(subsystem: "app.cassette.player",     category: "PlayerService")
-    static let library    = Logger(subsystem: "app.cassette.library",    category: "LibraryService")
-    static let cache      = Logger(subsystem: "app.cassette.cache",      category: "CacheService")
-    static let download   = Logger(subsystem: "app.cassette.download",   category: "DownloadService")
-    static let resolver   = Logger(subsystem: "app.cassette.resolver",   category: "MediaResolver")
-    static let nowPlaying = Logger(subsystem: "app.cassette.nowplaying", category: "NowPlayingService")
-    static let keychain   = Logger(subsystem: "app.cassette.keychain",   category: "KeychainService")
-    static let ui         = Logger(subsystem: "app.cassette.ui",         category: "UI")
+    nonisolated static let server     = Logger(subsystem: "app.cassette.server",     category: "ServerService")
+    nonisolated static let player     = Logger(subsystem: "app.cassette.player",     category: "PlayerService")
+    nonisolated static let library    = Logger(subsystem: "app.cassette.library",    category: "LibraryService")
+    nonisolated static let cache      = Logger(subsystem: "app.cassette.cache",      category: "CacheService")
+    nonisolated static let download   = Logger(subsystem: "app.cassette.download",   category: "DownloadService")
+    nonisolated static let resolver   = Logger(subsystem: "app.cassette.resolver",   category: "MediaResolver")
+    nonisolated static let nowPlaying = Logger(subsystem: "app.cassette.nowplaying", category: "NowPlayingService")
+    nonisolated static let keychain   = Logger(subsystem: "app.cassette.keychain",   category: "KeychainService")
+    nonisolated static let ui         = Logger(subsystem: "app.cassette.ui",         category: "UI")
 }
