@@ -145,38 +145,3 @@ struct AlbumDetailView: View {
     }
 }
 
-private struct SongRow: View {
-    let song: Song
-    let index: Int
-    let isDownloaded: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("\(song.track ?? index)")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .frame(width: 28, alignment: .trailing)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(song.title)
-                if let artist = song.artist {
-                    Text(artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if isDownloaded {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if let duration = song.duration {
-                Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}

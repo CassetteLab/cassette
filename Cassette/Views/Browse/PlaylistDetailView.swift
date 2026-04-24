@@ -64,9 +64,10 @@ struct PlaylistDetailView: View {
                 .listRowSeparator(.hidden)
 
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    PlaylistSongRow(
+                    SongRow(
                         song: song,
                         index: index + 1,
+                        showCoverArt: true,
                         isDownloaded: vm.downloadedSongIds.contains(song.id)
                     )
                     .contentShape(Rectangle())
@@ -151,37 +152,3 @@ struct PlaylistDetailView: View {
     }
 }
 
-private struct PlaylistSongRow: View {
-    let song: Song
-    let index: Int
-    let isDownloaded: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            CoverArtView(id: song.coverArt ?? song.id, size: 44)
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(song.title)
-                if let artist = song.artist {
-                    Text(artist)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if isDownloaded {
-                Image(systemName: "arrow.down.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            if let duration = song.duration {
-                Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-        }
-        .padding(.vertical, 4)
-    }
-}
