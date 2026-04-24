@@ -12,6 +12,7 @@ nonisolated enum CassetteError: Error, Sendable {
     case invalidServerURL(String)
     /// Header value contains \r or \n — would enable header-splitting attacks.
     case invalidHeaderValue(key: String)
+    case serverNotFound(id: UUID)
     case notImplemented
 }
 
@@ -38,6 +39,8 @@ extension CassetteError: LocalizedError {
             return "Invalid server URL: \(url)"
         case .invalidHeaderValue(let key):
             return "Header '\(key)' contains invalid characters (\\r or \\n are not allowed)."
+        case .serverNotFound(let id):
+            return "No server found with ID \(id.uuidString)."
         case .notImplemented:
             return "This feature is not yet implemented."
         }

@@ -58,9 +58,27 @@ actor ServerService: ServerServiceProtocol {
     }
 
     func removeServer(id: UUID) async throws {
-        // Atomic: delete from SwiftData first, then Keychain.
-        // Best-effort rollback if Keychain deletion fails after SwiftData deletion.
-        // TODO: implement in Étape 2
+        let credKey = ServerCredentials.keychainKey(for: id)
+
+        try await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let descriptor = FetchDescriptor<ServerConfig>(
+                predicate: #Predicate { $0.id == id }
+            )
+            guard let config = try context.fetch(descriptor).first else {
+                throw CassetteError.serverNotFound(id: id)
+            }
+            context.delete(config)
+            try context.save()
+            state.servers.removeAll { $0.id == id }
+            if state.activeServer?.id == id {
+                state.activeServer = nil
+                state.isConnected = false
+            }
+        }
+
+        // Best-effort: an orphaned Keychain entry is harmless if this fails.
+        try? await keychain.delete(forKey: credKey)
     }
 
     func setActiveServer(id: UUID) async throws {
