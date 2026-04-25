@@ -108,6 +108,7 @@ struct AlbumDetailView: View {
                 PlayButton(action: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
                 }, isDisabled: songs.isEmpty)
+                .frame(maxWidth: 400)
 
                 if vm.isDownloadingAlbum {
                     Button { Task { await vm.cancelAlbumDownload() } } label: {
