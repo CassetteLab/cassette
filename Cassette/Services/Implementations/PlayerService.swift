@@ -189,6 +189,29 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.queue.append(contentsOf: tracks) }
     }
 
+    func playNext(_ songs: [DisplayableSong]) async {
+        let (queue, currentIndex) = await MainActor.run { (state.queue, state.currentIndex) }
+        if queue.isEmpty {
+            try? await play(tracks: songs, startIndex: 0)
+        } else {
+            let insertAt = min(currentIndex + 1, queue.count)
+            await MainActor.run { state.queue.insert(contentsOf: songs, at: insertAt) }
+            Logger.player.info("Inserted \(songs.count) song(s) at queue position \(insertAt)")
+        }
+    }
+
+    func playNext(_ song: DisplayableSong) async {
+        await playNext([song])
+    }
+
+    func addToQueue(_ songs: [DisplayableSong]) async {
+        await appendToQueue(songs)
+    }
+
+    func addToQueue(_ song: DisplayableSong) async {
+        await appendToQueue([song])
+    }
+
     func removeFromQueue(at index: Int) async {
         await MainActor.run {
             guard state.queue.indices.contains(index) else { return }
