@@ -107,7 +107,7 @@ struct AlbumDetailView: View {
             HStack(spacing: CassetteSpacing.m) {
                 PlayButton(action: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
-                }, isDisabled: songs.isEmpty)
+                }, isDisabled: songs.isEmpty || vm.isDownloadingAlbum)
                 .frame(maxWidth: 400)
 
                 if vm.isDownloadingAlbum {
