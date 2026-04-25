@@ -14,6 +14,9 @@ struct AlbumRow: View {
     let year: Int?
     let coverArtId: String?
 
+    @Environment(\.appContainer) private var container
+    @State private var showLimitAlert = false
+
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtCard(id: coverArtId ?? albumId, size: 56)
@@ -40,6 +43,36 @@ struct AlbumRow: View {
         }
         .padding(.vertical, CassetteSpacing.xs)
         .contentShape(Rectangle())
+        .contextMenu { pinContextMenu(itemType: .album, itemId: albumId, displayName: name, subtitle: artist ?? "") }
+        .alert("Pin Limit Reached", isPresented: $showLimitAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(PinError.limitReached.errorDescription ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private func pinContextMenu(itemType: PinnedItemType, itemId: String, displayName: String, subtitle: String) -> some View {
+        if container?.pinService.isPinned(itemType: itemType, itemId: itemId) == true {
+            Button {
+                container?.pinService.unpin(itemType: itemType, itemId: itemId)
+            } label: {
+                Label("Unpin from Home", systemImage: "pin.slash")
+            }
+        } else {
+            Button {
+                guard let serverId = container?.serverState.activeServer?.id,
+                      let pin = container?.pinService else { return }
+                do {
+                    try pin.pin(itemType: itemType, itemId: itemId, displayName: displayName,
+                                displaySubtitle: subtitle, coverArtId: coverArtId, serverId: serverId)
+                } catch PinError.limitReached {
+                    showLimitAlert = true
+                } catch {}
+            } label: {
+                Label("Pin to Home", systemImage: "pin")
+            }
+        }
     }
 }
 
