@@ -68,7 +68,7 @@ struct MiniPlayerAccessoryView: View {
 
     private func inlineBar(coverArtId: String, title: String, artist: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
         HStack(spacing: CassetteSpacing.m) {
-            CoverArtCard(id: coverArtId, size: 28)
+            CoverArtCard(id: coverArtId, size: 24)
                 .opacity(isAvailable ? 1.0 : 0.5)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -98,7 +98,7 @@ struct MiniPlayerAccessoryView: View {
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
         return VStack(spacing: 0) {
             HStack(spacing: CassetteSpacing.m) {
-                CoverArtCard(id: coverArtId, size: 40)
+                CoverArtCard(id: coverArtId, size: 34)
                     .opacity(isAvailable ? 1.0 : 0.5)
 
                 VStack(alignment: .leading, spacing: 2) {
