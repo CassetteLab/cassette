@@ -96,6 +96,7 @@ actor PlayerService: PlayerServiceProtocol {
             state.duration = duration
             state.position = 0
             state.playbackState = .playing
+            state.isPlaybackAvailable = true
         }
 
         let artworkURL = await resolveArtworkURL(for: song)
@@ -269,6 +270,7 @@ actor PlayerService: PlayerServiceProtocol {
             source = try await mediaResolver.resolve(songId: track.id, serverId: serverId)
         } catch {
             Logger.player.error("Session restore: failed to resolve media — \(error)")
+            await MainActor.run { state.isPlaybackAvailable = false }
             return
         }
 

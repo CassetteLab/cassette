@@ -57,7 +57,14 @@ struct FullPlayerView: View {
                         .truncationMode(.tail)
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity)
-                    if let artist = playerState.currentTrack?.artist {
+                    if !playerState.isPlaybackAvailable {
+                        Label("Reconnect to resume", systemImage: "wifi.slash")
+                            .font(.cassetteCellSubtitle)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: .infinity)
+                    } else if let artist = playerState.currentTrack?.artist {
                         Text(artist)
                             .font(.cassetteCellSubtitle)
                             .foregroundStyle(.secondary)
@@ -71,8 +78,10 @@ struct FullPlayerView: View {
 
                 ScrubberView(playerState: playerState, playerService: container?.playerService)
                     .padding(.top, CassetteSpacing.l)
+                    .disabled(!playerState.isPlaybackAvailable)
+                    .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
 
-                PlaybackControlsView(playerState: playerState, playerService: container?.playerService)
+                PlaybackControlsView(playerState: playerState, playerService: container?.playerService, isPlaybackAvailable: playerState.isPlaybackAvailable)
                     .padding(.top, CassetteSpacing.l)
 
                 HStack(spacing: CassetteSpacing.xxxxl) {
@@ -158,6 +167,7 @@ private struct ScrubberView: View {
 private struct PlaybackControlsView: View {
     let playerState: PlayerState
     let playerService: (any PlayerServiceProtocol)?
+    var isPlaybackAvailable: Bool = true
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -168,6 +178,7 @@ private struct PlaybackControlsView: View {
                     .font(.title)
                     .foregroundStyle(.white)
             }
+            .disabled(!isPlaybackAvailable)
 
             Button {
                 Task {
@@ -182,9 +193,10 @@ private struct PlaybackControlsView: View {
                     .font(.title)
                     .foregroundStyle(Color.cassetteAccentText)
                     .frame(width: 72, height: 64)
-                    .background(Color.cassetteAccent)
+                    .background(isPlaybackAvailable ? Color.cassetteAccent : Color.secondary.opacity(0.4))
                     .clipShape(Capsule())
             }
+            .disabled(!isPlaybackAvailable)
 
             Button {
                 Task { try? await playerService?.skipToNext() }
@@ -193,6 +205,7 @@ private struct PlaybackControlsView: View {
                     .font(.title)
                     .foregroundStyle(.white)
             }
+            .disabled(!isPlaybackAvailable)
         }
     }
 }

@@ -33,30 +33,37 @@ struct MiniPlayerAccessoryView: View {
         let title = playerState.currentTrack?.title ?? ""
         let artist = playerState.currentTrack?.artist
         let isPlaying = playerState.playbackState == .playing
+        let isAvailable = playerState.isPlaybackAvailable
 
         Group {
             if placement == .inline {
-                inlineBar(coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying)
+                inlineBar(coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying, isAvailable: isAvailable)
             } else {
-                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying)
+                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying, isAvailable: isAvailable)
             }
         }
         .offset(x: dragOffset)
         .opacity(1.0 - min(abs(dragOffset) / 200, 0.4))
         .contentShape(Rectangle())
         .onTapGesture { showingFullPlayer = true }
-        .gesture(swipeSkipGesture)
+        .gesture(isAvailable ? swipeSkipGesture : nil)
     }
 
-    private func inlineBar(coverArtId: String, title: String, artist: String?, isPlaying: Bool) -> some View {
+    private func inlineBar(coverArtId: String, title: String, artist: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtCard(id: coverArtId, size: 28)
+                .opacity(isAvailable ? 1.0 : 0.5)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.cassetteCaption)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                if let artist {
+                if !isAvailable {
+                    Text("Reconnect to resume")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                } else if let artist {
                     Text(artist)
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
@@ -64,24 +71,30 @@ struct MiniPlayerAccessoryView: View {
                 }
             }
             Spacer(minLength: 0)
-            playPauseButton(isPlaying: isPlaying)
+            playPauseButton(isPlaying: isPlaying, isAvailable: isAvailable)
         }
         .padding(.horizontal, CassetteSpacing.m)
         .padding(.vertical, CassetteSpacing.s)
     }
 
-    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, isPlaying: Bool) -> some View {
+    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
         return VStack(spacing: 0) {
             HStack(spacing: CassetteSpacing.m) {
                 CoverArtCard(id: coverArtId, size: 40)
+                    .opacity(isAvailable ? 1.0 : 0.5)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.cassetteCellTitle)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
-                    if let artist {
+                    if !isAvailable {
+                        Text("Reconnect to resume")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else if let artist {
                         Text(artist)
                             .font(.cassetteCaption)
                             .foregroundStyle(.secondary)
@@ -92,15 +105,17 @@ struct MiniPlayerAccessoryView: View {
                 Spacer(minLength: 0)
 
                 HStack(spacing: CassetteSpacing.s) {
-                    playPauseButton(isPlaying: isPlaying)
-                    Button {
-                        Task { try? await container?.playerService.skipToNext() }
-                    } label: {
-                        Image(systemName: "forward.fill")
-                            .font(.title3)
-                            .foregroundStyle(.primary)
+                    playPauseButton(isPlaying: isPlaying, isAvailable: isAvailable)
+                    if isAvailable {
+                        Button {
+                            Task { try? await container?.playerService.skipToNext() }
+                        } label: {
+                            Image(systemName: "forward.fill")
+                                .font(.title3)
+                                .foregroundStyle(.primary)
+                        }
+                        .buttonStyle(.borderless)
                     }
-                    .buttonStyle(.borderless)
                 }
             }
             .padding(.horizontal, CassetteSpacing.l)
@@ -108,7 +123,7 @@ struct MiniPlayerAccessoryView: View {
 
             GeometryReader { geo in
                 Capsule()
-                    .fill(Color.cassetteAccent)
+                    .fill(isAvailable ? Color.cassetteAccent : Color.secondary.opacity(0.3))
                     .frame(width: geo.size.width * CGFloat(progress), height: 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -116,7 +131,7 @@ struct MiniPlayerAccessoryView: View {
         }
     }
 
-    private func playPauseButton(isPlaying: Bool) -> some View {
+    private func playPauseButton(isPlaying: Bool, isAvailable: Bool) -> some View {
         Button {
             Task {
                 if isPlaying {
@@ -129,8 +144,10 @@ struct MiniPlayerAccessoryView: View {
             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                 .font(.title3)
                 .foregroundStyle(.primary)
+                .opacity(isAvailable ? 1.0 : 0.3)
         }
         .buttonStyle(.borderless)
+        .disabled(!isAvailable)
     }
 
     private var swipeSkipGesture: some Gesture {
