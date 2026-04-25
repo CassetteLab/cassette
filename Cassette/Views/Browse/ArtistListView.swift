@@ -10,6 +10,7 @@ import SwiftSonic
 struct ArtistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistListViewModel?
+    @State private var searchQuery = ""
 
     var body: some View {
         Group {
@@ -22,16 +23,37 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Browse")
+        .searchable(text: $searchQuery, prompt: "Artists, albums, songs…")
+        .navigationDestination(for: ArtistID3.self) { artist in
+            ArtistDetailView(artist: artist)
+        }
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailView(album: album)
+        }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
         }
+        .task(id: searchQuery) {
+            await viewModel?.search(query: searchQuery)
+        }
     }
 
     @ViewBuilder
     private func content(_ vm: ArtistListViewModel) -> some View {
+        if !searchQuery.isEmpty {
+            searchContent(vm)
+        } else {
+            browseContent(vm)
+        }
+    }
+
+    // MARK: - Browse mode
+
+    @ViewBuilder
+    private func browseContent(_ vm: ArtistListViewModel) -> some View {
         if vm.isLoading && vm.indexes.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -70,8 +92,78 @@ struct ArtistListView: View {
             }
             .listStyle(.plain)
             .refreshable { await vm.load() }
-            .navigationDestination(for: ArtistID3.self) { artist in
-                ArtistDetailView(artist: artist)
+        }
+    }
+
+    // MARK: - Search mode
+
+    @ViewBuilder
+    private func searchContent(_ vm: ArtistListViewModel) -> some View {
+        List {
+            if vm.isSearching {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                    Spacer()
+                }
+                .listRowSeparator(.hidden)
+            } else if let error = vm.searchError {
+                Text(error.localizedDescription)
+                    .font(.cassetteBody)
+                    .foregroundStyle(.secondary)
+                    .listRowSeparator(.hidden)
+            } else if let results = vm.searchResults {
+                artistSection(results.artist ?? [])
+                albumSection(results.album ?? [])
+                songSection(results.song ?? [])
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func artistSection(_ artists: [ArtistID3]) -> some View {
+        if !artists.isEmpty {
+            Section("Artists") {
+                ForEach(artists) { artist in
+                    NavigationLink(value: artist) {
+                        ArtistRow(artist: artist)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func albumSection(_ albums: [AlbumID3]) -> some View {
+        if !albums.isEmpty {
+            Section("Albums") {
+                ForEach(albums) { album in
+                    NavigationLink(value: album) {
+                        AlbumRow(
+                            albumId: album.id,
+                            name: album.name,
+                            artist: album.artist,
+                            year: album.year,
+                            coverArtId: album.coverArt
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func songSection(_ songs: [Song]) -> some View {
+        if !songs.isEmpty {
+            Section("Songs") {
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    SongRow(song: song, index: index + 1, showCoverArt: true)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                        }
+                }
             }
         }
     }

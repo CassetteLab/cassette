@@ -16,11 +16,6 @@ struct MainTabView: View {
             .tabItem { Label("Browse", systemImage: "music.note.list") }
 
             NavigationStack {
-                SearchView()
-            }
-            .tabItem { Label("Search", systemImage: "magnifyingglass") }
-
-            NavigationStack {
                 PlaylistListView()
             }
             .tabItem { Label("Playlists", systemImage: "list.bullet") }

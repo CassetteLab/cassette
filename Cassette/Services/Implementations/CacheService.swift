@@ -122,7 +122,7 @@ actor CacheService: CacheServiceProtocol {
     func evictLRU(toFitQuota quotaBytes: Int64) async {
         let paths: [String] = await MainActor.run {
             let context = ModelContext(modelContainer)
-            var descriptor = FetchDescriptor<CachedTrack>(
+            let descriptor = FetchDescriptor<CachedTrack>(
                 sortBy: [SortDescriptor(\.lastAccessedAt, order: .forward)]
             )
             guard let tracks = try? context.fetch(descriptor) else { return [] }

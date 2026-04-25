@@ -1,0 +1,15 @@
+{
+  "originHash" : "c831444c59935c7891591c0239a9c441dededec2e44d4a0734ea7a53ec0d91e9",
+  "pins" : [
+    {
+      "identity" : "swiftsonic",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/MathieuDubart/swiftsonic",
+      "state" : {
+        "revision" : "7cef7e9603361dc5e53fcae276158450b68e272d",
+        "version" : "0.5.0"
+      }
+    }
+  ],
+  "version" : 3
+}
