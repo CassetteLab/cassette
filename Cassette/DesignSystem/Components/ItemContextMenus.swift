@@ -119,6 +119,7 @@ struct CollectionContextMenuModifier: ViewModifier {
 
                 if isPinned {
                     Button {
+                        HapticFeedback.light.trigger()
                         container?.pinService.unpin(itemType: itemType, itemId: itemId)
                     } label: {
                         Label("Unpin from Home", systemImage: "pin.slash")
@@ -133,7 +134,9 @@ struct CollectionContextMenuModifier: ViewModifier {
                                 displayName: displayName, displaySubtitle: displaySubtitle,
                                 coverArtId: coverArtId, serverId: serverId
                             )
+                            HapticFeedback.success.trigger()
                         } catch PinError.limitReached {
+                            HapticFeedback.warning.trigger()
                             showPinLimitAlert = true
                         } catch {}
                     } label: {
@@ -238,6 +241,7 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
 
                 if isPinned {
                     Button {
+                        HapticFeedback.light.trigger()
                         container?.pinService.unpin(itemType: itemType, itemId: itemId)
                     } label: {
                         Label("Unpin from Home", systemImage: "pin.slash")
@@ -252,7 +256,9 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                                 displayName: displayName, displaySubtitle: displaySubtitle,
                                 coverArtId: coverArtId, serverId: serverId
                             )
+                            HapticFeedback.success.trigger()
                         } catch PinError.limitReached {
+                            HapticFeedback.warning.trigger()
                             showPinLimitAlert = true
                         } catch {}
                     } label: {
