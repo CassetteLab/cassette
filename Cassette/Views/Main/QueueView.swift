@@ -46,6 +46,7 @@ struct QueueView: View {
                         QueueRow(song: song, isCurrent: false)
                             .contentShape(Rectangle())
                             .onTapGesture {
+                                HapticFeedback.medium.trigger()
                                 Task { try? await container?.playerService.play(tracks: queue, startIndex: absoluteIndex) }
                             }
                     }

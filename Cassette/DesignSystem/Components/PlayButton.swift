@@ -12,7 +12,10 @@ struct PlayButton: View {
     var isDisabled: Bool = false
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            HapticFeedback.medium.trigger()
+            action()
+        } label: {
             Label(label, systemImage: "play.fill")
                 .font(.cassetteCellTitle)
                 .foregroundStyle(Color.cassetteAccentText)

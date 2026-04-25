@@ -192,6 +192,7 @@ struct PlaylistDetailView: View {
 
             HStack(spacing: CassetteSpacing.m) {
                 Button {
+                    HapticFeedback.medium.trigger()
                     Task {
                         let shuffled = vm.songs.shuffled()
                         try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
@@ -235,7 +236,10 @@ struct PlaylistDetailView: View {
                                     .cassetteGlassButton(size: 44)
                             }
                         case .fullyDownloaded:
-                            Button { showDeleteAlert = true } label: {
+                            Button {
+                                HapticFeedback.heavy.trigger()
+                                showDeleteAlert = true
+                            } label: {
                                 Image(systemName: "trash")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)

@@ -71,6 +71,7 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
+                    HapticFeedback.light.trigger()
                     Task {
                         if isAlbumFavorite {
                             try? await container?.favoritesService.unstar(itemType: .album, itemId: albumId)
@@ -227,6 +228,7 @@ struct AlbumDetailView: View {
 
             HStack(spacing: CassetteSpacing.m) {
                 Button {
+                    HapticFeedback.medium.trigger()
                     Task {
                         let shuffled = vm.songs.shuffled()
                         try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
@@ -270,7 +272,10 @@ struct AlbumDetailView: View {
                                     .cassetteGlassButton(size: 44)
                             }
                         case .fullyDownloaded:
-                            Button { showDeleteAlert = true } label: {
+                            Button {
+                                HapticFeedback.heavy.trigger()
+                                showDeleteAlert = true
+                            } label: {
                                 Image(systemName: "trash")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)

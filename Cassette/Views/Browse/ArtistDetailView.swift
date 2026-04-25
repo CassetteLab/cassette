@@ -41,6 +41,7 @@ struct ArtistDetailView: View {
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Button {
+                    HapticFeedback.light.trigger()
                     Task {
                         if isArtistFavorite {
                             try? await container?.favoritesService.unstar(itemType: .artist, itemId: artist.id)

@@ -107,6 +107,7 @@ struct FullPlayerView: View {
 
             HStack(spacing: CassetteSpacing.xxxxl) {
                 Button {
+                    HapticFeedback.light.trigger()
                     Task {
                         let next = playerState.repeatMode.next
                         await container?.playerService.setRepeatMode(next)
@@ -119,6 +120,7 @@ struct FullPlayerView: View {
                 }
 
                 Button {
+                    HapticFeedback.light.trigger()
                     Task { await container?.playerService.toggleShuffle() }
                 } label: {
                     Image(systemName: "shuffle")
@@ -255,6 +257,7 @@ private struct TrackInfoSection: View {
 
             HStack(spacing: CassetteSpacing.s) {
                 Button {
+                    HapticFeedback.light.trigger()
                     let fav = isFavorite
                     let songId = playerState.currentTrack?.id ?? ""
                     Task {
@@ -398,9 +401,7 @@ private struct PlaybackControlsView: View {
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
             Button {
-                #if canImport(UIKit)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                #endif
+                HapticFeedback.light.trigger()
                 Task { try? await playerService?.skipToPrevious() }
             } label: {
                 Image(systemName: "backward.fill")
@@ -411,9 +412,7 @@ private struct PlaybackControlsView: View {
             .disabled(!isPlaybackAvailable)
 
             Button {
-                #if canImport(UIKit)
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                #endif
+                HapticFeedback.medium.trigger()
                 Task {
                     if playerState.playbackState == .playing {
                         await playerService?.pause()
@@ -430,9 +429,7 @@ private struct PlaybackControlsView: View {
             .disabled(!isPlaybackAvailable)
 
             Button {
-                #if canImport(UIKit)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                #endif
+                HapticFeedback.light.trigger()
                 Task { try? await playerService?.skipToNext() }
             } label: {
                 Image(systemName: "forward.fill")

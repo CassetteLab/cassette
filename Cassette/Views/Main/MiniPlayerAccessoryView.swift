@@ -4,9 +4,6 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
-#if os(iOS)
-import UIKit
-#endif
 
 struct MiniPlayerAccessoryView: View {
     @Binding var showingFullPlayer: Bool
@@ -142,6 +139,7 @@ struct MiniPlayerAccessoryView: View {
                     playPauseButton(isPlaying: isPlaying, isAvailable: isAvailable)
                     if isAvailable {
                         Button {
+                            HapticFeedback.light.trigger()
                             Task { try? await container?.playerService.skipToNext() }
                         } label: {
                             Image(systemName: "forward.fill")
@@ -167,6 +165,7 @@ struct MiniPlayerAccessoryView: View {
 
     private func playPauseButton(isPlaying: Bool, isAvailable: Bool) -> some View {
         Button {
+            HapticFeedback.medium.trigger()
             Task {
                 if isPlaying {
                     await container?.playerService.pause()
@@ -248,9 +247,7 @@ struct MiniPlayerAccessoryView: View {
 
     private func commitSwipe(goNext: Bool) {
         isAnimatingSwipe = true
-        #if os(iOS)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        #endif
+        HapticFeedback.medium.trigger()
 
         let exitOffset: CGFloat = goNext ? -300 : 300
         withAnimation(.easeIn(duration: 0.18)) {
