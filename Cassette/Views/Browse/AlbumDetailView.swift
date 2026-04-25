@@ -36,11 +36,18 @@ struct AlbumDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
+    @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
     private var isOnline: Bool { container?.serverState.isOnline == true }
+    private var headerTextColor: Color {
+        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
+    }
+    private var headerSecondaryColor: Color {
+        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    }
 
     var body: some View {
         Group {
@@ -92,9 +99,17 @@ struct AlbumDetailView: View {
     private func extractAndSetColor(coverArtId: String, from url: URL) async {
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let image = PlatformImage(data: data) else { return }
+        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
+        let luminance = computeLuminance(of: color)
         withAnimation(.easeIn(duration: 0.5)) {
-            dominantColor = colorExtractor.dominantColor(for: coverArtId, image: image)
+            dominantColor = color
+            isLightBackground = luminance > 0.6
         }
+    }
+
+    private func computeLuminance(of color: Color) -> Double {
+        guard let components = color.cgColor?.components, components.count >= 3 else { return 0.5 }
+        return 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
     }
 
     @ViewBuilder
@@ -163,11 +178,12 @@ struct AlbumDetailView: View {
             VStack(spacing: CassetteSpacing.s) {
                 Text(vm.albumName)
                     .font(.cassetteDetailTitle)
+                    .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
                 if let artist = vm.artistName {
                     Text(artist)
                         .font(.cassetteCellSubtitle)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(headerSecondaryColor)
                 }
                 HStack(spacing: CassetteSpacing.s) {
                     if let year = vm.year { Text(String(year)) }
@@ -175,7 +191,7 @@ struct AlbumDetailView: View {
                     Text("·"); Text("\(vm.songCount) tracks")
                 }
                 .font(.cassetteCaption)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(headerSecondaryColor.opacity(0.8))
             }
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -272,12 +288,12 @@ struct AlbumDetailView: View {
                     ProgressView().scaleEffect(0.8)
                     Text("Downloading…")
                         .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(headerSecondaryColor)
                 }
             } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
                 Text("\(downloaded)/\(total) tracks downloaded")
                     .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(headerSecondaryColor)
             }
         }
         .padding(.bottom, CassetteSpacing.xxl)

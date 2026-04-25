@@ -36,7 +36,7 @@ struct FullPlayerView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.down")
                         .font(.title2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.7))
                         .frame(width: 44, height: 44)
                 }
 
@@ -53,6 +53,7 @@ struct FullPlayerView: View {
                 VStack(spacing: CassetteSpacing.xs) {
                     Text(playerState.currentTrack?.title ?? "")
                         .font(.cassettePlayerTitle)
+                        .foregroundStyle(Color.white)
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .multilineTextAlignment(.center)
@@ -60,14 +61,14 @@ struct FullPlayerView: View {
                     if !playerState.isPlaybackAvailable {
                         Label("Reconnect to resume", systemImage: "wifi.slash")
                             .font(.cassetteCellSubtitle)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                             .lineLimit(1)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                     } else if let artist = playerState.currentTrack?.artist {
                         Text(artist)
                             .font(.cassetteCellSubtitle)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                             .lineLimit(1)
                             .truncationMode(.tail)
                             .multilineTextAlignment(.center)
@@ -93,7 +94,7 @@ struct FullPlayerView: View {
                     } label: {
                         Image(systemName: playerState.repeatMode.systemImage)
                             .font(.title3)
-                            .foregroundStyle(playerState.repeatMode == .off ? .secondary : Color.cassetteAccent)
+                            .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : Color.cassetteAccent)
                             .frame(width: 44, height: 44)
                     }
 
@@ -102,7 +103,7 @@ struct FullPlayerView: View {
                     } label: {
                         Image(systemName: "shuffle")
                             .font(.title3)
-                            .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .secondary)
+                            .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .white.opacity(0.7))
                             .frame(width: 44, height: 44)
                     }
                 }
@@ -150,12 +151,12 @@ private struct ScrubberView: View {
             HStack {
                 Text(Duration.seconds(displayPosition).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
                     .monospacedDigit()
                 Spacer()
                 Text(Duration.seconds(max(playerState.duration - displayPosition, 0)).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.white.opacity(0.7))
                     .monospacedDigit()
             }
         }

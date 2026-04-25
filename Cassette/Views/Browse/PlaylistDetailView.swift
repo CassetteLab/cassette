@@ -30,7 +30,15 @@ struct PlaylistDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
+    @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
+
+    private var headerTextColor: Color {
+        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
+    }
+    private var headerSecondaryColor: Color {
+        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    }
 
     var body: some View {
         Group {
@@ -82,9 +90,17 @@ struct PlaylistDetailView: View {
     private func extractAndSetColor(coverArtId: String, from url: URL) async {
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let image = PlatformImage(data: data) else { return }
+        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
+        let luminance = computeLuminance(of: color)
         withAnimation(.easeIn(duration: 0.5)) {
-            dominantColor = colorExtractor.dominantColor(for: coverArtId, image: image)
+            dominantColor = color
+            isLightBackground = luminance > 0.6
         }
+    }
+
+    private func computeLuminance(of color: Color) -> Double {
+        guard let components = color.cgColor?.components, components.count >= 3 else { return 0.5 }
+        return 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
     }
 
     @ViewBuilder
@@ -152,15 +168,16 @@ struct PlaylistDetailView: View {
             VStack(spacing: CassetteSpacing.s) {
                 Text(vm.name)
                     .font(.cassetteDetailTitle)
+                    .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
                 if let owner = vm.owner {
                     Text("by \(owner)")
                         .font(.cassetteCellSubtitle)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(headerSecondaryColor)
                 }
                 Text("\(vm.songs.count) track\(vm.songs.count == 1 ? "" : "s")")
                     .font(.cassetteCaption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(headerSecondaryColor.opacity(0.8))
             }
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -237,12 +254,12 @@ struct PlaylistDetailView: View {
                     ProgressView().scaleEffect(0.8)
                     Text("Downloading…")
                         .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(headerSecondaryColor)
                 }
             } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
                 Text("\(downloaded)/\(total) tracks downloaded")
                     .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(headerSecondaryColor)
             }
         }
         .padding(.bottom, CassetteSpacing.xxl)
