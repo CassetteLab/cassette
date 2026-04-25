@@ -101,7 +101,7 @@ struct FullPlayerView: View {
             )
             .padding(.top, CassetteSpacing.l)
 
-            VolumeSection(playerState: playerState, playerService: container?.playerService)
+            VolumeSection()
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.l)
 
@@ -497,30 +497,22 @@ private struct AirPlayRouteButton: View {
 // MARK: - Volume
 
 private struct VolumeSection: View {
-    let playerState: PlayerState
-    let playerService: (any PlayerServiceProtocol)?
-
     var body: some View {
+        #if os(iOS)
         HStack(spacing: CassetteSpacing.m) {
             Image(systemName: "speaker.fill")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
                 .frame(width: 20)
 
-            ProgressSlider(
-                value: TimeInterval(playerState.volume),
-                total: 1,
-                isDragging: false
-            ) { newValue, finished in
-                let vol = Float(newValue)
-                Task { await playerService?.setVolume(vol) }
-            }
+            SystemVolumeView()
 
             Image(systemName: "speaker.wave.3.fill")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
                 .frame(width: 20)
         }
+        #endif
     }
 }
 
