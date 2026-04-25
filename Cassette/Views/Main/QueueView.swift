@@ -7,6 +7,7 @@ import SwiftUI
 
 struct QueueView: View {
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
@@ -23,6 +24,11 @@ struct QueueView: View {
             }
             .navigationTitle("Queue")
             .navigationBarTitleDisplayModeInline()
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
     }
 
@@ -33,6 +39,12 @@ struct QueueView: View {
         let upNext = Array(queue.dropFirst(currentIndex + 1))
 
         List {
+            Section {
+                queueControlsHeader(playerState)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+            }
+
             if let current = playerState.currentTrack {
                 Section("Now Playing") {
                     QueueRow(song: current, isCurrent: true)
@@ -54,6 +66,51 @@ struct QueueView: View {
             }
         }
         .listStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func queueControlsHeader(_ playerState: PlayerState) -> some View {
+        HStack {
+            Button {
+                HapticFeedback.light.trigger()
+                Task { await container?.playerService.toggleShuffle() }
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: "shuffle")
+                        .font(.title3)
+                        .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : Color.secondary)
+                    Text("Shuffle")
+                        .font(.caption2)
+                        .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : Color.secondary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+
+            Divider()
+                .frame(height: 32)
+
+            Button {
+                HapticFeedback.light.trigger()
+                Task {
+                    let next = playerState.repeatMode.next
+                    await container?.playerService.setRepeatMode(next)
+                }
+            } label: {
+                VStack(spacing: 4) {
+                    Image(systemName: playerState.repeatMode.systemImage)
+                        .font(.title3)
+                        .foregroundStyle(playerState.repeatMode != .off ? Color.cassetteAccent : Color.secondary)
+                    Text(playerState.repeatMode == .one ? "Repeat One" : "Repeat")
+                        .font(.caption2)
+                        .foregroundStyle(playerState.repeatMode != .off ? Color.cassetteAccent : Color.secondary)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, CassetteSpacing.m)
+        .padding(.horizontal, CassetteSpacing.l)
     }
 }
 
