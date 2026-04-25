@@ -40,6 +40,7 @@ struct SettingsView: View {
 
     private func form(cacheVM: CacheSettingsViewModel, downloadsVM: DownloadsViewModel, settings: CacheSettings) -> some View {
         Form {
+            librarySection()
             CacheSectionView(vm: cacheVM, settings: settings)
             DownloadsSectionView(vm: downloadsVM)
             serverSection()
@@ -53,6 +54,21 @@ struct SettingsView: View {
     }
 
     // MARK: - Sections
+
+    // TODO(8.3): move Favorites entry point into HomeView once it exists
+    private func librarySection() -> some View {
+        Section("Library") {
+            NavigationLink {
+                FavoritesView()
+            } label: {
+                Label {
+                    Text("Favorites")
+                } icon: {
+                    SettingsIcon(systemImage: "heart.fill", color: .pink)
+                }
+            }
+        }
+    }
 
     private func serverSection() -> some View {
         Section("Server") {
