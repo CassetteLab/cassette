@@ -33,7 +33,9 @@ struct AlbumDetailView: View {
     }
 
     @Environment(\.appContainer) private var container
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: AlbumDetailViewModel?
+    @State private var dominantColor: Color = .clear
     @Query private var albumFavoriteMatches: [FavoriteRecord]
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
@@ -48,6 +50,14 @@ struct AlbumDetailView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .background(
+            LinearGradient(
+                colors: [dominantColor.opacity(0.5), .clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
         .cassetteContentWidth()
         .navigationTitle(viewModel?.albumName ?? initialName)
         .navigationBarTitleDisplayModeInline()
@@ -62,6 +72,27 @@ struct AlbumDetailView: View {
                 )
             }
             await viewModel?.load()
+        }
+        .task(id: viewModel?.coverArtId) {
+            guard let coverArtId = viewModel?.coverArtId else { return }
+            await loadDominantColor(coverArtId: coverArtId)
+        }
+    }
+
+    private func loadDominantColor(coverArtId: String) async {
+        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
+            await extractAndSetColor(coverArtId: coverArtId, from: localURL)
+            return
+        }
+        guard let url = await container?.libraryService.coverArtURL(id: coverArtId, size: 100) else { return }
+        await extractAndSetColor(coverArtId: coverArtId, from: url)
+    }
+
+    private func extractAndSetColor(coverArtId: String, from url: URL) async {
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = PlatformImage(data: data) else { return }
+        withAnimation(.easeIn(duration: 0.5)) {
+            dominantColor = colorExtractor.dominantColor(for: coverArtId, image: image)
         }
     }
 
@@ -94,6 +125,7 @@ struct AlbumDetailView: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
         }
     }
@@ -234,6 +266,7 @@ private struct AlbumSongRows: View {
             SongRow(song: liveSong, index: index + 1)
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
+                .listRowBackground(Color(.systemBackground))
         }
     }
 }
