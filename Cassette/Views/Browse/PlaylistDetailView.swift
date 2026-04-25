@@ -104,6 +104,7 @@ struct PlaylistDetailView: View {
                 playlistHeader(vm: vm)
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
 
                 let serverId = container?.serverState.activeServer?.id ?? UUID()
                 PlaylistSongRows(
