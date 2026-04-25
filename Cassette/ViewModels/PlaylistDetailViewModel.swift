@@ -15,7 +15,7 @@ final class PlaylistDetailViewModel {
     var songs: [DisplayableSong] = []
     var isOffline: Bool = false
     var isLoading = false
-    var error: Error?
+    var error: UserFacingError?
     var isDownloadingPlaylist = false
     var downloadingIds: Set<String> = []
 
@@ -60,7 +60,7 @@ final class PlaylistDetailViewModel {
             songs = (apiPlaylist.entry ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
             isOffline = false
         } catch {
-            self.error = error
+            self.error = UserFacingError.from(error)
         }
     }
 

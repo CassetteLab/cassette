@@ -13,7 +13,7 @@ final class FavoritesViewModel {
     var albums: [AlbumID3] = []
     var artists: [ArtistID3] = []
     var isLoading = false
-    var error: Error?
+    var error: UserFacingError?
 
     private let libraryService: any LibraryServiceProtocol
 
@@ -30,7 +30,7 @@ final class FavoritesViewModel {
             albums = starred.album ?? []
             artists = starred.artist ?? []
         } catch {
-            self.error = error
+            self.error = UserFacingError.from(error)
         }
         isLoading = false
     }

@@ -11,7 +11,7 @@ import SwiftSonic
 final class PlaylistListViewModel {
     var playlists: [Playlist] = []
     var isLoading = false
-    var error: Error?
+    var error: UserFacingError?
 
     private let libraryService: any LibraryServiceProtocol
 
@@ -25,7 +25,7 @@ final class PlaylistListViewModel {
         do {
             playlists = try await libraryService.playlists()
         } catch {
-            self.error = error
+            self.error = UserFacingError.from(error)
         }
         isLoading = false
     }

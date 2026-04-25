@@ -11,7 +11,7 @@ import SwiftSonic
 final class ArtistDetailViewModel {
     var artist: ArtistID3?
     var isLoading = false
-    var error: Error?
+    var error: UserFacingError?
 
     private let artistId: String
     private let libraryService: any LibraryServiceProtocol
@@ -27,7 +27,7 @@ final class ArtistDetailViewModel {
         do {
             artist = try await libraryService.artist(id: artistId)
         } catch {
-            self.error = error
+            self.error = UserFacingError.from(error)
         }
         isLoading = false
     }

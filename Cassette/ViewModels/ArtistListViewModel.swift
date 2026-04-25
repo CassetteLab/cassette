@@ -11,7 +11,7 @@ import SwiftSonic
 final class ArtistListViewModel {
     var indexes: [ArtistIndex] = []
     var isLoading = false
-    var error: Error?
+    var error: UserFacingError?
 
     private let libraryService: any LibraryServiceProtocol
 
@@ -25,7 +25,7 @@ final class ArtistListViewModel {
         do {
             indexes = try await libraryService.artists()
         } catch {
-            self.error = error
+            self.error = UserFacingError.from(error)
         }
         isLoading = false
     }

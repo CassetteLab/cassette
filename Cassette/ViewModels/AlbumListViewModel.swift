@@ -11,7 +11,7 @@ import SwiftSonic
 final class AlbumListViewModel {
     var albums: [AlbumID3] = []
     var isLoading = false
-    var error: Error?
+    var error: UserFacingError?
 
     private let libraryService: any LibraryServiceProtocol
 
@@ -25,7 +25,7 @@ final class AlbumListViewModel {
         do {
             albums = try await libraryService.allAlbums()
         } catch {
-            self.error = error
+            self.error = UserFacingError.from(error)
         }
         isLoading = false
     }

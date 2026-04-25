@@ -11,7 +11,7 @@ import SwiftSonic
 final class SearchViewModel {
     var searchResults: SearchResult3?
     var isSearching = false
-    var searchError: Error?
+    var searchError: UserFacingError?
 
     private let libraryService: any LibraryServiceProtocol
 
@@ -33,7 +33,7 @@ final class SearchViewModel {
         } catch is CancellationError {
             // Superseded by a newer query
         } catch {
-            searchError = error
+            searchError = UserFacingError.from(error)
         }
         isSearching = false
     }
