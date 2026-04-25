@@ -266,7 +266,8 @@ private struct HomePinnedCard: View {
                 .aspectRatio(1, contentMode: .fit)
                 Text(item.displayName)
                     .font(.cassetteCaption)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if !item.displaySubtitle.isEmpty {
                     Text(item.displaySubtitle)
@@ -352,7 +353,8 @@ private struct HomeDownloadedItemCard: View {
                 .aspectRatio(1, contentMode: .fit)
                 Text(item.name)
                     .font(.cassetteCaption)
-                    .lineLimit(2)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 if !item.subtitle.isEmpty {
                     Text(item.subtitle)
@@ -434,7 +436,8 @@ private struct HomeAlbumCell: View {
             .aspectRatio(1, contentMode: .fit)
             Text(album.name)
                 .font(.cassetteCaption)
-                .lineLimit(2)
+                .lineLimit(1)
+                .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let artist = album.artist {
                 Text(artist)
