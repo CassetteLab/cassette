@@ -59,7 +59,7 @@ final class AppContainer {
         )
         mediaResolver = resolver
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server)
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService)
         playerService = player
 
         let nowPlaying = NowPlayingService(playerService: player)

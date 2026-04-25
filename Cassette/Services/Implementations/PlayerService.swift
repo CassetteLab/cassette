@@ -17,21 +17,25 @@ actor PlayerService: PlayerServiceProtocol {
 
     private let mediaResolver: any MediaResolverProtocol
     private let serverService: any ServerServiceProtocol
+    private let sessionService: PlaybackSessionService
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
 
     private var player: AVPlayer?
     private var timeObserverToken: Any?
     private var endOfTrackObserver: NSObjectProtocol?
     private var audioSessionConfigured = false
+    private var positionSaveTask: Task<Void, Never>?
 
     init(
         state: PlayerState,
         mediaResolver: any MediaResolverProtocol,
-        serverService: any ServerServiceProtocol
+        serverService: any ServerServiceProtocol,
+        sessionService: PlaybackSessionService
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
         self.serverService = serverService
+        self.sessionService = sessionService
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -107,6 +111,8 @@ actor PlayerService: PlayerServiceProtocol {
             artworkHeaders: artworkHeaders
         )
         await nowPlayingService?.update(with: snapshot)
+        await sessionService.save(playerState: state)
+        startPositionSaveTimer()
     }
 
     // MARK: - Pause / Resume
@@ -115,12 +121,15 @@ actor PlayerService: PlayerServiceProtocol {
         player?.pause()
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
+        stopPositionSaveTimer()
+        await sessionService.save(playerState: state)
     }
 
     func resume() async {
         player?.play()
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
+        startPositionSaveTimer()
     }
 
     // MARK: - Stop
@@ -187,6 +196,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     func appendToQueue(_ tracks: [DisplayableSong]) async {
         await MainActor.run { state.queue.append(contentsOf: tracks) }
+        await sessionService.save(playerState: state)
     }
 
     func playNext(_ songs: [DisplayableSong]) async {
@@ -197,6 +207,7 @@ actor PlayerService: PlayerServiceProtocol {
             let insertAt = min(currentIndex + 1, queue.count)
             await MainActor.run { state.queue.insert(contentsOf: songs, at: insertAt) }
             Logger.player.info("Inserted \(songs.count) song(s) at queue position \(insertAt)")
+            await sessionService.save(playerState: state)
         }
     }
 
@@ -226,6 +237,76 @@ actor PlayerService: PlayerServiceProtocol {
             let song = state.queue.remove(at: fromIndex)
             state.queue.insert(song, at: toIndex)
         }
+    }
+
+    // MARK: - Session persistence
+
+    func restoreSession() async {
+        guard let data = await sessionService.loadRestoredSession() else { return }
+
+        let track = data.queue[data.currentIndex]
+        await MainActor.run {
+            state.queue = data.queue
+            state.currentIndex = data.currentIndex
+            state.currentTrack = track
+            state.position = data.currentPosition
+            state.duration = data.currentTrackDuration
+            state.playbackState = .paused
+        }
+
+        await prepareCurrentTrackForRestoration(track: track, position: data.currentPosition)
+        Logger.player.info("Session restored: \(data.queue.count) tracks, index \(data.currentIndex), pos=\(data.currentPosition, format: .fixed(precision: 1))s")
+    }
+
+    private func prepareCurrentTrackForRestoration(track: DisplayableSong, position: TimeInterval) async {
+        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
+            Logger.player.warning("Session restore: no active server, skipping AVPlayer prep")
+            return
+        }
+
+        let source: MediaSource
+        do {
+            source = try await mediaResolver.resolve(songId: track.id, serverId: serverId)
+        } catch {
+            Logger.player.error("Session restore: failed to resolve media — \(error)")
+            return
+        }
+
+        teardownPlayer()
+        #if os(iOS)
+        configureAudioSessionIfNeeded()
+        #endif
+
+        let item = makePlayerItem(source: source)
+        let newPlayer = AVPlayer(playerItem: item)
+        player = newPlayer
+
+        setupEndOfTrackObserver(for: item)
+        setupPeriodicTimeObserver(for: newPlayer)
+
+        let cmTime = CMTime(seconds: position, preferredTimescale: 600)
+        await newPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+
+        Logger.player.info("Session restore: '\(track.title)' prepared at \(position, format: .fixed(precision: 1))s")
+    }
+
+    // MARK: - Position save timer
+
+    private func startPositionSaveTimer() {
+        stopPositionSaveTimer()
+        positionSaveTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { break }
+                let position = await MainActor.run { state.position }
+                await sessionService.savePosition(position)
+            }
+        }
+    }
+
+    private func stopPositionSaveTimer() {
+        positionSaveTask?.cancel()
+        positionSaveTask = nil
     }
 
     // MARK: - End of track
@@ -281,6 +362,7 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func teardownPlayer() {
+        stopPositionSaveTimer()
         if let token = timeObserverToken {
             player?.removeTimeObserver(token)
             timeObserverToken = nil

@@ -40,15 +40,25 @@ final class PlaybackSessionService {
         try? modelContext.save()
     }
 
-    /// Returns the persisted session, or nil if none exists.
-    func load() -> PlaybackSession? {
-        let session = fetchSession()
-        if let session {
-            Logger.session.info("Session loaded: track='\(session.currentTrackTitle ?? "nil")', pos=\(session.currentPosition, format: .fixed(precision: 1))s, queue=\(session.decodedQueue().count) tracks")
-        } else {
+    /// Extracts and returns restoration data, keeping @Model objects on MainActor.
+    func loadRestoredSession() -> RestoredSession? {
+        guard let session = fetchSession() else {
             Logger.session.info("No persisted session found")
+            return nil
         }
-        return session
+        let queue = session.decodedQueue()
+        guard !queue.isEmpty else {
+            Logger.session.info("Persisted session has empty queue — skipping restore")
+            return nil
+        }
+        let safeIndex = min(session.currentIndex, queue.count - 1)
+        Logger.session.info("Session loaded: '\(session.currentTrackTitle ?? "nil")', pos=\(session.currentPosition, format: .fixed(precision: 1))s, \(queue.count) tracks")
+        return RestoredSession(
+            queue: queue,
+            currentIndex: safeIndex,
+            currentPosition: session.currentPosition,
+            currentTrackDuration: session.currentTrackDuration
+        )
     }
 
     func clear() {
@@ -71,4 +81,14 @@ final class PlaybackSessionService {
         )
         return try? modelContext.fetch(descriptor).first
     }
+}
+
+// MARK: - RestoredSession
+
+/// Value-type snapshot passed to actor-isolated callers — avoids exposing @Model across actor boundary.
+nonisolated struct RestoredSession: Sendable {
+    let queue: [DisplayableSong]
+    let currentIndex: Int
+    let currentPosition: TimeInterval
+    let currentTrackDuration: TimeInterval
 }

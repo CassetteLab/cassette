@@ -27,4 +27,5 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func addToQueue(_ songs: [DisplayableSong]) async
     func removeFromQueue(at index: Int) async
     func moveInQueue(fromIndex: Int, toIndex: Int) async
+    func restoreSession() async
 }
