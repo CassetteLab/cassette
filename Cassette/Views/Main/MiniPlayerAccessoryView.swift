@@ -111,11 +111,18 @@ struct MiniPlayerAccessoryView: View {
                             .font(.cassetteCaption)
                             .foregroundStyle(typoSecondaryColor)
                             .lineLimit(1)
-                    } else if let artist {
-                        Text(artist)
-                            .font(.cassetteCaption)
-                            .foregroundStyle(typoSecondaryColor)
-                            .lineLimit(1)
+                    } else {
+                        HStack(spacing: CassetteSpacing.xs) {
+                            if let artist {
+                                Text(artist)
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(typoSecondaryColor)
+                                    .lineLimit(1)
+                            }
+                            if let format = playerState.currentTrack?.audioFormat {
+                                AudioFormatBadge(format: format)
+                            }
+                        }
                     }
                 }
 

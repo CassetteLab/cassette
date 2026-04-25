@@ -74,6 +74,9 @@ struct FullPlayerView: View {
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
                     }
+                    if let format = playerState.currentTrack?.audioFormat {
+                        AudioFormatBadge(format: format)
+                    }
                 }
                 .padding(.top, CassetteSpacing.l)
 

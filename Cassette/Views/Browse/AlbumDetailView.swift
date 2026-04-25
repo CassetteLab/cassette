@@ -210,6 +210,9 @@ struct AlbumDetailView: View {
                 }
                 .font(.cassetteCaption)
                 .foregroundStyle(headerSecondaryColor.opacity(0.8))
+                if let format = vm.songs.first?.audioFormat {
+                    AudioFormatBadge(format: format)
+                }
             }
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -338,7 +341,8 @@ private struct AlbumSongRows: View {
                 duration: song.duration,
                 trackNumber: song.trackNumber,
                 isDownloaded: liveDownloaded,
-                coverArtId: song.coverArtId
+                coverArtId: song.coverArtId,
+                audioFormat: song.audioFormat
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
