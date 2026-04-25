@@ -53,7 +53,7 @@ struct AlbumDetailView: View {
         }
         .background(
             LinearGradient(
-                colors: [dominantColor.opacity(0.5), .clear],
+                colors: [dominantColor.opacity(0.6), dominantColor.opacity(0.4)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -341,7 +341,7 @@ private struct AlbumSongRows: View {
             SongRow(song: liveSong, index: index + 1, onDownload: downloadAction, isDownloading: isDownloading)
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
-                .listRowBackground(Color(.systemBackground))
+                .listRowBackground(Color.clear)
         }
     }
 }
