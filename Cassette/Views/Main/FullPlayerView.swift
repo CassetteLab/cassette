@@ -266,25 +266,28 @@ private struct ScrubberView: View {
     @State private var isDragging = false
     @State private var scrubPosition: TimeInterval = 0
 
+    // Prefer AVPlayer-reported duration; fall back to song metadata to avoid slider clamping to 0..1
+    private var effectiveDuration: TimeInterval {
+        playerState.duration > 0 ? playerState.duration : (playerState.currentTrack?.duration ?? 1)
+    }
+
     private var displayPosition: TimeInterval {
         isDragging ? scrubPosition : playerState.position
     }
 
     var body: some View {
         VStack(spacing: CassetteSpacing.xs) {
-            Slider(
-                value: Binding(
-                    get: { isDragging ? scrubPosition : playerState.position },
-                    set: { scrubPosition = $0 }
-                ),
-                in: 0...max(playerState.duration, 1)
-            ) { editing in
-                isDragging = editing
-                if !editing {
-                    Task { await playerService?.seek(to: scrubPosition) }
+            ProgressSlider(
+                value: displayPosition,
+                total: effectiveDuration,
+                isDragging: isDragging
+            ) { newValue, finished in
+                scrubPosition = newValue
+                isDragging = !finished
+                if finished {
+                    Task { await playerService?.seek(to: newValue) }
                 }
             }
-            .tint(Color.cassetteAccent)
 
             HStack {
                 Text(Duration.seconds(displayPosition).formatted(.time(pattern: .minuteSecond)))
@@ -292,12 +295,65 @@ private struct ScrubberView: View {
                     .foregroundStyle(.white.opacity(0.7))
                     .monospacedDigit()
                 Spacer()
-                Text(Duration.seconds(max(playerState.duration - displayPosition, 0)).formatted(.time(pattern: .minuteSecond)))
+                Text(Duration.seconds(max(effectiveDuration - displayPosition, 0)).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
                     .foregroundStyle(.white.opacity(0.7))
                     .monospacedDigit()
             }
         }
+    }
+}
+
+private struct ProgressSlider: View {
+    let value: TimeInterval
+    let total: TimeInterval
+    let isDragging: Bool
+    let onChange: (TimeInterval, Bool) -> Void
+
+    private let trackHeight: CGFloat = 4
+    private let thumbDiameter: CGFloat = 16
+
+    private var fraction: CGFloat {
+        guard total > 0 else { return 0 }
+        return min(max(CGFloat(value / total), 0), 1)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let trackW = geo.size.width
+            let fillW = trackW * fraction
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.3))
+                    .frame(height: isDragging ? trackHeight * 1.5 : trackHeight)
+
+                Capsule()
+                    .fill(Color.white)
+                    .frame(width: max(fillW, 0), height: isDragging ? trackHeight * 1.5 : trackHeight)
+
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: thumbDiameter, height: thumbDiameter)
+                    .offset(x: max(min(fillW - thumbDiameter / 2, trackW - thumbDiameter), 0))
+                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { gesture in
+                        let x = min(max(gesture.location.x, 0), trackW)
+                        onChange(TimeInterval(x / trackW) * total, false)
+                    }
+                    .onEnded { gesture in
+                        let x = min(max(gesture.location.x, 0), trackW)
+                        onChange(TimeInterval(x / trackW) * total, true)
+                    }
+            )
+        }
+        .frame(height: thumbDiameter)
+        .animation(.easeInOut(duration: 0.15), value: isDragging)
     }
 }
 
