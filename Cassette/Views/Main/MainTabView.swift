@@ -25,7 +25,6 @@ struct MainTabView: View {
 
             if showingFullPlayer {
                 FullPlayerView(isPresented: $showingFullPlayer)
-                    .ignoresSafeArea()
                     .transition(.asymmetric(insertion: .move(edge: .bottom), removal: .identity))
                     .zIndex(1)
             }

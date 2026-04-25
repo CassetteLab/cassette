@@ -73,6 +73,7 @@ struct FullPlayerView: View {
             // offered space, so AsyncImage's image intrinsics never affect VStack layout.
             Color.clear
                 .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 280)
                 .overlay {
                     CoverArtView(id: coverArtId, size: 300)
                 }
