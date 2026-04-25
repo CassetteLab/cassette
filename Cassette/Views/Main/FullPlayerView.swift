@@ -153,7 +153,7 @@ struct FullPlayerView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .cassetteContentWidth()
             .sheet(isPresented: $showLyrics) {
-                Text("Lyrics")
+                LyricsView(song: playerState.currentTrack)
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showQueue) {

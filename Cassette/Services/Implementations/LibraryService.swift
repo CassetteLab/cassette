@@ -81,6 +81,10 @@ actor LibraryService: LibraryServiceProtocol {
         try await client().getAlbumList2(type: .alphabeticalByName, size: 500)
     }
 
+    func lyrics(artist: String?, title: String?) async throws -> Lyrics? {
+        try await client().getLyrics(artist: artist, title: title)
+    }
+
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
         // TODO(v1.x): verify Navidrome savePlayQueue support; implement best-effort sync
     }
