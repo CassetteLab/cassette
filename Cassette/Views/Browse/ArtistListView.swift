@@ -21,7 +21,7 @@ struct ArtistListView: View {
             }
         }
         .cassetteContentWidth()
-        .navigationTitle("Browse")
+        .navigationTitle("Artists")
         .navigationDestination(for: ArtistID3.self) { artist in
             ArtistDetailView(artist: artist)
         }
