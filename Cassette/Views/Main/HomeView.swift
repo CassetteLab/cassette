@@ -255,6 +255,8 @@ private struct LibraryRowButtonStyle: ButtonStyle {
 private struct HomeAlbumCell: View {
     let album: AlbumID3
 
+    @Environment(\.appContainer) private var container
+
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
             GeometryReader { geo in
@@ -273,6 +275,17 @@ private struct HomeAlbumCell: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
+        }
+        .lazyCollectionContextMenu(
+            itemType: .album,
+            itemId: album.id,
+            displayName: album.name,
+            displaySubtitle: album.artist ?? "",
+            coverArtId: album.coverArt,
+            favoriteType: .album
+        ) {
+            let detail = try await container?.libraryService.album(id: album.id)
+            return (detail?.song ?? []).map { DisplayableSong(from: $0) }
         }
     }
 }
