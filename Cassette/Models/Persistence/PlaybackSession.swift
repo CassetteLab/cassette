@@ -27,12 +27,14 @@ final class PlaybackSession {
     var currentTrackIsDownloaded: Bool
 
     var lastUpdated: Date
+    var repeatModeRaw: String = RepeatMode.off.rawValue
 
     init(
         currentIndex: Int = 0,
         currentPosition: TimeInterval = 0,
         queue: [DisplayableSong] = [],
-        currentTrack: DisplayableSong? = nil
+        currentTrack: DisplayableSong? = nil,
+        repeatMode: RepeatMode = .off
     ) {
         self.id = "current"
         self.currentIndex = currentIndex
@@ -45,17 +47,23 @@ final class PlaybackSession {
         self.currentTrackDuration = currentTrack?.duration ?? 0
         self.currentTrackIsDownloaded = currentTrack?.isDownloaded ?? false
         self.lastUpdated = Date()
+        self.repeatModeRaw = repeatMode.rawValue
     }
 
     func decodedQueue() -> [DisplayableSong] {
         (try? JSONDecoder().decode([DisplayableSong].self, from: queueData)) ?? []
     }
 
+    func decodedRepeatMode() -> RepeatMode {
+        RepeatMode(rawValue: repeatModeRaw) ?? .off
+    }
+
     func update(
         currentIndex: Int,
         currentPosition: TimeInterval,
         queue: [DisplayableSong],
-        currentTrack: DisplayableSong?
+        currentTrack: DisplayableSong?,
+        repeatMode: RepeatMode
     ) {
         self.currentIndex = currentIndex
         self.currentPosition = currentPosition
@@ -67,5 +75,6 @@ final class PlaybackSession {
         self.currentTrackDuration = currentTrack?.duration ?? 0
         self.currentTrackIsDownloaded = currentTrack?.isDownloaded ?? false
         self.lastUpdated = Date()
+        self.repeatModeRaw = repeatMode.rawValue
     }
 }

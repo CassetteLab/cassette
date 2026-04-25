@@ -199,6 +199,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     func setRepeatMode(_ mode: RepeatMode) async {
         await MainActor.run { state.repeatMode = mode }
+        await sessionService.save(playerState: state)
     }
 
     func toggleShuffle() async {
@@ -291,6 +292,7 @@ actor PlayerService: PlayerServiceProtocol {
             state.currentTrack = track
             state.position = data.currentPosition
             state.duration = data.currentTrackDuration
+            state.repeatMode = data.repeatMode
             state.playbackState = .paused
         }
 

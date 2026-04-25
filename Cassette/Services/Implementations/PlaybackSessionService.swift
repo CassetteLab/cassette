@@ -19,14 +19,15 @@ final class PlaybackSessionService {
         self.modelContext = modelContainer.mainContext
     }
 
-    /// Full save — queue + position + current track metadata.
+    /// Full save — queue + position + current track metadata + repeat mode.
     func save(playerState: PlayerState) {
         let session = fetchOrCreateSession()
         session.update(
             currentIndex: playerState.currentIndex,
             currentPosition: playerState.position,
             queue: playerState.queue,
-            currentTrack: playerState.currentTrack
+            currentTrack: playerState.currentTrack,
+            repeatMode: playerState.repeatMode
         )
         try? modelContext.save()
         Logger.session.debug("Session saved: track='\(playerState.currentTrack?.title ?? "nil")', pos=\(playerState.position, format: .fixed(precision: 1))s, queue=\(playerState.queue.count) tracks")
@@ -57,7 +58,8 @@ final class PlaybackSessionService {
             queue: queue,
             currentIndex: safeIndex,
             currentPosition: session.currentPosition,
-            currentTrackDuration: session.currentTrackDuration
+            currentTrackDuration: session.currentTrackDuration,
+            repeatMode: session.decodedRepeatMode()
         )
     }
 
@@ -91,4 +93,5 @@ nonisolated struct RestoredSession: Sendable {
     let currentIndex: Int
     let currentPosition: TimeInterval
     let currentTrackDuration: TimeInterval
+    let repeatMode: RepeatMode
 }
