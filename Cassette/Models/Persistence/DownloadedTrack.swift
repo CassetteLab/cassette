@@ -23,6 +23,7 @@ final class DownloadedTrack {
     var trackNumber: Int?
     var durationSeconds: Int?
     var coverArtId: String?
+    var suffix: String?
 
     init(
         id: UUID = UUID(),
@@ -38,7 +39,8 @@ final class DownloadedTrack {
         album: String? = nil,
         trackNumber: Int? = nil,
         durationSeconds: Int? = nil,
-        coverArtId: String? = nil
+        coverArtId: String? = nil,
+        suffix: String? = nil
     ) {
         self.id = id
         self.songId = songId
@@ -54,5 +56,6 @@ final class DownloadedTrack {
         self.trackNumber = trackNumber
         self.durationSeconds = durationSeconds
         self.coverArtId = coverArtId
+        self.suffix = suffix
     }
 }

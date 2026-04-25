@@ -20,6 +20,7 @@ nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable, Codable {
     let trackNumber: Int?
     let isDownloaded: Bool
     let coverArtId: String?
+    let audioFormat: String?
 }
 
 extension DisplayableSong {
@@ -32,6 +33,7 @@ extension DisplayableSong {
         self.trackNumber = song.track
         self.isDownloaded = isDownloaded
         self.coverArtId = song.coverArt
+        self.audioFormat = song.suffix?.uppercased()
     }
 
     @MainActor
@@ -44,5 +46,6 @@ extension DisplayableSong {
         self.trackNumber = track.trackNumber
         self.isDownloaded = true
         self.coverArtId = track.coverArtId
+        self.audioFormat = track.suffix?.uppercased()
     }
 }

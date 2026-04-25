@@ -167,6 +167,7 @@ actor DownloadService: DownloadServiceProtocol {
         let track = song.track
         let duration = song.duration
         let coverArtId = song.coverArt
+        let suffix = song.suffix
         let fileSize = Int64(data.count)
 
         // Best-effort: persist cover art so it's available offline (compilations, playlist tracks).
@@ -195,7 +196,8 @@ actor DownloadService: DownloadServiceProtocol {
                 album: album,
                 trackNumber: track,
                 durationSeconds: duration,
-                coverArtId: coverArtId
+                coverArtId: coverArtId,
+                suffix: suffix
             )
             context.insert(record)
             try? context.save()
