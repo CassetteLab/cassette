@@ -228,12 +228,25 @@ private struct HomeLibraryRow<Destination: View>: View {
                     .foregroundStyle(Color.cassetteAccent)
                 Text(title)
                     .font(.cassetteCellTitle)
+                    .foregroundStyle(.primary)
                 Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, CassetteSpacing.m)
             .padding(.vertical, CassetteSpacing.m)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(LibraryRowButtonStyle())
+    }
+}
+
+private struct LibraryRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(configuration.isPressed ? Color.primary.opacity(0.08) : Color.clear)
     }
 }
 
