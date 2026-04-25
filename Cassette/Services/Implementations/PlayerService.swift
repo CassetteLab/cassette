@@ -25,6 +25,8 @@ actor PlayerService: PlayerServiceProtocol {
     private var endOfTrackObserver: NSObjectProtocol?
     private var audioSessionConfigured = false
     private var positionSaveTask: Task<Void, Never>?
+    // Saved before a shuffle activation; nil when shuffle is off.
+    private var originalQueueOrder: [DisplayableSong]?
 
     init(
         state: PlayerState,
@@ -47,6 +49,14 @@ actor PlayerService: PlayerServiceProtocol {
 
     func play(tracks: [DisplayableSong], startIndex: Int) async throws {
         guard tracks.indices.contains(startIndex) else { return }
+
+        // Reset shuffle only when starting a genuinely new queue, not on internal skips
+        // (skipToNext/skipToPrevious pass state.queue unchanged, so IDs match).
+        let currentQueueIds = await MainActor.run { state.queue.map(\.id) }
+        if tracks.map(\.id) != currentQueueIds {
+            originalQueueOrder = nil
+            await MainActor.run { state.isShuffled = false }
+        }
 
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
             await MainActor.run { state.playbackState = .error(.serverNotConfigured) }
@@ -192,7 +202,36 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func toggleShuffle() async {
-        await MainActor.run { state.isShuffled.toggle() }
+        let isCurrentlyShuffled = await MainActor.run { state.isShuffled }
+        if isCurrentlyShuffled {
+            await restoreOriginalQueueOrder()
+            await MainActor.run { state.isShuffled = false }
+        } else {
+            await shuffleUpNext()
+            await MainActor.run { state.isShuffled = true }
+        }
+        await sessionService.save(playerState: state)
+    }
+
+    private func shuffleUpNext() async {
+        let (queue, currentIndex) = await MainActor.run { (state.queue, state.currentIndex) }
+        originalQueueOrder = queue
+        guard currentIndex + 1 < queue.count else { return }
+        let head = Array(queue[...currentIndex])
+        let shuffled = Array(queue[(currentIndex + 1)...]).shuffled()
+        await MainActor.run { state.queue = head + shuffled }
+    }
+
+    private func restoreOriginalQueueOrder() async {
+        guard let original = originalQueueOrder,
+              let currentTrack = await MainActor.run(body: { state.currentTrack }),
+              let restoredIndex = original.firstIndex(where: { $0.id == currentTrack.id })
+        else { return }
+        await MainActor.run {
+            state.queue = original
+            state.currentIndex = restoredIndex
+        }
+        originalQueueOrder = nil
     }
 
     func appendToQueue(_ tracks: [DisplayableSong]) async {
