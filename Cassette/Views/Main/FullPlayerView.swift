@@ -36,8 +36,8 @@ struct FullPlayerView: View {
                 Button { dismiss() } label: {
                     Image(systemName: "chevron.down")
                         .font(.title2)
-                        .foregroundStyle(.white.opacity(0.7))
-                        .frame(width: 44, height: 44)
+                        .foregroundStyle(.white)
+                        .cassetteGlassButton(size: 44)
                 }
 
                 Spacer()
@@ -95,7 +95,7 @@ struct FullPlayerView: View {
                         Image(systemName: playerState.repeatMode.systemImage)
                             .font(.title3)
                             .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : Color.cassetteAccent)
-                            .frame(width: 44, height: 44)
+                            .cassetteGlassButton(size: 44, tint: playerState.repeatMode == .off ? nil : Color.cassetteAccent)
                     }
 
                     Button {
@@ -104,7 +104,7 @@ struct FullPlayerView: View {
                         Image(systemName: "shuffle")
                             .font(.title3)
                             .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .white.opacity(0.7))
-                            .frame(width: 44, height: 44)
+                            .cassetteGlassButton(size: 44, tint: playerState.isShuffled ? Color.cassetteAccent : nil)
                     }
                 }
                 .padding(.top, CassetteSpacing.l)
@@ -178,6 +178,7 @@ private struct PlaybackControlsView: View {
                 Image(systemName: "backward.fill")
                     .font(.title)
                     .foregroundStyle(.white)
+                    .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
 
@@ -205,6 +206,7 @@ private struct PlaybackControlsView: View {
                 Image(systemName: "forward.fill")
                     .font(.title)
                     .foregroundStyle(.white)
+                    .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
         }
