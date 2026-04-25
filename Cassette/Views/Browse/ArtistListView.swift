@@ -10,12 +10,11 @@ import SwiftSonic
 struct ArtistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistListViewModel?
-    @State private var searchQuery = ""
 
     var body: some View {
         Group {
             if let vm = viewModel {
-                content(vm)
+                browseContent(vm)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -23,12 +22,14 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Browse")
-        .searchable(text: $searchQuery, prompt: "Artists, albums, songs…")
         .navigationDestination(for: ArtistID3.self) { artist in
             ArtistDetailView(artist: artist)
         }
         .navigationDestination(for: AlbumID3.self) { album in
             AlbumDetailView(album: album)
+        }
+        .navigationDestination(for: OfflineArtistSummary.self) { summary in
+            OfflineArtistAlbumsView(artist: summary)
         }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
@@ -36,21 +37,7 @@ struct ArtistListView: View {
             guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
         }
-        .task(id: searchQuery) {
-            await viewModel?.search(query: searchQuery)
-        }
     }
-
-    @ViewBuilder
-    private func content(_ vm: ArtistListViewModel) -> some View {
-        if !searchQuery.isEmpty {
-            searchContent(vm)
-        } else {
-            browseContent(vm)
-        }
-    }
-
-    // MARK: - Browse mode
 
     @ViewBuilder
     private func browseContent(_ vm: ArtistListViewModel) -> some View {
@@ -94,125 +81,89 @@ struct ArtistListView: View {
             .refreshable { await vm.load() }
         }
     }
-
-    // MARK: - Search mode
-
-    @ViewBuilder
-    private func searchContent(_ vm: ArtistListViewModel) -> some View {
-        List {
-            if vm.isSearching {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                    Spacer()
-                }
-                .listRowSeparator(.hidden)
-            } else if let error = vm.searchError {
-                Text(error.localizedDescription)
-                    .font(.cassetteBody)
-                    .foregroundStyle(.secondary)
-                    .listRowSeparator(.hidden)
-            } else if let results = vm.searchResults {
-                artistSection(results.artist ?? [])
-                albumSection(results.album ?? [])
-                songSection((results.song ?? []).map { DisplayableSong(from: $0) })
-            }
-        }
-        .listStyle(.plain)
-    }
-
-    @ViewBuilder
-    private func artistSection(_ artists: [ArtistID3]) -> some View {
-        if !artists.isEmpty {
-            Section("Artists") {
-                ForEach(artists) { artist in
-                    NavigationLink(value: artist) {
-                        ArtistRow(artist: artist)
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func albumSection(_ albums: [AlbumID3]) -> some View {
-        if !albums.isEmpty {
-            Section("Albums") {
-                ForEach(albums) { album in
-                    NavigationLink(value: album) {
-                        AlbumRow(
-                            albumId: album.id,
-                            name: album.name,
-                            artist: album.artist,
-                            year: album.year,
-                            coverArtId: album.coverArt
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func songSection(_ songs: [DisplayableSong]) -> some View {
-        if !songs.isEmpty {
-            Section("Songs") {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
-                        }
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Offline Browse
 
+private nonisolated struct OfflineAlbumSummary: Sendable, Identifiable, Hashable {
+    let albumId: String
+    let albumName: String
+    let artistName: String?
+    let coverArtId: String?
+    let trackCount: Int
+    var id: String { albumId }
+}
+
+private nonisolated struct OfflineArtistSummary: Sendable, Identifiable, Hashable {
+    let name: String
+    let albums: [OfflineAlbumSummary]
+    var id: String { name }
+}
+
+/// Derives the offline artist/album hierarchy from DownloadedTrack — the single source of truth
+/// for all offline content, regardless of whether it came from an album or a playlist download.
 private struct OfflineBrowseContent: View {
     let serverId: UUID
-    @Query private var albums: [DownloadedAlbum]
+    @Query private var tracks: [DownloadedTrack]
 
     init(serverId: UUID) {
         self.serverId = serverId
         let sid = serverId
-        _albums = Query(
-            filter: #Predicate<DownloadedAlbum> { album in album.serverId == sid },
-            sort: [SortDescriptor(\DownloadedAlbum.name)]
+        _tracks = Query(
+            filter: #Predicate<DownloadedTrack> { track in track.serverId == sid }
         )
     }
 
+    private var artistSummaries: [OfflineArtistSummary] {
+        let withAlbum = tracks.filter { $0.albumId != nil }
+        let byAlbum = Dictionary(grouping: withAlbum) { $0.albumId! }
+        let albumSummaries = byAlbum.map { albumId, albumTracks -> OfflineAlbumSummary in
+            let first = albumTracks[0]
+            return OfflineAlbumSummary(
+                albumId: albumId,
+                albumName: first.album ?? albumId,
+                artistName: first.artist,
+                coverArtId: first.coverArtId,
+                trackCount: albumTracks.count
+            )
+        }
+        let byArtist = Dictionary(grouping: albumSummaries) { $0.artistName ?? "Unknown Artist" }
+        return byArtist.map { name, albums in
+            OfflineArtistSummary(
+                name: name,
+                albums: albums.sorted { $0.albumName < $1.albumName }
+            )
+        }.sorted { $0.name < $1.name }
+    }
+
     var body: some View {
-        if albums.isEmpty {
+        if tracks.isEmpty {
             EmptyStateView(
                 systemImage: "wifi.slash",
                 title: "You're Offline",
-                subtitle: "No downloaded albums available. Download albums while online to listen offline."
+                subtitle: "No downloaded music available. Download albums or playlists while online to listen offline."
             )
         } else {
             List {
-                Section("Downloaded Albums") {
-                    ForEach(albums) { album in
-                        NavigationLink(destination: AlbumDetailView(album: album)) {
+                Section("Downloaded Artists") {
+                    ForEach(artistSummaries) { artist in
+                        NavigationLink(value: artist) {
                             HStack(spacing: CassetteSpacing.m) {
-                                CoverArtCard(id: album.coverArtId ?? album.albumId, size: 44)
+                                Image(systemName: "music.mic")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccentSecondary.opacity(0.15))
+                                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.s))
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(album.name)
+                                    Text(artist.name)
                                         .font(.cassetteCellTitle)
                                         .lineLimit(1)
-                                    if let artist = album.artist {
-                                        Text(artist)
-                                            .font(.cassetteCaption)
-                                            .foregroundStyle(.secondary)
-                                            .lineLimit(1)
-                                    }
+                                    Text("\(artist.albums.count) album\(artist.albums.count == 1 ? "" : "s")")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
-                                Text("\(album.tracksCount) track\(album.tracksCount == 1 ? "" : "s")")
-                                    .font(.cassetteCaption)
-                                    .foregroundStyle(.secondary)
                             }
                             .padding(.vertical, CassetteSpacing.xs)
                         }
@@ -221,5 +172,29 @@ private struct OfflineBrowseContent: View {
             }
             .listStyle(.plain)
         }
+    }
+}
+
+private struct OfflineArtistAlbumsView: View {
+    let artist: OfflineArtistSummary
+
+    var body: some View {
+        List {
+            ForEach(artist.albums) { album in
+                NavigationLink(destination: AlbumDetailView(albumId: album.albumId, albumName: album.albumName)) {
+                    AlbumRow(
+                        albumId: album.albumId,
+                        name: album.albumName,
+                        artist: album.artistName,
+                        year: nil,
+                        coverArtId: album.coverArtId
+                    )
+                }
+            }
+        }
+        .listStyle(.plain)
+        .navigationTitle(artist.name)
+        .navigationBarTitleDisplayModeInline()
+        .cassetteContentWidth()
     }
 }

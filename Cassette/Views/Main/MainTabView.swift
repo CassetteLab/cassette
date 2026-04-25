@@ -7,36 +7,53 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(\.appContainer) private var container
+    @State private var searchText = ""
 
     var body: some View {
         TabView {
-            NavigationStack {
-                ArtistListView()
-            }
-            .tabItem { Label("Browse", systemImage: "music.note.list") }
-            .safeAreaInset(edge: .bottom) {
-                if container?.playerState.currentTrack != nil {
-                    MiniPlayerView()
+            Tab("Browse", systemImage: "music.note.list") {
+                NavigationStack {
+                    ArtistListView()
+                }
+                .safeAreaInset(edge: .bottom) {
+                    if container?.playerState.currentTrack != nil {
+                        MiniPlayerView()
+                    }
                 }
             }
 
-            NavigationStack {
-                PlaylistListView()
-            }
-            .tabItem { Label("Playlists", systemImage: "list.bullet") }
-            .safeAreaInset(edge: .bottom) {
-                if container?.playerState.currentTrack != nil {
-                    MiniPlayerView()
+            Tab("Playlists", systemImage: "list.bullet") {
+                NavigationStack {
+                    PlaylistListView()
+                }
+                .safeAreaInset(edge: .bottom) {
+                    if container?.playerState.currentTrack != nil {
+                        MiniPlayerView()
+                    }
                 }
             }
 
-            NavigationStack {
-                SettingsView()
+            Tab("Settings", systemImage: "gear") {
+                NavigationStack {
+                    SettingsView()
+                }
+                .safeAreaInset(edge: .bottom) {
+                    if container?.playerState.currentTrack != nil {
+                        MiniPlayerView()
+                    }
+                }
             }
-            .tabItem { Label("Settings", systemImage: "gear") }
-            .safeAreaInset(edge: .bottom) {
-                if container?.playerState.currentTrack != nil {
-                    MiniPlayerView()
+
+            Tab(role: .search) {
+                NavigationStack {
+                    SearchView(searchQuery: $searchText)
+                        .navigationTitle("Search")
+                }
+                .searchable(text: $searchText, prompt: "Artists, albums, songs\u{2026}")
+                .safeAreaInset(edge: .bottom) {
+                    if container?.playerState.currentTrack != nil {
+                        MiniPlayerView()
+                    }
                 }
             }
         }
