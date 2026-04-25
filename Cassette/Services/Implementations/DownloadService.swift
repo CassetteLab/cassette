@@ -74,14 +74,25 @@ actor DownloadService: DownloadServiceProtocol {
     func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData? {
         await MainActor.run {
             let context = ModelContext(modelContainer)
-            let allAlbums = (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? []
-            guard let album = allAlbums.first(where: { $0.albumId == albumId && $0.serverId == serverId }) else { return nil }
+            // Tracks are the primary source — present whether the album was downloaded
+            // directly or via a playlist download that never created a DownloadedAlbum record.
             let allTracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
-            let songs = allTracks
+            let albumTracks = allTracks
                 .filter { $0.albumId == albumId && $0.serverId == serverId }
                 .sorted { ($0.trackNumber ?? Int.max) < ($1.trackNumber ?? Int.max) }
-                .map { DisplayableSong(from: $0) }
-            return LocalAlbumData(albumId: album.albumId, albumName: album.name, artistName: album.artist, coverArtId: album.coverArtId, songs: songs)
+            guard !albumTracks.isEmpty else { return nil }
+            let first = albumTracks[0]
+            // DownloadedAlbum record may exist for richer metadata (direct album downloads).
+            let allAlbums = (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? []
+            let albumRecord = allAlbums.first(where: { $0.albumId == albumId && $0.serverId == serverId })
+            let songs = albumTracks.map { DisplayableSong(from: $0) }
+            return LocalAlbumData(
+                albumId: albumId,
+                albumName: albumRecord?.name ?? first.album ?? albumId,
+                artistName: albumRecord?.artist ?? first.artist,
+                coverArtId: albumRecord?.coverArtId ?? first.coverArtId,
+                songs: songs
+            )
         }
     }
 
@@ -158,6 +169,18 @@ actor DownloadService: DownloadServiceProtocol {
         let coverArtId = song.coverArt
         let fileSize = Int64(data.count)
 
+        // Best-effort: persist cover art so it's available offline (compilations, playlist tracks).
+        // song.coverArt may differ from album.coverArt on some servers — download it per track.
+        // _downloadCoverArt is idempotent (physical file check), so no redundant network hit
+        // when all tracks in a standard album share the same coverArtId.
+        if let cid = coverArtId {
+            do {
+                try await _downloadCoverArt(id: cid)
+            } catch {
+                Logger.download.error("Cover art download failed for song '\(songId, privacy: .public)' (coverArtId: \(cid, privacy: .public)): \(error, privacy: .public)")
+            }
+        }
+
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let record = DownloadedTrack(
@@ -188,13 +211,22 @@ actor DownloadService: DownloadServiceProtocol {
         guard let songs = album.song else { return }
         let total = songs.count
         var succeeded = 0
+        let aid = album.id
 
-        for song in songs {
-            do {
-                try await download(song: song, serverId: serverId)
-                succeeded += 1
-            } catch {
-                Logger.download.error("Failed song '\(song.id, privacy: .public)' in album '\(album.id, privacy: .public)': \(error, privacy: .public)")
+        await withTaskGroup(of: Bool.self) { group in
+            for song in songs {
+                group.addTask {
+                    do {
+                        try await self.download(song: song, serverId: serverId)
+                        return true
+                    } catch {
+                        Logger.download.error("Failed song '\(song.id, privacy: .public)' in album '\(aid, privacy: .public)': \(error, privacy: .public)")
+                        return false
+                    }
+                }
+            }
+            for await didSucceed in group {
+                if didSucceed { succeeded += 1 }
             }
         }
 
@@ -249,16 +281,23 @@ actor DownloadService: DownloadServiceProtocol {
     func download(playlist: PlaylistWithSongs, serverId: UUID) async throws {
         let songs = playlist.entry ?? []
         let total = songs.count
-        var succeededIds: [String] = []
+        let pid = playlist.id
 
-        for song in songs {
-            do {
-                try await download(song: song, serverId: serverId)
-                succeededIds.append(song.id)
-            } catch {
-                Logger.download.error("Failed song '\(song.id, privacy: .public)' in playlist '\(playlist.id, privacy: .public)': \(error, privacy: .public)")
+        await withTaskGroup(of: Void.self) { group in
+            for song in songs {
+                group.addTask {
+                    do {
+                        try await self.download(song: song, serverId: serverId)
+                    } catch {
+                        Logger.download.error("Failed song '\(song.id, privacy: .public)' in playlist '\(pid, privacy: .public)': \(error, privacy: .public)")
+                    }
+                }
             }
+            for await _ in group { }
         }
+
+        let downloadedIds = await downloadedSongIds(serverId: serverId)
+        let succeededIds = songs.filter { downloadedIds.contains($0.id) }.map(\.id)
 
         var localCoverPath: String? = nil
         if let coverArtId = playlist.coverArt {
