@@ -39,7 +39,7 @@ struct MainTabView: View {
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
             if hasTrack {
-                MiniPlayerView()
+                MiniPlayerAccessoryView()
             }
         }
     }
