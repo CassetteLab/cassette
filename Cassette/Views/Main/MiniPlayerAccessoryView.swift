@@ -10,19 +10,36 @@ import UIKit
 
 struct MiniPlayerAccessoryView: View {
     @Environment(\.appContainer) private var container
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement: TabViewBottomAccessoryPlacement?
     @State private var showingFullPlayer = false
     @State private var dragOffset: CGFloat = 0
     @State private var isAnimatingSwipe = false
+    @State private var dominantColor: Color = .clear
+    @State private var isLightBackground: Bool = false
 
     private let swipeThreshold: CGFloat = 100
     private let velocityThreshold: CGFloat = 200
 
+    private var typoColor: Color {
+        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
+    }
+    private var typoSecondaryColor: Color {
+        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    }
+
     var body: some View {
         if let playerState = container?.playerState {
             playerContent(playerState)
+                .background(
+                    dominantColor.opacity(0.85)
+                        .animation(.easeInOut(duration: 0.3), value: dominantColor)
+                )
                 .sheet(isPresented: $showingFullPlayer) {
                     FullPlayerView()
+                }
+                .task(id: playerState.currentTrack?.coverArtId) {
+                    await updateDominantColor(coverArtId: playerState.currentTrack?.coverArtId)
                 }
         }
     }
@@ -56,17 +73,17 @@ struct MiniPlayerAccessoryView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.cassetteCaption)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(typoColor)
                     .lineLimit(1)
                 if !isAvailable {
                     Text("Reconnect to resume")
                         .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(typoSecondaryColor)
                         .lineLimit(1)
                 } else if let artist {
                     Text(artist)
                         .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(typoSecondaryColor)
                         .lineLimit(1)
                 }
             }
@@ -87,17 +104,17 @@ struct MiniPlayerAccessoryView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.cassetteCellTitle)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(typoColor)
                         .lineLimit(1)
                     if !isAvailable {
                         Text("Reconnect to resume")
                             .font(.cassetteCaption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(typoSecondaryColor)
                             .lineLimit(1)
                     } else if let artist {
                         Text(artist)
                             .font(.cassetteCaption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(typoSecondaryColor)
                             .lineLimit(1)
                     }
                 }
@@ -112,7 +129,7 @@ struct MiniPlayerAccessoryView: View {
                         } label: {
                             Image(systemName: "forward.fill")
                                 .font(.title3)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(typoColor)
                         }
                         .buttonStyle(.borderless)
                     }
@@ -143,11 +160,43 @@ struct MiniPlayerAccessoryView: View {
         } label: {
             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                 .font(.title3)
-                .foregroundStyle(.primary)
+                .foregroundStyle(typoColor)
                 .opacity(isAvailable ? 1.0 : 0.3)
         }
         .buttonStyle(.borderless)
         .disabled(!isAvailable)
+    }
+
+    private func updateDominantColor(coverArtId: String?) async {
+        guard let coverArtId else {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                dominantColor = .clear
+                isLightBackground = false
+            }
+            return
+        }
+        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
+            await extractAndSetColor(coverArtId: coverArtId, from: localURL)
+            return
+        }
+        guard let url = await container?.libraryService.coverArtURL(id: coverArtId, size: 100) else { return }
+        await extractAndSetColor(coverArtId: coverArtId, from: url)
+    }
+
+    private func extractAndSetColor(coverArtId: String, from url: URL) async {
+        guard let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = PlatformImage(data: data) else { return }
+        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
+        let luminance = computeLuminance(of: color)
+        withAnimation(.easeInOut(duration: 0.3)) {
+            dominantColor = color
+            isLightBackground = luminance > 0.6
+        }
+    }
+
+    private func computeLuminance(of color: Color) -> Double {
+        guard let components = color.cgColor?.components, components.count >= 3 else { return 0.5 }
+        return 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
     }
 
     private var swipeSkipGesture: some Gesture {
