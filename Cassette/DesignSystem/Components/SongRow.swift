@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 
 /// Standard track cell for album and playlist detail screens.
 ///
@@ -15,6 +16,21 @@ struct SongRow: View {
     let index: Int
     var showCoverArt: Bool = false
     var isCurrentTrack: Bool = false
+
+    @Environment(\.appContainer) private var container
+    @Query private var favoriteMatches: [FavoriteRecord]
+
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false) {
+        self.song = song
+        self.index = index
+        self.showCoverArt = showCoverArt
+        self.isCurrentTrack = isCurrentTrack
+        let compositeId = "song:\(song.id)"
+        _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == compositeId })
+    }
+
+    private var isFavorite: Bool { !favoriteMatches.isEmpty }
+    private var isOnline: Bool { container?.serverState.isOnline == true }
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
@@ -44,6 +60,24 @@ struct SongRow: View {
             Spacer(minLength: 0)
 
             HStack(spacing: CassetteSpacing.s) {
+                Button {
+                    Task {
+                        if isFavorite {
+                            try? await container?.favoritesService.unstar(itemType: .song, itemId: song.id)
+                        } else {
+                            try? await container?.favoritesService.star(itemType: .song, itemId: song.id)
+                        }
+                    }
+                } label: {
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(isFavorite ? Color.cassetteAccent : Color.secondary)
+                        .scaleEffect(isFavorite ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFavorite)
+                }
+                .buttonStyle(.borderless)
+                .disabled(!isOnline)
+
                 if song.isDownloaded {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.cassetteCaption)
