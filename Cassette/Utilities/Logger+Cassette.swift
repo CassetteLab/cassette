@@ -19,4 +19,5 @@ extension Logger {
     nonisolated static let keychain   = Logger(subsystem: "app.cassette.keychain",   category: "KeychainService")
     nonisolated static let network     = Logger(subsystem: "app.cassette.network",    category: "NetworkMonitor")
     nonisolated static let ui         = Logger(subsystem: "app.cassette.ui",         category: "UI")
+    nonisolated static let favorites   = Logger(subsystem: "app.cassette.favorites",  category: "FavoritesService")
 }

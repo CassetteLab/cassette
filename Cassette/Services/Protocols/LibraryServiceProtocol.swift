@@ -16,6 +16,10 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     func coverArtURL(id: String, size: Int?) async -> URL?
     func streamURL(songId: String) async -> URL?
 
+    func star(songIds: [String], albumIds: [String], artistIds: [String]) async throws
+    func unstar(songIds: [String], albumIds: [String], artistIds: [String]) async throws
+    func getStarred2() async throws -> Starred2
+
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
     func getPlayQueue() async throws -> SavedPlayQueue?

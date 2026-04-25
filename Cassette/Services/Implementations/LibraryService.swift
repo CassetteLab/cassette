@@ -61,6 +61,18 @@ actor LibraryService: LibraryServiceProtocol {
         return c.streamURL(id: songId)
     }
 
+    func star(songIds: [String], albumIds: [String], artistIds: [String]) async throws {
+        try await client().star(songIds: songIds, albumIds: albumIds, artistIds: artistIds)
+    }
+
+    func unstar(songIds: [String], albumIds: [String], artistIds: [String]) async throws {
+        try await client().unstar(songIds: songIds, albumIds: albumIds, artistIds: artistIds)
+    }
+
+    func getStarred2() async throws -> Starred2 {
+        try await client().getStarred2()
+    }
+
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
         // TODO(v1.x): verify Navidrome savePlayQueue support; implement best-effort sync
     }

@@ -27,6 +27,7 @@ final class AppContainer {
     let mediaResolver: any MediaResolverProtocol
     let playerService: any PlayerServiceProtocol
     let nowPlayingService: any NowPlayingServiceProtocol
+    let favoritesService: any FavoritesServiceProtocol
     let networkMonitor = NetworkMonitor()
 
     init(inMemory: Bool = false) throws {
@@ -38,7 +39,8 @@ final class AppContainer {
         let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer)
         serverService = server
 
-        libraryService = LibraryService(serverService: server)
+        let library = LibraryService(serverService: server)
+        libraryService = library
 
         let cache = CacheService(modelContainer: modelContainer)
         cacheService = cache
@@ -59,6 +61,8 @@ final class AppContainer {
 
         let nowPlaying = NowPlayingService(playerService: player)
         nowPlayingService = nowPlaying
+
+        favoritesService = FavoritesService(libraryService: library, serverState: serverState, modelContainer: modelContainer)
 
         // Break the circular dependency: PlayerService holds a weak-captured ref to NowPlayingService
         // so it can push explicit snapshots (decision B). Task is fine — both actors are
