@@ -159,6 +159,21 @@ struct AlbumDetailView: View {
             .padding(.horizontal, CassetteSpacing.l)
 
             HStack(spacing: CassetteSpacing.m) {
+                Button {
+                    Task {
+                        let shuffled = vm.songs.shuffled()
+                        try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
+                    }
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.cassetteCellTitle)
+                        .foregroundStyle(Color.cassetteAccent)
+                        .frame(width: 44, height: 44)
+                        .background(Color.cassetteAccent.opacity(0.12))
+                        .clipShape(Circle())
+                }
+                .disabled(vm.songs.isEmpty)
+
                 PlayButton(action: {
                     Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: 0) }
                 }, isDisabled: vm.songs.isEmpty || vm.isDownloadingAlbum)
