@@ -25,13 +25,15 @@ struct MiniPlayerAccessoryView: View {
     @ViewBuilder
     private func playerContent(_ playerState: PlayerState) -> some View {
         let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
+        let title = playerState.currentTrack?.title ?? ""
+        let artist = playerState.currentTrack?.artist
         let isPlaying = playerState.playbackState == .playing
 
         Group {
             if placement == .inline {
-                inlineBar(coverArtId: coverArtId, isPlaying: isPlaying)
+                inlineBar(coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying)
             } else {
-                expandedBar(playerState: playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying)
             }
         }
         .contentShape(Rectangle())
@@ -39,27 +41,40 @@ struct MiniPlayerAccessoryView: View {
         .gesture(swipeSkipGesture)
     }
 
-    private func inlineBar(coverArtId: String, isPlaying: Bool) -> some View {
+    private func inlineBar(coverArtId: String, title: String, artist: String?, isPlaying: Bool) -> some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtCard(id: coverArtId, size: 28)
-            Spacer()
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if let artist {
+                    Text(artist)
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
             playPauseButton(isPlaying: isPlaying)
         }
         .padding(.horizontal, CassetteSpacing.m)
         .padding(.vertical, CassetteSpacing.s)
     }
 
-    private func expandedBar(playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
+    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, isPlaying: Bool) -> some View {
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
         return VStack(spacing: 0) {
             HStack(spacing: CassetteSpacing.m) {
                 CoverArtCard(id: coverArtId, size: 40)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(playerState.currentTrack?.title ?? "")
+                    Text(title)
                         .font(.cassetteCellTitle)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
-                    if let artist = playerState.currentTrack?.artist {
+                    if let artist {
                         Text(artist)
                             .font(.cassetteCaption)
                             .foregroundStyle(.secondary)
@@ -67,7 +82,7 @@ struct MiniPlayerAccessoryView: View {
                     }
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 HStack(spacing: CassetteSpacing.s) {
                     playPauseButton(isPlaying: isPlaying)
@@ -76,9 +91,10 @@ struct MiniPlayerAccessoryView: View {
                     } label: {
                         Image(systemName: "forward.fill")
                             .font(.title3)
+                            .foregroundStyle(.primary)
                     }
+                    .buttonStyle(.borderless)
                 }
-                .buttonStyle(.borderless)
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.vertical, CassetteSpacing.m)
@@ -105,6 +121,7 @@ struct MiniPlayerAccessoryView: View {
         } label: {
             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                 .font(.title3)
+                .foregroundStyle(.primary)
         }
         .buttonStyle(.borderless)
     }
