@@ -43,7 +43,7 @@ struct PlaylistDetailView: View {
         }
         .background(
             LinearGradient(
-                colors: [dominantColor.opacity(0.5), .clear],
+                colors: [dominantColor.opacity(0.75), dominantColor.opacity(0.5)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -304,7 +304,7 @@ private struct PlaylistSongRows: View {
             SongRow(song: liveSong, index: index + 1, showCoverArt: true, onDownload: downloadAction, isDownloading: isDownloading)
                 .contentShape(Rectangle())
                 .onTapGesture { onTap(index) }
-                .listRowBackground(Color(.systemBackground))
+                .listRowBackground(Color.clear)
         }
     }
 }
