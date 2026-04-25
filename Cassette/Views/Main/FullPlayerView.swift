@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
@@ -49,6 +50,7 @@ struct FullPlayerView: View {
     @ViewBuilder
     private func content(_ playerState: PlayerState) -> some View {
         let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
+        let isPlaying = playerState.playbackState == .playing
 
         ZStack {
             // 1. Blurred cover image fullscreen
@@ -69,66 +71,47 @@ struct FullPlayerView: View {
                 .opacity(0.5)
                 .ignoresSafeArea()
 
-            // 3. Subtle dark overlay to ensure text contrast
+            // 3. Subtle dark overlay for text contrast
             Color.black.opacity(0.25)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .cassetteGlassButton(size: 44)
-                }
+                topBar
+                    .padding(.top, CassetteSpacing.s)
 
-                Spacer()
+                Spacer(minLength: CassetteSpacing.l)
 
-                CoverArtView(id: coverArtId, size: 200)
+                // Cover art with scale animation on pause
+                CoverArtView(id: coverArtId, size: 300)
                     .aspectRatio(1, contentMode: .fit)
-                    .frame(maxWidth: 320)
                     .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                    .shadow(radius: 16, y: 8)
+                    .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                    .scaleEffect(isPlaying ? 1.0 : 0.92)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                    .padding(.horizontal, CassetteSpacing.xl)
 
-                Spacer()
+                Spacer(minLength: CassetteSpacing.l)
 
-                VStack(spacing: CassetteSpacing.xs) {
-                    Text(playerState.currentTrack?.title ?? "")
-                        .font(.cassettePlayerTitle)
-                        .foregroundStyle(Color.white)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
-                    if !playerState.isPlaybackAvailable {
-                        Label("Reconnect to resume", systemImage: "wifi.slash")
-                            .font(.cassetteCellSubtitle)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    } else if let artist = playerState.currentTrack?.artist {
-                        Text(artist)
-                            .font(.cassetteCellSubtitle)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                    }
-                    if let format = playerState.currentTrack?.audioFormat {
-                        AudioFormatBadge(format: format)
-                    }
-                }
-                .padding(.top, CassetteSpacing.l)
+                // Asymmetric track info: title/album/artist left, star/menu right
+                TrackInfoSection(playerState: playerState, container: container)
+                    .padding(.horizontal, CassetteSpacing.l)
 
+                // Scrubber (replaced in commit 3)
                 ScrubberView(playerState: playerState, playerService: container?.playerService)
-                    .padding(.top, CassetteSpacing.l)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.m)
                     .disabled(!playerState.isPlaybackAvailable)
                     .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
 
-                PlaybackControlsView(playerState: playerState, playerService: container?.playerService, isPlaybackAvailable: playerState.isPlaybackAvailable)
-                    .padding(.top, CassetteSpacing.l)
+                // Playback controls (replaced in commit 4)
+                PlaybackControlsView(
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    isPlaybackAvailable: playerState.isPlaybackAvailable
+                )
+                .padding(.top, CassetteSpacing.l)
 
+                // Repeat / shuffle
                 HStack(spacing: CassetteSpacing.xxxxl) {
                     Button {
                         Task {
@@ -153,12 +136,123 @@ struct FullPlayerView: View {
                 }
                 .padding(.top, CassetteSpacing.l)
 
-                Spacer()
+                Spacer(minLength: CassetteSpacing.l)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(.horizontal, CassetteSpacing.xl)
-            .padding(.vertical, CassetteSpacing.l)
             .cassetteContentWidth()
+        }
+    }
+
+    private var topBar: some View {
+        ZStack {
+            Capsule()
+                .fill(Color.white.opacity(0.4))
+                .frame(width: 36, height: 5)
+
+            HStack {
+                Button { dismiss() } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                        .cassetteGlassButton(size: 36)
+                }
+                .buttonStyle(.borderless)
+                Spacer()
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+    }
+}
+
+// MARK: - Track info section (own @Query for reactive favorite state)
+
+private struct TrackInfoSection: View {
+    let playerState: PlayerState
+    let container: AppContainer?
+
+    @Query private var favoriteMatches: [FavoriteRecord]
+
+    init(playerState: PlayerState, container: AppContainer?) {
+        self.playerState = playerState
+        self.container = container
+        let cid = "song:\(playerState.currentTrack?.id ?? "")"
+        _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+    }
+
+    private var isFavorite: Bool { !favoriteMatches.isEmpty }
+    private var isOnline: Bool { container?.serverState.isOnline == true }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: CassetteSpacing.m) {
+            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                Text(playerState.currentTrack?.title ?? "")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+
+                if !playerState.isPlaybackAvailable {
+                    Label("Reconnect to resume", systemImage: "wifi.slash")
+                        .font(.callout)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .lineLimit(1)
+                } else {
+                    HStack(spacing: CassetteSpacing.xs) {
+                        if let album = playerState.currentTrack?.albumName {
+                            Text(album)
+                                .font(.callout)
+                                .foregroundStyle(.white.opacity(0.7))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        if let format = playerState.currentTrack?.audioFormat {
+                            AudioFormatBadge(format: format)
+                        }
+                    }
+                    if let artist = playerState.currentTrack?.artist {
+                        Text(artist)
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: CassetteSpacing.s) {
+                Button {
+                    let fav = isFavorite
+                    let songId = playerState.currentTrack?.id ?? ""
+                    Task {
+                        if fav {
+                            try? await container?.favoritesService.unstar(itemType: .song, itemId: songId)
+                        } else {
+                            try? await container?.favoritesService.star(itemType: .song, itemId: songId)
+                        }
+                    }
+                } label: {
+                    Image(systemName: isFavorite ? "heart.fill" : "heart")
+                        .font(.title3)
+                        .foregroundStyle(isFavorite ? Color.cassetteAccent : .white)
+                        .cassetteGlassButton(size: 44)
+                }
+                .buttonStyle(.borderless)
+                .disabled(!isOnline)
+
+                Menu {
+                    Button("Go to Album", systemImage: "square.stack") { }
+                    Button("Go to Artist", systemImage: "music.mic") { }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.title3)
+                        .foregroundStyle(.white)
+                        .cassetteGlassButton(size: 44)
+                }
+                .buttonStyle(.borderless)
+            }
         }
     }
 }
