@@ -71,12 +71,20 @@ struct HomeView: View {
                     PlaylistListView()
                 }
                 Divider().padding(.leading, 52)
+                HomeLibraryRow(title: "Albums", systemImage: "square.stack") {
+                    AlbumsListView()
+                }
+                Divider().padding(.leading, 52)
                 HomeLibraryRow(title: "Artists", systemImage: "music.mic") {
                     ArtistListView()
                 }
                 Divider().padding(.leading, 52)
                 HomeLibraryRow(title: "Favorites", systemImage: "heart.fill") {
                     FavoritesView()
+                }
+                Divider().padding(.leading, 52)
+                HomeLibraryRow(title: "Downloads", systemImage: "arrow.down.circle.fill") {
+                    DownloadedView()
                 }
             }
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))

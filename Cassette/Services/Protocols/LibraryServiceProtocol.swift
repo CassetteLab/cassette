@@ -20,6 +20,7 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     func unstar(songIds: [String], albumIds: [String], artistIds: [String]) async throws
     func getStarred2() async throws -> Starred2
     func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3]
+    func allAlbums() async throws -> [AlbumID3]
 
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
