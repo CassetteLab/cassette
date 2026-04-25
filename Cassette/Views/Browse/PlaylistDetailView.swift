@@ -30,6 +30,7 @@ struct PlaylistDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
+    @State private var showDeleteAlert = false
 
     var body: some View {
         Group {
@@ -107,15 +108,35 @@ struct PlaylistDetailView: View {
                 let serverId = container?.serverState.activeServer?.id ?? UUID()
                 PlaylistSongRows(
                     songs: vm.songs,
-                    serverId: serverId
-                ) { index in
-                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
-                }
+                    serverId: serverId,
+                    downloadingIds: vm.downloadingIds,
+                    onTap: { index in
+                        Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                    },
+                    onDownload: (vm.isOffline || vm.isDownloadingPlaylist) ? nil : { songId in
+                        Task { await vm.downloadSong(id: songId) }
+                    }
+                )
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
+            .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
+                Button("Remove", role: .destructive) { Task { await vm.deleteDownload() } }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("The audio files will be deleted from this device.")
+            }
         }
+    }
+
+    private func downloadState(for vm: PlaylistDetailViewModel) -> PlaylistDownloadState {
+        let total = vm.songs.count
+        guard total > 0 else { return .notDownloaded }
+        let downloaded = vm.songs.filter { $0.isDownloaded }.count
+        if downloaded == 0 { return .notDownloaded }
+        if downloaded == total { return .fullyDownloaded }
+        return .partiallyDownloaded(downloaded: downloaded, total: total)
     }
 
     private func playlistHeader(vm: PlaylistDetailViewModel) -> some View {
@@ -174,15 +195,36 @@ struct PlaylistDetailView: View {
                                 .clipShape(Circle())
                         }
                     } else {
-                        Button { Task { await vm.downloadPlaylist() } } label: {
-                            Image(systemName: "arrow.down.circle")
-                                .font(.cassetteCellTitle)
-                                .foregroundStyle(Color.cassetteAccent)
-                                .frame(width: 44, height: 44)
-                                .background(Color.cassetteAccent.opacity(0.12))
-                                .clipShape(Circle())
+                        switch downloadState(for: vm) {
+                        case .notDownloaded:
+                            Button { Task { await vm.downloadPlaylist() } } label: {
+                                Image(systemName: "arrow.down.circle")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccent.opacity(0.12))
+                                    .clipShape(Circle())
+                            }
+                            .disabled(vm.songs.isEmpty)
+                        case .partiallyDownloaded:
+                            Button { Task { await vm.downloadMissingTracks() } } label: {
+                                Image(systemName: "arrow.down.circle.dotted")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccent.opacity(0.12))
+                                    .clipShape(Circle())
+                            }
+                        case .fullyDownloaded:
+                            Button { showDeleteAlert = true } label: {
+                                Image(systemName: "trash")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccent.opacity(0.12))
+                                    .clipShape(Circle())
+                            }
                         }
-                        .disabled(vm.songs.isEmpty)
                     }
                 }
             }
@@ -196,11 +238,23 @@ struct PlaylistDetailView: View {
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }
+            } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
+                Text("\(downloaded)/\(total) tracks downloaded")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
     }
+}
+
+// MARK: - Download state
+
+private nonisolated enum PlaylistDownloadState {
+    case notDownloaded
+    case partiallyDownloaded(downloaded: Int, total: Int)
+    case fullyDownloaded
 }
 
 // MARK: - Live download indicator rows
@@ -209,13 +263,17 @@ struct PlaylistDetailView: View {
 /// overriding the isDownloaded flag per row without requiring a VM reload.
 private struct PlaylistSongRows: View {
     let songs: [DisplayableSong]
+    let downloadingIds: Set<String>
     let onTap: (Int) -> Void
+    let onDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], serverId: UUID, onTap: @escaping (Int) -> Void) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
         self.songs = songs
+        self.downloadingIds = downloadingIds
         self.onTap = onTap
+        self.onDownload = onDownload
         let sid = serverId
         _downloadedTracks = Query(
             filter: #Predicate<DownloadedTrack> { track in
@@ -241,7 +299,9 @@ private struct PlaylistSongRows: View {
                 isDownloaded: liveDownloaded,
                 coverArtId: song.coverArtId
             )
-            SongRow(song: liveSong, index: index + 1, showCoverArt: true)
+            let isDownloading = downloadingIds.contains(song.id)
+            let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
+            SongRow(song: liveSong, index: index + 1, showCoverArt: true, onDownload: downloadAction, isDownloading: isDownloading)
                 .contentShape(Rectangle())
                 .onTapGesture { onTap(index) }
                 .listRowBackground(Color(.systemBackground))
