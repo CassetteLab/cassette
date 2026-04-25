@@ -11,6 +11,8 @@ struct HomeView: View {
     @Environment(\.appContainer) private var container
     @Query(sort: \PinnedItem.sortOrder) private var pinnedItems: [PinnedItem]
     @State private var viewModel: HomeViewModel?
+    @State private var showEditPinned = false
+    @State private var navigateToSettings = false
 
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
@@ -38,6 +40,24 @@ struct HomeView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Home")
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Menu {
+                    if !pinnedItems.isEmpty {
+                        Button { showEditPinned = true } label: {
+                            Label("Edit Pinned", systemImage: "pin")
+                        }
+                    }
+                    Button { navigateToSettings = true } label: {
+                        Label("Settings", systemImage: "gear")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .sheet(isPresented: $showEditPinned) { EditPinnedView() }
+        .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = HomeViewModel(libraryService: svc) }
