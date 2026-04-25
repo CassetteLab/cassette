@@ -59,17 +59,20 @@ struct FullPlayerView: View {
         let isPlaying = playerState.playbackState == .playing
 
         ZStack {
-            // 1. Blurred cover image fullscreen
+            // 1. Black base — always in tree so ZStack size never comes from image intrinsics
+            Color.black.ignoresSafeArea()
+
+            // Blurred cover fades in on top; explicit frame prevents the image from
+            // contributing its pixel dimensions to the ZStack's size calculation
             if let coverImage {
                 Image(platformImage: coverImage)
                     .resizable()
                     .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .scaleEffect(1.3)
                     .blur(radius: 80, opaque: true)
                     .ignoresSafeArea()
                     .transition(.opacity)
-            } else {
-                Color.black.ignoresSafeArea()
             }
 
             // 2. Dominant color tint at 50%
