@@ -115,7 +115,7 @@ struct ArtistListView: View {
             } else if let results = vm.searchResults {
                 artistSection(results.artist ?? [])
                 albumSection(results.album ?? [])
-                songSection(results.song ?? [])
+                songSection((results.song ?? []).map { DisplayableSong(from: $0) })
             }
         }
         .listStyle(.plain)
@@ -154,7 +154,7 @@ struct ArtistListView: View {
     }
 
     @ViewBuilder
-    private func songSection(_ songs: [Song]) -> some View {
+    private func songSection(_ songs: [DisplayableSong]) -> some View {
         if !songs.isEmpty {
             Section("Songs") {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
@@ -195,25 +195,27 @@ private struct OfflineBrowseContent: View {
             List {
                 Section("Downloaded Albums") {
                     ForEach(albums) { album in
-                        HStack(spacing: CassetteSpacing.m) {
-                            CoverArtCard(id: album.coverArtId ?? album.albumId, size: 44)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(album.name)
-                                    .font(.cassetteCellTitle)
-                                    .lineLimit(1)
-                                if let artist = album.artist {
-                                    Text(artist)
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(.secondary)
+                        NavigationLink(destination: AlbumDetailView(album: album)) {
+                            HStack(spacing: CassetteSpacing.m) {
+                                CoverArtCard(id: album.coverArtId ?? album.albumId, size: 44)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(album.name)
+                                        .font(.cassetteCellTitle)
                                         .lineLimit(1)
+                                    if let artist = album.artist {
+                                        Text(artist)
+                                            .font(.cassetteCaption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
                                 }
+                                Spacer(minLength: 0)
+                                Text("\(album.tracksCount) track\(album.tracksCount == 1 ? "" : "s")")
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(.secondary)
                             }
-                            Spacer(minLength: 0)
-                            Text("\(album.tracksCount) track\(album.tracksCount == 1 ? "" : "s")")
-                                .font(.cassetteCaption)
-                                .foregroundStyle(.secondary)
+                            .padding(.vertical, CassetteSpacing.xs)
                         }
-                        .padding(.vertical, CassetteSpacing.xs)
                     }
                 }
             }

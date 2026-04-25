@@ -14,6 +14,21 @@ nonisolated struct DownloadProgress: Sendable {
     let receivedBytes: Int64
 }
 
+nonisolated struct LocalAlbumData: Sendable {
+    let albumId: String
+    let albumName: String
+    let artistName: String?
+    let coverArtId: String?
+    let songs: [DisplayableSong]
+}
+
+nonisolated struct LocalPlaylistData: Sendable {
+    let playlistId: String
+    let name: String
+    let coverArtId: String?
+    let songs: [DisplayableSong]
+}
+
 protocol DownloadServiceProtocol: AnyObject, Sendable {
     /// Live stream of in-progress downloads for UI progress display.
     var progressStream: AsyncStream<[DownloadProgress]> { get }
@@ -25,6 +40,11 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
 
     /// Returns the local file URL for a downloaded cover art, or nil if not cached.
     func localCoverArtURL(forId coverArtId: String) async -> URL?
+
+    /// Returns offline-playable album data assembled from persisted tracks, or nil if not downloaded.
+    func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData?
+    /// Returns offline-playable playlist data assembled from persisted tracks, or nil if not downloaded.
+    func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData?
 
     // TODO(v1.x): switch to background URLSession with resume support.
     // v1 uses foreground URLSession — user must keep the app open during download.

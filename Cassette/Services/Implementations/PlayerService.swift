@@ -41,7 +41,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Play
 
-    func play(tracks: [Song], startIndex: Int) async throws {
+    func play(tracks: [DisplayableSong], startIndex: Int) async throws {
         guard tracks.indices.contains(startIndex) else { return }
 
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
@@ -70,7 +70,7 @@ actor PlayerService: PlayerServiceProtocol {
         await startPlayback(song: song, source: source)
     }
 
-    private func startPlayback(song: Song, source: MediaSource) async {
+    private func startPlayback(song: DisplayableSong, source: MediaSource) async {
         teardownPlayer()
 
         #if os(iOS)
@@ -86,7 +86,7 @@ actor PlayerService: PlayerServiceProtocol {
 
         newPlayer.play()
 
-        let duration = song.duration.map { TimeInterval($0) } ?? 0
+        let duration = song.duration
         await MainActor.run {
             state.currentTrack = song
             state.duration = duration
@@ -99,7 +99,7 @@ actor PlayerService: PlayerServiceProtocol {
         let snapshot = NowPlayingSnapshot(
             title: song.title,
             artist: song.artist,
-            album: song.album,
+            album: song.albumName,
             duration: duration,
             position: 0,
             playbackRate: 1.0,
@@ -185,7 +185,7 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.isShuffled.toggle() }
     }
 
-    func appendToQueue(_ tracks: [Song]) async {
+    func appendToQueue(_ tracks: [DisplayableSong]) async {
         await MainActor.run { state.queue.append(contentsOf: tracks) }
     }
 
@@ -288,9 +288,9 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Artwork / NowPlaying helpers
 
-    private func resolveArtworkURL(for song: Song) async -> URL? {
+    private func resolveArtworkURL(for song: DisplayableSong) async -> URL? {
         guard let client = try? await serverService.makeSwiftSonicClient() else { return nil }
-        let artId = song.coverArt ?? song.id
+        let artId = song.coverArtId ?? song.id
         return client.coverArtURL(id: artId, size: 300)
     }
 
@@ -312,7 +312,7 @@ actor PlayerService: PlayerServiceProtocol {
         let snapshot = NowPlayingSnapshot(
             title: track.title,
             artist: track.artist,
-            album: track.album,
+            album: track.albumName,
             duration: duration,
             position: position,
             playbackRate: resolvedRate,

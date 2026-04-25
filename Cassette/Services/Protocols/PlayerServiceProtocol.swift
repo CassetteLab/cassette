@@ -4,7 +4,6 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
-import SwiftSonic
 
 protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Observable playback state (MainActor-isolated).
@@ -12,7 +11,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Never duplicate this state in a view model.
     var state: PlayerState { get }
 
-    func play(tracks: [Song], startIndex: Int) async throws
+    func play(tracks: [DisplayableSong], startIndex: Int) async throws
     func resume() async
     func pause() async
     func stop() async
@@ -21,7 +20,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func seek(to position: TimeInterval) async
     func setRepeatMode(_ mode: RepeatMode) async
     func toggleShuffle() async
-    func appendToQueue(_ tracks: [Song]) async
+    func appendToQueue(_ tracks: [DisplayableSong]) async
     func removeFromQueue(at index: Int) async
     func moveInQueue(fromIndex: Int, toIndex: Int) async
 }

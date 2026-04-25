@@ -5,9 +5,21 @@
 
 import SwiftUI
 import SwiftSonic
+import SwiftData
 
 struct AlbumDetailView: View {
-    let album: AlbumID3
+    private let albumId: String
+    private let initialName: String
+
+    init(album: AlbumID3) {
+        albumId = album.id
+        initialName = album.name
+    }
+
+    init(album: DownloadedAlbum) {
+        albumId = album.albumId
+        initialName = album.name
+    }
 
     @Environment(\.appContainer) private var container
     @State private var viewModel: AlbumDetailViewModel?
@@ -22,13 +34,13 @@ struct AlbumDetailView: View {
             }
         }
         .cassetteContentWidth()
-        .navigationTitle(album.name)
+        .navigationTitle(viewModel?.albumName ?? initialName)
         .navigationBarTitleDisplayModeInline()
         .task {
             guard let c = container else { return }
             if viewModel == nil {
                 viewModel = AlbumDetailViewModel(
-                    albumId: album.id,
+                    albumId: albumId,
                     libraryService: c.libraryService,
                     downloadService: c.downloadService,
                     serverState: c.serverState
@@ -40,10 +52,10 @@ struct AlbumDetailView: View {
 
     @ViewBuilder
     private func content(_ vm: AlbumDetailViewModel) -> some View {
-        if vm.isLoading && vm.album == nil {
+        if vm.isLoading && vm.songs.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let error = vm.error, vm.album == nil {
+        } else if let error = vm.error, vm.songs.isEmpty {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Album",
@@ -51,24 +63,18 @@ struct AlbumDetailView: View {
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else {
-            let loaded = vm.album ?? album
-            let songs = loaded.song ?? []
             List {
-                albumHeader(loaded, songs: songs, vm: vm)
+                albumHeader(vm: vm)
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(
-                        song: song,
-                        index: index + 1,
-                        isDownloaded: vm.downloadedSongIds.contains(song.id)
-                    )
-                    .onTapGesture {
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
-                    }
-                    .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
+                ForEach(Array(vm.songs.enumerated()), id: \.element.id) { index, song in
+                    SongRow(song: song, index: index + 1)
+                        .onTapGesture {
+                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                        }
+                        .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 }
             }
             .listStyle(.plain)
@@ -76,28 +82,28 @@ struct AlbumDetailView: View {
         }
     }
 
-    private func albumHeader(_ album: AlbumID3, songs: [Song], vm: AlbumDetailViewModel) -> some View {
+    private func albumHeader(vm: AlbumDetailViewModel) -> some View {
         VStack(spacing: CassetteSpacing.l) {
             CoverArtCard(
-                id: album.coverArt ?? album.id,
+                id: vm.coverArtId ?? albumId,
                 size: 220,
                 cornerRadius: CassetteCornerRadius.large
             )
             .padding(.top, CassetteSpacing.xxl)
 
             VStack(spacing: CassetteSpacing.s) {
-                Text(album.name)
+                Text(vm.albumName)
                     .font(.cassetteDetailTitle)
                     .multilineTextAlignment(.center)
-                if let artist = album.artist {
+                if let artist = vm.artistName {
                     Text(artist)
                         .font(.cassetteCellSubtitle)
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: CassetteSpacing.s) {
-                    if let year = album.year { Text(String(year)) }
-                    if let genre = album.genre { Text("·"); Text(genre) }
-                    Text("·"); Text("\(album.songCount) tracks")
+                    if let year = vm.year { Text(String(year)) }
+                    if let genre = vm.genre { Text("·"); Text(genre) }
+                    Text("·"); Text("\(vm.songCount) tracks")
                 }
                 .font(.cassetteCaption)
                 .foregroundStyle(.tertiary)
@@ -106,29 +112,31 @@ struct AlbumDetailView: View {
 
             HStack(spacing: CassetteSpacing.m) {
                 PlayButton(action: {
-                    Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
-                }, isDisabled: songs.isEmpty || vm.isDownloadingAlbum)
+                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: 0) }
+                }, isDisabled: vm.songs.isEmpty || vm.isDownloadingAlbum)
                 .frame(maxWidth: 400)
 
-                if vm.isDownloadingAlbum {
-                    Button { Task { await vm.cancelAlbumDownload() } } label: {
-                        Image(systemName: "xmark")
-                            .font(.cassetteCellTitle)
-                            .foregroundStyle(Color.cassetteAccent)
-                            .frame(width: 44, height: 44)
-                            .background(Color.cassetteAccent.opacity(0.12))
-                            .clipShape(Circle())
+                if !vm.isOffline {
+                    if vm.isDownloadingAlbum {
+                        Button { Task { await vm.cancelAlbumDownload() } } label: {
+                            Image(systemName: "xmark")
+                                .font(.cassetteCellTitle)
+                                .foregroundStyle(Color.cassetteAccent)
+                                .frame(width: 44, height: 44)
+                                .background(Color.cassetteAccent.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                    } else {
+                        Button { Task { await vm.downloadAlbum() } } label: {
+                            Image(systemName: "arrow.down.circle")
+                                .font(.cassetteCellTitle)
+                                .foregroundStyle(Color.cassetteAccent)
+                                .frame(width: 44, height: 44)
+                                .background(Color.cassetteAccent.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .disabled(vm.songs.isEmpty)
                     }
-                } else {
-                    Button { Task { await vm.downloadAlbum() } } label: {
-                        Image(systemName: "arrow.down.circle")
-                            .font(.cassetteCellTitle)
-                            .foregroundStyle(Color.cassetteAccent)
-                            .frame(width: 44, height: 44)
-                            .background(Color.cassetteAccent.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-                    .disabled(songs.isEmpty)
                 }
             }
             .buttonStyle(.borderless)

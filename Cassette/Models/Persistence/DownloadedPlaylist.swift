@@ -21,6 +21,8 @@ final class DownloadedPlaylist {
     var coverArtId: String?
     /// Relative path (from Documents/app.cassette/) to the cached cover art file.
     var localCoverArtPath: String?
+    /// Ordered list of song IDs in this playlist, used for offline playback reconstruction.
+    var songIds: [String] = []
 
     var isComplete: Bool { tracksCount == totalTracksCount }
 
@@ -34,7 +36,8 @@ final class DownloadedPlaylist {
         totalTracksCount: Int,
         downloadedAt: Date = Date(),
         coverArtId: String? = nil,
-        localCoverArtPath: String? = nil
+        localCoverArtPath: String? = nil,
+        songIds: [String] = []
     ) {
         self.id = id
         self.playlistId = playlistId
@@ -46,5 +49,6 @@ final class DownloadedPlaylist {
         self.downloadedAt = downloadedAt
         self.coverArtId = coverArtId
         self.localCoverArtPath = localCoverArtPath
+        self.songIds = songIds
     }
 }

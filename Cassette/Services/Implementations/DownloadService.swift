@@ -71,6 +71,33 @@ actor DownloadService: DownloadServiceProtocol {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData? {
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let allAlbums = (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? []
+            guard let album = allAlbums.first(where: { $0.albumId == albumId && $0.serverId == serverId }) else { return nil }
+            let allTracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+            let songs = allTracks
+                .filter { $0.albumId == albumId && $0.serverId == serverId }
+                .sorted { ($0.trackNumber ?? Int.max) < ($1.trackNumber ?? Int.max) }
+                .map { DisplayableSong(from: $0) }
+            return LocalAlbumData(albumId: album.albumId, albumName: album.name, artistName: album.artist, coverArtId: album.coverArtId, songs: songs)
+        }
+    }
+
+    func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData? {
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let allPlaylists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
+            guard let playlist = allPlaylists.first(where: { $0.playlistId == playlistId && $0.serverId == serverId }) else { return nil }
+            let allTracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+            let songs = playlist.songIds.compactMap { songId in
+                allTracks.first(where: { $0.songId == songId && $0.serverId == serverId })
+            }.map { DisplayableSong(from: $0) }
+            return LocalPlaylistData(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId, songs: songs)
+        }
+    }
+
     // MARK: - Single track download
 
     func download(song: Song, serverId: UUID) async throws {
@@ -209,12 +236,12 @@ actor DownloadService: DownloadServiceProtocol {
     func download(playlist: PlaylistWithSongs, serverId: UUID) async throws {
         let songs = playlist.entry ?? []
         let total = songs.count
-        var succeeded = 0
+        var succeededIds: [String] = []
 
         for song in songs {
             do {
                 try await download(song: song, serverId: serverId)
-                succeeded += 1
+                succeededIds.append(song.id)
             } catch {
                 Logger.download.error("Failed song '\(song.id, privacy: .public)' in playlist '\(playlist.id, privacy: .public)': \(error, privacy: .public)")
             }
@@ -224,8 +251,9 @@ actor DownloadService: DownloadServiceProtocol {
         let playlistName = playlist.name
         let comment = playlist.comment
         let coverArt = playlist.coverArt
-        let tracksSucceeded = succeeded
+        let tracksSucceeded = succeededIds.count
         let totalTracks = total
+        let ids = succeededIds
 
         await MainActor.run {
             let context = ModelContext(modelContainer)
@@ -236,6 +264,7 @@ actor DownloadService: DownloadServiceProtocol {
                 existing.tracksCount = tracksSucceeded
                 existing.totalTracksCount = totalTracks
                 existing.downloadedAt = Date()
+                existing.songIds = ids
             } else {
                 let record = DownloadedPlaylist(
                     playlistId: playlistId,
@@ -244,13 +273,14 @@ actor DownloadService: DownloadServiceProtocol {
                     comment: comment,
                     tracksCount: tracksSucceeded,
                     totalTracksCount: totalTracks,
-                    coverArtId: coverArt
+                    coverArtId: coverArt,
+                    songIds: ids
                 )
                 context.insert(record)
             }
             try? context.save()
         }
-        Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(succeeded)/\(total) tracks downloaded.")
+        Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
     }
 
     // MARK: - Cancel

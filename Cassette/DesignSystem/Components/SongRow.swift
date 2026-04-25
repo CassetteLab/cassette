@@ -4,27 +4,24 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
-import SwiftSonic
 
 /// Standard track cell for album and playlist detail screens.
 ///
 /// - `showCoverArt`: show a 44pt thumbnail (useful in playlist context where tracks
 ///   may come from different albums). Default `false` for album tracks.
 /// - `isCurrentTrack`: tints the title with `cassetteAccent`.
-/// - `isDownloaded`: shows a download badge icon.
 struct SongRow: View {
-    let song: Song
+    let song: DisplayableSong
     let index: Int
     var showCoverArt: Bool = false
-    var isDownloaded: Bool = false
     var isCurrentTrack: Bool = false
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
             if showCoverArt {
-                CoverArtCard(id: song.coverArt ?? song.id, size: 44)
+                CoverArtCard(id: song.coverArtId ?? song.id, size: 44)
             } else {
-                Text("\(song.track ?? index)")
+                Text("\(song.trackNumber ?? index)")
                     .font(.cassetteCaption)
                     .foregroundStyle(.tertiary)
                     .frame(width: 28, alignment: .trailing)
@@ -47,13 +44,13 @@ struct SongRow: View {
             Spacer(minLength: 0)
 
             HStack(spacing: CassetteSpacing.s) {
-                if isDownloaded {
+                if song.isDownloaded {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.cassetteCaption)
                         .foregroundStyle(.tertiary)
                 }
-                if let duration = song.duration {
-                    Text(Duration.seconds(duration).formatted(.time(pattern: .minuteSecond)))
+                if song.duration > 0 {
+                    Text(Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)))
                         .font(.cassetteCaption)
                         .foregroundStyle(.tertiary)
                         .monospacedDigit()

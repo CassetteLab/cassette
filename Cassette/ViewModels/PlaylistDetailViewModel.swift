@@ -9,12 +9,16 @@ import SwiftSonic
 @Observable
 @MainActor
 final class PlaylistDetailViewModel {
-    var playlist: PlaylistWithSongs?
+    var name: String = ""
+    var owner: String? = nil
+    var coverArtId: String? = nil
+    var songs: [DisplayableSong] = []
+    var isOffline: Bool = false
     var isLoading = false
     var error: Error?
-    var downloadedSongIds: Set<String> = []
     var isDownloadingPlaylist = false
 
+    private var loadedPlaylist: PlaylistWithSongs?
     private let playlistId: String
     private let libraryService: any LibraryServiceProtocol
     private let downloadService: any DownloadServiceProtocol
@@ -35,31 +39,62 @@ final class PlaylistDetailViewModel {
     func load() async {
         isLoading = true
         error = nil
-        do {
-            playlist = try await libraryService.playlist(id: playlistId)
-            await loadDownloadState()
-        } catch {
-            self.error = error
+        if serverState.isOnline {
+            await loadFromAPI()
+        } else {
+            await loadFromLocal()
         }
         isLoading = false
     }
 
-    func loadDownloadState() async {
+    private func loadFromAPI() async {
+        do {
+            let apiPlaylist = try await libraryService.playlist(id: playlistId)
+            loadedPlaylist = apiPlaylist
+            guard let serverId = serverState.activeServer?.id else { return }
+            let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
+            name = apiPlaylist.name
+            owner = apiPlaylist.owner
+            coverArtId = apiPlaylist.coverArt
+            songs = (apiPlaylist.entry ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
+            isOffline = false
+        } catch {
+            self.error = error
+        }
+    }
+
+    private func loadFromLocal() async {
         guard let serverId = serverState.activeServer?.id else { return }
-        downloadedSongIds = await downloadService.downloadedSongIds(serverId: serverId)
+        if let data = await downloadService.localPlaylistData(playlistId: playlistId, serverId: serverId) {
+            name = data.name
+            coverArtId = data.coverArtId
+            songs = data.songs
+            isOffline = true
+        } else {
+            isOffline = true
+        }
     }
 
     func downloadPlaylist() async {
-        guard let playlist, let serverId = serverState.activeServer?.id else { return }
+        guard let playlist = loadedPlaylist, let serverId = serverState.activeServer?.id else { return }
         isDownloadingPlaylist = true
         try? await downloadService.download(playlist: playlist, serverId: serverId)
-        await loadDownloadState()
+        let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
+        songs = songs.map { song in
+            DisplayableSong(
+                id: song.id, title: song.title, artist: song.artist,
+                albumName: song.albumName, duration: song.duration,
+                trackNumber: song.trackNumber,
+                isDownloaded: downloadedIds.contains(song.id),
+                coverArtId: song.coverArtId
+            )
+        }
         isDownloadingPlaylist = false
     }
 
     func cancelPlaylistDownload() async {
         guard let serverId = serverState.activeServer?.id else { return }
-        for song in playlist?.entry ?? [] {
+        for song in songs {
             await downloadService.cancelDownload(songId: song.id, serverId: serverId)
         }
         isDownloadingPlaylist = false

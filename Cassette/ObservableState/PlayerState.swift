@@ -5,7 +5,6 @@
 
 import Foundation
 import Observation
-import SwiftSonic
 
 /// Observable UI state for playback. Updated by PlayerService via MainActor.run.
 /// Single source of truth consumed by MiniPlayer, FullPlayer, NowPlayingService,
@@ -13,8 +12,8 @@ import SwiftSonic
 @Observable
 @MainActor
 final class PlayerState {
-    var currentTrack: Song?
-    var queue: [Song] = []
+    var currentTrack: DisplayableSong?
+    var queue: [DisplayableSong] = []
     var currentIndex: Int = 0
     var playbackState: PlaybackState = .idle
     var position: TimeInterval = 0

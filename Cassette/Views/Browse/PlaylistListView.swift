@@ -108,19 +108,21 @@ private struct OfflinePlaylistContent: View {
             List {
                 Section("Downloaded Playlists") {
                     ForEach(playlists) { playlist in
-                        HStack(spacing: CassetteSpacing.m) {
-                            CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(playlist.name)
-                                    .font(.cassetteCellTitle)
-                                    .lineLimit(1)
-                                Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")")
-                                    .font(.cassetteCaption)
-                                    .foregroundStyle(.secondary)
+                        NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
+                            HStack(spacing: CassetteSpacing.m) {
+                                CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(playlist.name)
+                                        .font(.cassetteCellTitle)
+                                        .lineLimit(1)
+                                    Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
+                            .padding(.vertical, CassetteSpacing.xs)
                         }
-                        .padding(.vertical, CassetteSpacing.xs)
                     }
                 }
             }

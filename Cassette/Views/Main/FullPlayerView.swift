@@ -4,7 +4,6 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
-import SwiftSonic
 
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
@@ -18,7 +17,7 @@ struct FullPlayerView: View {
 
     @ViewBuilder
     private func content(_ playerState: PlayerState) -> some View {
-        let coverArtId = playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? ""
+        let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
 
         ZStack {
             // Blurred album cover background

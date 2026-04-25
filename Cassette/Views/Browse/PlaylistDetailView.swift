@@ -5,9 +5,21 @@
 
 import SwiftUI
 import SwiftSonic
+import SwiftData
 
 struct PlaylistDetailView: View {
-    let playlist: Playlist
+    private let playlistId: String
+    private let initialName: String
+
+    init(playlist: Playlist) {
+        playlistId = playlist.id
+        initialName = playlist.name
+    }
+
+    init(playlist: DownloadedPlaylist) {
+        playlistId = playlist.playlistId
+        initialName = playlist.name
+    }
 
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistDetailViewModel?
@@ -22,13 +34,13 @@ struct PlaylistDetailView: View {
             }
         }
         .cassetteContentWidth()
-        .navigationTitle(playlist.name)
+        .navigationTitle(viewModel?.name ?? initialName)
         .navigationBarTitleDisplayModeInline()
         .task {
             guard let c = container else { return }
             if viewModel == nil {
                 viewModel = PlaylistDetailViewModel(
-                    playlistId: playlist.id,
+                    playlistId: playlistId,
                     libraryService: c.libraryService,
                     downloadService: c.downloadService,
                     serverState: c.serverState
@@ -40,10 +52,10 @@ struct PlaylistDetailView: View {
 
     @ViewBuilder
     private func content(_ vm: PlaylistDetailViewModel) -> some View {
-        if vm.isLoading && vm.playlist == nil {
+        if vm.isLoading && vm.songs.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if let error = vm.error, vm.playlist == nil {
+        } else if let error = vm.error, vm.songs.isEmpty {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Playlist",
@@ -51,29 +63,17 @@ struct PlaylistDetailView: View {
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else {
-            let songs = vm.playlist?.entry ?? []
             List {
-                playlistHeader(
-                    coverArtId: playlist.coverArt ?? playlist.id,
-                    name: playlist.name,
-                    owner: playlist.owner,
-                    songs: songs,
-                    vm: vm
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
+                playlistHeader(vm: vm)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
 
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(
-                        song: song,
-                        index: index + 1,
-                        showCoverArt: true,
-                        isDownloaded: vm.downloadedSongIds.contains(song.id)
-                    )
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
-                    }
+                ForEach(Array(vm.songs.enumerated()), id: \.element.id) { index, song in
+                    SongRow(song: song, index: index + 1, showCoverArt: true)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                        }
                 }
             }
             .listStyle(.plain)
@@ -81,31 +81,25 @@ struct PlaylistDetailView: View {
         }
     }
 
-    private func playlistHeader(
-        coverArtId: String,
-        name: String,
-        owner: String?,
-        songs: [Song],
-        vm: PlaylistDetailViewModel
-    ) -> some View {
+    private func playlistHeader(vm: PlaylistDetailViewModel) -> some View {
         VStack(spacing: CassetteSpacing.l) {
             CoverArtCard(
-                id: coverArtId,
+                id: vm.coverArtId ?? playlistId,
                 size: 220,
                 cornerRadius: CassetteCornerRadius.large
             )
             .padding(.top, CassetteSpacing.xxl)
 
             VStack(spacing: CassetteSpacing.s) {
-                Text(name)
+                Text(vm.name)
                     .font(.cassetteDetailTitle)
                     .multilineTextAlignment(.center)
-                if let owner {
+                if let owner = vm.owner {
                     Text("by \(owner)")
                         .font(.cassetteCellSubtitle)
                         .foregroundStyle(.secondary)
                 }
-                Text("\(songs.count) track\(songs.count == 1 ? "" : "s")")
+                Text("\(vm.songs.count) track\(vm.songs.count == 1 ? "" : "s")")
                     .font(.cassetteCaption)
                     .foregroundStyle(.tertiary)
             }
@@ -113,29 +107,31 @@ struct PlaylistDetailView: View {
 
             HStack(spacing: CassetteSpacing.m) {
                 PlayButton(action: {
-                    Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
-                }, isDisabled: songs.isEmpty || vm.isDownloadingPlaylist)
+                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: 0) }
+                }, isDisabled: vm.songs.isEmpty || vm.isDownloadingPlaylist)
                 .frame(maxWidth: 400)
 
-                if vm.isDownloadingPlaylist {
-                    Button { Task { await vm.cancelPlaylistDownload() } } label: {
-                        Image(systemName: "xmark")
-                            .font(.cassetteCellTitle)
-                            .foregroundStyle(Color.cassetteAccent)
-                            .frame(width: 44, height: 44)
-                            .background(Color.cassetteAccent.opacity(0.12))
-                            .clipShape(Circle())
+                if !vm.isOffline {
+                    if vm.isDownloadingPlaylist {
+                        Button { Task { await vm.cancelPlaylistDownload() } } label: {
+                            Image(systemName: "xmark")
+                                .font(.cassetteCellTitle)
+                                .foregroundStyle(Color.cassetteAccent)
+                                .frame(width: 44, height: 44)
+                                .background(Color.cassetteAccent.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                    } else {
+                        Button { Task { await vm.downloadPlaylist() } } label: {
+                            Image(systemName: "arrow.down.circle")
+                                .font(.cassetteCellTitle)
+                                .foregroundStyle(Color.cassetteAccent)
+                                .frame(width: 44, height: 44)
+                                .background(Color.cassetteAccent.opacity(0.12))
+                                .clipShape(Circle())
+                        }
+                        .disabled(vm.songs.isEmpty)
                     }
-                } else {
-                    Button { Task { await vm.downloadPlaylist() } } label: {
-                        Image(systemName: "arrow.down.circle")
-                            .font(.cassetteCellTitle)
-                            .foregroundStyle(Color.cassetteAccent)
-                            .frame(width: 44, height: 44)
-                            .background(Color.cassetteAccent.opacity(0.12))
-                            .clipShape(Circle())
-                    }
-                    .disabled(songs.isEmpty)
                 }
             }
             .buttonStyle(.borderless)
@@ -154,4 +150,3 @@ struct PlaylistDetailView: View {
         .frame(maxWidth: .infinity)
     }
 }
-

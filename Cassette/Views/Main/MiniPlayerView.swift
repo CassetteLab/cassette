@@ -22,7 +22,7 @@ struct MiniPlayerView: View {
     }
 
     private func bar(_ playerState: PlayerState) -> some View {
-        let coverArtId = playerState.currentTrack?.coverArt ?? playerState.currentTrack?.id ?? ""
+        let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
 
         return VStack(spacing: 0) {
