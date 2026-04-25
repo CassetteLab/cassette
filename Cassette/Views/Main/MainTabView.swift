@@ -14,6 +14,21 @@ struct MainTabView: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        tabs
+            .tabBarMinimizeBehavior(.onScrollDown)
+            .tabViewBottomAccessory {
+                if hasTrack { MiniPlayerAccessoryView() }
+            }
+        #else
+        tabs
+            .safeAreaInset(edge: .bottom) {
+                if hasTrack { MiniPlayerAccessoryView() }
+            }
+        #endif
+    }
+
+    private var tabs: some View {
         TabView {
             Tab("Home", systemImage: "house.fill") {
                 NavigationStack {
@@ -34,12 +49,6 @@ struct MainTabView: View {
                         .navigationTitle("Search")
                 }
                 .searchable(text: $searchText, prompt: "Artists, albums, songs\u{2026}")
-            }
-        }
-        .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewBottomAccessory {
-            if hasTrack {
-                MiniPlayerAccessoryView()
             }
         }
     }
