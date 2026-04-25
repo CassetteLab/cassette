@@ -16,15 +16,17 @@ struct SongRow: View {
     let index: Int
     var showCoverArt: Bool = false
     var isCurrentTrack: Bool = false
+    let onDownload: (() -> Void)?
 
     @Environment(\.appContainer) private var container
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, onDownload: (() -> Void)? = nil) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
         self.isCurrentTrack = isCurrentTrack
+        self.onDownload = onDownload
         let compositeId = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == compositeId })
     }
@@ -82,6 +84,13 @@ struct SongRow: View {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.cassetteCaption)
                         .foregroundStyle(.tertiary)
+                } else if let onDownload {
+                    Button(action: onDownload) {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.borderless)
                 }
                 if song.duration > 0 {
                     Text(Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)))

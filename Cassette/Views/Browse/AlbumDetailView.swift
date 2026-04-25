@@ -120,10 +120,14 @@ struct AlbumDetailView: View {
                 AlbumSongRows(
                     songs: vm.songs,
                     albumId: albumId,
-                    serverId: serverId
-                ) { index in
-                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
-                }
+                    serverId: serverId,
+                    onTap: { index in
+                        Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                    },
+                    onDownload: vm.isOffline ? nil : { songId in
+                        Task { await vm.downloadSong(id: songId) }
+                    }
+                )
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
@@ -295,12 +299,14 @@ private nonisolated enum AlbumDownloadState {
 private struct AlbumSongRows: View {
     let songs: [DisplayableSong]
     let onTap: (Int) -> Void
+    let onDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], albumId: String, serverId: UUID, onTap: @escaping (Int) -> Void) {
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
         self.songs = songs
         self.onTap = onTap
+        self.onDownload = onDownload
         let aid = albumId
         let sid = serverId
         _downloadedTracks = Query(
@@ -327,7 +333,8 @@ private struct AlbumSongRows: View {
                 isDownloaded: liveDownloaded,
                 coverArtId: song.coverArtId
             )
-            SongRow(song: liveSong, index: index + 1)
+            let downloadAction: (() -> Void)? = liveDownloaded ? nil : onDownload.map { action in { action(song.id) } }
+            SongRow(song: liveSong, index: index + 1, onDownload: downloadAction)
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 .listRowBackground(Color(.systemBackground))

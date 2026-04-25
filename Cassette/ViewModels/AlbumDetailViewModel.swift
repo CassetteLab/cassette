@@ -108,6 +108,12 @@ final class AlbumDetailViewModel {
         isDownloadingAlbum = false
     }
 
+    func downloadSong(id: String) async {
+        guard let song = loadedAlbum?.song?.first(where: { $0.id == id }),
+              let serverId = serverState.activeServer?.id else { return }
+        try? await downloadService.download(song: song, serverId: serverId)
+    }
+
     func downloadMissingTracks() async {
         guard let album = loadedAlbum,
               let serverId = serverState.activeServer?.id,
