@@ -9,10 +9,10 @@ import UIKit
 #endif
 
 struct MiniPlayerAccessoryView: View {
+    @Binding var showingFullPlayer: Bool
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement: TabViewBottomAccessoryPlacement?
-    @State private var showingFullPlayer = false
     @State private var dragOffset: CGFloat = 0
     @State private var isAnimatingSwipe = false
     @State private var dominantColor: Color = .clear
@@ -35,9 +35,6 @@ struct MiniPlayerAccessoryView: View {
                     dominantColor.opacity(0.85)
                         .animation(.easeInOut(duration: 0.3), value: dominantColor)
                 )
-                .fullScreenCover(isPresented: $showingFullPlayer) {
-                    FullPlayerView()
-                }
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await updateDominantColor(coverArtId: playerState.currentTrack?.coverArtId)
                 }

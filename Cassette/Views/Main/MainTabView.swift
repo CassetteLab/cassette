@@ -8,6 +8,7 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.appContainer) private var container
     @State private var searchText = ""
+    @State private var showingFullPlayer = false
 
     private var hasTrack: Bool {
         container?.playerState.currentTrack != nil
@@ -18,12 +19,18 @@ struct MainTabView: View {
         tabs
             .tabBarMinimizeBehavior(.onScrollDown)
             .tabViewBottomAccessory {
-                if hasTrack { MiniPlayerAccessoryView() }
+                if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
+            }
+            .fullScreenCover(isPresented: $showingFullPlayer) {
+                FullPlayerView()
             }
         #else
         tabs
             .safeAreaInset(edge: .bottom) {
-                if hasTrack { MiniPlayerAccessoryView() }
+                if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
+            }
+            .fullScreenCover(isPresented: $showingFullPlayer) {
+                FullPlayerView()
             }
         #endif
     }
