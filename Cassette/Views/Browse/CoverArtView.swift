@@ -29,6 +29,12 @@ struct CoverArtView: View {
             }
         }
         .task(id: id) {
+            // Local file first — avoids redundant network requests and works offline.
+            if let localURL = await container?.downloadService.localCoverArtURL(forId: id) {
+                url = localURL
+                return
+            }
+            // Fall back to server URL (nil if offline or no server configured).
             url = await container?.libraryService.coverArtURL(id: id, size: size)
         }
     }

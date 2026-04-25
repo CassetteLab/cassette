@@ -198,12 +198,23 @@ actor DownloadService: DownloadServiceProtocol {
             }
         }
 
+        var localCoverPath: String? = nil
+        if let coverArtId = album.coverArt {
+            do {
+                try await _downloadCoverArt(id: coverArtId)
+                localCoverPath = coverArtId
+            } catch {
+                Logger.download.error("Cover art download failed for album '\(album.id, privacy: .public)' (coverArtId: \(coverArtId, privacy: .public)): \(error, privacy: .public)")
+            }
+        }
+
         let albumId = album.id
         let albumName = album.name
         let albumArtist = album.artist
         let coverArt = album.coverArt
         let tracksSucceeded = succeeded
         let totalTracks = total
+        let coverPath = localCoverPath
 
         await MainActor.run {
             let context = ModelContext(modelContainer)
@@ -214,6 +225,7 @@ actor DownloadService: DownloadServiceProtocol {
                 existing.tracksCount = tracksSucceeded
                 existing.totalTracksCount = totalTracks
                 existing.downloadedAt = Date()
+                if let coverPath { existing.localCoverArtPath = coverPath }
             } else {
                 let record = DownloadedAlbum(
                     albumId: albumId,
@@ -222,7 +234,8 @@ actor DownloadService: DownloadServiceProtocol {
                     artist: albumArtist,
                     tracksCount: tracksSucceeded,
                     totalTracksCount: totalTracks,
-                    coverArtId: coverArt
+                    coverArtId: coverArt,
+                    localCoverArtPath: coverPath
                 )
                 context.insert(record)
             }
@@ -247,6 +260,16 @@ actor DownloadService: DownloadServiceProtocol {
             }
         }
 
+        var localCoverPath: String? = nil
+        if let coverArtId = playlist.coverArt {
+            do {
+                try await _downloadCoverArt(id: coverArtId)
+                localCoverPath = coverArtId
+            } catch {
+                Logger.download.error("Cover art download failed for playlist '\(playlist.id, privacy: .public)' (coverArtId: \(coverArtId, privacy: .public)): \(error, privacy: .public)")
+            }
+        }
+
         let playlistId = playlist.id
         let playlistName = playlist.name
         let comment = playlist.comment
@@ -254,6 +277,7 @@ actor DownloadService: DownloadServiceProtocol {
         let tracksSucceeded = succeededIds.count
         let totalTracks = total
         let ids = succeededIds
+        let coverPath = localCoverPath
 
         await MainActor.run {
             let context = ModelContext(modelContainer)
@@ -265,6 +289,7 @@ actor DownloadService: DownloadServiceProtocol {
                 existing.totalTracksCount = totalTracks
                 existing.downloadedAt = Date()
                 existing.songIds = ids
+                if let coverPath { existing.localCoverArtPath = coverPath }
             } else {
                 let record = DownloadedPlaylist(
                     playlistId: playlistId,
@@ -274,6 +299,7 @@ actor DownloadService: DownloadServiceProtocol {
                     tracksCount: tracksSucceeded,
                     totalTracksCount: totalTracks,
                     coverArtId: coverArt,
+                    localCoverArtPath: coverPath,
                     songIds: ids
                 )
                 context.insert(record)
@@ -350,5 +376,35 @@ actor DownloadService: DownloadServiceProtocol {
 
     private func emit(progress: DownloadProgress) {
         progressContinuation?.yield([progress])
+    }
+
+    /// Downloads a cover art image to `coverArtsDirectory/<id>`. No-op if the file already exists.
+    /// Throws on network or write error — callers must catch and treat as best-effort.
+    private func _downloadCoverArt(id: String) async throws {
+        let fileURL = coverArtsDirectory.appendingPathComponent(id)
+        guard !FileManager.default.fileExists(atPath: fileURL.path) else {
+            Logger.download.debug("Cover art '\(id, privacy: .public)' already on disk — skipping.")
+            return
+        }
+
+        let creds = try await serverService.activeCredentials()
+        let client = try await serverService.makeSwiftSonicClient()
+        guard let artURL = client.coverArtURL(id: id, size: 600) else {
+            throw CassetteError.mediaNotFound(songId: id)
+        }
+
+        var request = URLRequest(url: artURL)
+        for (k, v) in creds.customHeaders { request.setValue(v, forHTTPHeaderField: k) }
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            struct HTTPError: Error & Sendable { let statusCode: Int }
+            throw CassetteError.downloadFailed(songId: id, underlying: HTTPError(statusCode: code))
+        }
+
+        try FileManager.default.createDirectory(at: coverArtsDirectory, withIntermediateDirectories: true)
+        try data.write(to: fileURL, options: .atomic)
+        Logger.download.info("Cover art '\(id, privacy: .public)' downloaded (\(data.count) bytes)")
     }
 }
