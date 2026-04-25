@@ -13,8 +13,7 @@ struct ArtistDetailView: View {
     @State private var viewModel: ArtistDetailViewModel?
 
     private let columns = [
-        GridItem(.flexible(), spacing: CassetteSpacing.l),
-        GridItem(.flexible(), spacing: CassetteSpacing.l)
+        GridItem(.adaptive(minimum: 150, maximum: 200), spacing: CassetteSpacing.l)
     ]
 
     var body: some View {
