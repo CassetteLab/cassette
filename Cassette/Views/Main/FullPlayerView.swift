@@ -367,6 +367,9 @@ private struct PlaybackControlsView: View {
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
             Button {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
                 Task { try? await playerService?.skipToPrevious() }
             } label: {
                 Image(systemName: "backward.fill")
@@ -377,6 +380,9 @@ private struct PlaybackControlsView: View {
             .disabled(!isPlaybackAvailable)
 
             Button {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                #endif
                 Task {
                     if playerState.playbackState == .playing {
                         await playerService?.pause()
@@ -387,14 +393,15 @@ private struct PlaybackControlsView: View {
             } label: {
                 Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
                     .font(.title)
-                    .foregroundStyle(Color.cassetteAccentText)
-                    .frame(width: 72, height: 64)
-                    .background(isPlaybackAvailable ? Color.cassetteAccent : Color.secondary.opacity(0.4))
-                    .clipShape(Capsule())
+                    .foregroundStyle(isPlaybackAvailable ? Color.cassetteAccentText : .white.opacity(0.5))
+                    .cassetteGlassButton(size: 80, tint: isPlaybackAvailable ? Color.cassetteAccent : nil)
             }
             .disabled(!isPlaybackAvailable)
 
             Button {
+                #if canImport(UIKit)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
                 Task { try? await playerService?.skipToNext() }
             } label: {
                 Image(systemName: "forward.fill")
