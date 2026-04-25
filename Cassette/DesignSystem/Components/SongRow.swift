@@ -38,6 +38,11 @@ struct SongRow: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
+            Image(systemName: "heart.fill")
+                .font(.system(size: 8))
+                .foregroundStyle(Color.cassetteAccent)
+                .opacity(isFavorite ? 1.0 : 0.0)
+
             if showCoverArt {
                 CoverArtCard(id: song.coverArtId ?? song.id, size: 44)
             } else {
@@ -64,24 +69,6 @@ struct SongRow: View {
             Spacer(minLength: 0)
 
             HStack(spacing: CassetteSpacing.s) {
-                Button {
-                    Task {
-                        if isFavorite {
-                            try? await container?.favoritesService.unstar(itemType: .song, itemId: song.id)
-                        } else {
-                            try? await container?.favoritesService.star(itemType: .song, itemId: song.id)
-                        }
-                    }
-                } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(isFavorite ? Color.cassetteAccent : Color.secondary)
-                        .scaleEffect(isFavorite ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFavorite)
-                }
-                .buttonStyle(.borderless)
-                .disabled(!isOnline)
-
                 if song.isDownloaded {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.cassetteCaption)
@@ -90,13 +77,6 @@ struct SongRow: View {
                     ProgressView()
                         .scaleEffect(0.7)
                         .frame(width: 16, height: 16)
-                } else if let onDownload {
-                    Button(action: onDownload) {
-                        Image(systemName: "arrow.down.circle")
-                            .font(.cassetteCaption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.borderless)
                 }
                 if song.duration > 0 {
                     Text(Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)))
@@ -108,6 +88,51 @@ struct SongRow: View {
         }
         .padding(.vertical, CassetteSpacing.s)
         .contentShape(Rectangle())
-        .songContextMenu(song: song)
+        .contextMenu {
+            Button {
+                Task { try? await container?.playerService.play(tracks: [song], startIndex: 0) }
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Button {
+                Task { await container?.playerService.playNext(song) }
+            } label: {
+                Label("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+
+            Button {
+                Task { await container?.playerService.addToQueue(song) }
+            } label: {
+                Label("Add to Queue", systemImage: "text.append")
+            }
+
+            Divider()
+
+            if !song.isDownloaded && !isDownloading, let action = onDownload {
+                Button(action: action) {
+                    Label("Download", systemImage: "arrow.down.circle")
+                }
+
+                Divider()
+            }
+
+            Button {
+                let fav = isFavorite
+                Task {
+                    if fav {
+                        try? await container?.favoritesService.unstar(itemType: .song, itemId: song.id)
+                    } else {
+                        try? await container?.favoritesService.star(itemType: .song, itemId: song.id)
+                    }
+                }
+            } label: {
+                Label(
+                    isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: isFavorite ? "heart.slash" : "heart"
+                )
+            }
+            .disabled(!isOnline)
+        }
     }
 }

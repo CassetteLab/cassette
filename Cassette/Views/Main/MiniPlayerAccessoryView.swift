@@ -130,7 +130,6 @@ struct MiniPlayerAccessoryView: View {
                             Image(systemName: "forward.fill")
                                 .font(.title3)
                                 .foregroundStyle(typoColor)
-                                .cassetteGlassButton(size: 36)
                         }
                         .buttonStyle(.borderless)
                     }
@@ -162,9 +161,8 @@ struct MiniPlayerAccessoryView: View {
             Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                 .font(.title3)
                 .foregroundStyle(typoColor)
-                .cassetteGlassButton(size: 36)
+                .opacity(isAvailable ? 1.0 : 0.3)
         }
-        .opacity(isAvailable ? 1.0 : 0.3)
         .buttonStyle(.borderless)
         .disabled(!isAvailable)
     }

@@ -69,6 +69,24 @@ struct AlbumDetailView: View {
         .cassetteContentWidth()
         .navigationTitle(viewModel?.albumName ?? initialName)
         .navigationBarTitleDisplayModeInline()
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    Task {
+                        if isAlbumFavorite {
+                            try? await container?.favoritesService.unstar(itemType: .album, itemId: albumId)
+                        } else {
+                            try? await container?.favoritesService.star(itemType: .album, itemId: albumId)
+                        }
+                    }
+                } label: {
+                    Image(systemName: isAlbumFavorite ? "star.fill" : "star")
+                        .foregroundStyle(isAlbumFavorite ? Color.cassetteAccent : .primary)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
+                }
+                .disabled(!isOnline)
+            }
+        }
         .task {
             guard let c = container else { return }
             if viewModel == nil {
@@ -214,33 +232,13 @@ struct AlbumDetailView: View {
                 }, isDisabled: vm.songs.isEmpty || vm.isDownloadingAlbum)
                 .frame(maxWidth: 400)
 
-                Button {
-                    Task {
-                        if isAlbumFavorite {
-                            try? await container?.favoritesService.unstar(itemType: .album, itemId: albumId)
-                        } else {
-                            try? await container?.favoritesService.star(itemType: .album, itemId: albumId)
-                        }
-                    }
-                } label: {
-                    Image(systemName: isAlbumFavorite ? "heart.fill" : "heart")
-                        .font(.cassetteCellTitle)
-                        .foregroundStyle(Color.cassetteAccent)
-                        .cassetteGlassButton(size: 44, tint: isAlbumFavorite ? Color.cassetteAccent : nil)
-                        .scaleEffect(isAlbumFavorite ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
-                }
-                .disabled(!isOnline)
-
                 if !vm.isOffline {
                     if vm.isDownloadingAlbum {
                         Button { Task { await vm.cancelAlbumDownload() } } label: {
                             Image(systemName: "xmark")
                                 .font(.cassetteCellTitle)
                                 .foregroundStyle(Color.cassetteAccent)
-                                .frame(width: 44, height: 44)
-                                .background(Color.cassetteAccent.opacity(0.12))
-                                .clipShape(Circle())
+                                .cassetteGlassButton(size: 44)
                         }
                     } else {
                         switch downloadState(for: vm) {
@@ -249,9 +247,7 @@ struct AlbumDetailView: View {
                                 Image(systemName: "arrow.down.circle")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccent.opacity(0.12))
-                                    .clipShape(Circle())
+                                    .cassetteGlassButton(size: 44)
                             }
                             .disabled(vm.songs.isEmpty)
                         case .partiallyDownloaded:
@@ -259,25 +255,21 @@ struct AlbumDetailView: View {
                                 Image(systemName: "arrow.down.circle.dotted")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccent.opacity(0.12))
-                                    .clipShape(Circle())
+                                    .cassetteGlassButton(size: 44)
                             }
                         case .fullyDownloaded:
                             Button { showDeleteAlert = true } label: {
                                 Image(systemName: "trash")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccent.opacity(0.12))
-                                    .clipShape(Circle())
+                                    .cassetteGlassButton(size: 44)
                             }
                         }
                     }
                 }
             }
             .buttonStyle(.borderless)
-            .padding(.horizontal, CassetteSpacing.l)
+            .padding(.horizontal, CassetteSpacing.xxxl)
 
             if vm.isDownloadingAlbum {
                 HStack(spacing: CassetteSpacing.s) {

@@ -206,9 +206,7 @@ struct PlaylistDetailView: View {
                             Image(systemName: "xmark")
                                 .font(.cassetteCellTitle)
                                 .foregroundStyle(Color.cassetteAccent)
-                                .frame(width: 44, height: 44)
-                                .background(Color.cassetteAccent.opacity(0.12))
-                                .clipShape(Circle())
+                                .cassetteGlassButton(size: 44)
                         }
                     } else {
                         switch downloadState(for: vm) {
@@ -217,9 +215,7 @@ struct PlaylistDetailView: View {
                                 Image(systemName: "arrow.down.circle")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccent.opacity(0.12))
-                                    .clipShape(Circle())
+                                    .cassetteGlassButton(size: 44)
                             }
                             .disabled(vm.songs.isEmpty)
                         case .partiallyDownloaded:
@@ -227,25 +223,21 @@ struct PlaylistDetailView: View {
                                 Image(systemName: "arrow.down.circle.dotted")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccent.opacity(0.12))
-                                    .clipShape(Circle())
+                                    .cassetteGlassButton(size: 44)
                             }
                         case .fullyDownloaded:
                             Button { showDeleteAlert = true } label: {
                                 Image(systemName: "trash")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
-                                    .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccent.opacity(0.12))
-                                    .clipShape(Circle())
+                                    .cassetteGlassButton(size: 44)
                             }
                         }
                     }
                 }
             }
             .buttonStyle(.borderless)
-            .padding(.horizontal, CassetteSpacing.l)
+            .padding(.horizontal, CassetteSpacing.xxxl)
 
             if vm.isDownloadingPlaylist {
                 HStack(spacing: CassetteSpacing.s) {
