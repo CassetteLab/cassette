@@ -119,8 +119,6 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
-        .navigationDestination(for: ArtistID3.self) { ArtistDetailView(artist: $0) }
-        .navigationDestination(for: AlbumID3.self) { AlbumDetailView(album: $0) }
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {

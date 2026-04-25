@@ -80,7 +80,7 @@ struct FavoritesView: View {
         if !albums.isEmpty {
             Section("Albums") {
                 ForEach(albums) { album in
-                    NavigationLink(value: album) {
+                    NavigationLink(destination: AlbumDetailView(album: album)) {
                         AlbumRow(
                             albumId: album.id,
                             name: album.name,
@@ -99,7 +99,7 @@ struct FavoritesView: View {
         if !artists.isEmpty {
             Section("Artists") {
                 ForEach(artists) { artist in
-                    NavigationLink(value: artist) {
+                    NavigationLink(destination: ArtistDetailView(artist: artist)) {
                         ArtistRow(artist: artist)
                     }
                 }

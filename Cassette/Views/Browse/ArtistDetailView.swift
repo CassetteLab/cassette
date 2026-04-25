@@ -82,7 +82,7 @@ struct ArtistDetailView: View {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                     ForEach(albums) { album in
-                        NavigationLink(value: album) {
+                        NavigationLink(destination: AlbumDetailView(album: album)) {
                             AlbumGridCell(album: album)
                         }
                         .buttonStyle(.plain)
