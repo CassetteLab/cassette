@@ -53,7 +53,7 @@ struct AlbumDetailView: View {
         }
         .background(
             LinearGradient(
-                colors: [dominantColor.opacity(0.6), dominantColor.opacity(0.4)],
+                colors: [dominantColor.opacity(0.75), dominantColor.opacity(0.5)],
                 startPoint: .top,
                 endPoint: .bottom
             )
