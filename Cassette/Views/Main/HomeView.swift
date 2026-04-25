@@ -9,7 +9,8 @@ import SwiftSonic
 
 struct HomeView: View {
     @Environment(\.appContainer) private var container
-    @Query(sort: \PinnedItem.sortOrder) private var pinnedItems: [PinnedItem]
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \PinnedItem.sortOrder) private var allPinnedItems: [PinnedItem]
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
@@ -26,10 +27,33 @@ struct HomeView: View {
         GridItem(.flexible())
     ]
 
+    private var visiblePinnedItems: [PinnedItem] {
+        guard container?.serverState.isOnline != true else { return localPinnedItems }
+        return localPinnedItems.filter { isAvailableOffline($0) }
+    }
+
+    private func isAvailableOffline(_ item: PinnedItem) -> Bool {
+        let itemId = item.itemId
+        switch PinnedItemType(rawValue: item.itemType) {
+        case .album:
+            let descriptor = FetchDescriptor<DownloadedAlbum>(
+                predicate: #Predicate { $0.albumId == itemId }
+            )
+            return (try? modelContext.fetch(descriptor).first) != nil
+        case .playlist:
+            let descriptor = FetchDescriptor<DownloadedPlaylist>(
+                predicate: #Predicate { $0.playlistId == itemId }
+            )
+            return (try? modelContext.fetch(descriptor).first) != nil
+        case .none:
+            return false
+        }
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
-                if !pinnedItems.isEmpty {
+                if !visiblePinnedItems.isEmpty {
                     pinnedSection
                 }
                 librarySection
@@ -46,7 +70,7 @@ struct HomeView: View {
         .toolbar {
             ToolbarItem(placement: .automatic) {
                 Menu {
-                    if !pinnedItems.isEmpty {
+                    if !allPinnedItems.isEmpty {
                         Button { showEditPinned = true } label: {
                             Label("Edit Pinned", systemImage: "pin")
                         }
@@ -61,8 +85,8 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
-        .onAppear { localPinnedItems = pinnedItems }
-        .onChange(of: pinnedItems.count) { _, _ in localPinnedItems = pinnedItems }
+        .onAppear { localPinnedItems = allPinnedItems }
+        .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = HomeViewModel(libraryService: svc) }
@@ -78,7 +102,7 @@ struct HomeView: View {
             Text("Pinned")
                 .font(.cassetteSectionTitle)
             LazyVGrid(columns: pinnedColumns, spacing: CassetteSpacing.m) {
-                ForEach(localPinnedItems) { item in
+                ForEach(visiblePinnedItems) { item in
                     HomePinnedCard(item: item)
                         .scaleEffect(dropTargetId == item.id ? 1.05 : 1.0)
                         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: dropTargetId)
