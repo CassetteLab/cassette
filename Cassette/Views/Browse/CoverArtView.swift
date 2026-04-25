@@ -21,7 +21,7 @@ struct CoverArtView: View {
             case .success(let image):
                 image
                     .resizable()
-                    .scaledToFit()
+                    .scaledToFill()
             case .failure, .empty:
                 placeholder
             @unknown default:

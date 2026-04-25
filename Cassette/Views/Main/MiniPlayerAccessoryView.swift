@@ -46,16 +46,20 @@ struct MiniPlayerAccessoryView: View {
         let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
         let title = playerState.currentTrack?.title ?? ""
         let artist = playerState.currentTrack?.artist
+        let audioFormat = playerState.currentTrack?.audioFormat
         let isPlaying = playerState.playbackState == .playing
         let isAvailable = playerState.isPlaybackAvailable
 
         Group {
             if placement == .inline {
-                inlineBar(coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying, isAvailable: isAvailable)
+                inlineBar(coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable)
+                    .transition(.opacity)
             } else {
-                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying, isAvailable: isAvailable)
+                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable)
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: placement == .inline)
         .offset(x: dragOffset)
         .opacity(1.0 - min(abs(dragOffset) / 200, 0.4))
         .contentShape(Rectangle())
@@ -63,9 +67,9 @@ struct MiniPlayerAccessoryView: View {
         .gesture(isAvailable ? swipeSkipGesture : nil)
     }
 
-    private func inlineBar(coverArtId: String, title: String, artist: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
+    private func inlineBar(coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
         HStack(spacing: CassetteSpacing.m) {
-            CoverArtCard(id: coverArtId, size: 24)
+            CoverArtCard(id: coverArtId, size: 36)
                 .opacity(isAvailable ? 1.0 : 0.5)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -77,11 +81,19 @@ struct MiniPlayerAccessoryView: View {
                         .font(.cassetteCaption)
                         .foregroundStyle(typoSecondaryColor)
                         .lineLimit(1)
-                } else if let artist {
-                    Text(artist)
-                        .font(.cassetteCaption)
-                        .foregroundStyle(typoSecondaryColor)
-                        .lineLimit(1)
+                } else {
+                    HStack(spacing: CassetteSpacing.xs) {
+                        if let artist {
+                            Text(artist)
+                                .font(.cassetteCaption)
+                                .foregroundStyle(typoSecondaryColor)
+                                .lineLimit(1)
+                        }
+                        if let format = audioFormat {
+                            AudioFormatBadge(format: format)
+                                .layoutPriority(1)
+                        }
+                    }
                 }
             }
             Spacer(minLength: 0)
@@ -91,11 +103,11 @@ struct MiniPlayerAccessoryView: View {
         .padding(.vertical, CassetteSpacing.s)
     }
 
-    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
+    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
         return VStack(spacing: 0) {
             HStack(spacing: CassetteSpacing.m) {
-                CoverArtCard(id: coverArtId, size: 34)
+                CoverArtCard(id: coverArtId, size: 36)
                     .opacity(isAvailable ? 1.0 : 0.5)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -116,8 +128,9 @@ struct MiniPlayerAccessoryView: View {
                                     .foregroundStyle(typoSecondaryColor)
                                     .lineLimit(1)
                             }
-                            if let format = playerState.currentTrack?.audioFormat {
+                            if let format = audioFormat {
                                 AudioFormatBadge(format: format)
+                                    .layoutPriority(1)
                             }
                         }
                     }
