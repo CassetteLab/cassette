@@ -17,16 +17,18 @@ struct SongRow: View {
     var showCoverArt: Bool = false
     var isCurrentTrack: Bool = false
     let onDownload: (() -> Void)?
+    var isDownloading: Bool = false
 
     @Environment(\.appContainer) private var container
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, onDownload: (() -> Void)? = nil) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
         self.isCurrentTrack = isCurrentTrack
         self.onDownload = onDownload
+        self.isDownloading = isDownloading
         let compositeId = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == compositeId })
     }
@@ -84,6 +86,10 @@ struct SongRow: View {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.cassetteCaption)
                         .foregroundStyle(.tertiary)
+                } else if isDownloading {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .frame(width: 16, height: 16)
                 } else if let onDownload {
                     Button(action: onDownload) {
                         Image(systemName: "arrow.down.circle")

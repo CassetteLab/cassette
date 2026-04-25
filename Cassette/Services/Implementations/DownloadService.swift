@@ -348,6 +348,10 @@ actor DownloadService: DownloadServiceProtocol {
         Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
     }
 
+    func isDownloading(songId: String, serverId: UUID) async -> Bool {
+        inFlightTasks[taskKey(songId: songId, serverId: serverId)] != nil
+    }
+
     // MARK: - Cancel
 
     func cancelDownload(songId: String, serverId: UUID) async {

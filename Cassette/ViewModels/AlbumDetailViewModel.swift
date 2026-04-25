@@ -20,6 +20,7 @@ final class AlbumDetailViewModel {
     var isLoading = false
     var error: Error?
     var isDownloadingAlbum = false
+    var downloadingIds: Set<String> = []
 
     private var loadedAlbum: AlbumID3?
     private let albumId: String
@@ -111,7 +112,20 @@ final class AlbumDetailViewModel {
     func downloadSong(id: String) async {
         guard let song = loadedAlbum?.song?.first(where: { $0.id == id }),
               let serverId = serverState.activeServer?.id else { return }
+        downloadingIds.insert(id)
+        defer { downloadingIds.remove(id) }
         try? await downloadService.download(song: song, serverId: serverId)
+        let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
+        if let idx = songs.firstIndex(where: { $0.id == id }) {
+            let s = songs[idx]
+            songs[idx] = DisplayableSong(
+                id: s.id, title: s.title, artist: s.artist,
+                albumName: s.albumName, duration: s.duration,
+                trackNumber: s.trackNumber,
+                isDownloaded: allDownloaded.contains(id),
+                coverArtId: s.coverArtId
+            )
+        }
     }
 
     func downloadMissingTracks() async {

@@ -121,10 +121,11 @@ struct AlbumDetailView: View {
                     songs: vm.songs,
                     albumId: albumId,
                     serverId: serverId,
+                    downloadingIds: vm.downloadingIds,
                     onTap: { index in
                         Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
                     },
-                    onDownload: vm.isOffline ? nil : { songId in
+                    onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
                         Task { await vm.downloadSong(id: songId) }
                     }
                 )
@@ -298,13 +299,15 @@ private nonisolated enum AlbumDownloadState {
 /// overriding the isDownloaded flag per row without requiring a VM reload.
 private struct AlbumSongRows: View {
     let songs: [DisplayableSong]
+    let downloadingIds: Set<String>
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], albumId: String, serverId: UUID, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
         self.songs = songs
+        self.downloadingIds = downloadingIds
         self.onTap = onTap
         self.onDownload = onDownload
         let aid = albumId
@@ -333,8 +336,9 @@ private struct AlbumSongRows: View {
                 isDownloaded: liveDownloaded,
                 coverArtId: song.coverArtId
             )
-            let downloadAction: (() -> Void)? = liveDownloaded ? nil : onDownload.map { action in { action(song.id) } }
-            SongRow(song: liveSong, index: index + 1, onDownload: downloadAction)
+            let isDownloading = downloadingIds.contains(song.id)
+            let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
+            SongRow(song: liveSong, index: index + 1, onDownload: downloadAction, isDownloading: isDownloading)
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 .listRowBackground(Color(.systemBackground))
