@@ -13,6 +13,16 @@ typealias PlatformImage = NSImage
 
 import SwiftUI
 
+extension Image {
+    init(platformImage: PlatformImage) {
+        #if canImport(UIKit)
+        self.init(uiImage: platformImage)
+        #elseif canImport(AppKit)
+        self.init(nsImage: platformImage)
+        #endif
+    }
+}
+
 extension View {
     func navigationBarTitleDisplayModeInline() -> some View {
         #if os(iOS)

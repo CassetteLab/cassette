@@ -8,10 +8,41 @@ import SwiftUI
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
+    @Environment(DominantColorExtractor.self) private var colorExtractor
+
+    @State private var coverImage: PlatformImage?
+    @State private var dominantColor: Color = .black
 
     var body: some View {
         if let playerState = container?.playerState {
             content(playerState)
+                .task(id: playerState.currentTrack?.coverArtId) {
+                    await loadCoverAndColor(coverArtId: playerState.currentTrack?.coverArtId)
+                }
+        }
+    }
+
+    private func loadCoverAndColor(coverArtId: String?) async {
+        guard let coverArtId else {
+            withAnimation(.easeInOut(duration: 0.4)) {
+                coverImage = nil
+                dominantColor = .black
+            }
+            return
+        }
+        let url: URL?
+        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
+            url = localURL
+        } else {
+            url = await container?.libraryService.coverArtURL(id: coverArtId, size: 300)
+        }
+        guard let url,
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let image = PlatformImage(data: data) else { return }
+        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
+        withAnimation(.easeInOut(duration: 0.4)) {
+            coverImage = image
+            dominantColor = color
         }
     }
 
@@ -20,16 +51,26 @@ struct FullPlayerView: View {
         let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
 
         ZStack {
-            // Blurred album cover background
-            CoverArtView(id: coverArtId, size: 200)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .scaleEffect(2)
-                .blur(radius: 60)
-                .clipped()
+            // 1. Blurred cover image fullscreen
+            if let coverImage {
+                Image(platformImage: coverImage)
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(1.3)
+                    .blur(radius: 80, opaque: true)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            } else {
+                Color.black.ignoresSafeArea()
+            }
+
+            // 2. Dominant color tint at 50%
+            dominantColor
+                .opacity(0.5)
                 .ignoresSafeArea()
 
-            Rectangle()
-                .fill(.ultraThinMaterial)
+            // 3. Subtle dark overlay to ensure text contrast
+            Color.black.opacity(0.25)
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
