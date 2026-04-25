@@ -87,7 +87,8 @@ final class PlaylistDetailViewModel {
                 albumName: song.albumName, duration: song.duration,
                 trackNumber: song.trackNumber,
                 isDownloaded: downloadedIds.contains(song.id),
-                coverArtId: song.coverArtId
+                coverArtId: song.coverArtId,
+                audioFormat: song.audioFormat
             )
         }
         isDownloadingPlaylist = false
@@ -115,7 +116,8 @@ final class PlaylistDetailViewModel {
                 albumName: s.albumName, duration: s.duration,
                 trackNumber: s.trackNumber,
                 isDownloaded: allDownloaded.contains(id),
-                coverArtId: s.coverArtId
+                coverArtId: s.coverArtId,
+                audioFormat: s.audioFormat
             )
         }
     }
@@ -137,7 +139,8 @@ final class PlaylistDetailViewModel {
                             albumName: $0.albumName, duration: $0.duration,
                             trackNumber: $0.trackNumber,
                             isDownloaded: allDownloaded.contains($0.id),
-                            coverArtId: $0.coverArtId)
+                            coverArtId: $0.coverArtId,
+                            audioFormat: $0.audioFormat)
         }
         isDownloadingPlaylist = false
     }
@@ -152,7 +155,8 @@ final class PlaylistDetailViewModel {
             DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
                             albumName: $0.albumName, duration: $0.duration,
                             trackNumber: $0.trackNumber, isDownloaded: false,
-                            coverArtId: $0.coverArtId)
+                            coverArtId: $0.coverArtId,
+                            audioFormat: $0.audioFormat)
         }
     }
 }
