@@ -54,6 +54,10 @@ nonisolated enum UserFacingError: LocalizedError, Identifiable, Sendable {
         }
     }
 
+    var displayMessage: String {
+        [errorDescription, recoverySuggestion].compactMap { $0 }.joined(separator: " ")
+    }
+
     static func from(_ error: any Error) -> UserFacingError {
         if error is CancellationError { return .unexpected }
         if let urlError = error as? URLError {

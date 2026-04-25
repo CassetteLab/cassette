@@ -138,7 +138,7 @@ struct AlbumDetailView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Album",
-                subtitle: error.localizedDescription,
+                subtitle: error.displayMessage,
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else {

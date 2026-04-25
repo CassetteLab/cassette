@@ -110,7 +110,7 @@ struct PlaylistDetailView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Playlist",
-                subtitle: error.localizedDescription,
+                subtitle: error.displayMessage,
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else {

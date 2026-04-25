@@ -47,7 +47,7 @@ struct AlbumsListView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Albums",
-                subtitle: error.localizedDescription,
+                subtitle: error.displayMessage,
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else if vm.albums.isEmpty {
