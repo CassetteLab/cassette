@@ -195,6 +195,12 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.isShuffled.toggle() }
     }
 
+    func setVolume(_ volume: Float) async {
+        let clamped = min(max(volume, 0), 1)
+        player?.volume = clamped
+        await MainActor.run { state.volume = clamped }
+    }
+
     func appendToQueue(_ tracks: [DisplayableSong]) async {
         await MainActor.run { state.queue.append(contentsOf: tracks) }
         await sessionService.save(playerState: state)

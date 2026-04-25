@@ -96,20 +96,23 @@ struct FullPlayerView: View {
                 TrackInfoSection(playerState: playerState, container: container)
                     .padding(.horizontal, CassetteSpacing.l)
 
-                // Scrubber (replaced in commit 3)
                 ScrubberView(playerState: playerState, playerService: container?.playerService)
                     .padding(.horizontal, CassetteSpacing.l)
                     .padding(.top, CassetteSpacing.m)
                     .disabled(!playerState.isPlaybackAvailable)
                     .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
 
-                // Playback controls (replaced in commit 4)
                 PlaybackControlsView(
                     playerState: playerState,
                     playerService: container?.playerService,
                     isPlaybackAvailable: playerState.isPlaybackAvailable
                 )
                 .padding(.top, CassetteSpacing.l)
+
+                // Volume
+                VolumeSection(playerState: playerState, playerService: container?.playerService)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.l)
 
                 // Repeat / shuffle
                 HStack(spacing: CassetteSpacing.xxxxl) {
@@ -410,6 +413,36 @@ private struct PlaybackControlsView: View {
                     .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
+        }
+    }
+}
+
+// MARK: - Volume
+
+private struct VolumeSection: View {
+    let playerState: PlayerState
+    let playerService: (any PlayerServiceProtocol)?
+
+    var body: some View {
+        HStack(spacing: CassetteSpacing.m) {
+            Image(systemName: "speaker.fill")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(width: 20)
+
+            ProgressSlider(
+                value: TimeInterval(playerState.volume),
+                total: 1,
+                isDragging: false
+            ) { newValue, finished in
+                let vol = Float(newValue)
+                Task { await playerService?.setVolume(vol) }
+            }
+
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.7))
+                .frame(width: 20)
         }
     }
 }

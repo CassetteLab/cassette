@@ -20,6 +20,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func seek(to position: TimeInterval) async
     func setRepeatMode(_ mode: RepeatMode) async
     func toggleShuffle() async
+    func setVolume(_ volume: Float) async
     func appendToQueue(_ tracks: [DisplayableSong]) async
     func playNext(_ song: DisplayableSong) async
     func playNext(_ songs: [DisplayableSong]) async
