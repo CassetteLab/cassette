@@ -22,15 +22,6 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Artists")
-        .navigationDestination(for: ArtistID3.self) { artist in
-            ArtistDetailView(artist: artist)
-        }
-        .navigationDestination(for: AlbumID3.self) { album in
-            AlbumDetailView(album: album)
-        }
-        .navigationDestination(for: OfflineArtistSummary.self) { summary in
-            OfflineArtistAlbumsView(artist: summary)
-        }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistListViewModel(libraryService: svc) }
@@ -147,7 +138,7 @@ private struct OfflineBrowseContent: View {
             List {
                 Section("Downloaded Artists") {
                     ForEach(artistSummaries) { artist in
-                        NavigationLink(value: artist) {
+                        NavigationLink(destination: OfflineArtistAlbumsView(artist: artist)) {
                             HStack(spacing: CassetteSpacing.m) {
                                 Image(systemName: "music.mic")
                                     .font(.title2)

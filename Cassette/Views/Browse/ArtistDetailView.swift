@@ -91,9 +91,6 @@ struct ArtistDetailView: View {
                 .padding(CassetteSpacing.l)
             }
             .refreshable { await vm.load() }
-            .navigationDestination(for: AlbumID3.self) { album in
-                AlbumDetailView(album: album)
-            }
         }
     }
 }

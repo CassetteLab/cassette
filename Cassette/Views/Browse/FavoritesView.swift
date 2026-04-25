@@ -57,8 +57,6 @@ struct FavoritesView: View {
             }
             .listStyle(.plain)
             .refreshable { await vm.load() }
-            .navigationDestination(for: AlbumID3.self) { AlbumDetailView(album: $0) }
-            .navigationDestination(for: ArtistID3.self) { ArtistDetailView(artist: $0) }
         }
     }
 
