@@ -10,7 +10,6 @@ import SwiftSonic
 struct PlaylistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistListViewModel?
-    @State private var showPinLimitAlert = false
 
     var body: some View {
         Group {
@@ -76,37 +75,16 @@ struct PlaylistListView: View {
                     }
                     .padding(.vertical, CassetteSpacing.xs)
                 }
-                .contextMenu {
-                    if container?.pinService.isPinned(itemType: .playlist, itemId: playlist.id) == true {
-                        Button {
-                            container?.pinService.unpin(itemType: .playlist, itemId: playlist.id)
-                        } label: {
-                            Label("Unpin from Home", systemImage: "pin.slash")
-                        }
-                    } else {
-                        Button {
-                            guard let serverId = container?.serverState.activeServer?.id,
-                                  let pin = container?.pinService else { return }
-                            do {
-                                try pin.pin(itemType: .playlist, itemId: playlist.id,
-                                            displayName: playlist.name, displaySubtitle: "Playlist",
-                                            coverArtId: playlist.coverArt, serverId: serverId)
-                            } catch PinError.limitReached {
-                                showPinLimitAlert = true
-                            } catch {}
-                        } label: {
-                            Label("Pin to Home", systemImage: "pin")
-                        }
-                    }
-                }
+                .collectionContextMenu(
+                    itemType: .playlist,
+                    itemId: playlist.id,
+                    displayName: playlist.name,
+                    displaySubtitle: "Playlist",
+                    coverArtId: playlist.coverArt
+                )
             }
             .listStyle(.plain)
             .refreshable { await vm.load() }
-            .alert("Pin Limit Reached", isPresented: $showPinLimitAlert) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(PinError.limitReached.errorDescription ?? "")
-            }
         }
     }
 }
@@ -152,6 +130,13 @@ private struct OfflinePlaylistContent: View {
                             }
                             .padding(.vertical, CassetteSpacing.xs)
                         }
+                        .collectionContextMenu(
+                            itemType: .playlist,
+                            itemId: playlist.playlistId,
+                            displayName: playlist.name,
+                            displaySubtitle: "Playlist",
+                            coverArtId: playlist.coverArtId
+                        )
                     }
                 }
             }

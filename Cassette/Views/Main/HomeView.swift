@@ -168,8 +168,6 @@ struct HomeView: View {
 private struct HomePinnedCard: View {
     let item: PinnedItem
 
-    @Environment(\.appContainer) private var container
-
     @ViewBuilder
     private var destination: some View {
         switch PinnedItemType(rawValue: item.itemType) {
@@ -204,13 +202,14 @@ private struct HomePinnedCard: View {
             }
         }
         .buttonStyle(.plain)
-        .contextMenu {
-            Button(role: .destructive) {
-                container?.pinService.unpin(itemType: PinnedItemType(rawValue: item.itemType) ?? .album, itemId: item.itemId)
-            } label: {
-                Label("Unpin from Home", systemImage: "pin.slash")
-            }
-        }
+        .collectionContextMenu(
+            itemType: PinnedItemType(rawValue: item.itemType) ?? .album,
+            itemId: item.itemId,
+            displayName: item.displayName,
+            displaySubtitle: item.displaySubtitle,
+            coverArtId: item.coverArtId,
+            favoriteType: item.itemType == PinnedItemType.album.rawValue ? .album : nil
+        )
     }
 }
 

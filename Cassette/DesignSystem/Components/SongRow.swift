@@ -93,5 +93,6 @@ struct SongRow: View {
         }
         .padding(.vertical, CassetteSpacing.s)
         .contentShape(Rectangle())
+        .songContextMenu(song: song)
     }
 }

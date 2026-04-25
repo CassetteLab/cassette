@@ -101,9 +101,6 @@ struct ArtistDetailView: View {
 private struct AlbumGridCell: View {
     let album: AlbumID3
 
-    @Environment(\.appContainer) private var container
-    @State private var showLimitAlert = false
-
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             GeometryReader { geo in
@@ -122,33 +119,13 @@ private struct AlbumGridCell: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .contextMenu {
-            if container?.pinService.isPinned(itemType: .album, itemId: album.id) == true {
-                Button {
-                    container?.pinService.unpin(itemType: .album, itemId: album.id)
-                } label: {
-                    Label("Unpin from Home", systemImage: "pin.slash")
-                }
-            } else {
-                Button {
-                    guard let serverId = container?.serverState.activeServer?.id,
-                          let pin = container?.pinService else { return }
-                    do {
-                        try pin.pin(itemType: .album, itemId: album.id, displayName: album.name,
-                                    displaySubtitle: album.artist ?? "", coverArtId: album.coverArt,
-                                    serverId: serverId)
-                    } catch PinError.limitReached {
-                        showLimitAlert = true
-                    } catch {}
-                } label: {
-                    Label("Pin to Home", systemImage: "pin")
-                }
-            }
-        }
-        .alert("Pin Limit Reached", isPresented: $showLimitAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(PinError.limitReached.errorDescription ?? "")
-        }
+        .collectionContextMenu(
+            itemType: .album,
+            itemId: album.id,
+            displayName: album.name,
+            displaySubtitle: album.artist ?? "",
+            coverArtId: album.coverArt,
+            favoriteType: .album
+        )
     }
 }
