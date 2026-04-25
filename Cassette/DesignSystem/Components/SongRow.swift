@@ -38,10 +38,24 @@ struct SongRow: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
-            Image(systemName: "heart.fill")
-                .font(.system(size: 8))
-                .foregroundStyle(Color.cassetteAccent)
-                .opacity(isFavorite ? 1.0 : 0.0)
+            Button {
+                let fav = isFavorite
+                Task {
+                    if fav {
+                        try? await container?.favoritesService.unstar(itemType: .song, itemId: song.id)
+                    } else {
+                        try? await container?.favoritesService.star(itemType: .song, itemId: song.id)
+                    }
+                }
+            } label: {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .font(.title3)
+                    .foregroundStyle(isFavorite ? Color.cassetteAccent : Color.secondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .disabled(!isOnline)
 
             if showCoverArt {
                 CoverArtCard(id: song.coverArtId ?? song.id, size: 44)
