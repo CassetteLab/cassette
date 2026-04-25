@@ -29,30 +29,25 @@ struct EmptyStateView: View {
         VStack(spacing: CassetteSpacing.l) {
             Image(systemName: systemImage)
                 .font(.system(size: 48, weight: .light))
-                .foregroundStyle(Color.cassetteAccent.opacity(0.7))
+                .foregroundStyle(.secondary)
 
             VStack(spacing: CassetteSpacing.s) {
                 Text(title)
-                    .font(.cassetteDetailTitle)
+                    .font(.cassetteSectionTitle)
                     .multilineTextAlignment(.center)
                 if let subtitle {
                     Text(subtitle)
                         .font(.cassetteBody)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
+                        .frame(maxWidth: 280)
                 }
             }
 
             if let action {
-                Button(action: action.handler) {
-                    Text(action.label)
-                        .font(.cassetteCellTitle)
-                        .foregroundStyle(Color.cassetteAccentText)
-                        .padding(.horizontal, CassetteSpacing.xl)
-                        .padding(.vertical, CassetteSpacing.s)
-                        .background(Color.cassetteAccent)
-                        .clipShape(Capsule())
-                }
+                Button(action.label, action: action.handler)
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.cassetteAccent)
             }
         }
         .padding(CassetteSpacing.xxxl)
