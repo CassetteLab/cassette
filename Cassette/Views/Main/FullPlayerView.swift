@@ -157,7 +157,7 @@ struct FullPlayerView: View {
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showQueue) {
-                Text("Queue")
+                QueueView()
                     .presentationDetents([.large])
             }
         }
