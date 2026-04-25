@@ -11,6 +11,8 @@ struct HomeView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \PinnedItem.sortOrder) private var allPinnedItems: [PinnedItem]
+    @Query(sort: \DownloadedAlbum.downloadedAt, order: .reverse) private var recentDownloadedAlbums: [DownloadedAlbum]
+    @Query(sort: \DownloadedPlaylist.downloadedAt, order: .reverse) private var recentDownloadedPlaylists: [DownloadedPlaylist]
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
@@ -26,6 +28,37 @@ struct HomeView: View {
         GridItem(.flexible()),
         GridItem(.flexible())
     ]
+
+    private var isOnline: Bool { container?.serverState.isOnline == true }
+
+    private var recentDownloadedItems: [DownloadedItem] {
+        let albumItems = recentDownloadedAlbums.map {
+            DownloadedItem(
+                id: "album:\($0.albumId)",
+                itemId: $0.albumId,
+                type: .album,
+                name: $0.name,
+                subtitle: $0.artist ?? "",
+                coverArtId: $0.coverArtId,
+                downloadedAt: $0.downloadedAt
+            )
+        }
+        let playlistItems = recentDownloadedPlaylists.map {
+            DownloadedItem(
+                id: "playlist:\($0.playlistId)",
+                itemId: $0.playlistId,
+                type: .playlist,
+                name: $0.name,
+                subtitle: "",
+                coverArtId: $0.coverArtId,
+                downloadedAt: $0.downloadedAt
+            )
+        }
+        return (albumItems + playlistItems)
+            .sorted { $0.downloadedAt > $1.downloadedAt }
+            .prefix(24)
+            .map { $0 }
+    }
 
     private var visiblePinnedItems: [PinnedItem] {
         guard container?.serverState.isOnline != true else { return localPinnedItems }
@@ -57,9 +90,7 @@ struct HomeView: View {
                     pinnedSection
                 }
                 librarySection
-                if let vm = viewModel {
-                    recentSection(vm)
-                }
+                recentlySection
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.top, CassetteSpacing.m)
@@ -160,25 +191,45 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Recently Added section
+    // MARK: - Recently section (online = Recently Added, offline = Recently Downloaded)
 
     @ViewBuilder
-    private func recentSection(_ vm: HomeViewModel) -> some View {
-        if !vm.recentAlbums.isEmpty || vm.isLoading {
+    private var recentlySection: some View {
+        if isOnline {
+            if let vm = viewModel, !vm.recentAlbums.isEmpty || vm.isLoading {
+                VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+                    Text("Recently Added")
+                        .font(.cassetteSectionTitle)
+                    if vm.isLoading && vm.recentAlbums.isEmpty {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, CassetteSpacing.l)
+                    } else {
+                        LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
+                            ForEach(vm.recentAlbums) { album in
+                                NavigationLink(destination: AlbumDetailView(album: album)) {
+                                    HomeAlbumCell(album: album)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
             VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-                Text("Recently Added")
+                Text("Recently Downloaded")
                     .font(.cassetteSectionTitle)
-                if vm.isLoading && vm.recentAlbums.isEmpty {
-                    ProgressView()
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, CassetteSpacing.l)
+                if recentDownloadedItems.isEmpty {
+                    EmptyStateView(
+                        systemImage: "arrow.down.circle",
+                        title: "No downloads yet",
+                        subtitle: "Albums and playlists you download will appear here"
+                    )
                 } else {
                     LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
-                        ForEach(vm.recentAlbums) { album in
-                            NavigationLink(destination: AlbumDetailView(album: album)) {
-                                HomeAlbumCell(album: album)
-                            }
-                            .buttonStyle(.plain)
+                        ForEach(recentDownloadedItems) { item in
+                            HomeDownloadedItemCard(item: item)
                         }
                     }
                 }
@@ -272,6 +323,98 @@ private struct LibraryRowButtonStyle: ButtonStyle {
         configuration.label
             .background(configuration.isPressed ? Color.primary.opacity(0.08) : Color.clear)
     }
+}
+
+// MARK: - HomeDownloadedItemCard
+
+private struct HomeDownloadedItemCard: View {
+    let item: DownloadedItem
+    @Environment(\.modelContext) private var modelContext
+
+    @ViewBuilder
+    private var destination: some View {
+        switch item.type {
+        case .album:
+            AlbumDetailView(albumId: item.itemId, albumName: item.name)
+        case .playlist:
+            PlaylistDetailView(playlistId: item.itemId, name: item.name)
+        }
+    }
+
+    var body: some View {
+        NavigationLink(destination: destination) {
+            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                GeometryReader { geo in
+                    CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
+                        .frame(width: geo.size.width, height: geo.size.width)
+                        .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                }
+                .aspectRatio(1, contentMode: .fit)
+                Text(item.name)
+                    .font(.cassetteCaption)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if !item.subtitle.isEmpty {
+                    Text(item.subtitle)
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .lazyCollectionContextMenu(
+            itemType: item.type == .album ? .album : .playlist,
+            itemId: item.itemId,
+            displayName: item.name,
+            displaySubtitle: item.subtitle,
+            coverArtId: item.coverArtId,
+            favoriteType: item.type == .album ? .album : nil
+        ) {
+            switch item.type {
+            case .album:
+                let aid = item.itemId
+                let tracks = (try? modelContext.fetch(
+                    FetchDescriptor<DownloadedTrack>(
+                        predicate: #Predicate { $0.albumId == aid }
+                    )
+                )) ?? []
+                return tracks
+                    .sorted { ($0.trackNumber ?? Int.max) < ($1.trackNumber ?? Int.max) }
+                    .map { DisplayableSong(from: $0) }
+            case .playlist:
+                let pid = item.itemId
+                let playlists = (try? modelContext.fetch(
+                    FetchDescriptor<DownloadedPlaylist>(
+                        predicate: #Predicate { $0.playlistId == pid }
+                    )
+                )) ?? []
+                let songIds = playlists.first?.songIds ?? []
+                let allTracks = (try? modelContext.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+                let trackBySongId = Dictionary(
+                    allTracks.map { ($0.songId, $0) },
+                    uniquingKeysWith: { first, _ in first }
+                )
+                return songIds.compactMap { trackBySongId[$0] }.map { DisplayableSong(from: $0) }
+            }
+        }
+    }
+}
+
+// MARK: - DownloadedItem
+
+private nonisolated struct DownloadedItem: Identifiable, Sendable {
+    nonisolated enum ItemType: Sendable {
+        case album
+        case playlist
+    }
+    let id: String
+    let itemId: String
+    let type: ItemType
+    let name: String
+    let subtitle: String
+    let coverArtId: String?
+    let downloadedAt: Date
 }
 
 // MARK: - HomeAlbumCell
