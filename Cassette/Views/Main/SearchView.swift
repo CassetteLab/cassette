@@ -17,14 +17,32 @@ struct SearchView: View {
     }
 
     var body: some View {
-        List {
-            if searchQuery.trimmingCharacters(in: .whitespaces).isEmpty {
-                idleContent
-            } else if let vm = viewModel {
-                activeSearchContent(vm)
+        let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
+        Group {
+            if trimmed.isEmpty && recentSearches.isEmpty {
+                EmptyStateView(
+                    systemImage: "magnifyingglass",
+                    title: "What are you looking for?",
+                    subtitle: "Search for artists, albums, and songs."
+                )
+            } else if let vm = viewModel, !trimmed.isEmpty, !vm.isSearching,
+                      let results = vm.searchResults, !hasAnyResults(results) {
+                EmptyStateView(
+                    systemImage: "magnifyingglass",
+                    title: "No Results",
+                    subtitle: "Try a different search term."
+                )
+            } else {
+                List {
+                    if trimmed.isEmpty {
+                        recentSearchesSection
+                    } else if let vm = viewModel {
+                        activeSearchContent(vm)
+                    }
+                }
+                .listStyle(.plain)
             }
         }
-        .listStyle(.plain)
         .navigationDestination(for: ArtistID3.self) { artist in
             ArtistDetailView(artist: artist)
         }
@@ -42,41 +60,32 @@ struct SearchView: View {
         .cassetteContentWidth()
     }
 
-    // MARK: - Idle state
+    // MARK: - Idle state (recent searches)
 
     @ViewBuilder
-    private var idleContent: some View {
-        if recentSearches.isEmpty {
-            Text("Search artists, albums, and songs")
-                .font(.cassetteBody)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .listRowSeparator(.hidden)
-                .padding(.vertical, CassetteSpacing.xxxl)
-        } else {
-            Section {
-                ForEach(recentSearches, id: \.self) { query in
-                    Button {
-                        searchQuery = query
-                    } label: {
-                        Label(query, systemImage: "clock")
-                            .font(.cassetteCellTitle)
-                            .foregroundStyle(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-            } header: {
-                HStack {
-                    Text("Recent")
-                        .font(.cassetteSectionTitle)
+    private var recentSearchesSection: some View {
+        Section {
+            ForEach(recentSearches, id: \.self) { query in
+                Button {
+                    searchQuery = query
+                } label: {
+                    Label(query, systemImage: "clock")
+                        .font(.cassetteCellTitle)
                         .foregroundStyle(.primary)
-                    Spacer()
-                    Button("Clear") { clearRecentSearches() }
-                        .font(.cassetteBody)
-                        .foregroundStyle(Color.cassetteAccent)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .textCase(nil)
             }
+        } header: {
+            HStack {
+                Text("Recent")
+                    .font(.cassetteSectionTitle)
+                    .foregroundStyle(.primary)
+                Spacer()
+                Button("Clear") { clearRecentSearches() }
+                    .font(.cassetteBody)
+                    .foregroundStyle(Color.cassetteAccent)
+            }
+            .textCase(nil)
         }
     }
 
@@ -97,18 +106,10 @@ struct SearchView: View {
                 .font(.cassetteBody)
                 .foregroundStyle(.secondary)
                 .listRowSeparator(.hidden)
-        } else if let results = vm.searchResults {
-            if hasAnyResults(results) {
-                artistResultsSection(results.artist ?? [])
-                albumResultsSection(results.album ?? [])
-                songResultsSection((results.song ?? []).map { DisplayableSong(from: $0) })
-            } else {
-                Text("No results for \u{201C}\(searchQuery)\u{201D}")
-                    .font(.cassetteBody)
-                    .foregroundStyle(.secondary)
-                    .listRowSeparator(.hidden)
-                    .padding(.vertical, CassetteSpacing.xl)
-            }
+        } else if let results = vm.searchResults, hasAnyResults(results) {
+            artistResultsSection(results.artist ?? [])
+            albumResultsSection(results.album ?? [])
+            songResultsSection((results.song ?? []).map { DisplayableSong(from: $0) })
         }
     }
 

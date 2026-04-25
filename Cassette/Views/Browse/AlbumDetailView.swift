@@ -149,6 +149,16 @@ struct AlbumDetailView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
+                if vm.songs.isEmpty {
+                    EmptyStateView(
+                        systemImage: "music.note",
+                        title: "No Tracks",
+                        subtitle: "This album doesn't have any tracks yet."
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+
                 let serverId = container?.serverState.activeServer?.id ?? UUID()
                 AlbumSongRows(
                     songs: vm.songs,

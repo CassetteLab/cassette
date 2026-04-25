@@ -46,7 +46,7 @@ struct FavoritesView: View {
             EmptyStateView(
                 systemImage: "heart",
                 title: "No Favorites",
-                subtitle: "Star songs, albums, and artists to see them here."
+                subtitle: "Tap the heart on a song, album, or artist to save it here."
             )
         } else {
             let displayableSongs = vm.songs.map { DisplayableSong(from: $0) }

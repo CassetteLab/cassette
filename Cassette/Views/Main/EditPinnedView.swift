@@ -20,7 +20,7 @@ struct EditPinnedView: View {
             Group {
                 if items.isEmpty && queriedItems.isEmpty {
                     EmptyStateView(
-                        systemImage: "pin.slash",
+                        systemImage: "pin",
                         title: "Nothing Pinned",
                         subtitle: "Long-press an album or playlist and choose \"Pin to Home\"."
                     )

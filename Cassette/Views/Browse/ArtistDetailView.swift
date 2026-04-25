@@ -79,18 +79,26 @@ struct ArtistDetailView: View {
             )
         } else {
             let albums = vm.artist?.album ?? []
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
-                    ForEach(albums) { album in
-                        NavigationLink(destination: AlbumDetailView(album: album)) {
-                            AlbumGridCell(album: album)
+            if albums.isEmpty {
+                EmptyStateView(
+                    systemImage: "square.stack",
+                    title: "No Albums",
+                    subtitle: "This artist has no albums in the library."
+                )
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                        ForEach(albums) { album in
+                            NavigationLink(destination: AlbumDetailView(album: album)) {
+                                AlbumGridCell(album: album)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(CassetteSpacing.l)
                 }
-                .padding(CassetteSpacing.l)
+                .refreshable { await vm.load() }
             }
-            .refreshable { await vm.load() }
         }
     }
 }

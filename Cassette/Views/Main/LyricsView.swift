@@ -12,7 +12,6 @@ struct LyricsView: View {
     @Environment(\.appContainer) private var container
     @State private var lyrics: Lyrics?
     @State private var isLoading = false
-    @State private var loadError: Error?
 
     var body: some View {
         NavigationStack {
@@ -32,9 +31,7 @@ struct LyricsView: View {
                     EmptyStateView(
                         systemImage: "quote.bubble",
                         title: "No Lyrics",
-                        subtitle: loadError != nil
-                            ? loadError!.localizedDescription
-                            : "Lyrics are not available for this track."
+                        subtitle: "Lyrics are not available for this track."
                     )
                 }
             }
@@ -52,13 +49,7 @@ struct LyricsView: View {
             return
         }
         isLoading = true
-        loadError = nil
         defer { isLoading = false }
-        do {
-            lyrics = try await container?.libraryService.lyrics(artist: song.artist, title: song.title)
-        } catch {
-            loadError = error
-            lyrics = nil
-        }
+        lyrics = try? await container?.libraryService.lyrics(artist: song.artist, title: song.title)
     }
 }

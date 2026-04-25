@@ -122,6 +122,16 @@ struct PlaylistDetailView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
+                if vm.songs.isEmpty {
+                    EmptyStateView(
+                        systemImage: "music.note.list",
+                        title: "Empty Playlist",
+                        subtitle: "This playlist doesn't have any tracks yet."
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+
                 let serverId = container?.serverState.activeServer?.id ?? UUID()
                 PlaylistSongRows(
                     songs: vm.songs,
