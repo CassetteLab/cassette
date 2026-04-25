@@ -18,6 +18,7 @@ struct CassetteApp: App {
                 if let container {
                     RootView()
                         .environment(\.appContainer, container)
+                        .environment(container.dominantColorExtractor)
                         .modelContainer(container.modelContainer)
                 } else {
                     ProgressView()

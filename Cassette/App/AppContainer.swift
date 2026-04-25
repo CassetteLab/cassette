@@ -31,6 +31,7 @@ final class AppContainer {
     let pinService: any PinServiceProtocol
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
+    let dominantColorExtractor = DominantColorExtractor()
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
