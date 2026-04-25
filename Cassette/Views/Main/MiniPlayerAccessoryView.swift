@@ -35,7 +35,7 @@ struct MiniPlayerAccessoryView: View {
                     dominantColor.opacity(0.85)
                         .animation(.easeInOut(duration: 0.3), value: dominantColor)
                 )
-                .sheet(isPresented: $showingFullPlayer) {
+                .fullScreenCover(isPresented: $showingFullPlayer) {
                     FullPlayerView()
                 }
                 .task(id: playerState.currentTrack?.coverArtId) {
