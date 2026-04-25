@@ -32,8 +32,7 @@ struct FavoritesView: View {
     private func content(_ vm: FavoritesViewModel) -> some View {
         let isEmpty = vm.songs.isEmpty && vm.albums.isEmpty && vm.artists.isEmpty
         if vm.isLoading && isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingStateView()
         } else if let error = vm.error, isEmpty {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",

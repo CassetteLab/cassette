@@ -16,8 +16,7 @@ struct AlbumsListView: View {
             if let vm = viewModel {
                 content(vm)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingStateView()
             }
         }
         .cassetteContentWidth()
@@ -33,8 +32,7 @@ struct AlbumsListView: View {
     @ViewBuilder
     private func content(_ vm: AlbumListViewModel) -> some View {
         if vm.isLoading && vm.albums.isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingStateView()
         } else if container?.serverState.isOnline == false && vm.albums.isEmpty {
             if let serverId = container?.serverState.activeServer?.id {
                 OfflineAlbumsContent(serverId: serverId)

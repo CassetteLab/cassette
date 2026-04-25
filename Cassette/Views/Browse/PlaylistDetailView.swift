@@ -105,8 +105,7 @@ struct PlaylistDetailView: View {
     @ViewBuilder
     private func content(_ vm: PlaylistDetailViewModel) -> some View {
         if vm.isLoading && vm.songs.isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingStateView()
         } else if let error = vm.error, vm.songs.isEmpty {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",

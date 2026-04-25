@@ -16,8 +16,7 @@ struct ArtistListView: View {
             if let vm = viewModel {
                 browseContent(vm)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingStateView()
             }
         }
         .cassetteContentWidth()
@@ -33,8 +32,7 @@ struct ArtistListView: View {
     @ViewBuilder
     private func browseContent(_ vm: ArtistListViewModel) -> some View {
         if vm.isLoading && vm.indexes.isEmpty {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            LoadingStateView()
         } else if container?.serverState.isOnline == false && vm.indexes.isEmpty {
             if let serverId = container?.serverState.activeServer?.id {
                 OfflineBrowseContent(serverId: serverId)
