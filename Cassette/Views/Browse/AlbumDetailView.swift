@@ -36,6 +36,7 @@ struct AlbumDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
+    @State private var showDeleteAlert = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
@@ -127,7 +128,22 @@ struct AlbumDetailView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
+            .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
+                Button("Remove", role: .destructive) { Task { await vm.deleteDownload() } }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("The audio files will be deleted from this device.")
+            }
         }
+    }
+
+    private func downloadState(for vm: AlbumDetailViewModel) -> AlbumDownloadState {
+        let total = vm.songs.count
+        guard total > 0 else { return .notDownloaded }
+        let downloaded = vm.songs.filter { $0.isDownloaded }.count
+        if downloaded == 0 { return .notDownloaded }
+        if downloaded == total { return .fullyDownloaded }
+        return .partiallyDownloaded(downloaded: downloaded, total: total)
     }
 
     private func albumHeader(vm: AlbumDetailViewModel) -> some View {
@@ -210,15 +226,36 @@ struct AlbumDetailView: View {
                                 .clipShape(Circle())
                         }
                     } else {
-                        Button { Task { await vm.downloadAlbum() } } label: {
-                            Image(systemName: "arrow.down.circle")
-                                .font(.cassetteCellTitle)
-                                .foregroundStyle(Color.cassetteAccent)
-                                .frame(width: 44, height: 44)
-                                .background(Color.cassetteAccent.opacity(0.12))
-                                .clipShape(Circle())
+                        switch downloadState(for: vm) {
+                        case .notDownloaded:
+                            Button { Task { await vm.downloadAlbum() } } label: {
+                                Image(systemName: "arrow.down.circle")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccent.opacity(0.12))
+                                    .clipShape(Circle())
+                            }
+                            .disabled(vm.songs.isEmpty)
+                        case .partiallyDownloaded:
+                            Button { Task { await vm.downloadMissingTracks() } } label: {
+                                Image(systemName: "arrow.down.circle.dotted")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccent.opacity(0.12))
+                                    .clipShape(Circle())
+                            }
+                        case .fullyDownloaded:
+                            Button { showDeleteAlert = true } label: {
+                                Image(systemName: "trash")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .frame(width: 44, height: 44)
+                                    .background(Color.cassetteAccent.opacity(0.12))
+                                    .clipShape(Circle())
+                            }
                         }
-                        .disabled(vm.songs.isEmpty)
                     }
                 }
             }
@@ -232,11 +269,23 @@ struct AlbumDetailView: View {
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }
+            } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
+                Text("\(downloaded)/\(total) tracks downloaded")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
             }
         }
         .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
     }
+}
+
+// MARK: - Download state
+
+private nonisolated enum AlbumDownloadState {
+    case notDownloaded
+    case partiallyDownloaded(downloaded: Int, total: Int)
+    case fullyDownloaded
 }
 
 // MARK: - Live download indicator rows

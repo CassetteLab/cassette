@@ -107,4 +107,37 @@ final class AlbumDetailViewModel {
         }
         isDownloadingAlbum = false
     }
+
+    func downloadMissingTracks() async {
+        guard let album = loadedAlbum,
+              let serverId = serverState.activeServer?.id,
+              let allSongs = album.song else { return }
+        let downloadedIds = Set(songs.filter { $0.isDownloaded }.map(\.id))
+        let missing = allSongs.filter { !downloadedIds.contains($0.id) }
+        guard !missing.isEmpty else { return }
+        isDownloadingAlbum = true
+        for song in missing {
+            try? await downloadService.download(song: song, serverId: serverId)
+        }
+        let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
+        songs = songs.map {
+            DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
+                            albumName: $0.albumName, duration: $0.duration,
+                            trackNumber: $0.trackNumber,
+                            isDownloaded: allDownloaded.contains($0.id),
+                            coverArtId: $0.coverArtId)
+        }
+        isDownloadingAlbum = false
+    }
+
+    func deleteDownload() async {
+        guard let serverId = serverState.activeServer?.id else { return }
+        try? await downloadService.remove(albumId: albumId, serverId: serverId)
+        songs = songs.map {
+            DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
+                            albumName: $0.albumName, duration: $0.duration,
+                            trackNumber: $0.trackNumber, isDownloaded: false,
+                            coverArtId: $0.coverArtId)
+        }
+    }
 }
