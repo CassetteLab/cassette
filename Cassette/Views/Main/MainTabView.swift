@@ -32,8 +32,7 @@ struct MainTabView: View {
         TabView {
             Tab("Home", systemImage: "house.fill") {
                 NavigationStack {
-                    Text("Home \u{2014} coming in 8.3")
-                        .navigationTitle("Home")
+                    HomeView()
                 }
             }
 

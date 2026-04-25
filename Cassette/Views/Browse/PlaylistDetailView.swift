@@ -21,6 +21,11 @@ struct PlaylistDetailView: View {
         initialName = playlist.name
     }
 
+    init(playlistId: String, name: String) {
+        self.playlistId = playlistId
+        self.initialName = name
+    }
+
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistDetailViewModel?
 
@@ -68,12 +73,12 @@ struct PlaylistDetailView: View {
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
 
-                ForEach(Array(vm.songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
-                        }
+                let serverId = container?.serverState.activeServer?.id ?? UUID()
+                PlaylistSongRows(
+                    songs: vm.songs,
+                    serverId: serverId
+                ) { index in
+                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
                 }
             }
             .listStyle(.plain)
@@ -148,5 +153,50 @@ struct PlaylistDetailView: View {
         }
         .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Live download indicator rows
+
+/// Sub-view that observes DownloadedTrack changes live via @Query,
+/// overriding the isDownloaded flag per row without requiring a VM reload.
+private struct PlaylistSongRows: View {
+    let songs: [DisplayableSong]
+    let onTap: (Int) -> Void
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(songs: [DisplayableSong], serverId: UUID, onTap: @escaping (Int) -> Void) {
+        self.songs = songs
+        self.onTap = onTap
+        let sid = serverId
+        _downloadedTracks = Query(
+            filter: #Predicate<DownloadedTrack> { track in
+                track.serverId == sid
+            }
+        )
+    }
+
+    private var downloadedSongIds: Set<String> {
+        Set(downloadedTracks.map(\.songId))
+    }
+
+    var body: some View {
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            let liveDownloaded = downloadedSongIds.contains(song.id)
+            let liveSong = DisplayableSong(
+                id: song.id,
+                title: song.title,
+                artist: song.artist,
+                albumName: song.albumName,
+                duration: song.duration,
+                trackNumber: song.trackNumber,
+                isDownloaded: liveDownloaded,
+                coverArtId: song.coverArtId
+            )
+            SongRow(song: liveSong, index: index + 1, showCoverArt: true)
+                .contentShape(Rectangle())
+                .onTapGesture { onTap(index) }
+        }
     }
 }

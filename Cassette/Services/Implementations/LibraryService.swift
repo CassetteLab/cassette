@@ -73,6 +73,10 @@ actor LibraryService: LibraryServiceProtocol {
         try await client().getStarred2()
     }
 
+    func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3] {
+        try await client().getAlbumList2(type: .newest, size: size)
+    }
+
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
         // TODO(v1.x): verify Navidrome savePlayQueue support; implement best-effort sync
     }
