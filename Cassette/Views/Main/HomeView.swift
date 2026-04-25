@@ -110,8 +110,11 @@ struct HomeView: View {
                         Label("Settings", systemImage: "gear")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "ellipsis")
+                        .font(.title3)
+                        .cassetteGlassButton(size: 36)
                 }
+                .buttonStyle(.borderless)
             }
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
