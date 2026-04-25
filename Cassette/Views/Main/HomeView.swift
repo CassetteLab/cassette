@@ -13,6 +13,9 @@ struct HomeView: View {
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
+    // Local mutable copy for smooth drag-to-reorder; synced from @Query on count changes.
+    @State private var localPinnedItems: [PinnedItem] = []
+    @State private var dropTargetId: String?
 
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
@@ -58,6 +61,8 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
+        .onAppear { localPinnedItems = pinnedItems }
+        .onChange(of: pinnedItems.count) { _, _ in localPinnedItems = pinnedItems }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = HomeViewModel(libraryService: svc) }
@@ -73,8 +78,28 @@ struct HomeView: View {
             Text("Pinned")
                 .font(.cassetteSectionTitle)
             LazyVGrid(columns: pinnedColumns, spacing: CassetteSpacing.m) {
-                ForEach(pinnedItems) { item in
+                ForEach(localPinnedItems) { item in
                     HomePinnedCard(item: item)
+                        .scaleEffect(dropTargetId == item.id ? 1.05 : 1.0)
+                        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: dropTargetId)
+                        .draggable(item.id)
+                        .dropDestination(for: String.self) { droppedIds, _ in
+                            guard let sourceId = droppedIds.first,
+                                  sourceId != item.id,
+                                  let sourceIdx = localPinnedItems.firstIndex(where: { $0.id == sourceId }),
+                                  let destIdx = localPinnedItems.firstIndex(where: { $0.id == item.id })
+                            else { return false }
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                localPinnedItems.move(
+                                    fromOffsets: IndexSet(integer: sourceIdx),
+                                    toOffset: destIdx > sourceIdx ? destIdx + 1 : destIdx
+                                )
+                            }
+                            container?.pinService.reorder(items: localPinnedItems)
+                            return true
+                        } isTargeted: { targeted in
+                            dropTargetId = targeted ? item.id : nil
+                        }
                 }
             }
         }
