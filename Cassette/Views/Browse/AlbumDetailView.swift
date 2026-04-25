@@ -205,9 +205,7 @@ struct AlbumDetailView: View {
                     Image(systemName: "shuffle")
                         .font(.cassetteCellTitle)
                         .foregroundStyle(Color.cassetteAccent)
-                        .frame(width: 44, height: 44)
-                        .background(Color.cassetteAccent.opacity(0.12))
-                        .clipShape(Circle())
+                        .cassetteGlassButton(size: 44)
                 }
                 .disabled(vm.songs.isEmpty)
 
@@ -228,9 +226,7 @@ struct AlbumDetailView: View {
                     Image(systemName: isAlbumFavorite ? "heart.fill" : "heart")
                         .font(.cassetteCellTitle)
                         .foregroundStyle(Color.cassetteAccent)
-                        .frame(width: 44, height: 44)
-                        .background(Color.cassetteAccent.opacity(isAlbumFavorite ? 0.25 : 0.12))
-                        .clipShape(Circle())
+                        .cassetteGlassButton(size: 44, tint: isAlbumFavorite ? Color.cassetteAccent : nil)
                         .scaleEffect(isAlbumFavorite ? 1.1 : 1.0)
                         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
                 }

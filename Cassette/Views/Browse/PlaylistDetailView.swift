@@ -191,9 +191,7 @@ struct PlaylistDetailView: View {
                     Image(systemName: "shuffle")
                         .font(.cassetteCellTitle)
                         .foregroundStyle(Color.cassetteAccent)
-                        .frame(width: 44, height: 44)
-                        .background(Color.cassetteAccent.opacity(0.12))
-                        .clipShape(Circle())
+                        .cassetteGlassButton(size: 44)
                 }
                 .disabled(vm.songs.isEmpty)
 
