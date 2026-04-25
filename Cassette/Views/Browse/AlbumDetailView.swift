@@ -131,6 +131,7 @@ struct AlbumDetailView: View {
                     .disabled(songs.isEmpty)
                 }
             }
+            .buttonStyle(.borderless)
             .padding(.horizontal, CassetteSpacing.l)
 
             if vm.isDownloadingAlbum {

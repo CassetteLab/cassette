@@ -138,6 +138,7 @@ struct PlaylistDetailView: View {
                     .disabled(songs.isEmpty)
                 }
             }
+            .buttonStyle(.borderless)
             .padding(.horizontal, CassetteSpacing.l)
 
             if vm.isDownloadingPlaylist {
