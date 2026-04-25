@@ -245,6 +245,8 @@ struct HomeView: View {
 
 private struct HomePinnedCard: View {
     let item: PinnedItem
+    @Environment(\.appContainer) private var container
+    @Environment(\.modelContext) private var modelContext
 
     @ViewBuilder
     private var destination: some View {
@@ -281,14 +283,50 @@ private struct HomePinnedCard: View {
             }
         }
         .buttonStyle(.plain)
-        .collectionContextMenu(
+        .lazyCollectionContextMenu(
             itemType: PinnedItemType(rawValue: item.itemType) ?? .album,
             itemId: item.itemId,
             displayName: item.displayName,
             displaySubtitle: item.displaySubtitle,
             coverArtId: item.coverArtId,
             favoriteType: item.itemType == PinnedItemType.album.rawValue ? .album : nil
-        )
+        ) {
+            let itemId = item.itemId
+            switch PinnedItemType(rawValue: item.itemType) {
+            case .album:
+                if container?.serverState.isOnline == true,
+                   let detail = try? await container?.libraryService.album(id: itemId) {
+                    return detail.song?.map { DisplayableSong(from: $0) } ?? []
+                }
+                let tracks = (try? modelContext.fetch(
+                    FetchDescriptor<DownloadedTrack>(
+                        predicate: #Predicate { $0.albumId == itemId }
+                    )
+                )) ?? []
+                return tracks
+                    .sorted { ($0.trackNumber ?? Int.max) < ($1.trackNumber ?? Int.max) }
+                    .map { DisplayableSong(from: $0) }
+            case .playlist:
+                if container?.serverState.isOnline == true,
+                   let detail = try? await container?.libraryService.playlist(id: itemId) {
+                    return (detail.entry ?? []).map { DisplayableSong(from: $0) }
+                }
+                let playlists = (try? modelContext.fetch(
+                    FetchDescriptor<DownloadedPlaylist>(
+                        predicate: #Predicate { $0.playlistId == itemId }
+                    )
+                )) ?? []
+                let songIds = playlists.first?.songIds ?? []
+                let allTracks = (try? modelContext.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+                let trackBySongId = Dictionary(
+                    allTracks.map { ($0.songId, $0) },
+                    uniquingKeysWith: { first, _ in first }
+                )
+                return songIds.compactMap { trackBySongId[$0] }.map { DisplayableSong(from: $0) }
+            case .none:
+                return []
+            }
+        }
     }
 }
 
