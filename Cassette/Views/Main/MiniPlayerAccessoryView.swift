@@ -12,6 +12,11 @@ struct MiniPlayerAccessoryView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement: TabViewBottomAccessoryPlacement?
     @State private var showingFullPlayer = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var isAnimatingSwipe = false
+
+    private let swipeThreshold: CGFloat = 100
+    private let velocityThreshold: CGFloat = 200
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -36,6 +41,8 @@ struct MiniPlayerAccessoryView: View {
                 expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, isPlaying: isPlaying)
             }
         }
+        .offset(x: dragOffset)
+        .opacity(1.0 - min(abs(dragOffset) / 200, 0.4))
         .contentShape(Rectangle())
         .onTapGesture { showingFullPlayer = true }
         .gesture(swipeSkipGesture)
@@ -127,18 +134,67 @@ struct MiniPlayerAccessoryView: View {
     }
 
     private var swipeSkipGesture: some Gesture {
-        DragGesture(minimumDistance: 30)
-            .onEnded { value in
+        DragGesture(minimumDistance: 10)
+            .onChanged { value in
+                guard !isAnimatingSwipe else { return }
                 let h = value.translation.width
                 guard abs(h) > abs(value.translation.height) else { return }
-                #if os(iOS)
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                #endif
-                if h < 0 {
-                    Task { try? await container?.playerService.skipToNext() }
-                } else {
-                    Task { try? await container?.playerService.skipToPrevious() }
+                withAnimation(.interactiveSpring()) {
+                    dragOffset = h
                 }
             }
+            .onEnded { value in
+                guard !isAnimatingSwipe else { return }
+                let h = value.translation.width
+                let velocity = value.velocity.width
+                guard abs(h) > abs(value.translation.height) else {
+                    bounceback()
+                    return
+                }
+
+                let triggeredNext = h < -swipeThreshold || velocity < -velocityThreshold
+                let triggeredPrev = h > swipeThreshold || velocity > velocityThreshold
+
+                if triggeredNext || triggeredPrev {
+                    commitSwipe(goNext: triggeredNext)
+                } else {
+                    bounceback()
+                }
+            }
+    }
+
+    private func commitSwipe(goNext: Bool) {
+        isAnimatingSwipe = true
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        #endif
+
+        let exitOffset: CGFloat = goNext ? -300 : 300
+        withAnimation(.easeIn(duration: 0.18)) {
+            dragOffset = exitOffset
+        }
+
+        Task {
+            if goNext {
+                try? await container?.playerService.skipToNext()
+            } else {
+                try? await container?.playerService.skipToPrevious()
+            }
+
+            let entryOffset: CGFloat = goNext ? 300 : -300
+            await MainActor.run {
+                dragOffset = entryOffset
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                    dragOffset = 0
+                }
+                isAnimatingSwipe = false
+            }
+        }
+    }
+
+    private func bounceback() {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            dragOffset = 0
+        }
     }
 }
