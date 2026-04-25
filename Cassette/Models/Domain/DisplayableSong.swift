@@ -11,7 +11,7 @@ import SwiftSonic
 /// Constructed from either a SwiftSonic `Song` (online) or a `DownloadedTrack` (offline).
 /// PlayerService, SongRow, and all detail ViewModels work exclusively with this type —
 /// SwiftSonic types are DTOs consumed at the API boundary only.
-nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable {
+nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable, Codable {
     let id: String
     let title: String
     let artist: String?
