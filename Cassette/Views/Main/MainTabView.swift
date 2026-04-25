@@ -9,38 +9,22 @@ struct MainTabView: View {
     @Environment(\.appContainer) private var container
     @State private var searchText = ""
 
+    private var hasTrack: Bool {
+        container?.playerState.currentTrack != nil
+    }
+
     var body: some View {
         TabView {
-            Tab("Browse", systemImage: "music.note.list") {
+            Tab("Home", systemImage: "house.fill") {
                 NavigationStack {
-                    ArtistListView()
-                }
-                .safeAreaInset(edge: .bottom) {
-                    if container?.playerState.currentTrack != nil {
-                        MiniPlayerView()
-                    }
-                }
-            }
-
-            Tab("Playlists", systemImage: "list.bullet") {
-                NavigationStack {
-                    PlaylistListView()
-                }
-                .safeAreaInset(edge: .bottom) {
-                    if container?.playerState.currentTrack != nil {
-                        MiniPlayerView()
-                    }
+                    Text("Home \u{2014} coming in 8.3")
+                        .navigationTitle("Home")
                 }
             }
 
             Tab("Settings", systemImage: "gear") {
                 NavigationStack {
                     SettingsView()
-                }
-                .safeAreaInset(edge: .bottom) {
-                    if container?.playerState.currentTrack != nil {
-                        MiniPlayerView()
-                    }
                 }
             }
 
@@ -50,11 +34,12 @@ struct MainTabView: View {
                         .navigationTitle("Search")
                 }
                 .searchable(text: $searchText, prompt: "Artists, albums, songs\u{2026}")
-                .safeAreaInset(edge: .bottom) {
-                    if container?.playerState.currentTrack != nil {
-                        MiniPlayerView()
-                    }
-                }
+            }
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory {
+            if hasTrack {
+                MiniPlayerView()
             }
         }
     }
