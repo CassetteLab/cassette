@@ -105,32 +105,6 @@ struct FullPlayerView: View {
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.l)
 
-            HStack(spacing: CassetteSpacing.xxxxl) {
-                Button {
-                    HapticFeedback.light.trigger()
-                    Task {
-                        let next = playerState.repeatMode.next
-                        await container?.playerService.setRepeatMode(next)
-                    }
-                } label: {
-                    Image(systemName: playerState.repeatMode.systemImage)
-                        .font(.title3)
-                        .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : .white)
-                        .cassetteGlassButton(size: 44, tint: playerState.repeatMode == .off ? nil : Color.cassetteAccent)
-                }
-
-                Button {
-                    HapticFeedback.light.trigger()
-                    Task { await container?.playerService.toggleShuffle() }
-                } label: {
-                    Image(systemName: "shuffle")
-                        .font(.title3)
-                        .foregroundStyle(playerState.isShuffled ? .white : .white.opacity(0.7))
-                        .cassetteGlassButton(size: 44, tint: playerState.isShuffled ? Color.cassetteAccent : nil)
-                }
-            }
-            .padding(.top, CassetteSpacing.l)
-
             BottomToolbar(showLyrics: $showLyrics, showQueue: $showQueue)
                 .padding(.top, CassetteSpacing.l)
 
@@ -516,22 +490,3 @@ private struct VolumeSection: View {
     }
 }
 
-// MARK: - RepeatMode helpers
-
-private extension RepeatMode {
-    var next: RepeatMode {
-        switch self {
-        case .off: return .all
-        case .all: return .one
-        case .one: return .off
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .off:  return "repeat"
-        case .all:  return "repeat"
-        case .one:  return "repeat.1"
-        }
-    }
-}
