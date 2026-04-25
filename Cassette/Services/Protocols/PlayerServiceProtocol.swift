@@ -28,4 +28,5 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func removeFromQueue(at index: Int) async
     func moveInQueue(fromIndex: Int, toIndex: Int) async
     func restoreSession() async
+    func handleNetworkRestored() async
 }

@@ -289,7 +289,17 @@ actor PlayerService: PlayerServiceProtocol {
         let cmTime = CMTime(seconds: position, preferredTimescale: 600)
         await newPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
 
+        await MainActor.run { state.isPlaybackAvailable = true }
         Logger.player.info("Session restore: '\(track.title)' prepared at \(position, format: .fixed(precision: 1))s")
+    }
+
+    func handleNetworkRestored() async {
+        let (isAvailable, track, position) = await MainActor.run {
+            (state.isPlaybackAvailable, state.currentTrack, state.position)
+        }
+        guard !isAvailable, let track else { return }
+        Logger.player.info("Network restored — re-preparing '\(track.title)'")
+        await prepareCurrentTrackForRestoration(track: track, position: position)
     }
 
     // MARK: - Position save timer

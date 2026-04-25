@@ -36,6 +36,10 @@ struct CassetteApp: App {
                 // Best-effort TTL eviction at launch — runs concurrently, never blocks UI.
                 Task { await newContainer.cacheService.evictExpired() }
             }
+            .task(id: container?.serverState.isOnline) {
+                guard let c = container, c.serverState.isOnline else { return }
+                await c.playerService.handleNetworkRestored()
+            }
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .background, let c = container else { return }
