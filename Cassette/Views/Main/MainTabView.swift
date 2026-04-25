@@ -16,21 +16,28 @@ struct MainTabView: View {
 
     var body: some View {
         #if os(iOS)
-        tabs
-            .tabBarMinimizeBehavior(.onScrollDown)
-            .tabViewBottomAccessory {
-                if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
+        ZStack {
+            tabs
+                .tabBarMinimizeBehavior(.onScrollDown)
+                .tabViewBottomAccessory {
+                    if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
+                }
+
+            if showingFullPlayer {
+                FullPlayerView(isPresented: $showingFullPlayer)
+                    .ignoresSafeArea()
+                    .transition(.asymmetric(insertion: .move(edge: .bottom), removal: .identity))
+                    .zIndex(1)
             }
-            .fullScreenCover(isPresented: $showingFullPlayer) {
-                FullPlayerView()
-            }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showingFullPlayer)
         #else
         tabs
             .safeAreaInset(edge: .bottom) {
                 if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
             }
             .fullScreenCover(isPresented: $showingFullPlayer) {
-                FullPlayerView()
+                FullPlayerView(isPresented: $showingFullPlayer)
             }
         #endif
     }

@@ -11,8 +11,8 @@ import AVKit
 #endif
 
 struct FullPlayerView: View {
+    @Binding var isPresented: Bool
     @Environment(\.appContainer) private var container
-    @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
 
     @State private var coverImage: PlatformImage?
@@ -30,6 +30,7 @@ struct FullPlayerView: View {
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await loadCoverAndColor(coverArtId: playerState.currentTrack?.coverArtId)
                 }
+                .onAppear { dragOffsetY = 0 }
         }
     }
 
@@ -112,7 +113,7 @@ struct FullPlayerView: View {
                 } label: {
                     Image(systemName: playerState.repeatMode.systemImage)
                         .font(.title3)
-                        .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : Color.cassetteAccent)
+                        .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : .white)
                         .cassetteGlassButton(size: 44, tint: playerState.repeatMode == .off ? nil : Color.cassetteAccent)
                 }
 
@@ -121,7 +122,7 @@ struct FullPlayerView: View {
                 } label: {
                     Image(systemName: "shuffle")
                         .font(.title3)
-                        .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .white.opacity(0.7))
+                        .foregroundStyle(playerState.isShuffled ? .white : .white.opacity(0.7))
                         .cassetteGlassButton(size: 44, tint: playerState.isShuffled ? Color.cassetteAccent : nil)
                 }
             }
@@ -182,7 +183,10 @@ struct FullPlayerView: View {
                 let velocity = value.velocity.height
                 if dy > dismissThreshold || velocity > dismissVelocityThreshold {
                     withAnimation(.easeIn(duration: 0.2)) { dragOffsetY = 800 }
-                    dismiss()
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(210))
+                        await MainActor.run { isPresented = false }
+                    }
                 } else {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { dragOffsetY = 0 }
                 }
