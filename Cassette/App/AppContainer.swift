@@ -30,9 +30,11 @@ final class AppContainer {
     let favoritesService: any FavoritesServiceProtocol
     let pinService: any PinServiceProtocol
     let networkMonitor = NetworkMonitor()
+    let sessionService: PlaybackSessionService
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
+        sessionService = PlaybackSessionService(modelContainer: modelContainer)
 
         let keychain = KeychainService()
         keychainService = keychain
