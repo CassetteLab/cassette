@@ -5,10 +5,12 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 @main
 struct CassetteApp: App {
     @State private var container: AppContainer?
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -25,12 +27,20 @@ struct CassetteApp: App {
                 guard container == nil else { return }
                 guard let newContainer = try? AppContainer() else { return }
                 container = newContainer
+                // loadPersistedState must complete before restoreSession so the active
+                // server is known when prepareCurrentTrackForRestoration resolves the URL.
                 await newContainer.serverService.loadPersistedState()
+                await newContainer.playerService.restoreSession()
                 await newContainer.nowPlayingService.start()
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 // Best-effort TTL eviction at launch — runs concurrently, never blocks UI.
                 Task { await newContainer.cacheService.evictExpired() }
             }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .background, let c = container else { return }
+            c.sessionService.save(playerState: c.playerState)
+            Logger.session.info("App backgrounded — session flushed")
         }
     }
 }
