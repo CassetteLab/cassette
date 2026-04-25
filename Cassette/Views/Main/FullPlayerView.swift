@@ -58,111 +58,101 @@ struct FullPlayerView: View {
         let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
         let isPlaying = playerState.playbackState == .playing
 
-        ZStack {
-            // 1. Black base — always in tree so ZStack size never comes from image intrinsics
-            Color.black.ignoresSafeArea()
+        VStack(spacing: 0) {
+            topBar
+                .padding(.top, CassetteSpacing.s)
 
-            // Blurred cover fades in on top; explicit frame prevents the image from
-            // contributing its pixel dimensions to the ZStack's size calculation
-            if let coverImage {
-                Image(platformImage: coverImage)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scaleEffect(1.3)
-                    .blur(radius: 80, opaque: true)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-            }
+            Spacer(minLength: CassetteSpacing.l)
 
-            // 2. Dominant color tint at 50%
-            dominantColor
-                .opacity(0.5)
-                .ignoresSafeArea()
-
-            // 3. Subtle dark overlay for text contrast
-            Color.black.opacity(0.25)
-                .ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                topBar
-                    .padding(.top, CassetteSpacing.s)
-
-                Spacer(minLength: CassetteSpacing.l)
-
-                // Cover art with scale animation on pause
-                CoverArtView(id: coverArtId, size: 300)
-                    .aspectRatio(1, contentMode: .fit)
-                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                    .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
-                    .scaleEffect(isPlaying ? 1.0 : 0.92)
-                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                    .padding(.horizontal, CassetteSpacing.xl)
-
-                Spacer(minLength: CassetteSpacing.l)
-
-                // Asymmetric track info: title/album/artist left, star/menu right
-                TrackInfoSection(playerState: playerState, container: container)
-                    .padding(.horizontal, CassetteSpacing.l)
-
-                ScrubberView(playerState: playerState, playerService: container?.playerService)
-                    .padding(.horizontal, CassetteSpacing.l)
-                    .padding(.top, CassetteSpacing.m)
-                    .disabled(!playerState.isPlaybackAvailable)
-                    .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
-
-                PlaybackControlsView(
-                    playerState: playerState,
-                    playerService: container?.playerService,
-                    isPlaybackAvailable: playerState.isPlaybackAvailable
-                )
-                .padding(.top, CassetteSpacing.l)
-
-                // Volume
-                VolumeSection(playerState: playerState, playerService: container?.playerService)
-                    .padding(.horizontal, CassetteSpacing.l)
-                    .padding(.top, CassetteSpacing.l)
-
-                // Repeat / shuffle
-                HStack(spacing: CassetteSpacing.xxxxl) {
-                    Button {
-                        Task {
-                            let next = playerState.repeatMode.next
-                            await container?.playerService.setRepeatMode(next)
-                        }
-                    } label: {
-                        Image(systemName: playerState.repeatMode.systemImage)
-                            .font(.title3)
-                            .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : Color.cassetteAccent)
-                            .cassetteGlassButton(size: 44, tint: playerState.repeatMode == .off ? nil : Color.cassetteAccent)
-                    }
-
-                    Button {
-                        Task { await container?.playerService.toggleShuffle() }
-                    } label: {
-                        Image(systemName: "shuffle")
-                            .font(.title3)
-                            .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .white.opacity(0.7))
-                            .cassetteGlassButton(size: 44, tint: playerState.isShuffled ? Color.cassetteAccent : nil)
-                    }
+            // Color.clear is the layout anchor — its size is fully determined by the
+            // offered space, so AsyncImage's image intrinsics never affect VStack layout.
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    CoverArtView(id: coverArtId, size: 300)
                 }
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                .scaleEffect(isPlaying ? 1.0 : 0.92)
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                .padding(.horizontal, CassetteSpacing.xl)
+
+            Spacer(minLength: CassetteSpacing.l)
+
+            TrackInfoSection(playerState: playerState, container: container)
+                .padding(.horizontal, CassetteSpacing.l)
+
+            ScrubberView(playerState: playerState, playerService: container?.playerService)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.top, CassetteSpacing.m)
+                .disabled(!playerState.isPlaybackAvailable)
+                .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+
+            PlaybackControlsView(
+                playerState: playerState,
+                playerService: container?.playerService,
+                isPlaybackAvailable: playerState.isPlaybackAvailable
+            )
+            .padding(.top, CassetteSpacing.l)
+
+            VolumeSection(playerState: playerState, playerService: container?.playerService)
+                .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.l)
 
-                BottomToolbar(showLyrics: $showLyrics, showQueue: $showQueue)
-                    .padding(.top, CassetteSpacing.l)
+            HStack(spacing: CassetteSpacing.xxxxl) {
+                Button {
+                    Task {
+                        let next = playerState.repeatMode.next
+                        await container?.playerService.setRepeatMode(next)
+                    }
+                } label: {
+                    Image(systemName: playerState.repeatMode.systemImage)
+                        .font(.title3)
+                        .foregroundStyle(playerState.repeatMode == .off ? .white.opacity(0.7) : Color.cassetteAccent)
+                        .cassetteGlassButton(size: 44, tint: playerState.repeatMode == .off ? nil : Color.cassetteAccent)
+                }
 
-                Spacer(minLength: CassetteSpacing.l)
+                Button {
+                    Task { await container?.playerService.toggleShuffle() }
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.title3)
+                        .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : .white.opacity(0.7))
+                        .cassetteGlassButton(size: 44, tint: playerState.isShuffled ? Color.cassetteAccent : nil)
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .cassetteContentWidth()
-            .sheet(isPresented: $showLyrics) {
-                LyricsView(song: playerState.currentTrack)
-                    .presentationDetents([.medium, .large])
+            .padding(.top, CassetteSpacing.l)
+
+            BottomToolbar(showLyrics: $showLyrics, showQueue: $showQueue)
+                .padding(.top, CassetteSpacing.l)
+
+            Spacer(minLength: CassetteSpacing.l)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .cassetteContentWidth()
+        .background {
+            ZStack {
+                Color.black
+                if let coverImage {
+                    Image(platformImage: coverImage)
+                        .resizable()
+                        .scaledToFill()
+                        .scaleEffect(1.3)
+                        .blur(radius: 80, opaque: true)
+                        .transition(.opacity)
+                }
+                dominantColor.opacity(0.5)
+                Color.black.opacity(0.25)
             }
-            .sheet(isPresented: $showQueue) {
-                QueueView()
-                    .presentationDetents([.large])
-            }
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showLyrics) {
+            LyricsView(song: playerState.currentTrack)
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showQueue) {
+            QueueView()
+                .presentationDetents([.large])
         }
     }
 
@@ -274,7 +264,7 @@ private struct TrackInfoSection: View {
                         .foregroundStyle(.white)
                         .cassetteGlassButton(size: 44)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.plain)
             }
         }
     }

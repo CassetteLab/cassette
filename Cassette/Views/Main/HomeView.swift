@@ -114,7 +114,7 @@ struct HomeView: View {
                         .font(.title3)
                         .cassetteGlassButton(size: 36)
                 }
-                .buttonStyle(.borderless)
+                .buttonStyle(.plain)
             }
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
