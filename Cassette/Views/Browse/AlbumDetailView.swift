@@ -14,15 +14,30 @@ struct AlbumDetailView: View {
     init(album: AlbumID3) {
         albumId = album.id
         initialName = album.name
+        let cid = "album:\(album.id)"
+        _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
 
     init(album: DownloadedAlbum) {
         albumId = album.albumId
         initialName = album.name
+        let cid = "album:\(album.albumId)"
+        _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+    }
+
+    init(albumId: String, albumName: String) {
+        self.albumId = albumId
+        self.initialName = albumName
+        let cid = "album:\(albumId)"
+        _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
 
     @Environment(\.appContainer) private var container
     @State private var viewModel: AlbumDetailViewModel?
+    @Query private var albumFavoriteMatches: [FavoriteRecord]
+
+    private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
+    private var isOnline: Bool { container?.serverState.isOnline == true }
 
     var body: some View {
         Group {
@@ -69,12 +84,13 @@ struct AlbumDetailView: View {
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
-                ForEach(Array(vm.songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1)
-                        .onTapGesture {
-                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
-                        }
-                        .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
+                let serverId = container?.serverState.activeServer?.id ?? UUID()
+                AlbumSongRows(
+                    songs: vm.songs,
+                    albumId: albumId,
+                    serverId: serverId
+                ) { index in
+                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
                 }
             }
             .listStyle(.plain)
@@ -116,6 +132,26 @@ struct AlbumDetailView: View {
                 }, isDisabled: vm.songs.isEmpty || vm.isDownloadingAlbum)
                 .frame(maxWidth: 400)
 
+                Button {
+                    Task {
+                        if isAlbumFavorite {
+                            try? await container?.favoritesService.unstar(itemType: .album, itemId: albumId)
+                        } else {
+                            try? await container?.favoritesService.star(itemType: .album, itemId: albumId)
+                        }
+                    }
+                } label: {
+                    Image(systemName: isAlbumFavorite ? "heart.fill" : "heart")
+                        .font(.cassetteCellTitle)
+                        .foregroundStyle(Color.cassetteAccent)
+                        .frame(width: 44, height: 44)
+                        .background(Color.cassetteAccent.opacity(isAlbumFavorite ? 0.25 : 0.12))
+                        .clipShape(Circle())
+                        .scaleEffect(isAlbumFavorite ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
+                }
+                .disabled(!isOnline)
+
                 if !vm.isOffline {
                     if vm.isDownloadingAlbum {
                         Button { Task { await vm.cancelAlbumDownload() } } label: {
@@ -153,5 +189,51 @@ struct AlbumDetailView: View {
         }
         .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Live download indicator rows
+
+/// Sub-view that observes DownloadedTrack changes live via @Query,
+/// overriding the isDownloaded flag per row without requiring a VM reload.
+private struct AlbumSongRows: View {
+    let songs: [DisplayableSong]
+    let onTap: (Int) -> Void
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, onTap: @escaping (Int) -> Void) {
+        self.songs = songs
+        self.onTap = onTap
+        let aid = albumId
+        let sid = serverId
+        _downloadedTracks = Query(
+            filter: #Predicate<DownloadedTrack> { track in
+                track.albumId == aid && track.serverId == sid
+            }
+        )
+    }
+
+    private var downloadedSongIds: Set<String> {
+        Set(downloadedTracks.map(\.songId))
+    }
+
+    var body: some View {
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            let liveDownloaded = downloadedSongIds.contains(song.id)
+            let liveSong = DisplayableSong(
+                id: song.id,
+                title: song.title,
+                artist: song.artist,
+                albumName: song.albumName,
+                duration: song.duration,
+                trackNumber: song.trackNumber,
+                isDownloaded: liveDownloaded,
+                coverArtId: song.coverArtId
+            )
+            SongRow(song: liveSong, index: index + 1)
+                .onTapGesture { onTap(index) }
+                .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
+        }
     }
 }

@@ -5,12 +5,23 @@
 
 import SwiftUI
 import SwiftSonic
+import SwiftData
 
 struct ArtistDetailView: View {
     let artist: ArtistID3
 
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistDetailViewModel?
+    @Query private var artistFavoriteMatches: [FavoriteRecord]
+
+    init(artist: ArtistID3) {
+        self.artist = artist
+        let cid = "artist:\(artist.id)"
+        _artistFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+    }
+
+    private var isArtistFavorite: Bool { !artistFavoriteMatches.isEmpty }
+    private var isOnline: Bool { container?.serverState.isOnline == true }
 
     private let columns = [
         GridItem(.adaptive(minimum: 150, maximum: 200), spacing: CassetteSpacing.l)
@@ -28,6 +39,25 @@ struct ArtistDetailView: View {
         .cassetteContentWidth()
         .navigationTitle(artist.name)
         .navigationBarTitleDisplayModeLarge()
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    Task {
+                        if isArtistFavorite {
+                            try? await container?.favoritesService.unstar(itemType: .artist, itemId: artist.id)
+                        } else {
+                            try? await container?.favoritesService.star(itemType: .artist, itemId: artist.id)
+                        }
+                    }
+                } label: {
+                    Image(systemName: isArtistFavorite ? "heart.fill" : "heart")
+                        .foregroundStyle(isArtistFavorite ? Color.cassetteAccent : Color.primary)
+                        .scaleEffect(isArtistFavorite ? 1.1 : 1.0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isArtistFavorite)
+                }
+                .disabled(!isOnline)
+            }
+        }
         .task {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistDetailViewModel(artistId: artist.id, libraryService: svc) }
