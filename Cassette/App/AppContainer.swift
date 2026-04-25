@@ -85,7 +85,8 @@ extension ModelContainer {
             DownloadedAlbum.self,
             DownloadedPlaylist.self,
             QueueSnapshot.self,
-            FavoriteRecord.self
+            FavoriteRecord.self,
+            PinnedItem.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)
