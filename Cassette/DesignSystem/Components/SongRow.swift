@@ -56,6 +56,7 @@ struct SongRow: View {
             }
             .buttonStyle(.borderless)
             .disabled(!isOnline)
+            .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
 
             if showCoverArt {
                 CoverArtCard(id: song.coverArtId ?? song.id, size: 44)

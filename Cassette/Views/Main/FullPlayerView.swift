@@ -145,6 +145,7 @@ struct FullPlayerView: View {
         Capsule()
             .fill(Color.white.opacity(0.4))
             .frame(width: 36, height: 5)
+            .accessibilityHidden(true)
     }
 
     private var swipeDownGesture: some Gesture {
@@ -249,6 +250,7 @@ private struct TrackInfoSection: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(!isOnline)
+                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
 
                 Menu {
                     Button("Go to Album", systemImage: "square.stack") { }
@@ -260,6 +262,7 @@ private struct TrackInfoSection: View {
                         .cassetteGlassButton(size: 44)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("More options")
             }
         }
     }
@@ -362,6 +365,16 @@ private struct ProgressSlider: View {
         }
         .frame(height: thumbDiameter)
         .animation(.easeInOut(duration: 0.15), value: isDragging)
+        .accessibilityLabel("Playback position")
+        .accessibilityValue(Duration.seconds(value).formatted(.time(pattern: .minuteSecond)))
+        .accessibilityAdjustableAction { direction in
+            let step = total * 0.05
+            switch direction {
+            case .increment: onChange(min(value + step, total), true)
+            case .decrement: onChange(max(value - step, 0), true)
+            @unknown default: break
+            }
+        }
     }
 }
 
@@ -384,6 +397,7 @@ private struct PlaybackControlsView: View {
                     .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
+            .accessibilityLabel("Skip to previous")
 
             Button {
                 HapticFeedback.medium.trigger()
@@ -401,6 +415,7 @@ private struct PlaybackControlsView: View {
                     .cassetteGlassButton(size: 80, tint: isPlaybackAvailable ? Color.cassetteAccent : nil)
             }
             .disabled(!isPlaybackAvailable)
+            .accessibilityLabel(playerState.playbackState == .playing ? "Pause" : "Play")
 
             Button {
                 HapticFeedback.light.trigger()
@@ -412,6 +427,7 @@ private struct PlaybackControlsView: View {
                     .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
+            .accessibilityLabel("Skip to next")
         }
     }
 }
@@ -431,6 +447,7 @@ private struct BottomToolbar: View {
                     .cassetteGlassButton(size: 44)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("Lyrics")
 
             AirPlayRouteButton()
                 .frame(width: 44, height: 44)
@@ -442,6 +459,7 @@ private struct BottomToolbar: View {
                     .cassetteGlassButton(size: 44)
             }
             .buttonStyle(.borderless)
+            .accessibilityLabel("Queue")
         }
     }
 }
@@ -478,6 +496,7 @@ private struct VolumeSection: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
                 .frame(width: 20)
+                .accessibilityHidden(true)
 
             SystemVolumeView()
 
@@ -485,6 +504,7 @@ private struct VolumeSection: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
                 .frame(width: 20)
+                .accessibilityHidden(true)
         }
         #endif
     }

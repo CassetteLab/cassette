@@ -147,6 +147,7 @@ struct MiniPlayerAccessoryView: View {
                                 .foregroundStyle(typoColor)
                         }
                         .buttonStyle(.borderless)
+                        .accessibilityLabel("Skip to next")
                     }
                 }
             }
@@ -160,6 +161,7 @@ struct MiniPlayerAccessoryView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(height: 3)
+            .accessibilityHidden(true)
         }
     }
 
@@ -181,6 +183,7 @@ struct MiniPlayerAccessoryView: View {
         }
         .buttonStyle(.borderless)
         .disabled(!isAvailable)
+        .accessibilityLabel(isPlaying ? "Pause" : "Play")
     }
 
     private func updateDominantColor(coverArtId: String?) async {
