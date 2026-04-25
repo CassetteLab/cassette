@@ -6,6 +6,10 @@
 import SwiftUI
 import SwiftData
 
+#if canImport(UIKit)
+import AVKit
+#endif
+
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
@@ -13,6 +17,8 @@ struct FullPlayerView: View {
 
     @State private var coverImage: PlatformImage?
     @State private var dominantColor: Color = .black
+    @State private var showLyrics = false
+    @State private var showQueue = false
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -139,10 +145,21 @@ struct FullPlayerView: View {
                 }
                 .padding(.top, CassetteSpacing.l)
 
+                BottomToolbar(showLyrics: $showLyrics, showQueue: $showQueue)
+                    .padding(.top, CassetteSpacing.l)
+
                 Spacer(minLength: CassetteSpacing.l)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .cassetteContentWidth()
+            .sheet(isPresented: $showLyrics) {
+                Text("Lyrics")
+                    .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showQueue) {
+                Text("Queue")
+                    .presentationDetents([.large])
+            }
         }
     }
 
@@ -416,6 +433,58 @@ private struct PlaybackControlsView: View {
         }
     }
 }
+
+// MARK: - Bottom toolbar
+
+private struct BottomToolbar: View {
+    @Binding var showLyrics: Bool
+    @Binding var showQueue: Bool
+
+    var body: some View {
+        HStack(spacing: CassetteSpacing.xxxxl) {
+            Button { showLyrics = true } label: {
+                Image(systemName: "quote.bubble")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .cassetteGlassButton(size: 44)
+            }
+            .buttonStyle(.borderless)
+
+            AirPlayRouteButton()
+                .frame(width: 44, height: 44)
+
+            Button { showQueue = true } label: {
+                Image(systemName: "list.bullet")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.7))
+                    .cassetteGlassButton(size: 44)
+            }
+            .buttonStyle(.borderless)
+        }
+    }
+}
+
+#if canImport(UIKit)
+private struct AirPlayRouteButton: UIViewRepresentable {
+    func makeUIView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        view.activeTintColor = UIColor(Color.cassetteAccent)
+        view.tintColor = UIColor.white.withAlphaComponent(0.7)
+        view.backgroundColor = .clear
+        return view
+    }
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+}
+#else
+private struct AirPlayRouteButton: View {
+    var body: some View {
+        Image(systemName: "airplay.audio")
+            .font(.title3)
+            .foregroundStyle(.white.opacity(0.7))
+            .frame(width: 44, height: 44)
+    }
+}
+#endif
 
 // MARK: - Volume
 
