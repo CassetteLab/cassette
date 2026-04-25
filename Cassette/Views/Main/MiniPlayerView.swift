@@ -49,6 +49,7 @@ struct MiniPlayerView: View {
                     } label: {
                         Image(systemName: "backward.fill")
                             .font(.title3)
+                            .foregroundStyle(.primary)
                     }
 
                     Button {
@@ -62,6 +63,7 @@ struct MiniPlayerView: View {
                     } label: {
                         Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
                             .font(.title3)
+                            .foregroundStyle(.primary)
                     }
 
                     Button {
@@ -69,8 +71,10 @@ struct MiniPlayerView: View {
                     } label: {
                         Image(systemName: "forward.fill")
                             .font(.title3)
+                            .foregroundStyle(.primary)
                     }
                 }
+                .buttonStyle(.borderless)
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.vertical, CassetteSpacing.m)

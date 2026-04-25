@@ -14,20 +14,30 @@ struct MainTabView: View {
                 ArtistListView()
             }
             .tabItem { Label("Browse", systemImage: "music.note.list") }
+            .safeAreaInset(edge: .bottom) {
+                if container?.playerState.currentTrack != nil {
+                    MiniPlayerView()
+                }
+            }
 
             NavigationStack {
                 PlaylistListView()
             }
             .tabItem { Label("Playlists", systemImage: "list.bullet") }
+            .safeAreaInset(edge: .bottom) {
+                if container?.playerState.currentTrack != nil {
+                    MiniPlayerView()
+                }
+            }
 
             NavigationStack {
                 SettingsView()
             }
             .tabItem { Label("Settings", systemImage: "gear") }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if container?.playerState.currentTrack != nil {
-                MiniPlayerView()
+            .safeAreaInset(edge: .bottom) {
+                if container?.playerState.currentTrack != nil {
+                    MiniPlayerView()
+                }
             }
         }
     }
