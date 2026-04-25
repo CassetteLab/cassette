@@ -39,6 +39,7 @@ struct SearchView: View {
         .task(id: searchQuery) {
             await viewModel?.search(query: searchQuery)
         }
+        .cassetteContentWidth()
     }
 
     // MARK: - Idle state
