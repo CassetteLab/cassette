@@ -20,7 +20,6 @@ final class PlayerState {
     var duration: TimeInterval = 0
     var repeatMode: RepeatMode = .off
     var isShuffled: Bool = false
-    var volume: Float = 1.0
     /// False when a restored track cannot be resolved (offline + streamed only).
     /// Resets to true when normal playback starts.
     var isPlaybackAvailable: Bool = true
