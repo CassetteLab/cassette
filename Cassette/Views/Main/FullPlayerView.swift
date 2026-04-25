@@ -19,6 +19,10 @@ struct FullPlayerView: View {
     @State private var dominantColor: Color = .black
     @State private var showLyrics = false
     @State private var showQueue = false
+    @State private var dragOffsetY: CGFloat = 0
+
+    private let dismissThreshold: CGFloat = 100
+    private let dismissVelocityThreshold: CGFloat = 500
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -130,6 +134,9 @@ struct FullPlayerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cassetteContentWidth()
+        .offset(y: max(dragOffsetY, 0))
+        .opacity(1.0 - min(dragOffsetY / 500, 0.5))
+        .gesture(swipeDownGesture)
         .background {
             ZStack {
                 Color.black
@@ -157,23 +164,29 @@ struct FullPlayerView: View {
     }
 
     private var topBar: some View {
-        ZStack {
-            Capsule()
-                .fill(Color.white.opacity(0.4))
-                .frame(width: 36, height: 5)
+        Capsule()
+            .fill(Color.white.opacity(0.4))
+            .frame(width: 36, height: 5)
+    }
 
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.title3)
-                        .foregroundStyle(.white)
-                        .cassetteGlassButton(size: 36)
-                }
-                .buttonStyle(.borderless)
-                Spacer()
+    private var swipeDownGesture: some Gesture {
+        DragGesture(minimumDistance: 20)
+            .onChanged { value in
+                let dy = value.translation.height
+                let dx = value.translation.width
+                guard dy > 0, dy > abs(dx) else { return }
+                dragOffsetY = dy
             }
-            .padding(.horizontal, CassetteSpacing.l)
-        }
+            .onEnded { value in
+                let dy = value.translation.height
+                let velocity = value.velocity.height
+                if dy > dismissThreshold || velocity > dismissVelocityThreshold {
+                    withAnimation(.easeIn(duration: 0.2)) { dragOffsetY = 800 }
+                    dismiss()
+                } else {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { dragOffsetY = 0 }
+                }
+            }
     }
 }
 
