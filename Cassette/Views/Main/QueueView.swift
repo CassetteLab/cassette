@@ -16,7 +16,7 @@ struct QueueView: View {
                 } else {
                     EmptyStateView(
                         systemImage: "list.bullet",
-                        title: "Queue is Empty",
+                        title: "Queue is empty",
                         subtitle: "Start playing music to see your queue here."
                     )
                 }

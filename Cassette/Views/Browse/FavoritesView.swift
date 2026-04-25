@@ -15,8 +15,7 @@ struct FavoritesView: View {
             if let vm = viewModel {
                 content(vm)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingStateView()
             }
         }
         .cassetteContentWidth()
@@ -45,8 +44,8 @@ struct FavoritesView: View {
         } else if isEmpty {
             EmptyStateView(
                 systemImage: "heart",
-                title: "No Favorites",
-                subtitle: "Tap the heart on a song, album, or artist to save it here."
+                title: "No favorites yet",
+                subtitle: "Songs, albums, and artists you favorite will appear here."
             )
         } else {
             let displayableSongs = vm.songs.map { DisplayableSong(from: $0) }

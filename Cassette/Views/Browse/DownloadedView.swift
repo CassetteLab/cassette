@@ -50,8 +50,8 @@ private struct DownloadedContent: View {
         if albums.isEmpty && playlists.isEmpty {
             EmptyStateView(
                 systemImage: "arrow.down.circle",
-                title: "No Downloads",
-                subtitle: "Download albums and playlists while online to listen offline."
+                title: "Nothing downloaded",
+                subtitle: "Albums and playlists you download will be available here, even offline."
             )
         } else {
             List {

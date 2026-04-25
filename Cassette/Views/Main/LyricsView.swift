@@ -17,8 +17,7 @@ struct LyricsView: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    LoadingStateView()
                 } else if let text = lyrics?.value {
                     ScrollView {
                         Text(text)
@@ -30,8 +29,8 @@ struct LyricsView: View {
                 } else {
                     EmptyStateView(
                         systemImage: "quote.bubble",
-                        title: "No Lyrics",
-                        subtitle: "Lyrics are not available for this track."
+                        title: "No lyrics",
+                        subtitle: "This track doesn't have lyrics available."
                     )
                 }
             }

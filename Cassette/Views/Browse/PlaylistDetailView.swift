@@ -45,8 +45,7 @@ struct PlaylistDetailView: View {
             if let vm = viewModel {
                 content(vm)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                LoadingStateView()
             }
         }
         .background(

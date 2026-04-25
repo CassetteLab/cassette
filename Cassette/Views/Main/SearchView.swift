@@ -22,14 +22,14 @@ struct SearchView: View {
             if trimmed.isEmpty && recentSearches.isEmpty {
                 EmptyStateView(
                     systemImage: "magnifyingglass",
-                    title: "What are you looking for?",
-                    subtitle: "Search for artists, albums, and songs."
+                    title: "Search your library",
+                    subtitle: "Find songs, albums, artists, and playlists from your server."
                 )
             } else if let vm = viewModel, !trimmed.isEmpty, !vm.isSearching,
                       let results = vm.searchResults, !hasAnyResults(results) {
                 EmptyStateView(
                     systemImage: "magnifyingglass",
-                    title: "No Results",
+                    title: "No results",
                     subtitle: "Try a different search term."
                 )
             } else {

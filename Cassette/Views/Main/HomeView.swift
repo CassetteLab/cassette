@@ -204,9 +204,9 @@ struct HomeView: View {
                     Text("Recently Added")
                         .font(.cassetteSectionTitle)
                     if vm.isLoading && vm.recentAlbums.isEmpty {
-                        ProgressView()
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, CassetteSpacing.l)
+                        LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
+                            ForEach(0..<6, id: \.self) { _ in SkeletonAlbumCard() }
+                        }
                     } else {
                         LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                             ForEach(vm.recentAlbums) { album in
@@ -298,34 +298,37 @@ private struct HomeLibraryRow<Destination: View>: View {
     let title: String
     let systemImage: String
     @ViewBuilder let destination: () -> Destination
+    @State private var isActive = false
+    @GestureState private var isPressed = false
 
     var body: some View {
-        NavigationLink(destination: destination()) {
-            HStack(spacing: CassetteSpacing.m) {
-                Image(systemName: systemImage)
-                    .frame(width: 28)
-                    .foregroundStyle(Color.cassetteAccent)
-                Text(title)
-                    .font(.cassetteCellTitle)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, CassetteSpacing.m)
-            .padding(.vertical, CassetteSpacing.m)
-            .contentShape(Rectangle())
+        HStack(spacing: CassetteSpacing.m) {
+            Image(systemName: systemImage)
+                .frame(width: 28)
+                .foregroundStyle(Color.cassetteAccent)
+            Text(title)
+                .font(.cassetteCellTitle)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.tertiary)
         }
-        .buttonStyle(LibraryRowButtonStyle())
-    }
-}
-
-private struct LibraryRowButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(configuration.isPressed ? Color.primary.opacity(0.08) : Color.clear)
+        .padding(.horizontal, CassetteSpacing.m)
+        .padding(.vertical, CassetteSpacing.m)
+        .background(isPressed ? Color.primary.opacity(0.08) : Color.clear)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .updating($isPressed) { _, state, _ in state = true }
+                .onEnded { value in
+                    guard abs(value.translation.width) < 10,
+                          abs(value.translation.height) < 10 else { return }
+                    isActive = true
+                }
+        )
+        .navigationDestination(isPresented: $isActive) { destination() }
     }
 }
 

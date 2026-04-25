@@ -32,8 +32,7 @@ struct ArtistDetailView: View {
             if let vm = viewModel {
                 content(vm)
             } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                skeletonGrid
             }
         }
         .cassetteContentWidth()
@@ -65,11 +64,19 @@ struct ArtistDetailView: View {
         }
     }
 
+    private var skeletonGrid: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                ForEach(0..<6, id: \.self) { _ in SkeletonAlbumCard() }
+            }
+            .padding(CassetteSpacing.l)
+        }
+    }
+
     @ViewBuilder
     private func content(_ vm: ArtistDetailViewModel) -> some View {
         if vm.isLoading && vm.artist == nil {
-            ProgressView()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            skeletonGrid
         } else if let error = vm.error, vm.artist == nil {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
