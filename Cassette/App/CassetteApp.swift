@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 
 @main
 struct CassetteApp: App {
@@ -15,6 +16,7 @@ struct CassetteApp: App {
                 if let container {
                     RootView()
                         .environment(\.appContainer, container)
+                        .modelContainer(container.modelContainer)
                 } else {
                     ProgressView()
                 }

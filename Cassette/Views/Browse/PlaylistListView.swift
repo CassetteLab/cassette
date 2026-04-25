@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import SwiftSonic
 
 struct PlaylistListView: View {
@@ -21,9 +22,10 @@ struct PlaylistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Playlists")
-        .task {
+        .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = PlaylistListViewModel(libraryService: svc) }
+            guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
         }
     }
@@ -33,6 +35,16 @@ struct PlaylistListView: View {
         if vm.isLoading && vm.playlists.isEmpty {
             ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if container?.serverState.isOnline == false && vm.playlists.isEmpty {
+            if let serverId = container?.serverState.activeServer?.id {
+                OfflinePlaylistContent(serverId: serverId)
+            } else {
+                EmptyStateView(
+                    systemImage: "wifi.slash",
+                    title: "You're Offline",
+                    subtitle: "Connect to your server to browse playlists."
+                )
+            }
         } else if let error = vm.error, vm.playlists.isEmpty {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
@@ -66,6 +78,53 @@ struct PlaylistListView: View {
             }
             .listStyle(.plain)
             .refreshable { await vm.load() }
+        }
+    }
+}
+
+// MARK: - Offline Playlists
+
+private struct OfflinePlaylistContent: View {
+    let serverId: UUID
+    @Query private var playlists: [DownloadedPlaylist]
+
+    init(serverId: UUID) {
+        self.serverId = serverId
+        let sid = serverId
+        _playlists = Query(
+            filter: #Predicate<DownloadedPlaylist> { playlist in playlist.serverId == sid },
+            sort: [SortDescriptor(\DownloadedPlaylist.name)]
+        )
+    }
+
+    var body: some View {
+        if playlists.isEmpty {
+            EmptyStateView(
+                systemImage: "wifi.slash",
+                title: "You're Offline",
+                subtitle: "No downloaded playlists available. Download playlists while online to listen offline."
+            )
+        } else {
+            List {
+                Section("Downloaded Playlists") {
+                    ForEach(playlists) { playlist in
+                        HStack(spacing: CassetteSpacing.m) {
+                            CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(playlist.name)
+                                    .font(.cassetteCellTitle)
+                                    .lineLimit(1)
+                                Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")")
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, CassetteSpacing.xs)
+                    }
+                }
+            }
+            .listStyle(.plain)
         }
     }
 }
