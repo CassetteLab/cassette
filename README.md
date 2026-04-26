@@ -1,150 +1,189 @@
-# 🎵 Cassette
+# Cassette
 
-**A native iOS and macOS client for Subsonic and OpenSubsonic servers. Stream your self-hosted music library.**
-
-<!-- TODO(v1.0): replace placeholder with real banner image at assets/banner.png
-![Cassette banner](assets/banner.png)
--->
+> A native iOS and macOS client for Subsonic, OpenSubsonic, and Navidrome servers. Built for people who self-host their music.
 
 [![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--or--later-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-iOS%2017%2B%20%7C%20macOS%2014%2B-blue.svg)](#requirements)
+[![Platform](https://img.shields.io/badge/platform-iOS%2026%2B%20%7C%20macOS%2014%2B-blue.svg)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-6.0%2B-orange.svg)](https://swift.org)
-<!-- TODO(v1.0): uncomment once available on the App Store
-[![App Store](https://img.shields.io/badge/App%20Store-available-blue?logo=apple)](https://apps.apple.com/...)
--->
-<!-- TODO(v1.0): uncomment once CI is configured
-[![CI](https://github.com/MathieuDubart/Cassette/actions/workflows/ci.yml/badge.svg)](https://github.com/MathieuDubart/Cassette/actions)
--->
 
 ---
 
 ## Screenshots
 
-<!-- TODO(v1.0): replace with real screenshots
-| Browse | Player | Downloads |
-|--------|--------|-----------|
-| ![Browse](docs/screenshots/browse.png) | ![Player](docs/screenshots/player.png) | ![Downloads](docs/screenshots/downloads.png) |
--->
+| Home | Album | Player |
+|------|-------|--------|
+| ![](docs/screenshots/home.png) | ![](docs/screenshots/album.png) | ![](docs/screenshots/player.png) |
+
+*Screenshots coming before v1.0 release.*
+
+---
+
+## What is Cassette?
+
+Cassette is a native Swift / SwiftUI music client for iOS and macOS, designed for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, which means it works with Navidrome, Gonic, Airsonic Advanced, and any other compliant server. It is iOS-first — macOS support is minimal in v1.0 and will improve in v1.x.
+
+No accounts, no subscriptions, no tracking. Your music stays between your device and your server.
+
+Licensed under GPL-3.0.
 
 ---
 
 ## Features
 
-- Native iOS and macOS app built entirely with SwiftUI
-- Streams from any Subsonic or OpenSubsonic compatible server (Navidrome, Gonic, Ampache, and others)
-- Browse your library by artists, albums, and playlists
-- Full-text search across your entire collection
+**Listening**
+- Native iOS 26+ client with Liquid Glass design language
 - Background playback with lock screen controls and AirPlay support
-- Offline playback — download albums and playlists for listening without a connection
-- Ephemeral cache to reduce repeated network requests for recently played tracks
-- Custom HTTP headers support for servers behind reverse proxies such as Cloudflare Access
-- Credentials stored in the system Keychain — no plaintext passwords written to disk
+- True offline mode: download albums, playlists, or individual tracks
+- Persistent playback session — pick up where you left off after relaunching
+- Lyrics support, audio format display (FLAC / MP3 / AAC / WAV)
+- Shuffle, repeat, and queue management
+
+**Library**
+- Browse by playlists, artists, albums, downloads, and favorites
+- Pinned albums and playlists on the home screen
+- Recently added (online) and recently downloaded (offline)
+- Full-text search across your entire library
+- Favorites synced with your server (star / unstar)
+
+**Server compatibility**
+- Subsonic API v1.16.1
+- OpenSubsonic API extensions where available
+- Custom HTTP headers support for servers behind reverse proxies (Cloudflare Access, Authelia, etc.)
+- Ephemeral track cache to reduce repeated network requests
+
+**Privacy**
+- Zero tracking, zero analytics, zero third-party SDKs
+- Credentials stored exclusively in the iOS / macOS Keychain
+- All communication is directly between your device and your server
 
 ---
 
 ## Requirements
 
-- iOS 17 or later
-- macOS 14 or later
-- A running Subsonic or OpenSubsonic compatible server ([Navidrome](https://www.navidrome.org) is recommended)
+- iOS 26 or later (iPhone)
+- macOS 14 or later (minimal support in v1.0)
+- A running Subsonic, OpenSubsonic, or Navidrome server
 
 ---
 
 ## Installation
 
-<!-- TODO(v1.0): uncomment once available on the App Store
-### App Store
+### Via the App Store
 
-Download Cassette from the App Store: [link]
--->
+Coming soon.
 
-### Build from source
+### Via TestFlight (beta)
 
-1. Clone the repository:
-   ```
+Coming soon.
+
+### Building from source
+
+If you prefer to build yourself:
+
+1. **Requirements**
+   - macOS 14+ with Xcode 16+
+   - iOS 26+ deployment target
+   - A Subsonic / OpenSubsonic / Navidrome server to connect to
+   - An Apple Developer account (free tier works for personal device builds)
+
+2. **Clone and build**
+   ```bash
    git clone https://github.com/MathieuDubart/Cassette.git
+   cd Cassette
+   open Cassette.xcodeproj
    ```
-2. Open `Cassette.xcodeproj` in Xcode 16 or later.
-3. Select the **Cassette** target and your desired destination (iPhone, iPad, or Mac).
-4. Press **Run** (⌘R).
+   Swift Package Manager resolves the only dependency ([SwiftSonic](https://github.com/MathieuDubart/SwiftSonic)) automatically — no additional setup required.
 
-No additional package manager setup is required — dependencies are resolved automatically via Swift Package Manager.
+3. **Sign and run**
+   - Select your team in Signing & Capabilities
+   - Choose a target device running iOS 26+
+   - Build and run (⌘R)
+
+4. **First launch**
+   - Cassette prompts for your server URL, username, and password
+   - If your server sits behind a reverse proxy requiring custom request headers, expand **Advanced** and add them
+   - Tap **Connect** — Cassette verifies the connection and stores credentials securely
+   - Your library appears immediately
 
 ---
 
-## Usage
+## Server compatibility
 
-1. Open Cassette on your device.
-2. Enter your Subsonic server URL, username, and password.
-3. If your server sits behind a reverse proxy that requires custom request headers (Cloudflare Access, for example), expand **Advanced** and add the required headers.
-4. Tap **Connect** — Cassette verifies the connection and stores your credentials securely.
-5. Start browsing your library.
+Cassette implements the Subsonic API spec with OpenSubsonic extensions where available.
 
-> **Compatibility note:** Cassette works with any server implementing the Subsonic API v1.16.1 or the OpenSubsonic extension. It has been tested primarily against [Navidrome](https://www.navidrome.org).
+| Server | Status | Notes |
+|--------|--------|-------|
+| Navidrome | ✅ Recommended | Full feature support |
+| Gonic | ✅ Tested | Full feature support |
+| Airsonic Advanced | ✅ Tested | Full feature support |
+| Funkwhale (subsonic-api plugin) | ⚠️ Untested | Should work |
+| Ampache (Subsonic mode) | ⚠️ Untested | Should work |
+
+If your server implements the Subsonic API and Cassette doesn't work correctly, [open an issue](https://github.com/MathieuDubart/Cassette/issues).
 
 ---
 
 ## Architecture
 
-Cassette is built with SwiftUI and Swift Concurrency throughout. All network and I/O work runs inside Swift actors, keeping the UI layer free of concurrency concerns. Subsonic API interactions are handled by [SwiftSonic](https://github.com/MathieuDubart/swiftsonic), a separate Swift package developed alongside this project. Local persistence uses SwiftData for cached tracks, downloaded content, and server configuration; credentials are stored exclusively in the system Keychain. Playback is backed by AVFoundation, with MPNowPlayingInfoCenter and MPRemoteCommandCenter wired for lock screen, Control Center, and external accessory integration. The service layer is structured as protocol-bound actors to keep the path clear for a future CarPlay extension.
+For developers curious about the internals:
+
+- **UI layer**: SwiftUI views with `@Observable @MainActor` ViewModels. No business logic in views.
+- **Service layer**: Swift actors for `PlayerService`, `LibraryService`, `DownloadService`, `FavoritesService`, and others. Zero UIKit / SwiftUI imports inside services.
+- **SwiftSonic**: the underlying Swift library handling all Subsonic / OpenSubsonic API communication. Same author, separate repo, MIT-licensed. See [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic).
+- **Persistence**: SwiftData for app data (downloaded tracks, playlists, favorites cache); Keychain for credentials — no plaintext written to disk.
+- **Playback**: AVFoundation, wired to `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` for lock screen, Control Center, and AirPlay.
+- **Concurrency**: Swift 6 strict concurrency, `Sendable` throughout, `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`.
+- **Zero external dependencies**: the only dependency is SwiftSonic itself.
 
 ---
 
 ## Roadmap
 
-**Coming next**
-- macOS refinements (v1.1)
-- CarPlay support (v1.2)
-- Widgets and Live Activities
-- Synchronized lyrics (OpenSubsonic extension)
-- Last.fm scrobbling
+Cassette is built incrementally, one theme per release.
 
-**Under consideration**
-- Multi-server switching in Settings
-- Smart playlists generated locally
-- iPad-optimized layout
+- **v1.0** — Listen (iPhone-first, macOS minimal)
+- **v1.1** — Organize (playlist creation, queue reordering)
+- **v1.2** — Discover (recently played, smart shuffle, advanced search)
+- **v1.3** — macOS (sidebar, multi-window, menu bar widget)
+- **v1.4** — Social (multi-server, Last.fm scrobbling)
+- **v2.0** — Everywhere (CarPlay, watchOS, visionOS, iPad)
 
----
-
-## Dependencies
-
-| Package | License | Purpose |
-|---------|---------|---------|
-| [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) | MIT | Swift client library for the Subsonic and OpenSubsonic APIs |
-
-SwiftSonic is developed by the same author and evolves in step with Cassette. The MIT license is compatible with GPL-3.0-or-later.
+For the full roadmap and discussion, see [GitHub Discussions](https://github.com/MathieuDubart/Cassette/discussions).
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. All contributions are licensed under GPL-3.0-or-later.
+Contributions are welcome. A few things to keep in mind before you start:
+
+- **Discuss before coding**: open an issue or a discussion before working on a feature, especially for architectural changes. A PR that contradicts a design decision will be closed.
+- **Match the existing style**: Swift 6 strict concurrency, no external dependencies beyond SwiftSonic, no Foundation / UIKit leakage outside the service layer.
+- **Test on real devices**: audio playback and Liquid Glass effects behave differently in Simulator — real device testing is expected.
+- **Conventional commits**: `feat`, `fix`, `refactor`, `docs`, `chore`, etc.
+
+For bug reports: [Issues](https://github.com/MathieuDubart/Cassette/issues).
+For ideas and feedback: [Discussions](https://github.com/MathieuDubart/Cassette/discussions).
 
 ---
 
 ## License
 
-Cassette is free software, licensed under the **GNU General Public License v3.0 or later**.
+Cassette is licensed under [GPL-3.0-or-later](LICENSE).
 
-- You are free to use, study, modify, and distribute this software.
-- Any modified version you distribute must also be released under the GPL-3.0-or-later.
-- The source code must remain available to anyone who receives the software.
-- There is no warranty, to the extent permitted by applicable law.
+- You can use, study, modify, and redistribute the source code
+- If you distribute modified versions, they must also be GPL-3.0-or-later
+- The App Store version is the same code, signed and distributed for convenience
 
-See the [LICENSE](LICENSE) file for the full text.
-
-The [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) dependency is MIT-licensed and GPL-compatible.
+The underlying [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic) library is MIT-licensed, which is compatible with GPL-3.0.
 
 ---
 
-## Acknowledgements
+## Acknowledgments
 
-- The [Navidrome](https://www.navidrome.org) team for their excellent self-hosted music server.
-- The [OpenSubsonic](https://opensubsonic.netlify.app) community for modernizing the Subsonic API specification.
-- Apple for the SwiftUI, AVFoundation, and SwiftData frameworks.
+- The [Navidrome](https://www.navidrome.org) team for an excellent self-hosted music server
+- The [OpenSubsonic](https://opensubsonic.netlify.app) community for modernizing the Subsonic API spec
+- The Substreamer, Ultrasonic, and Symfonium Android apps for raising the bar on what a self-hosted music client should feel like
 
 ---
 
-## Author
-
-**Mathieu Dubart** — [github.com/MathieuDubart](https://github.com/MathieuDubart)
+Built by [Mathieu Dubart](https://github.com/MathieuDubart).
