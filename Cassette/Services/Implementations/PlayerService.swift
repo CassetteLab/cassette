@@ -137,6 +137,9 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func resume() async {
+        #if os(iOS)
+        configureAudioSessionIfNeeded()
+        #endif
         player?.play()
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
@@ -430,14 +433,18 @@ actor PlayerService: PlayerServiceProtocol {
 
     #if os(iOS)
     private func configureAudioSessionIfNeeded() {
-        guard !audioSessionConfigured else { return }
         do {
             let session = AVAudioSession.sharedInstance()
-            // .playback disables the silent switch and allows background audio.
-            // AirPlay + Bluetooth options enable wireless output without extra entitlements.
-            try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
+            if !audioSessionConfigured {
+                // .playback disables the silent switch and allows background audio.
+                // AirPlay + Bluetooth options enable wireless output without extra entitlements.
+                try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
+                audioSessionConfigured = true
+            }
+            // Always call setActive(true) — iOS may have deactivated the session during a
+            // background interruption (phone call, Siri, other audio app) even after a
+            // successful initial setup. Without this, resume() silently fails on the lock screen.
             try session.setActive(true)
-            audioSessionConfigured = true
         } catch {
             Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
         }
