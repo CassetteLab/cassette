@@ -30,6 +30,7 @@ struct FullPlayerView: View {
                     await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
                 }
                 .onAppear { dragOffsetY = 0 }
+                .interactiveDismissDisabled()
         }
     }
 
