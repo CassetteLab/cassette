@@ -79,8 +79,7 @@ struct FullPlayerView: View {
                 playerService: container?.playerService,
                 isPlaybackAvailable: playerState.isPlaybackAvailable,
                 contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor,
-                glassTint: vm.glassTint
+                secondaryContentColor: vm.secondaryContentColor
             )
             .padding(.top, CassetteSpacing.l)
 
@@ -91,8 +90,7 @@ struct FullPlayerView: View {
             BottomToolbar(
                 showLyrics: $showLyrics,
                 showQueue: $showQueue,
-                secondaryContentColor: vm.secondaryContentColor,
-                glassTint: vm.glassTint
+                secondaryContentColor: vm.secondaryContentColor
             )
             .padding(.top, CassetteSpacing.l)
 
@@ -373,7 +371,6 @@ private struct PlaybackControlsView: View {
     var isPlaybackAvailable: Bool = true
     let contentColor: Color
     let secondaryContentColor: Color
-    let glassTint: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -384,7 +381,7 @@ private struct PlaybackControlsView: View {
                 Image(systemName: "backward.fill")
                     .font(.title)
                     .foregroundStyle(contentColor)
-                    .cassetteGlassButton(size: 56, tint: glassTint)
+                    .frame(width: 56, height: 56)
             }
             .disabled(!isPlaybackAvailable)
             .accessibilityLabel("Skip to previous")
@@ -400,9 +397,9 @@ private struct PlaybackControlsView: View {
                 }
             } label: {
                 Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
-                    .font(.title)
-                    .foregroundStyle(isPlaybackAvailable ? Color.cassetteAccentText : contentColor.opacity(0.5))
-                    .cassetteGlassButton(size: 80, tint: isPlaybackAvailable ? Color.cassetteAccent : nil)
+                    .font(.system(size: 44))
+                    .foregroundStyle(isPlaybackAvailable ? contentColor : contentColor.opacity(0.4))
+                    .frame(width: 80, height: 80)
             }
             .disabled(!isPlaybackAvailable)
             .accessibilityLabel(playerState.playbackState == .playing ? "Pause" : "Play")
@@ -414,7 +411,7 @@ private struct PlaybackControlsView: View {
                 Image(systemName: "forward.fill")
                     .font(.title)
                     .foregroundStyle(contentColor)
-                    .cassetteGlassButton(size: 56, tint: glassTint)
+                    .frame(width: 56, height: 56)
             }
             .disabled(!isPlaybackAvailable)
             .accessibilityLabel("Skip to next")
@@ -428,7 +425,6 @@ private struct BottomToolbar: View {
     @Binding var showLyrics: Bool
     @Binding var showQueue: Bool
     let secondaryContentColor: Color
-    let glassTint: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -436,7 +432,7 @@ private struct BottomToolbar: View {
                 Image(systemName: "quote.bubble")
                     .font(.title3)
                     .foregroundStyle(secondaryContentColor)
-                    .cassetteGlassButton(size: 44, tint: glassTint)
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Lyrics")
@@ -448,7 +444,7 @@ private struct BottomToolbar: View {
                 Image(systemName: "list.bullet")
                     .font(.title3)
                     .foregroundStyle(secondaryContentColor)
-                    .cassetteGlassButton(size: 44, tint: glassTint)
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Queue")
