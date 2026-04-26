@@ -275,38 +275,45 @@ private struct ScrubberView: View {
     let playerService: (any PlayerServiceProtocol)?
 
     @State private var isDragging = false
-    @State private var scrubPosition: TimeInterval = 0
+    @State private var displayPosition: TimeInterval = 0
 
     // Prefer AVPlayer-reported duration; fall back to song metadata to avoid slider clamping to 0..1
     private var effectiveDuration: TimeInterval {
         playerState.duration > 0 ? playerState.duration : (playerState.currentTrack?.duration ?? 1)
     }
 
-    private var displayPosition: TimeInterval {
-        isDragging ? scrubPosition : playerState.position
+    private var shownPosition: TimeInterval {
+        isDragging ? displayPosition : playerState.position
+    }
+
+    // ProgressSlider writes dragged values here; reads live AVPlayer position when not dragging.
+    private var positionBinding: Binding<TimeInterval> {
+        Binding(
+            get: { playerState.position },
+            set: { displayPosition = $0 }
+        )
     }
 
     var body: some View {
         VStack(spacing: CassetteSpacing.xs) {
             ProgressSlider(
-                value: displayPosition,
+                value: positionBinding,
                 total: effectiveDuration,
-                isDragging: isDragging
-            ) { newValue, finished in
-                scrubPosition = newValue
-                isDragging = !finished
-                if finished {
-                    Task { await playerService?.seek(to: newValue) }
+                onEditingChanged: { editing in
+                    isDragging = editing
+                    if !editing {
+                        Task { await playerService?.seek(to: displayPosition) }
+                    }
                 }
-            }
+            )
 
             HStack {
-                Text(Duration.seconds(displayPosition).formatted(.time(pattern: .minuteSecond)))
+                Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
                     .foregroundStyle(.white.opacity(0.7))
                     .monospacedDigit()
                 Spacer()
-                Text(Duration.seconds(max(effectiveDuration - displayPosition, 0)).formatted(.time(pattern: .minuteSecond)))
+                Text(Duration.seconds(max(effectiveDuration - shownPosition, 0)).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
                     .foregroundStyle(.white.opacity(0.7))
                     .monospacedDigit()
@@ -315,66 +322,71 @@ private struct ScrubberView: View {
     }
 }
 
-private struct ProgressSlider: View {
-    let value: TimeInterval
+struct ProgressSlider: View {
+    @Binding var value: TimeInterval
     let total: TimeInterval
-    let isDragging: Bool
-    let onChange: (TimeInterval, Bool) -> Void
+    let onEditingChanged: (Bool) -> Void
 
-    private let trackHeight: CGFloat = 4
-    private let thumbDiameter: CGFloat = 16
-
-    private var fraction: CGFloat {
-        guard total > 0 else { return 0 }
-        return min(max(CGFloat(value / total), 0), 1)
-    }
+    @State private var isDragging = false
+    @State private var dragValue: TimeInterval?
 
     var body: some View {
         GeometryReader { geo in
             let trackW = geo.size.width
-            let fillW = trackW * fraction
 
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.white.opacity(0.3))
-                    .frame(height: isDragging ? trackHeight * 1.5 : trackHeight)
+                    .fill(Color.white.opacity(0.2))
 
                 Capsule()
-                    .fill(Color.white)
-                    .frame(width: max(fillW, 0), height: isDragging ? trackHeight * 1.5 : trackHeight)
-
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: thumbDiameter, height: thumbDiameter)
-                    .offset(x: max(min(fillW - thumbDiameter / 2, trackW - thumbDiameter), 0))
-                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                    .fill(Color.white.opacity(0.95))
+                    .frame(width: progressWidth(in: trackW))
             }
-            .frame(maxWidth: .infinity)
+            .frame(height: isDragging ? 8 : 3)
+            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
+            .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
-                        let x = min(max(gesture.location.x, 0), trackW)
-                        onChange(TimeInterval(x / trackW) * total, false)
+                        if !isDragging {
+                            isDragging = true
+                            onEditingChanged(true)
+                            HapticFeedback.light.trigger()
+                        }
+                        let ratio = gesture.location.x / trackW
+                        let clampedRatio = max(0, min(1, ratio))
+                        dragValue = total * clampedRatio
+                        value = dragValue ?? value
                     }
-                    .onEnded { gesture in
-                        let x = min(max(gesture.location.x, 0), trackW)
-                        onChange(TimeInterval(x / trackW) * total, true)
+                    .onEnded { _ in
+                        isDragging = false
+                        dragValue = nil
+                        onEditingChanged(false)
                     }
             )
         }
-        .frame(height: thumbDiameter)
-        .animation(.easeInOut(duration: 0.15), value: isDragging)
+        .frame(height: 32)
         .accessibilityLabel("Playback position")
         .accessibilityValue(Duration.seconds(value).formatted(.time(pattern: .minuteSecond)))
         .accessibilityAdjustableAction { direction in
             let step = total * 0.05
             switch direction {
-            case .increment: onChange(min(value + step, total), true)
-            case .decrement: onChange(max(value - step, 0), true)
+            case .increment:
+                value = min(value + step, total)
+                onEditingChanged(false)
+            case .decrement:
+                value = max(value - step, 0)
+                onEditingChanged(false)
             @unknown default: break
             }
         }
+    }
+
+    private func progressWidth(in totalWidth: CGFloat) -> CGFloat {
+        guard total > 0 else { return 0 }
+        let displayedValue = dragValue ?? value
+        return max(0, (CGFloat(displayedValue) / CGFloat(total)) * totalWidth)
     }
 }
 
