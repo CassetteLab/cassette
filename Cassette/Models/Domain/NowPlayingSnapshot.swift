@@ -16,4 +16,7 @@ nonisolated struct NowPlayingSnapshot: Sendable {
     let playbackRate: Float
     let artworkURL: URL?
     let artworkHeaders: [String: String]
+    /// coverArtId from the source song — used by NowPlayingService to check
+    /// ArtworkImageCache before falling back to a URL fetch.
+    let coverArtId: String?
 }

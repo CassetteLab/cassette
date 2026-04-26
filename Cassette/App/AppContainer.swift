@@ -62,10 +62,10 @@ final class AppContainer {
         )
         mediaResolver = resolver
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService)
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache)
         playerService = player
 
-        let nowPlaying = NowPlayingService(playerService: player)
+        let nowPlaying = NowPlayingService(playerService: player, artworkImageCache: artworkImageCache)
         nowPlayingService = nowPlaying
 
         favoritesService = FavoritesService(libraryService: library, serverState: serverState, modelContainer: modelContainer)

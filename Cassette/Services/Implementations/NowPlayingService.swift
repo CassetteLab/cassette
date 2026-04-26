@@ -13,9 +13,11 @@ import OSLog
 actor NowPlayingService: NowPlayingServiceProtocol {
     private let playerService: any PlayerServiceProtocol
     private let artworkLoader = ArtworkLoader()
+    private let artworkImageCache: ArtworkImageCache
 
-    init(playerService: any PlayerServiceProtocol) {
+    init(playerService: any PlayerServiceProtocol, artworkImageCache: ArtworkImageCache) {
         self.playerService = playerService
+        self.artworkImageCache = artworkImageCache
     }
 
     // MARK: - Lifecycle
@@ -114,6 +116,17 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
 
+        // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
+        if let coverArtId = snapshot.coverArtId,
+           let cachedImage = await artworkImageCache.cached(for: coverArtId) {
+            let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in cachedImage }
+            var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
+            infoWithArt[MPMediaItemPropertyArtwork] = artwork
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+            return
+        }
+
+        // Slow path: fetch from URL and populate both caches.
         if let artworkURL = snapshot.artworkURL,
            let artwork = await artworkLoader.artwork(for: artworkURL, headers: snapshot.artworkHeaders) {
             var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info

@@ -18,6 +18,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let mediaResolver: any MediaResolverProtocol
     private let serverService: any ServerServiceProtocol
     private let sessionService: PlaybackSessionService
+    private let artworkImageCache: ArtworkImageCache
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
 
     private var player: AVPlayer?
@@ -32,12 +33,14 @@ actor PlayerService: PlayerServiceProtocol {
         state: PlayerState,
         mediaResolver: any MediaResolverProtocol,
         serverService: any ServerServiceProtocol,
-        sessionService: PlaybackSessionService
+        sessionService: PlaybackSessionService,
+        artworkImageCache: ArtworkImageCache
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
         self.serverService = serverService
         self.sessionService = sessionService
+        self.artworkImageCache = artworkImageCache
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -119,11 +122,13 @@ actor PlayerService: PlayerServiceProtocol {
             position: 0,
             playbackRate: 1.0,
             artworkURL: artworkURL,
-            artworkHeaders: artworkHeaders
+            artworkHeaders: artworkHeaders,
+            coverArtId: song.coverArtId
         )
         await nowPlayingService?.update(with: snapshot)
         await sessionService.save(playerState: state)
         startPositionSaveTimer()
+        preloadNextTrackArtwork()
     }
 
     // MARK: - Pause / Resume
@@ -451,6 +456,18 @@ actor PlayerService: PlayerServiceProtocol {
     }
     #endif
 
+    // MARK: - Next track artwork pre-load
+
+    private func preloadNextTrackArtwork() {
+        Task {
+            let (queue, currentIndex) = await MainActor.run { (state.queue, state.currentIndex) }
+            let nextIndex = currentIndex + 1
+            guard nextIndex < queue.count else { return }
+            let nextTrack = queue[nextIndex]
+            await artworkImageCache.load(coverArtId: nextTrack.coverArtId ?? nextTrack.id)
+        }
+    }
+
     // MARK: - Artwork / NowPlaying helpers
 
     private func resolveArtworkURL(for song: DisplayableSong) async -> URL? {
@@ -482,7 +499,8 @@ actor PlayerService: PlayerServiceProtocol {
             position: position,
             playbackRate: resolvedRate,
             artworkURL: nil,
-            artworkHeaders: [:]
+            artworkHeaders: [:],
+            coverArtId: nil
         )
         await nowPlayingService?.update(with: snapshot)
     }
