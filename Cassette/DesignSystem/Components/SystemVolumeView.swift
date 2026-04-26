@@ -62,7 +62,9 @@ private final class SystemVolumeObserver {
         ) { [weak self] _, change in
             guard let newVolume = change.newValue else { return }
             Task { @MainActor [weak self] in
-                self?.volume = newVolume
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.8)) {
+                    self?.volume = newVolume
+                }
             }
         }
     }

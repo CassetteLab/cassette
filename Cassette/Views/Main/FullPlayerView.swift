@@ -342,7 +342,7 @@ struct ProgressSlider: View {
                     .fill(Color.white.opacity(0.95))
                     .frame(width: progressWidth(in: trackW))
             }
-            .frame(height: isDragging ? 8 : 3)
+            .frame(height: isDragging ? 12 : 5)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
