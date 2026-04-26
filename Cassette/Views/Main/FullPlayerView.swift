@@ -64,7 +64,8 @@ struct FullPlayerView: View {
                 playerState: playerState,
                 container: container,
                 contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor
+                secondaryContentColor: vm.secondaryContentColor,
+                glassTint: vm.glassTint
             )
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -84,7 +85,8 @@ struct FullPlayerView: View {
                 playerService: container?.playerService,
                 isPlaybackAvailable: playerState.isPlaybackAvailable,
                 contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor
+                secondaryContentColor: vm.secondaryContentColor,
+                glassTint: vm.glassTint
             )
             .padding(.top, CassetteSpacing.l)
 
@@ -95,7 +97,8 @@ struct FullPlayerView: View {
             BottomToolbar(
                 showLyrics: $showLyrics,
                 showQueue: $showQueue,
-                secondaryContentColor: vm.secondaryContentColor
+                secondaryContentColor: vm.secondaryContentColor,
+                glassTint: vm.glassTint
             )
             .padding(.top, CassetteSpacing.l)
 
@@ -170,14 +173,16 @@ private struct TrackInfoSection: View {
     let container: AppContainer?
     let contentColor: Color
     let secondaryContentColor: Color
+    let glassTint: Color
 
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color) {
+    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, glassTint: Color) {
         self.playerState = playerState
         self.container = container
         self.contentColor = contentColor
         self.secondaryContentColor = secondaryContentColor
+        self.glassTint = glassTint
         let cid = "song:\(playerState.currentTrack?.id ?? "")"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -241,7 +246,7 @@ private struct TrackInfoSection: View {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
                         .font(.title3)
                         .foregroundStyle(isFavorite ? Color.cassetteAccent : contentColor)
-                        .cassetteGlassButton(size: 44)
+                        .cassetteGlassButton(size: 44, tint: glassTint)
                 }
                 .buttonStyle(.borderless)
                 .disabled(!isOnline)
@@ -254,7 +259,7 @@ private struct TrackInfoSection: View {
                     Image(systemName: "ellipsis")
                         .font(.title3)
                         .foregroundStyle(contentColor)
-                        .cassetteGlassButton(size: 44)
+                        .cassetteGlassButton(size: 44, tint: glassTint)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("More options")
@@ -399,6 +404,7 @@ private struct PlaybackControlsView: View {
     var isPlaybackAvailable: Bool = true
     let contentColor: Color
     let secondaryContentColor: Color
+    let glassTint: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -409,7 +415,7 @@ private struct PlaybackControlsView: View {
                 Image(systemName: "backward.fill")
                     .font(.title)
                     .foregroundStyle(contentColor)
-                    .cassetteGlassButton(size: 56)
+                    .cassetteGlassButton(size: 56, tint: glassTint)
             }
             .disabled(!isPlaybackAvailable)
             .accessibilityLabel("Skip to previous")
@@ -439,7 +445,7 @@ private struct PlaybackControlsView: View {
                 Image(systemName: "forward.fill")
                     .font(.title)
                     .foregroundStyle(contentColor)
-                    .cassetteGlassButton(size: 56)
+                    .cassetteGlassButton(size: 56, tint: glassTint)
             }
             .disabled(!isPlaybackAvailable)
             .accessibilityLabel("Skip to next")
@@ -453,6 +459,7 @@ private struct BottomToolbar: View {
     @Binding var showLyrics: Bool
     @Binding var showQueue: Bool
     let secondaryContentColor: Color
+    let glassTint: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -460,7 +467,7 @@ private struct BottomToolbar: View {
                 Image(systemName: "quote.bubble")
                     .font(.title3)
                     .foregroundStyle(secondaryContentColor)
-                    .cassetteGlassButton(size: 44)
+                    .cassetteGlassButton(size: 44, tint: glassTint)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Lyrics")
@@ -472,7 +479,7 @@ private struct BottomToolbar: View {
                 Image(systemName: "list.bullet")
                     .font(.title3)
                     .foregroundStyle(secondaryContentColor)
-                    .cassetteGlassButton(size: 44)
+                    .cassetteGlassButton(size: 44, tint: glassTint)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Queue")
