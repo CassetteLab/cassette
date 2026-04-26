@@ -17,18 +17,20 @@ struct SongRow: View {
     var showCoverArt: Bool = false
     var isCurrentTrack: Bool = false
     var titleColor: Color = .primary
+    var secondaryColor: Color = .secondary
     let onDownload: (() -> Void)?
     var isDownloading: Bool = false
 
     @Environment(\.appContainer) private var container
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
         self.isCurrentTrack = isCurrentTrack
         self.titleColor = titleColor
+        self.secondaryColor = secondaryColor
         self.onDownload = onDownload
         self.isDownloading = isDownloading
         let compositeId = "song:\(song.id)"
@@ -39,35 +41,32 @@ struct SongRow: View {
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
     var body: some View {
-        HStack(spacing: CassetteSpacing.m) {
-            Button {
-                let fav = isFavorite
-                Task {
-                    if fav {
-                        try? await container?.favoritesService.unstar(itemType: .song, itemId: song.id)
-                    } else {
-                        try? await container?.favoritesService.star(itemType: .song, itemId: song.id)
-                    }
-                }
-            } label: {
-                Image(systemName: isFavorite ? "heart.fill" : "heart")
-                    .font(.title3)
-                    .foregroundStyle(isFavorite ? Color.cassetteAccent : Color.secondary)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.borderless)
-            .disabled(!isOnline)
-            .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
-
+        HStack(spacing: CassetteSpacing.s) {
             if showCoverArt {
                 CoverArtCard(id: song.coverArtId ?? song.id, size: 44)
+                    .overlay(alignment: .topLeading) {
+                        if isFavorite {
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 8, weight: .bold))
+                                .foregroundStyle(Color.cassetteAccent)
+                                .padding(3)
+                        }
+                    }
             } else {
-                Text("\(song.trackNumber ?? index)")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(.tertiary)
-                    .frame(width: 28, alignment: .trailing)
-                    .monospacedDigit()
+                ZStack {
+                    Text("\(song.trackNumber ?? index)")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(secondaryColor.opacity(0.6))
+                        .opacity(isFavorite ? 0 : 1)
+                    if isFavorite {
+                        Image(systemName: "heart.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Color.cassetteAccent)
+                            .accessibilityLabel("Favorite")
+                    }
+                }
+                .frame(width: 28, alignment: .trailing)
+                .monospacedDigit()
             }
 
             VStack(alignment: .leading, spacing: 2) {
@@ -78,7 +77,7 @@ struct SongRow: View {
                 if let artist = song.artist {
                     Text(artist)
                         .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryColor)
                         .lineLimit(1)
                 }
             }
@@ -89,7 +88,7 @@ struct SongRow: View {
                 if song.isDownloaded {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.cassetteCaption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(secondaryColor.opacity(0.6))
                 } else if isDownloading {
                     ProgressView()
                         .scaleEffect(0.7)
@@ -98,7 +97,7 @@ struct SongRow: View {
                 if song.duration > 0 {
                     Text(Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)))
                         .font(.cassetteCaption)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(secondaryColor.opacity(0.6))
                         .monospacedDigit()
                 }
             }

@@ -50,7 +50,7 @@ struct PlaylistDetailView: View {
         }
         .background(
             LinearGradient(
-                colors: [dominantColor.opacity(0.75), dominantColor.opacity(0.5)],
+                colors: [dominantColor.opacity(0.9), dominantColor.opacity(0.7)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -130,6 +130,7 @@ struct PlaylistDetailView: View {
                     serverId: serverId,
                     downloadingIds: vm.downloadingIds,
                     titleColor: headerTextColor,
+                    secondaryColor: headerSecondaryColor,
                     onTap: { index in
                         Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
                     },
@@ -280,15 +281,17 @@ private struct PlaylistSongRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
     let titleColor: Color
+    let secondaryColor: Color
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
+        self.secondaryColor = secondaryColor
         self.onTap = onTap
         self.onDownload = onDownload
         let sid = serverId
@@ -319,7 +322,7 @@ private struct PlaylistSongRows: View {
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
-            SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, onDownload: downloadAction, isDownloading: isDownloading)
+            SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
                 .contentShape(Rectangle())
                 .onTapGesture { onTap(index) }
                 .listRowBackground(Color.clear)

@@ -70,47 +70,33 @@ struct QueueView: View {
 
     @ViewBuilder
     private func queueControlsHeader(_ playerState: PlayerState) -> some View {
-        HStack {
+        HStack(spacing: CassetteSpacing.xxxxl) {
             Button {
                 HapticFeedback.light.trigger()
                 Task { await container?.playerService.toggleShuffle() }
             } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "shuffle")
-                        .font(.title3)
-                        .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : Color.secondary)
-                    Text("Shuffle")
-                        .font(.caption2)
-                        .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : Color.secondary)
-                }
-                .frame(maxWidth: .infinity)
+                Image(systemName: "shuffle")
+                    .font(.title3)
+                    .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : Color.secondary)
+                    .frame(width: 44, height: 44)
             }
-            .buttonStyle(.plain)
-
-            Divider()
-                .frame(height: 32)
+            .buttonStyle(.borderless)
+            .accessibilityLabel(playerState.isShuffled ? "Shuffle On" : "Shuffle Off")
 
             Button {
                 HapticFeedback.light.trigger()
-                Task {
-                    let next = playerState.repeatMode.next
-                    await container?.playerService.setRepeatMode(next)
-                }
+                Task { await container?.playerService.setRepeatMode(playerState.repeatMode.next) }
             } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: playerState.repeatMode.systemImage)
-                        .font(.title3)
-                        .foregroundStyle(playerState.repeatMode != .off ? Color.cassetteAccent : Color.secondary)
-                    Text(playerState.repeatMode == .one ? "Repeat One" : "Repeat")
-                        .font(.caption2)
-                        .foregroundStyle(playerState.repeatMode != .off ? Color.cassetteAccent : Color.secondary)
-                }
-                .frame(maxWidth: .infinity)
+                Image(systemName: playerState.repeatMode.systemImage)
+                    .font(.title3)
+                    .foregroundStyle(playerState.repeatMode != .off ? Color.cassetteAccent : Color.secondary)
+                    .frame(width: 44, height: 44)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Repeat: \(playerState.repeatMode == .one ? "One" : playerState.repeatMode == .off ? "Off" : "All")")
         }
+        .frame(maxWidth: .infinity)
         .padding(.vertical, CassetteSpacing.m)
-        .padding(.horizontal, CassetteSpacing.l)
     }
 }
 

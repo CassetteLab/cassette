@@ -59,7 +59,7 @@ struct AlbumDetailView: View {
         }
         .background(
             LinearGradient(
-                colors: [dominantColor.opacity(0.75), dominantColor.opacity(0.5)],
+                colors: [dominantColor.opacity(0.9), dominantColor.opacity(0.7)],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -159,6 +159,7 @@ struct AlbumDetailView: View {
                     serverId: serverId,
                     downloadingIds: vm.downloadingIds,
                     titleColor: headerTextColor,
+                    secondaryColor: headerSecondaryColor,
                     onTap: { index in
                         Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
                     },
@@ -210,13 +211,15 @@ struct AlbumDetailView: View {
                 HStack(spacing: CassetteSpacing.s) {
                     if let year = vm.year { Text(String(year)) }
                     if let genre = vm.genre { Text("·"); Text(genre) }
-                    Text("·"); Text("\(vm.songCount) tracks")
+                    if let format = vm.songs.first?.audioFormat {
+                        Text("·")
+                        Image(systemName: "waveform")
+                            .font(.system(size: 9, weight: .semibold))
+                        Text(format.uppercased())
+                    }
                 }
                 .font(.cassetteCaption)
                 .foregroundStyle(headerSecondaryColor.opacity(0.8))
-                if let format = vm.songs.first?.audioFormat {
-                    AudioFormatBadge(format: format)
-                }
             }
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -316,15 +319,17 @@ private struct AlbumSongRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
     let titleColor: Color
+    let secondaryColor: Color
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
+        self.secondaryColor = secondaryColor
         self.onTap = onTap
         self.onDownload = onDownload
         let aid = albumId
@@ -356,7 +361,7 @@ private struct AlbumSongRows: View {
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
-            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, onDownload: downloadAction, isDownloading: isDownloading)
+            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 .listRowBackground(Color.clear)

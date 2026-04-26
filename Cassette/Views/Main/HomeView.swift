@@ -190,7 +190,6 @@ struct HomeView: View {
                     DownloadedView()
                 }
             }
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
         }
     }
 
@@ -353,6 +352,10 @@ private struct HomeLibraryRow<Destination: View>: View {
                     .font(.cassetteCellTitle)
                     .foregroundStyle(.primary)
                 Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.tertiary)
             }
             .padding(.horizontal, CassetteSpacing.m)
             .padding(.vertical, CassetteSpacing.m)

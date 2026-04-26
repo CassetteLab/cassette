@@ -169,7 +169,7 @@ private struct TrackInfoSection: View {
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundStyle(contentColor)
-                    .lineLimit(2)
+                    .lineLimit(1)
                     .truncationMode(.tail)
 
                 if !playerState.isPlaybackAvailable {
