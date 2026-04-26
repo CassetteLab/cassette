@@ -246,6 +246,8 @@ private struct HomePinnedCard: View {
     let item: PinnedItem
     @Environment(\.appContainer) private var container
     @Environment(\.modelContext) private var modelContext
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
 
     @ViewBuilder
     private var destination: some View {
@@ -282,12 +284,16 @@ private struct HomePinnedCard: View {
             }
         }
         .buttonStyle(.plain)
+        .task(id: item.id) {
+            coverImage = await artworkImageCache.load(coverArtId: item.coverArtId ?? item.itemId)
+        }
         .lazyCollectionContextMenu(
             itemType: PinnedItemType(rawValue: item.itemType) ?? .album,
             itemId: item.itemId,
             displayName: item.displayName,
             displaySubtitle: item.displaySubtitle,
             coverArtId: item.coverArtId,
+            coverImage: coverImage,
             favoriteType: item.itemType == PinnedItemType.album.rawValue ? .album : nil
         ) {
             let itemId = item.itemId
@@ -370,6 +376,8 @@ private struct HomeLibraryRow<Destination: View>: View {
 private struct HomeDownloadedItemCard: View {
     let item: DownloadedItem
     @Environment(\.modelContext) private var modelContext
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
 
     @ViewBuilder
     private var destination: some View {
@@ -404,12 +412,16 @@ private struct HomeDownloadedItemCard: View {
             }
         }
         .buttonStyle(.plain)
+        .task(id: item.id) {
+            coverImage = await artworkImageCache.load(coverArtId: item.coverArtId ?? item.itemId)
+        }
         .lazyCollectionContextMenu(
             itemType: item.type == .album ? .album : .playlist,
             itemId: item.itemId,
             displayName: item.name,
             displaySubtitle: item.subtitle,
             coverArtId: item.coverArtId,
+            coverImage: coverImage,
             favoriteType: item.type == .album ? .album : nil
         ) {
             switch item.type {
@@ -464,6 +476,8 @@ private struct HomeAlbumCell: View {
     let album: AlbumID3
 
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
@@ -485,12 +499,16 @@ private struct HomeAlbumCell: View {
                     .lineLimit(1)
             }
         }
+        .task(id: album.id) {
+            coverImage = await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+        }
         .lazyCollectionContextMenu(
             itemType: .album,
             itemId: album.id,
             displayName: album.name,
             displaySubtitle: album.artist ?? "",
             coverArtId: album.coverArt,
+            coverImage: coverImage,
             favoriteType: .album
         ) {
             let detail = try await container?.libraryService.album(id: album.id)

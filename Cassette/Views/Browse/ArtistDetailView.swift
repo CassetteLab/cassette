@@ -114,6 +114,9 @@ struct ArtistDetailView: View {
 private struct AlbumGridCell: View {
     let album: AlbumID3
 
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
+
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             GeometryReader { geo in
@@ -132,12 +135,16 @@ private struct AlbumGridCell: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .task(id: album.id) {
+            coverImage = await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+        }
         .collectionContextMenu(
             itemType: .album,
             itemId: album.id,
             displayName: album.name,
             displaySubtitle: album.artist ?? "",
             coverArtId: album.coverArt,
+            coverImage: coverImage,
             favoriteType: .album
         )
     }

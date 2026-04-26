@@ -14,6 +14,9 @@ struct AlbumRow: View {
     let year: Int?
     let coverArtId: String?
 
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
+
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtCard(id: coverArtId ?? albumId, size: 56)
@@ -40,12 +43,16 @@ struct AlbumRow: View {
         }
         .padding(.vertical, CassetteSpacing.xs)
         .contentShape(Rectangle())
+        .task(id: albumId) {
+            coverImage = await artworkImageCache.load(coverArtId: coverArtId ?? albumId)
+        }
         .collectionContextMenu(
             itemType: .album,
             itemId: albumId,
             displayName: name,
             displaySubtitle: artist ?? "",
             coverArtId: coverArtId,
+            coverImage: coverImage,
             favoriteType: .album
         )
     }

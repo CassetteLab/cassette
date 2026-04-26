@@ -22,7 +22,9 @@ struct SongRow: View {
     var isDownloading: Bool = false
 
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @Query private var favoriteMatches: [FavoriteRecord]
+    @State private var coverImage: PlatformImage?
 
     init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
@@ -104,6 +106,9 @@ struct SongRow: View {
         }
         .padding(.vertical, CassetteSpacing.s)
         .contentShape(Rectangle())
+        .task(id: song.id) {
+            coverImage = await artworkImageCache.load(coverArtId: song.coverArtId ?? song.id)
+        }
         .contextMenu {
             Button {
                 Task { try? await container?.playerService.play(tracks: [song], startIndex: 0) }
@@ -149,6 +154,8 @@ struct SongRow: View {
                 )
             }
             .disabled(!isOnline)
+        } preview: {
+            SongContextPreview(coverImage: coverImage, song: song)
         }
     }
 }

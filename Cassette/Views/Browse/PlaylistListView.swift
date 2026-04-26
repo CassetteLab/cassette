@@ -59,31 +59,48 @@ struct PlaylistListView: View {
         } else {
             List(vm.playlists) { playlist in
                 NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
-                    HStack(spacing: CassetteSpacing.m) {
-                        CoverArtCard(id: playlist.coverArt ?? playlist.id, size: 56)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(playlist.name)
-                                .font(.cassetteCellTitle)
-                                .lineLimit(1)
-                            Text("\(playlist.songCount) track\(playlist.songCount == 1 ? "" : "s")")
-                                .font(.cassetteCaption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.vertical, CassetteSpacing.xs)
+                    OnlinePlaylistRow(playlist: playlist)
                 }
-                .collectionContextMenu(
-                    itemType: .playlist,
-                    itemId: playlist.id,
-                    displayName: playlist.name,
-                    displaySubtitle: "Playlist",
-                    coverArtId: playlist.coverArt
-                )
             }
             .listStyle(.plain)
             .refreshable { await vm.load() }
         }
+    }
+}
+
+// MARK: - Online playlist row
+
+private struct OnlinePlaylistRow: View {
+    let playlist: Playlist
+
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
+
+    var body: some View {
+        HStack(spacing: CassetteSpacing.m) {
+            CoverArtCard(id: playlist.coverArt ?? playlist.id, size: 56)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(playlist.name)
+                    .font(.cassetteCellTitle)
+                    .lineLimit(1)
+                Text("\(playlist.songCount) track\(playlist.songCount == 1 ? "" : "s")")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, CassetteSpacing.xs)
+        .task(id: playlist.id) {
+            coverImage = await artworkImageCache.load(coverArtId: playlist.coverArt ?? playlist.id)
+        }
+        .collectionContextMenu(
+            itemType: .playlist,
+            itemId: playlist.id,
+            displayName: playlist.name,
+            displaySubtitle: "Playlist",
+            coverArtId: playlist.coverArt,
+            coverImage: coverImage
+        )
     }
 }
 
@@ -114,31 +131,46 @@ private struct OfflinePlaylistContent: View {
                 Section("Downloaded Playlists") {
                     ForEach(playlists) { playlist in
                         NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
-                            HStack(spacing: CassetteSpacing.m) {
-                                CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(playlist.name)
-                                        .font(.cassetteCellTitle)
-                                        .lineLimit(1)
-                                    Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, CassetteSpacing.xs)
+                            OfflinePlaylistRow(playlist: playlist)
                         }
-                        .collectionContextMenu(
-                            itemType: .playlist,
-                            itemId: playlist.playlistId,
-                            displayName: playlist.name,
-                            displaySubtitle: "Playlist",
-                            coverArtId: playlist.coverArtId
-                        )
                     }
                 }
             }
             .listStyle(.plain)
         }
+    }
+}
+
+private struct OfflinePlaylistRow: View {
+    let playlist: DownloadedPlaylist
+
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var coverImage: PlatformImage?
+
+    var body: some View {
+        HStack(spacing: CassetteSpacing.m) {
+            CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(playlist.name)
+                    .font(.cassetteCellTitle)
+                    .lineLimit(1)
+                Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, CassetteSpacing.xs)
+        .task(id: playlist.playlistId) {
+            coverImage = await artworkImageCache.load(coverArtId: playlist.coverArtId ?? playlist.playlistId)
+        }
+        .collectionContextMenu(
+            itemType: .playlist,
+            itemId: playlist.playlistId,
+            displayName: playlist.name,
+            displaySubtitle: "Playlist",
+            coverArtId: playlist.coverArtId,
+            coverImage: coverImage
+        )
     }
 }

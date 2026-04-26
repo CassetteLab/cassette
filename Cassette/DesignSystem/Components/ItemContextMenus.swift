@@ -6,18 +6,33 @@
 import SwiftUI
 
 // MARK: - Context menu preview views
+// Internal (not private) so SongRow can reference SongContextPreview directly.
 
-private struct CollectionContextPreview: View {
-    let coverArtId: String
+struct CollectionContextPreview: View {
+    let coverImage: PlatformImage?
     let displayName: String
     let displaySubtitle: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.m) {
-            CoverArtView(id: coverArtId, size: 300)
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: 280, maxHeight: 280)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+            Group {
+                if let coverImage {
+                    Image(platformImage: coverImage)
+                        .resizable()
+                        .aspectRatio(1, contentMode: .fit)
+                } else {
+                    Rectangle()
+                        .fill(.secondary.opacity(0.15))
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            Image(systemName: "music.note")
+                                .font(.system(size: 60))
+                                .foregroundStyle(.secondary)
+                        }
+                }
+            }
+            .frame(maxWidth: 280, maxHeight: 280)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 Text(displayName)
@@ -38,15 +53,30 @@ private struct CollectionContextPreview: View {
     }
 }
 
-private struct SongContextPreview: View {
+struct SongContextPreview: View {
+    let coverImage: PlatformImage?
     let song: DisplayableSong
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.m) {
-            CoverArtView(id: song.coverArtId ?? song.id, size: 300)
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: 240, maxHeight: 240)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            Group {
+                if let coverImage {
+                    Image(platformImage: coverImage)
+                        .resizable()
+                        .aspectRatio(1, contentMode: .fit)
+                } else {
+                    Rectangle()
+                        .fill(.secondary.opacity(0.15))
+                        .aspectRatio(1, contentMode: .fit)
+                        .overlay {
+                            Image(systemName: "music.note")
+                                .font(.system(size: 60))
+                                .foregroundStyle(.secondary)
+                        }
+                }
+            }
+            .frame(maxWidth: 240, maxHeight: 240)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
 
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 Text(song.title)
@@ -79,6 +109,7 @@ private struct SongContextPreview: View {
 /// Adds Play / Play Next / Add to Queue / Favorite actions for a single song.
 struct SongContextMenuModifier: ViewModifier {
     let song: DisplayableSong
+    let coverImage: PlatformImage?
 
     @Environment(\.appContainer) private var container
 
@@ -124,7 +155,7 @@ struct SongContextMenuModifier: ViewModifier {
                 )
             }
         } preview: {
-            SongContextPreview(song: song)
+            SongContextPreview(coverImage: coverImage, song: song)
         }
     }
 }
@@ -141,6 +172,7 @@ struct CollectionContextMenuModifier: ViewModifier {
     let displayName: String
     let displaySubtitle: String
     let coverArtId: String?
+    let coverImage: PlatformImage?
     let songs: [DisplayableSong]
     let favoriteType: FavoriteType?
 
@@ -237,7 +269,7 @@ struct CollectionContextMenuModifier: ViewModifier {
                 }
             } preview: {
                 CollectionContextPreview(
-                    coverArtId: coverArtId ?? itemId,
+                    coverImage: coverImage,
                     displayName: displayName,
                     displaySubtitle: displaySubtitle
                 )
@@ -260,6 +292,7 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
     let displayName: String
     let displaySubtitle: String
     let coverArtId: String?
+    let coverImage: PlatformImage?
     let favoriteType: FavoriteType?
     let songLoader: () async throws -> [DisplayableSong]
 
@@ -365,7 +398,7 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                 }
             } preview: {
                 CollectionContextPreview(
-                    coverArtId: coverArtId ?? itemId,
+                    coverImage: coverImage,
                     displayName: displayName,
                     displaySubtitle: displaySubtitle
                 )
@@ -381,11 +414,12 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
 // MARK: - View extensions
 
 extension View {
-    func songContextMenu(song: DisplayableSong) -> some View {
-        modifier(SongContextMenuModifier(song: song))
+    func songContextMenu(song: DisplayableSong, coverImage: PlatformImage? = nil) -> some View {
+        modifier(SongContextMenuModifier(song: song, coverImage: coverImage))
     }
 
     /// - Parameters:
+    ///   - coverImage: Pre-loaded image from ArtworkImageCache. Pass nil to show a placeholder.
     ///   - songs: Pre-loaded tracks. Pass `[]` (default) on list rows to hide play actions.
     ///   - favoriteType: Pass `.album` for albums; `nil` for playlists (not supported by Subsonic).
     func collectionContextMenu(
@@ -394,6 +428,7 @@ extension View {
         displayName: String,
         displaySubtitle: String = "",
         coverArtId: String? = nil,
+        coverImage: PlatformImage? = nil,
         songs: [DisplayableSong] = [],
         favoriteType: FavoriteType? = nil
     ) -> some View {
@@ -403,6 +438,7 @@ extension View {
             displayName: displayName,
             displaySubtitle: displaySubtitle,
             coverArtId: coverArtId,
+            coverImage: coverImage,
             songs: songs,
             favoriteType: favoriteType
         ))
@@ -416,6 +452,7 @@ extension View {
         displayName: String,
         displaySubtitle: String = "",
         coverArtId: String? = nil,
+        coverImage: PlatformImage? = nil,
         favoriteType: FavoriteType? = nil,
         songLoader: @escaping () async throws -> [DisplayableSong]
     ) -> some View {
@@ -425,6 +462,7 @@ extension View {
             displayName: displayName,
             displaySubtitle: displaySubtitle,
             coverArtId: coverArtId,
+            coverImage: coverImage,
             favoriteType: favoriteType,
             songLoader: songLoader
         ))
