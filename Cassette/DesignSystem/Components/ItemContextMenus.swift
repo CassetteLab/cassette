@@ -5,6 +5,75 @@
 
 import SwiftUI
 
+// MARK: - Context menu preview views
+
+private struct CollectionContextPreview: View {
+    let coverArtId: String
+    let displayName: String
+    let displaySubtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.m) {
+            CoverArtView(id: coverArtId, size: 300)
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 280, maxHeight: 280)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+
+            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                Text(displayName)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+
+                if !displaySubtitle.isEmpty {
+                    Text(displaySubtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(CassetteSpacing.l)
+        .frame(width: 320)
+    }
+}
+
+private struct SongContextPreview: View {
+    let song: DisplayableSong
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.m) {
+            CoverArtView(id: song.coverArtId ?? song.id, size: 300)
+                .aspectRatio(1, contentMode: .fit)
+                .frame(maxWidth: 240, maxHeight: 240)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                Text(song.title)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+
+                if let artist = song.artist {
+                    Text(artist)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                if let albumName = song.albumName {
+                    Text(albumName)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+        .padding(CassetteSpacing.l)
+        .frame(width: 280)
+    }
+}
+
 // MARK: - Song context menu
 
 /// Adds Play / Play Next / Add to Queue / Favorite actions for a single song.
@@ -54,6 +123,8 @@ struct SongContextMenuModifier: ViewModifier {
                     systemImage: isFavorite ? "heart.slash" : "heart"
                 )
             }
+        } preview: {
+            SongContextPreview(song: song)
         }
     }
 }
@@ -164,6 +235,12 @@ struct CollectionContextMenuModifier: ViewModifier {
                         )
                     }
                 }
+            } preview: {
+                CollectionContextPreview(
+                    coverArtId: coverArtId ?? itemId,
+                    displayName: displayName,
+                    displaySubtitle: displaySubtitle
+                )
             }
             .alert("Pin Limit Reached", isPresented: $showPinLimitAlert) {
                 Button("OK", role: .cancel) {}
@@ -286,6 +363,12 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                         )
                     }
                 }
+            } preview: {
+                CollectionContextPreview(
+                    coverArtId: coverArtId ?? itemId,
+                    displayName: displayName,
+                    displaySubtitle: displaySubtitle
+                )
             }
             .alert("Pin Limit Reached", isPresented: $showPinLimitAlert) {
                 Button("OK", role: .cancel) {}
