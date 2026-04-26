@@ -14,6 +14,8 @@ import MediaPlayer
 /// A hidden MPVolumeView is kept off-screen to write the system volume —
 /// it is the only officially-sanctioned iOS mechanism for doing so.
 struct SystemVolumeView: View {
+    var contentColor: Color = .white
+
     #if os(iOS)
     @State private var observer = SystemVolumeObserver()
 
@@ -25,7 +27,9 @@ struct SystemVolumeView: View {
                 set: { observer.volume = Float(max(0, min(1, $0))) }
             ),
             total: 1.0,
-            onEditingChanged: { _ in }
+            onEditingChanged: { _ in },
+            trackColor: contentColor.opacity(0.2),
+            fillColor: contentColor.opacity(0.95)
         )
         .background {
             HiddenVolumeViewRepresentable(volume: vol)

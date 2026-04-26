@@ -15,8 +15,7 @@ struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
 
-    @State private var coverImage: PlatformImage?
-    @State private var dominantColor: Color = .black
+    @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var showQueue = false
     @State private var dragOffsetY: CGFloat = 0
@@ -28,33 +27,9 @@ struct FullPlayerView: View {
         if let playerState = container?.playerState {
             content(playerState)
                 .task(id: playerState.currentTrack?.coverArtId) {
-                    await loadCoverAndColor(coverArtId: playerState.currentTrack?.coverArtId)
+                    await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
                 }
                 .onAppear { dragOffsetY = 0 }
-        }
-    }
-
-    private func loadCoverAndColor(coverArtId: String?) async {
-        guard let coverArtId else {
-            withAnimation(.easeInOut(duration: 0.4)) {
-                coverImage = nil
-                dominantColor = .black
-            }
-            return
-        }
-        let url: URL?
-        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
-            url = localURL
-        } else {
-            url = await container?.libraryService.coverArtURL(id: coverArtId, size: 300)
-        }
-        guard let url,
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let image = PlatformImage(data: data) else { return }
-        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
-        withAnimation(.easeInOut(duration: 0.4)) {
-            coverImage = image
-            dominantColor = color
         }
     }
 
@@ -85,28 +60,44 @@ struct FullPlayerView: View {
 
             Spacer(minLength: CassetteSpacing.l)
 
-            TrackInfoSection(playerState: playerState, container: container)
-                .padding(.horizontal, CassetteSpacing.l)
+            TrackInfoSection(
+                playerState: playerState,
+                container: container,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor
+            )
+            .padding(.horizontal, CassetteSpacing.l)
 
-            ScrubberView(playerState: playerState, playerService: container?.playerService)
-                .padding(.horizontal, CassetteSpacing.l)
-                .padding(.top, CassetteSpacing.m)
-                .disabled(!playerState.isPlaybackAvailable)
-                .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+            ScrubberView(
+                playerState: playerState,
+                playerService: container?.playerService,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor
+            )
+            .padding(.horizontal, CassetteSpacing.l)
+            .padding(.top, CassetteSpacing.m)
+            .disabled(!playerState.isPlaybackAvailable)
+            .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
 
             PlaybackControlsView(
                 playerState: playerState,
                 playerService: container?.playerService,
-                isPlaybackAvailable: playerState.isPlaybackAvailable
+                isPlaybackAvailable: playerState.isPlaybackAvailable,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor
             )
             .padding(.top, CassetteSpacing.l)
 
-            VolumeSection()
+            VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.l)
 
-            BottomToolbar(showLyrics: $showLyrics, showQueue: $showQueue)
-                .padding(.top, CassetteSpacing.l)
+            BottomToolbar(
+                showLyrics: $showLyrics,
+                showQueue: $showQueue,
+                secondaryContentColor: vm.secondaryContentColor
+            )
+            .padding(.top, CassetteSpacing.l)
 
             Spacer(minLength: CassetteSpacing.l)
         }
@@ -118,7 +109,7 @@ struct FullPlayerView: View {
         .background {
             ZStack {
                 Color.black
-                if let coverImage {
+                if let coverImage = vm.coverImage {
                     Image(platformImage: coverImage)
                         .resizable()
                         .scaledToFill()
@@ -126,7 +117,7 @@ struct FullPlayerView: View {
                         .blur(radius: 80, opaque: true)
                         .transition(.opacity)
                 }
-                dominantColor.opacity(0.5)
+                vm.dominantColor.opacity(0.5)
                 Color.black.opacity(0.25)
             }
             .ignoresSafeArea()
@@ -143,7 +134,7 @@ struct FullPlayerView: View {
 
     private var topBar: some View {
         Capsule()
-            .fill(Color.white.opacity(0.4))
+            .fill(vm.contentColor.opacity(0.4))
             .frame(width: 36, height: 5)
             .accessibilityHidden(true)
     }
@@ -177,12 +168,16 @@ struct FullPlayerView: View {
 private struct TrackInfoSection: View {
     let playerState: PlayerState
     let container: AppContainer?
+    let contentColor: Color
+    let secondaryContentColor: Color
 
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(playerState: PlayerState, container: AppContainer?) {
+    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color) {
         self.playerState = playerState
         self.container = container
+        self.contentColor = contentColor
+        self.secondaryContentColor = secondaryContentColor
         let cid = "song:\(playerState.currentTrack?.id ?? "")"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -196,21 +191,21 @@ private struct TrackInfoSection: View {
                 Text(playerState.currentTrack?.title ?? "")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(contentColor)
                     .lineLimit(2)
                     .truncationMode(.tail)
 
                 if !playerState.isPlaybackAvailable {
                     Label("Reconnect to resume", systemImage: "wifi.slash")
                         .font(.callout)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .foregroundStyle(secondaryContentColor)
                         .lineLimit(1)
                 } else {
                     HStack(spacing: CassetteSpacing.xs) {
                         if let album = playerState.currentTrack?.albumName {
                             Text(album)
                                 .font(.callout)
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(secondaryContentColor)
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                         }
@@ -221,7 +216,7 @@ private struct TrackInfoSection: View {
                     if let artist = playerState.currentTrack?.artist {
                         Text(artist)
                             .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(secondaryContentColor)
                             .lineLimit(1)
                             .truncationMode(.tail)
                     }
@@ -245,7 +240,7 @@ private struct TrackInfoSection: View {
                 } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
                         .font(.title3)
-                        .foregroundStyle(isFavorite ? Color.cassetteAccent : .white)
+                        .foregroundStyle(isFavorite ? Color.cassetteAccent : contentColor)
                         .cassetteGlassButton(size: 44)
                 }
                 .buttonStyle(.borderless)
@@ -258,7 +253,7 @@ private struct TrackInfoSection: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.title3)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(contentColor)
                         .cassetteGlassButton(size: 44)
                 }
                 .buttonStyle(.plain)
@@ -273,6 +268,8 @@ private struct TrackInfoSection: View {
 private struct ScrubberView: View {
     let playerState: PlayerState
     let playerService: (any PlayerServiceProtocol)?
+    let contentColor: Color
+    let secondaryContentColor: Color
 
     @State private var isDragging = false
     @State private var displayPosition: TimeInterval = 0
@@ -304,18 +301,20 @@ private struct ScrubberView: View {
                     if !editing {
                         Task { await playerService?.seek(to: displayPosition) }
                     }
-                }
+                },
+                trackColor: contentColor.opacity(0.2),
+                fillColor: contentColor.opacity(0.95)
             )
 
             HStack {
                 Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(secondaryContentColor)
                     .monospacedDigit()
                 Spacer()
                 Text(Duration.seconds(max(effectiveDuration - shownPosition, 0)).formatted(.time(pattern: .minuteSecond)))
                     .font(.cassetteCaption)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(secondaryContentColor)
                     .monospacedDigit()
             }
         }
@@ -326,6 +325,8 @@ struct ProgressSlider: View {
     @Binding var value: TimeInterval
     let total: TimeInterval
     let onEditingChanged: (Bool) -> Void
+    var trackColor: Color = Color.white.opacity(0.2)
+    var fillColor: Color = Color.white.opacity(0.95)
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -336,10 +337,10 @@ struct ProgressSlider: View {
 
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.white.opacity(0.2))
+                    .fill(trackColor)
 
                 Capsule()
-                    .fill(Color.white.opacity(0.95))
+                    .fill(fillColor)
                     .frame(width: progressWidth(in: trackW))
             }
             .frame(height: isDragging ? 12 : 5)
@@ -396,6 +397,8 @@ private struct PlaybackControlsView: View {
     let playerState: PlayerState
     let playerService: (any PlayerServiceProtocol)?
     var isPlaybackAvailable: Bool = true
+    let contentColor: Color
+    let secondaryContentColor: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -405,7 +408,7 @@ private struct PlaybackControlsView: View {
             } label: {
                 Image(systemName: "backward.fill")
                     .font(.title)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(contentColor)
                     .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
@@ -423,7 +426,7 @@ private struct PlaybackControlsView: View {
             } label: {
                 Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
                     .font(.title)
-                    .foregroundStyle(isPlaybackAvailable ? Color.cassetteAccentText : .white.opacity(0.5))
+                    .foregroundStyle(isPlaybackAvailable ? Color.cassetteAccentText : contentColor.opacity(0.5))
                     .cassetteGlassButton(size: 80, tint: isPlaybackAvailable ? Color.cassetteAccent : nil)
             }
             .disabled(!isPlaybackAvailable)
@@ -435,7 +438,7 @@ private struct PlaybackControlsView: View {
             } label: {
                 Image(systemName: "forward.fill")
                     .font(.title)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(contentColor)
                     .cassetteGlassButton(size: 56)
             }
             .disabled(!isPlaybackAvailable)
@@ -449,25 +452,26 @@ private struct PlaybackControlsView: View {
 private struct BottomToolbar: View {
     @Binding var showLyrics: Bool
     @Binding var showQueue: Bool
+    let secondaryContentColor: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
             Button { showLyrics = true } label: {
                 Image(systemName: "quote.bubble")
                     .font(.title3)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(secondaryContentColor)
                     .cassetteGlassButton(size: 44)
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Lyrics")
 
-            AirPlayRouteButton()
+            AirPlayRouteButton(tintColor: secondaryContentColor)
                 .frame(width: 44, height: 44)
 
             Button { showQueue = true } label: {
                 Image(systemName: "list.bullet")
                     .font(.title3)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(secondaryContentColor)
                     .cassetteGlassButton(size: 44)
             }
             .buttonStyle(.borderless)
@@ -478,21 +482,27 @@ private struct BottomToolbar: View {
 
 #if canImport(UIKit)
 private struct AirPlayRouteButton: UIViewRepresentable {
+    var tintColor: Color = Color.white.opacity(0.7)
+
     func makeUIView(context: Context) -> AVRoutePickerView {
         let view = AVRoutePickerView()
         view.activeTintColor = UIColor(Color.cassetteAccent)
-        view.tintColor = UIColor.white.withAlphaComponent(0.7)
+        view.tintColor = UIColor(tintColor)
         view.backgroundColor = .clear
         return view
     }
-    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+    func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
+        uiView.tintColor = UIColor(tintColor)
+    }
 }
 #else
 private struct AirPlayRouteButton: View {
+    var tintColor: Color = Color.white.opacity(0.7)
+
     var body: some View {
         Image(systemName: "airplay.audio")
             .font(.title3)
-            .foregroundStyle(.white.opacity(0.7))
+            .foregroundStyle(tintColor)
             .frame(width: 44, height: 44)
     }
 }
@@ -501,24 +511,26 @@ private struct AirPlayRouteButton: View {
 // MARK: - Volume
 
 private struct VolumeSection: View {
+    let contentColor: Color
+    let secondaryContentColor: Color
+
     var body: some View {
         #if os(iOS)
         HStack(spacing: CassetteSpacing.m) {
             Image(systemName: "speaker.fill")
                 .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(secondaryContentColor)
                 .frame(width: 20)
                 .accessibilityHidden(true)
 
-            SystemVolumeView()
+            SystemVolumeView(contentColor: contentColor)
 
             Image(systemName: "speaker.wave.3.fill")
                 .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(secondaryContentColor)
                 .frame(width: 20)
                 .accessibilityHidden(true)
         }
         #endif
     }
 }
-
