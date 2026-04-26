@@ -118,16 +118,10 @@ struct AlbumDetailView: View {
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let image = PlatformImage(data: data) else { return }
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
-        let luminance = computeLuminance(of: color)
         withAnimation(.easeIn(duration: 0.5)) {
             dominantColor = color
-            isLightBackground = luminance > 0.6
+            isLightBackground = color.luminance > 0.6
         }
-    }
-
-    private func computeLuminance(of color: Color) -> Double {
-        guard let components = color.cgColor?.components, components.count >= 3 else { return 0.5 }
-        return 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
     }
 
     @ViewBuilder
@@ -164,6 +158,7 @@ struct AlbumDetailView: View {
                     albumId: albumId,
                     serverId: serverId,
                     downloadingIds: vm.downloadingIds,
+                    titleColor: headerTextColor,
                     onTap: { index in
                         Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
                     },
@@ -320,14 +315,16 @@ private nonisolated enum AlbumDownloadState {
 private struct AlbumSongRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
+    let titleColor: Color
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
+        self.titleColor = titleColor
         self.onTap = onTap
         self.onDownload = onDownload
         let aid = albumId
@@ -359,7 +356,7 @@ private struct AlbumSongRows: View {
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
-            SongRow(song: liveSong, index: index + 1, onDownload: downloadAction, isDownloading: isDownloading)
+            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, onDownload: downloadAction, isDownloading: isDownloading)
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 .listRowBackground(Color.clear)

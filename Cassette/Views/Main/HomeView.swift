@@ -112,7 +112,7 @@ struct HomeView: View {
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.title3)
-                        .cassetteGlassButton(size: 36)
+                        .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.plain)
             }
@@ -336,37 +336,29 @@ private struct HomeLibraryRow<Destination: View>: View {
     let title: String
     let systemImage: String
     @ViewBuilder let destination: () -> Destination
-    @State private var isActive = false
-    @GestureState private var isPressed = false
 
     var body: some View {
-        HStack(spacing: CassetteSpacing.m) {
-            Image(systemName: systemImage)
-                .frame(width: 28)
-                .foregroundStyle(Color.cassetteAccent)
-            Text(title)
-                .font(.cassetteCellTitle)
-                .foregroundStyle(.primary)
-            Spacer(minLength: 0)
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, CassetteSpacing.m)
-        .padding(.vertical, CassetteSpacing.m)
-        .background(isPressed ? Color.primary.opacity(0.08) : Color.clear)
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .updating($isPressed) { _, state, _ in state = true }
-                .onEnded { value in
-                    guard abs(value.translation.width) < 10,
-                          abs(value.translation.height) < 10 else { return }
-                    isActive = true
+        NavigationLink(destination: destination()) {
+            HStack(spacing: CassetteSpacing.m) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.cassetteAccent)
+                        .frame(width: 30, height: 30)
+                    Image(systemName: systemImage)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.white)
                 }
-        )
-        .navigationDestination(isPresented: $isActive) { destination() }
+                Text(title)
+                    .font(.cassetteCellTitle)
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, CassetteSpacing.m)
+            .padding(.vertical, CassetteSpacing.m)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 

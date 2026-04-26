@@ -192,12 +192,12 @@ private struct TrackInfoSection: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
             .offset(x: swipeDragOffset)
             .opacity(1.0 - min(abs(swipeDragOffset) / 200, 0.4))
             .gesture(swipeGesture)
             .onChange(of: playerState.currentTrack?.id) { _, _ in swipeDragOffset = 0 }
-
-            Spacer(minLength: 0)
 
             HStack(spacing: CassetteSpacing.s) {
                 Button {

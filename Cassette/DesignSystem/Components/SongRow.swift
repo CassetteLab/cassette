@@ -16,17 +16,19 @@ struct SongRow: View {
     let index: Int
     var showCoverArt: Bool = false
     var isCurrentTrack: Bool = false
+    var titleColor: Color = .primary
     let onDownload: (() -> Void)?
     var isDownloading: Bool = false
 
     @Environment(\.appContainer) private var container
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
         self.isCurrentTrack = isCurrentTrack
+        self.titleColor = titleColor
         self.onDownload = onDownload
         self.isDownloading = isDownloading
         let compositeId = "song:\(song.id)"
@@ -71,7 +73,7 @@ struct SongRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title)
                     .font(.cassetteCellTitle)
-                    .foregroundStyle(isCurrentTrack ? Color.cassetteAccent : Color.primary)
+                    .foregroundStyle(isCurrentTrack ? Color.cassetteAccent : titleColor)
                     .lineLimit(1)
                 if let artist = song.artist {
                     Text(artist)
