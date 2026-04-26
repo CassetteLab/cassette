@@ -32,6 +32,7 @@ final class AppContainer {
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
     let dominantColorExtractor = DominantColorExtractor()
+    let artworkImageCache: ArtworkImageCache
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -51,6 +52,7 @@ final class AppContainer {
 
         let download = DownloadService(serverService: server, modelContainer: modelContainer)
         downloadService = download
+        artworkImageCache = ArtworkImageCache(downloadService: download, libraryService: library)
 
         let resolver = MediaResolver(
             downloadService: download,

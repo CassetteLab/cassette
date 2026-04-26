@@ -19,6 +19,7 @@ struct CassetteApp: App {
                     RootView()
                         .environment(\.appContainer, container)
                         .environment(container.dominantColorExtractor)
+                        .environment(container.artworkImageCache)
                         .modelContainer(container.modelContainer)
                 } else {
                     ProgressView()
