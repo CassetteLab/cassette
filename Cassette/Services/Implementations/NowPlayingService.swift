@@ -73,7 +73,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     }
 
     func stop() async {
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
 
         let center = MPRemoteCommandCenter.shared()
         center.playCommand.removeTarget(nil)
@@ -90,15 +90,17 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         if snapshot.artworkURL == nil {
             // Position-only update (pause/resume/seek): merge into the existing dict so
             // artwork already loaded for the current track is preserved.
-            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-            info[MPMediaItemPropertyTitle] = snapshot.title
-            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = snapshot.position
-            info[MPMediaItemPropertyPlaybackDuration] = snapshot.duration
-            info[MPNowPlayingInfoPropertyPlaybackRate] = snapshot.playbackRate
-            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
-            if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
-            if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            await MainActor.run {
+                var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                info[MPMediaItemPropertyTitle] = snapshot.title
+                info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = snapshot.position
+                info[MPMediaItemPropertyPlaybackDuration] = snapshot.duration
+                info[MPNowPlayingInfoPropertyPlaybackRate] = snapshot.playbackRate
+                info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
+                if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
+                if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            }
             return
         }
 
@@ -114,24 +116,28 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         ]
         if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = info }
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
         if let coverArtId = snapshot.coverArtId,
            let cachedImage = await artworkImageCache.cached(for: coverArtId) {
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in cachedImage }
-            var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
-            infoWithArt[MPMediaItemPropertyArtwork] = artwork
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+            await MainActor.run {
+                var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
+                infoWithArt[MPMediaItemPropertyArtwork] = artwork
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+            }
             return
         }
 
         // Slow path: fetch from URL and populate both caches.
         if let artworkURL = snapshot.artworkURL,
            let artwork = await artworkLoader.artwork(for: artworkURL, headers: snapshot.artworkHeaders) {
-            var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
-            infoWithArt[MPMediaItemPropertyArtwork] = artwork
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+            await MainActor.run {
+                var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
+                infoWithArt[MPMediaItemPropertyArtwork] = artwork
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+            }
         }
     }
 }

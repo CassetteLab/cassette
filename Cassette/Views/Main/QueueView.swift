@@ -62,10 +62,27 @@ struct QueueView: View {
                                 Task { try? await container?.playerService.play(tracks: queue, startIndex: absoluteIndex) }
                             }
                     }
+                    .onMove { source, destination in
+                        guard let relativeSource = source.first else { return }
+                        let absoluteSource = currentIndex + 1 + relativeSource
+                        let absoluteDestination = currentIndex + 1 + destination
+                        HapticFeedback.light.trigger()
+                        Task { await container?.playerService.moveInQueue(fromIndex: absoluteSource, toIndex: absoluteDestination) }
+                    }
+                    .onDelete { indices in
+                        let absoluteIndices = indices.sorted(by: >).map { currentIndex + 1 + $0 }
+                        HapticFeedback.light.trigger()
+                        Task {
+                            for absoluteIndex in absoluteIndices {
+                                await container?.playerService.removeFromQueue(at: absoluteIndex)
+                            }
+                        }
+                    }
                 }
             }
         }
         .listStyle(.plain)
+        .environment(\.editMode, .constant(.active))
     }
 
     @ViewBuilder

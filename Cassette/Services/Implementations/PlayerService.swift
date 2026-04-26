@@ -273,19 +273,49 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func removeFromQueue(at index: Int) async {
-        await MainActor.run {
-            guard state.queue.indices.contains(index) else { return }
-            state.queue.remove(at: index)
+        let (queueCount, currentIndex, isShuffled) = await MainActor.run {
+            (state.queue.count, state.currentIndex, state.isShuffled)
         }
+        guard index >= 0, index < queueCount else { return }
+        guard index != currentIndex else {
+            Logger.player.warning("removeFromQueue: index \(index) is current track — ignored")
+            return
+        }
+        await MainActor.run {
+            state.queue.remove(at: index)
+            if index < state.currentIndex { state.currentIndex -= 1 }
+        }
+        if isShuffled { originalQueueOrder = nil }
+        let newIdx = await MainActor.run { state.currentIndex }
+        Logger.player.info("Removed track at \(index), currentIndex now \(newIdx)")
+        await sessionService.save(playerState: state)
     }
 
     func moveInQueue(fromIndex: Int, toIndex: Int) async {
-        await MainActor.run {
-            guard state.queue.indices.contains(fromIndex),
-                  state.queue.indices.contains(toIndex) else { return }
-            let song = state.queue.remove(at: fromIndex)
-            state.queue.insert(song, at: toIndex)
+        let (queueCount, currentIndex, isShuffled) = await MainActor.run {
+            (state.queue.count, state.currentIndex, state.isShuffled)
         }
+        guard fromIndex >= 0, fromIndex < queueCount else { return }
+        guard toIndex >= 0, toIndex <= queueCount else { return }
+        guard fromIndex != toIndex else { return }
+        await MainActor.run {
+            // Replicates Array.move(fromOffsets:toOffset:) semantics without SwiftUI:
+            // element ends up at toIndex-1 when fromIndex < toIndex, or toIndex otherwise.
+            let song = state.queue.remove(at: fromIndex)
+            let dest = fromIndex < toIndex ? toIndex - 1 : toIndex
+            state.queue.insert(song, at: dest)
+            if fromIndex == currentIndex {
+                state.currentIndex = fromIndex < toIndex ? toIndex - 1 : toIndex
+            } else if fromIndex < currentIndex && toIndex > currentIndex {
+                state.currentIndex -= 1
+            } else if fromIndex > currentIndex && toIndex <= currentIndex {
+                state.currentIndex += 1
+            }
+        }
+        if isShuffled { originalQueueOrder = nil }
+        let newIdx = await MainActor.run { state.currentIndex }
+        Logger.player.info("Moved track \(fromIndex)→\(toIndex), currentIndex now \(newIdx)")
+        await sessionService.save(playerState: state)
     }
 
     // MARK: - Session persistence
@@ -340,6 +370,24 @@ actor PlayerService: PlayerServiceProtocol {
 
         await MainActor.run { state.isPlaybackAvailable = true }
         Logger.player.info("Session restore: '\(track.title)' prepared at \(position, format: .fixed(precision: 1))s")
+
+        // Populate MPNowPlayingInfoCenter in paused state so lock screen controls
+        // appear immediately when the user resumes — resume() only sends a
+        // position-only update which would start from an empty dict otherwise.
+        let duration = await MainActor.run { state.duration }
+        let artworkURL = await resolveArtworkURL(for: track)
+        let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
+        await nowPlayingService?.update(with: NowPlayingSnapshot(
+            title: track.title,
+            artist: track.artist,
+            album: track.albumName,
+            duration: duration,
+            position: position,
+            playbackRate: 0.0,
+            artworkURL: artworkURL,
+            artworkHeaders: artworkHeaders,
+            coverArtId: track.coverArtId
+        ))
     }
 
     func handleNetworkRestored() async {
