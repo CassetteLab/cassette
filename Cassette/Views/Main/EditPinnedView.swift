@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
 
 struct EditPinnedView: View {
     @Environment(\.dismiss) private var dismiss
@@ -12,8 +13,7 @@ struct EditPinnedView: View {
     @Query(sort: \PinnedItem.sortOrder) private var queriedItems: [PinnedItem]
     // Local mutable copy so the drag animation isn't interrupted by @Query re-fetches.
     @State private var items: [PinnedItem] = []
-    // A proper @State binding lets SwiftUI's List write to editMode during drag operations.
-    @State private var editMode: EditMode = .active
+    @State private var draggedItem: PinnedItem?
 
     var body: some View {
         NavigationStack {
@@ -42,16 +42,24 @@ struct EditPinnedView: View {
                                 }
                             }
                             .padding(.vertical, CassetteSpacing.xs)
-                        }
-                        .onMove { from, to in
-                            // Mutate local state first for instant visual feedback,
-                            // then persist the new order.
-                            items.move(fromOffsets: from, toOffset: to)
-                            container?.pinService.reorder(items: items)
+                            .opacity(draggedItem?.id == item.id ? 0.5 : 1.0)
+                            .onDrag {
+                                draggedItem = item
+                                return NSItemProvider(object: item.id as NSString)
+                            }
+                            .onDrop(
+                                of: [UTType.text],
+                                delegate: PinnedItemDropDelegate(
+                                    item: item,
+                                    items: $items,
+                                    draggedItem: $draggedItem,
+                                    onReorder: { reordered in
+                                        container?.pinService.reorder(items: reordered)
+                                    }
+                                )
+                            )
                         }
                         .onDelete { offsets in
-                            // Remove locally first for instant visual feedback,
-                            // then unpin from the persistent store.
                             let toUnpin = offsets.map { items[$0] }
                             items.remove(atOffsets: offsets)
                             for item in toUnpin {
@@ -62,7 +70,6 @@ struct EditPinnedView: View {
                         }
                     }
                     .listStyle(.plain)
-                    .environment(\.editMode, $editMode)
                 }
             }
             .navigationTitle("Edit Pinned")
@@ -82,5 +89,34 @@ struct EditPinnedView: View {
                 items = queriedItems
             }
         }
+    }
+}
+
+private struct PinnedItemDropDelegate: DropDelegate {
+    let item: PinnedItem
+    @Binding var items: [PinnedItem]
+    @Binding var draggedItem: PinnedItem?
+    let onReorder: ([PinnedItem]) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItem,
+              draggedItem.id != item.id,
+              let from = items.firstIndex(where: { $0.id == draggedItem.id }),
+              let to = items.firstIndex(where: { $0.id == item.id })
+        else { return }
+
+        withAnimation {
+            items.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
+        }
+        onReorder(items)
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedItem = nil
+        return true
     }
 }
