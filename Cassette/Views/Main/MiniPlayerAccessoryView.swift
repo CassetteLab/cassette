@@ -8,34 +8,21 @@ import SwiftUI
 struct MiniPlayerAccessoryView: View {
     @Binding var showingFullPlayer: Bool
     @Environment(\.appContainer) private var container
-    @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement: TabViewBottomAccessoryPlacement?
-    @State private var dominantColor: Color = .clear
-    @State private var isLightBackground: Bool = false
     @State private var dragOffset: CGFloat = 0
     @State private var isAnimatingSwipe = false
 
     private let swipeThreshold: CGFloat = 100
     private let velocityThreshold: CGFloat = 200
 
-    // Explicit black/white based on cover luminance; falls back to system primary when no cover loaded.
-    private var typoColor: Color {
-        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
-    }
-    private var typoSecondaryColor: Color {
-        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
-    }
+    private var typoColor: Color { colorScheme == .light ? .black : .white }
+    private var typoSecondaryColor: Color { colorScheme == .light ? Color.black.opacity(0.6) : Color.white.opacity(0.7) }
 
     var body: some View {
         if let playerState = container?.playerState {
             playerContent(playerState)
-                .background(
-                    dominantColor.opacity(0.85)
-                        .animation(.easeInOut(duration: 0.3), value: dominantColor)
-                )
-                .task(id: playerState.currentTrack?.coverArtId) {
-                    await updateDominantColor(coverArtId: playerState.currentTrack?.coverArtId)
-                }
+                .environment(\.colorScheme, colorScheme)
         }
     }
 
@@ -72,6 +59,7 @@ struct MiniPlayerAccessoryView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
                     .font(.cassetteCaption)
+                    .fontWeight(.semibold)
                     .foregroundStyle(typoColor)
                     .lineLimit(1)
                 if !isAvailable {
@@ -250,31 +238,4 @@ struct MiniPlayerAccessoryView: View {
         }
     }
 
-    // MARK: - Dominant color
-
-    private func updateDominantColor(coverArtId: String?) async {
-        guard let coverArtId else {
-            withAnimation(.easeInOut(duration: 0.3)) {
-                dominantColor = .clear
-                isLightBackground = false
-            }
-            return
-        }
-        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
-            await extractAndSetColor(coverArtId: coverArtId, from: localURL)
-            return
-        }
-        guard let url = await container?.libraryService.coverArtURL(id: coverArtId, size: 100) else { return }
-        await extractAndSetColor(coverArtId: coverArtId, from: url)
-    }
-
-    private func extractAndSetColor(coverArtId: String, from url: URL) async {
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let image = PlatformImage(data: data) else { return }
-        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
-        withAnimation(.easeInOut(duration: 0.3)) {
-            dominantColor = color
-            isLightBackground = color.luminance > 0.6
-        }
-    }
 }

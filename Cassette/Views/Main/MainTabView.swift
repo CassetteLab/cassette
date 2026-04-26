@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @Environment(\.appContainer) private var container
+    @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
     @State private var showingFullPlayer = false
 
@@ -19,7 +20,10 @@ struct MainTabView: View {
         tabs
             .tabBarMinimizeBehavior(.onScrollDown)
             .tabViewBottomAccessory {
-                if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
+                if hasTrack {
+                    MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer)
+                        .environment(\.colorScheme, colorScheme)
+                }
             }
             .sheet(isPresented: $showingFullPlayer) {
                 FullPlayerView()

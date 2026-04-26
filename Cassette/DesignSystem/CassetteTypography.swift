@@ -31,8 +31,8 @@ extension Font {
     /// Standard readable body. ~17pt. Regular.
     static let cassetteBody = Font.system(.body, design: .default, weight: .regular)
 
-    /// Primary label in list cells (track title, album name). ~16pt. Medium.
-    static let cassetteCellTitle = Font.system(.callout, design: .default, weight: .medium)
+    /// Primary label in list cells (track title, album name). ~16pt. Semibold.
+    static let cassetteCellTitle = Font.system(.callout, design: .default, weight: .semibold)
 
     /// Secondary label in cells (artist name below track title). ~15pt. Regular.
     static let cassetteCellSubtitle = Font.system(.subheadline, design: .default, weight: .regular)
