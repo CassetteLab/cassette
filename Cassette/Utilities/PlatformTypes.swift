@@ -23,6 +23,15 @@ extension Image {
     }
 }
 
+extension Color {
+    /// Perceived luminance using ITU-R BT.601 coefficients.
+    /// Values > 0.6 indicate a light background that needs dark content.
+    var luminance: Double {
+        guard let components = cgColor?.components, components.count >= 3 else { return 0.5 }
+        return 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
+    }
+}
+
 extension View {
     func navigationBarTitleDisplayModeInline() -> some View {
         #if os(iOS)
