@@ -116,14 +116,16 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         ]
         if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
-        await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = info }
+        let baseInfo = info
+        await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo }
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
         if let coverArtId = snapshot.coverArtId,
            let cachedImage = await artworkImageCache.cached(for: coverArtId) {
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in cachedImage }
+            let fallback = baseInfo
             await MainActor.run {
-                var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
+                var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
             }
@@ -133,8 +135,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         // Slow path: fetch from URL and populate both caches.
         if let artworkURL = snapshot.artworkURL,
            let artwork = await artworkLoader.artwork(for: artworkURL, headers: snapshot.artworkHeaders) {
+            let fallback = baseInfo
             await MainActor.run {
-                var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? info
+                var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
             }

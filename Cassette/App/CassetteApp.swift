@@ -28,12 +28,14 @@ struct CassetteApp: App {
             .task {
                 guard container == nil else { return }
                 guard let newContainer = try? AppContainer() else { return }
+                // Register remote commands before UI appears so lock screen controls
+                // are available from the very first play, even on cold start.
+                await newContainer.nowPlayingService.start()
                 container = newContainer
                 // loadPersistedState must complete before restoreSession so the active
                 // server is known when prepareCurrentTrackForRestoration resolves the URL.
                 await newContainer.serverService.loadPersistedState()
                 await newContainer.playerService.restoreSession()
-                await newContainer.nowPlayingService.start()
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 // Best-effort TTL eviction at launch — runs concurrently, never blocks UI.
                 Task { await newContainer.cacheService.evictExpired() }
