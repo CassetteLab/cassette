@@ -85,6 +85,24 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     // MARK: - Update
 
     func update(with snapshot: NowPlayingSnapshot) async {
+        if snapshot.artworkURL == nil {
+            // Position-only update (pause/resume/seek): merge into the existing dict so
+            // artwork already loaded for the current track is preserved.
+            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            info[MPMediaItemPropertyTitle] = snapshot.title
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = snapshot.position
+            info[MPMediaItemPropertyPlaybackDuration] = snapshot.duration
+            info[MPNowPlayingInfoPropertyPlaybackRate] = snapshot.playbackRate
+            info[MPNowPlayingInfoPropertyDefaultPlaybackRate] = 1.0
+            if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
+            if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            return
+        }
+
+        // New track: build from scratch so stale artwork from the previous track is cleared
+        // before the new one loads. Text metadata is committed first so the lockscreen
+        // doesn't flash empty while the artwork fetch is in progress.
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: snapshot.title,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: snapshot.position,
@@ -92,16 +110,8 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             MPNowPlayingInfoPropertyPlaybackRate: snapshot.playbackRate,
             MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0
         ]
-
-        if let artist = snapshot.artist {
-            info[MPMediaItemPropertyArtist] = artist
-        }
-        if let album = snapshot.album {
-            info[MPMediaItemPropertyAlbumTitle] = album
-        }
-
-        // Load artwork asynchronously and update the info center a second time once ready.
-        // The text metadata is committed immediately so the lockscreen doesn't flash empty.
+        if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
+        if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
 
         if let artworkURL = snapshot.artworkURL,
