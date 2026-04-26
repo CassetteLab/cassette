@@ -22,7 +22,7 @@ struct MainTabView: View {
                 if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
             }
             .sheet(isPresented: $showingFullPlayer) {
-                FullPlayerView(isPresented: $showingFullPlayer)
+                FullPlayerView()
                     .presentationDetents([.large])
                     .presentationDragIndicator(.hidden)
                     .presentationBackground(.clear)
@@ -33,7 +33,7 @@ struct MainTabView: View {
                 if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
             }
             .fullScreenCover(isPresented: $showingFullPlayer) {
-                FullPlayerView(isPresented: $showingFullPlayer)
+                FullPlayerView()
             }
         #endif
     }

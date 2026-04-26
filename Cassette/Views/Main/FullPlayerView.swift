@@ -11,17 +11,12 @@ import AVKit
 #endif
 
 struct FullPlayerView: View {
-    @Binding var isPresented: Bool
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var showQueue = false
-    @State private var dragOffsetY: CGFloat = 0
-
-    private let dismissThreshold: CGFloat = 100
-    private let dismissVelocityThreshold: CGFloat = 500
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -29,8 +24,6 @@ struct FullPlayerView: View {
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
                 }
-                .onAppear { dragOffsetY = 0 }
-                .interactiveDismissDisabled()
         }
     }
 
@@ -107,9 +100,6 @@ struct FullPlayerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cassetteContentWidth()
-        .offset(y: max(dragOffsetY, 0))
-        .opacity(1.0 - min(dragOffsetY / 500, 0.5))
-        .gesture(swipeDownGesture)
         .background {
             ZStack {
                 Color.black
@@ -143,28 +133,6 @@ struct FullPlayerView: View {
             .accessibilityHidden(true)
     }
 
-    private var swipeDownGesture: some Gesture {
-        DragGesture(minimumDistance: 20)
-            .onChanged { value in
-                let dy = value.translation.height
-                let dx = value.translation.width
-                guard dy > 0, dy > abs(dx) else { return }
-                dragOffsetY = dy
-            }
-            .onEnded { value in
-                let dy = value.translation.height
-                let velocity = value.velocity.height
-                if dy > dismissThreshold || velocity > dismissVelocityThreshold {
-                    withAnimation(.easeIn(duration: 0.2)) { dragOffsetY = 800 }
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(210))
-                        await MainActor.run { isPresented = false }
-                    }
-                } else {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { dragOffsetY = 0 }
-                }
-            }
-    }
 }
 
 // MARK: - Track info section (own @Query for reactive favorite state)
