@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import SwiftSonic
+import OSLog
 
 #if canImport(UIKit)
 import AVKit
@@ -148,6 +149,7 @@ private struct TrackInfoSection: View {
     @State private var isAnimatingSwipe = false
     @State private var resolvedArtist: ArtistID3?
     @State private var showArtistSheet = false
+    @State private var songToAddToPlaylist: DisplayableSong?
 
     private let swipeThreshold: CGFloat = 80
     private let velocityThreshold: CGFloat = 200
@@ -239,6 +241,11 @@ private struct TrackInfoSection: View {
                 Menu {
                     Button("Go to Album", systemImage: "square.stack") { }
                     Button("Go to Artist", systemImage: "music.mic") { }
+                    Divider()
+                    Button("Add to Playlist...", systemImage: "music.note.list") {
+                        songToAddToPlaylist = playerState.currentTrack
+                    }
+                    .disabled(!isOnline || playerState.currentTrack == nil)
                 } label: {
                     Image(systemName: "ellipsis")
                         .font(.title3)
@@ -255,6 +262,9 @@ private struct TrackInfoSection: View {
                     ArtistDetailView(artist: artist)
                 }
             }
+        }
+        .sheet(item: $songToAddToPlaylist) { song in
+            AddToPlaylistSheet(song: song)
         }
     }
 
@@ -313,6 +323,7 @@ private struct ScrubberView: View {
     let secondaryContentColor: Color
 
     @State private var isDragging = false
+    @State private var isSeeking = false
     @State private var displayPosition: TimeInterval = 0
 
     // Prefer AVPlayer-reported duration; fall back to song metadata to avoid slider clamping to 0..1
@@ -321,14 +332,14 @@ private struct ScrubberView: View {
     }
 
     private var shownPosition: TimeInterval {
-        isDragging ? displayPosition : playerState.position
+        (isDragging || isSeeking) ? displayPosition : playerState.position
     }
 
-    // ProgressSlider writes dragged values here; reads live AVPlayer position when not dragging.
+    // ProgressSlider writes dragged values here; holds the seeked position until AVPlayer confirms.
     private var positionBinding: Binding<TimeInterval> {
         Binding(
-            get: { playerState.position },
-            set: { displayPosition = $0 }
+            get: { (isDragging || isSeeking) ? displayPosition : playerState.position },
+            set: { newValue in displayPosition = newValue }
         )
     }
 
@@ -338,9 +349,18 @@ private struct ScrubberView: View {
                 value: positionBinding,
                 total: effectiveDuration,
                 onEditingChanged: { editing in
+                    if editing {
+                        Logger.player.debug("[SCRUB] drag start — total=\(self.effectiveDuration, format: .fixed(precision: 2))s (state.duration=\(self.playerState.duration, format: .fixed(precision: 2))s, metadata=\(Double(self.playerState.currentTrack?.duration ?? 0), format: .fixed(precision: 2))s)")
+                    }
                     isDragging = editing
                     if !editing {
-                        Task { await playerService?.seek(to: displayPosition) }
+                        Logger.player.debug("[SCRUB] drag drop  — total=\(self.effectiveDuration, format: .fixed(precision: 2))s, target=\(self.displayPosition, format: .fixed(precision: 2))s")
+                        isSeeking = true
+                        let target = displayPosition
+                        Task {
+                            defer { isSeeking = false }
+                            await playerService?.seek(to: target)
+                        }
                     }
                 },
                 trackColor: contentColor.opacity(0.2),
@@ -349,6 +369,12 @@ private struct ScrubberView: View {
 
             HStack {
                 Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
+                    .onAppear {
+                        Logger.player.debug("[SCRUB] render — total=\(self.effectiveDuration, format: .fixed(precision: 2))s (state.duration=\(self.playerState.duration, format: .fixed(precision: 2))s, metadata=\(Double(self.playerState.currentTrack?.duration ?? 0), format: .fixed(precision: 2))s)")
+                    }
+                    .onChange(of: playerState.currentTrack?.id) { _, _ in
+                        Logger.player.debug("[SCRUB] track change — total=\(self.effectiveDuration, format: .fixed(precision: 2))s (state.duration=\(self.playerState.duration, format: .fixed(precision: 2))s, metadata=\(Double(self.playerState.currentTrack?.duration ?? 0), format: .fixed(precision: 2))s)")
+                    }
                     .font(.cassetteCaption)
                     .foregroundStyle(secondaryContentColor)
                     .monospacedDigit()
@@ -428,7 +454,7 @@ struct ProgressSlider: View {
     private func progressWidth(in totalWidth: CGFloat) -> CGFloat {
         guard total > 0 else { return 0 }
         let displayedValue = dragValue ?? value
-        return max(0, (CGFloat(displayedValue) / CGFloat(total)) * totalWidth)
+        return min(totalWidth, max(0, (CGFloat(displayedValue) / CGFloat(total)) * totalWidth))
     }
 }
 

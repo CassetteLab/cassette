@@ -120,6 +120,11 @@ private struct QueueRow: View {
     let song: DisplayableSong
     let isCurrent: Bool
 
+    @Environment(\.appContainer) private var container
+    @State private var showAddToPlaylist = false
+
+    private var isOnline: Bool { container?.serverState.isOnline == true }
+
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtView(id: song.coverArtId ?? song.id, size: 88)
@@ -149,5 +154,36 @@ private struct QueueRow: View {
             }
         }
         .padding(.vertical, CassetteSpacing.xs)
+        .contextMenu {
+            Button {
+                Task { try? await container?.playerService.play(tracks: [song], startIndex: 0) }
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Button {
+                Task { await container?.playerService.playNext(song) }
+            } label: {
+                Label("Play Next", systemImage: "text.line.first.and.arrowtriangle.forward")
+            }
+
+            Button {
+                Task { await container?.playerService.addToQueue(song) }
+            } label: {
+                Label("Add to Queue", systemImage: "text.append")
+            }
+
+            Divider()
+
+            Button {
+                showAddToPlaylist = true
+            } label: {
+                Label("Add to Playlist...", systemImage: "music.note.list")
+            }
+            .disabled(!isOnline)
+        }
+        .sheet(isPresented: $showAddToPlaylist) {
+            AddToPlaylistSheet(song: song)
+        }
     }
 }

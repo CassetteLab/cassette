@@ -25,6 +25,7 @@ struct SongRow: View {
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @Query private var favoriteMatches: [FavoriteRecord]
     @State private var coverImage: PlatformImage?
+    @State private var showAddToPlaylist = false
 
     init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
@@ -130,13 +131,20 @@ struct SongRow: View {
 
             Divider()
 
+            Button {
+                showAddToPlaylist = true
+            } label: {
+                Label("Add to Playlist...", systemImage: "music.note.list")
+            }
+            .disabled(!isOnline)
+
             if !song.isDownloaded && !isDownloading, let action = onDownload {
                 Button(action: action) {
                     Label("Download", systemImage: "arrow.down.circle")
                 }
-
-                Divider()
             }
+
+            Divider()
 
             Button {
                 let fav = isFavorite
@@ -156,6 +164,9 @@ struct SongRow: View {
             .disabled(!isOnline)
         } preview: {
             SongContextPreview(coverImage: coverImage, song: song)
+        }
+        .sheet(isPresented: $showAddToPlaylist) {
+            AddToPlaylistSheet(song: song)
         }
     }
 }
