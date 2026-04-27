@@ -38,6 +38,7 @@ struct AlbumDetailView: View {
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
+    @State private var artistToNavigate: ArtistID3?
     @Query private var albumFavoriteMatches: [FavoriteRecord]
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
@@ -103,6 +104,7 @@ struct AlbumDetailView: View {
             guard let coverArtId = viewModel?.coverArtId else { return }
             await loadDominantColor(coverArtId: coverArtId)
         }
+        .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
     }
 
     private func loadDominantColor(coverArtId: String) async {
@@ -204,9 +206,24 @@ struct AlbumDetailView: View {
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
                 if let artist = vm.artistName {
-                    Text(artist)
-                        .font(.cassetteCellSubtitle)
-                        .foregroundStyle(headerSecondaryColor)
+                    if let artistId = vm.artistId, !vm.isOffline {
+                        Button {
+                            Task {
+                                guard let c = container,
+                                      let fetched = try? await c.libraryService.artist(id: artistId) else { return }
+                                artistToNavigate = fetched
+                            }
+                        } label: {
+                            Text(artist)
+                                .font(.cassetteCellSubtitle)
+                                .foregroundStyle(Color.cassetteAccent)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Text(artist)
+                            .font(.cassetteCellSubtitle)
+                            .foregroundStyle(headerSecondaryColor)
+                    }
                 }
                 HStack(spacing: CassetteSpacing.s) {
                     if let year = vm.year { Text(String(year)) }

@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import SwiftSonic
 
 #if canImport(UIKit)
 import AVKit
@@ -145,6 +146,8 @@ private struct TrackInfoSection: View {
     @Query private var favoriteMatches: [FavoriteRecord]
     @State private var swipeDragOffset: CGFloat = 0
     @State private var isAnimatingSwipe = false
+    @State private var resolvedArtist: ArtistID3?
+    @State private var showArtistSheet = false
 
     private let swipeThreshold: CGFloat = 80
     private let velocityThreshold: CGFloat = 200
@@ -180,11 +183,23 @@ private struct TrackInfoSection: View {
                 } else {
                     HStack(spacing: CassetteSpacing.xs) {
                         if let artist = playerState.currentTrack?.artist {
-                            Text(artist)
-                                .font(.subheadline)
-                                .foregroundStyle(secondaryContentColor)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
+                            Button {
+                                Task {
+                                    guard let c = container,
+                                          let result = try? await c.libraryService.search(artist),
+                                          let found = result.artist?.first else { return }
+                                    resolvedArtist = found
+                                    showArtistSheet = true
+                                }
+                            } label: {
+                                Text(artist)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(!isOnline)
                         }
                         if let format = playerState.currentTrack?.audioFormat {
                             AudioFormatBadge(format: format, color: secondaryContentColor)
@@ -232,6 +247,13 @@ private struct TrackInfoSection: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("More options")
+            }
+        }
+        .sheet(isPresented: $showArtistSheet) {
+            if let artist = resolvedArtist {
+                NavigationStack {
+                    ArtistDetailView(artist: artist)
+                }
             }
         }
     }

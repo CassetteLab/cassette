@@ -15,6 +15,7 @@ final class AlbumDetailViewModel {
     var genre: String? = nil
     var songCount: Int = 0
     var coverArtId: String? = nil
+    var artistId: String? = nil
     var songs: [DisplayableSong] = []
     var isOffline: Bool = false
     var isLoading = false
@@ -63,6 +64,7 @@ final class AlbumDetailViewModel {
             genre = apiAlbum.genre
             songCount = apiAlbum.songCount
             coverArtId = apiAlbum.coverArt
+            artistId = apiAlbum.artistId
             songs = (apiAlbum.song ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
             isOffline = false
         } catch {
