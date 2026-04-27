@@ -29,6 +29,7 @@ final class AppContainer {
     let nowPlayingService: any NowPlayingServiceProtocol
     let favoritesService: any FavoritesServiceProtocol
     let pinService: any PinServiceProtocol
+    let playlistService: any PlaylistServiceProtocol
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
     let dominantColorExtractor = DominantColorExtractor()
@@ -70,6 +71,7 @@ final class AppContainer {
 
         favoritesService = FavoritesService(libraryService: library, serverState: serverState, modelContainer: modelContainer)
         pinService = PinService(modelContainer: modelContainer)
+        playlistService = PlaylistService(serverService: server)
 
         // Break the circular dependency: PlayerService holds a weak-captured ref to NowPlayingService
         // so it can push explicit snapshots (decision B). Task is fine — both actors are

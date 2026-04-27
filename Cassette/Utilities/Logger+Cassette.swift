@@ -22,4 +22,5 @@ extension Logger {
     nonisolated static let favorites   = Logger(subsystem: "app.cassette.favorites",  category: "FavoritesService")
     nonisolated static let pin         = Logger(subsystem: "app.cassette.pin",        category: "PinService")
     nonisolated static let session     = Logger(subsystem: "app.cassette.session",    category: "PlaybackSessionService")
+    nonisolated static let playlist    = Logger(subsystem: "app.cassette.playlist",   category: "PlaylistService")
 }
