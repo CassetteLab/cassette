@@ -171,7 +171,6 @@ struct EditPlaylistSheet: View {
                 .disabled(vm.isDeletingPlaylist || vm.isSavingForm)
             }
         }
-        .environment(\.editMode, .constant(.active))
         .scrollDismissesKeyboard(.interactively)
     }
 }

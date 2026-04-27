@@ -27,11 +27,14 @@ struct PlaylistDetailView: View {
     }
 
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
+    @State private var showEditSheet = false
+    @State private var editSheetDeletedPlaylist = false
 
     private var headerTextColor: Color {
         dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
@@ -66,6 +69,8 @@ struct PlaylistDetailView: View {
                     playlistId: playlistId,
                     libraryService: c.libraryService,
                     downloadService: c.downloadService,
+                    playlistService: c.playlistService,
+                    toastService: c.toastService,
                     serverState: c.serverState
                 )
             }
@@ -74,6 +79,31 @@ struct PlaylistDetailView: View {
         .task(id: viewModel?.coverArtId) {
             guard let coverArtId = viewModel?.coverArtId else { return }
             await loadDominantColor(coverArtId: coverArtId)
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showEditSheet = true
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundStyle(.white)
+                }
+                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            }
+        }
+        .sheet(isPresented: $showEditSheet, onDismiss: {
+            if editSheetDeletedPlaylist {
+                dismiss()
+            } else {
+                Task { await viewModel?.load() }
+            }
+        }) {
+            if let detail = viewModel?.playlistDetail {
+                EditPlaylistSheet(
+                    playlist: detail,
+                    onDeleted: { editSheetDeletedPlaylist = true }
+                )
+            }
         }
     }
 
@@ -136,6 +166,12 @@ struct PlaylistDetailView: View {
                     },
                     onDownload: (vm.isOffline || vm.isDownloadingPlaylist) ? nil : { songId in
                         Task { await vm.downloadSong(id: songId) }
+                    },
+                    onRemove: vm.isOffline ? nil : { index in
+                        Task { await vm.removeTrack(at: index) }
+                    },
+                    onReorder: vm.isOffline ? nil : { source, destination in
+                        Task { await vm.moveTracks(from: source, to: destination) }
                     }
                 )
             }
@@ -284,16 +320,20 @@ private struct PlaylistSongRows: View {
     let secondaryColor: Color
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
+    let onRemove: ((Int) -> Void)?
+    let onReorder: ((IndexSet, Int) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
         self.onTap = onTap
         self.onDownload = onDownload
+        self.onRemove = onRemove
+        self.onReorder = onReorder
         let sid = serverId
         _downloadedTracks = Query(
             filter: #Predicate<DownloadedTrack> { track in
@@ -307,25 +347,42 @@ private struct PlaylistSongRows: View {
     }
 
     var body: some View {
-        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-            let liveDownloaded = downloadedSongIds.contains(song.id)
-            let liveSong = DisplayableSong(
-                id: song.id,
-                title: song.title,
-                artist: song.artist,
-                albumName: song.albumName,
-                duration: song.duration,
-                trackNumber: song.trackNumber,
-                isDownloaded: liveDownloaded,
-                coverArtId: song.coverArtId,
-                audioFormat: song.audioFormat
-            )
-            let isDownloading = downloadingIds.contains(song.id)
-            let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
-            SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
-                .contentShape(Rectangle())
-                .onTapGesture { onTap(index) }
-                .listRowBackground(Color.clear)
+        if let removeAction = onRemove {
+            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                makeRow(index: index, song: song)
+            }
+            .onDelete { indexSet in
+                for index in indexSet.sorted(by: >) { removeAction(index) }
+            }
+            .onMove { source, destination in
+                onReorder?(source, destination)
+            }
+        } else {
+            ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                makeRow(index: index, song: song)
+            }
         }
+    }
+
+    @ViewBuilder
+    private func makeRow(index: Int, song: DisplayableSong) -> some View {
+        let liveDownloaded = downloadedSongIds.contains(song.id)
+        let liveSong = DisplayableSong(
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            albumName: song.albumName,
+            duration: song.duration,
+            trackNumber: song.trackNumber,
+            isDownloaded: liveDownloaded,
+            coverArtId: song.coverArtId,
+            audioFormat: song.audioFormat
+        )
+        let isDownloading = downloadingIds.contains(song.id)
+        let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
+            .listRowBackground(Color.clear)
     }
 }

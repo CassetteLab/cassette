@@ -20,7 +20,7 @@ struct PlayButton: View {
                 .font(.cassetteCellTitle)
                 .foregroundStyle(Color.cassetteAccentText)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, CassetteSpacing.s)
+                .padding(.vertical, CassetteSpacing.m)
                 .background(isDisabled ? Color.cassetteAccent.opacity(0.4) : Color.cassetteAccent)
                 .clipShape(Capsule())
         }

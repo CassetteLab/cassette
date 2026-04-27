@@ -4,7 +4,9 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import SwiftUI
 import SwiftSonic
+import OSLog
 
 @Observable
 @MainActor
@@ -19,21 +21,27 @@ final class PlaylistDetailViewModel {
     var isDownloadingPlaylist = false
     var downloadingIds: Set<String> = []
 
-    private var loadedPlaylist: PlaylistWithSongs?
+    private(set) var playlistDetail: PlaylistWithSongs?
     private let playlistId: String
     private let libraryService: any LibraryServiceProtocol
     private let downloadService: any DownloadServiceProtocol
+    private let playlistService: any PlaylistServiceProtocol
+    private let toastService: ToastService
     private let serverState: ServerState
 
     init(
         playlistId: String,
         libraryService: any LibraryServiceProtocol,
         downloadService: any DownloadServiceProtocol,
+        playlistService: any PlaylistServiceProtocol,
+        toastService: ToastService,
         serverState: ServerState
     ) {
         self.playlistId = playlistId
         self.libraryService = libraryService
         self.downloadService = downloadService
+        self.playlistService = playlistService
+        self.toastService = toastService
         self.serverState = serverState
     }
 
@@ -51,7 +59,7 @@ final class PlaylistDetailViewModel {
     private func loadFromAPI() async {
         do {
             let apiPlaylist = try await libraryService.playlist(id: playlistId)
-            loadedPlaylist = apiPlaylist
+            playlistDetail = apiPlaylist
             guard let serverId = serverState.activeServer?.id else { return }
             let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
             name = apiPlaylist.name
@@ -77,7 +85,7 @@ final class PlaylistDetailViewModel {
     }
 
     func downloadPlaylist() async {
-        guard let playlist = loadedPlaylist, let serverId = serverState.activeServer?.id else { return }
+        guard let playlist = playlistDetail, let serverId = serverState.activeServer?.id else { return }
         isDownloadingPlaylist = true
         try? await downloadService.download(playlist: playlist, serverId: serverId)
         let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
@@ -103,7 +111,7 @@ final class PlaylistDetailViewModel {
     }
 
     func downloadSong(id: String) async {
-        guard let song = loadedPlaylist?.entry?.first(where: { $0.id == id }),
+        guard let song = playlistDetail?.entry?.first(where: { $0.id == id }),
               let serverId = serverState.activeServer?.id else { return }
         downloadingIds.insert(id)
         defer { downloadingIds.remove(id) }
@@ -123,7 +131,7 @@ final class PlaylistDetailViewModel {
     }
 
     func downloadMissingTracks() async {
-        guard let playlist = loadedPlaylist,
+        guard let playlist = playlistDetail,
               let serverId = serverState.activeServer?.id,
               let allSongs = playlist.entry else { return }
         let downloadedIds = Set(songs.filter { $0.isDownloaded }.map(\.id))
@@ -157,6 +165,32 @@ final class PlaylistDetailViewModel {
                             trackNumber: $0.trackNumber, isDownloaded: false,
                             coverArtId: $0.coverArtId,
                             audioFormat: $0.audioFormat)
+        }
+    }
+
+    func removeTrack(at index: Int) async {
+        guard songs.indices.contains(index) else { return }
+        let removed = songs[index]
+        songs.remove(at: index)
+        do {
+            try await playlistService.removeTracks(playlistId: playlistId, indices: [index])
+        } catch {
+            songs.insert(removed, at: index)
+            Logger.playlist.error("PlaylistDetailViewModel: remove track failed: \(error)")
+            toastService.showError("Failed to remove track")
+        }
+    }
+
+    func moveTracks(from source: IndexSet, to destination: Int) async {
+        let originalSongs = songs
+        songs.move(fromOffsets: source, toOffset: destination)
+        let newOrder = songs.map(\.id)
+        do {
+            try await playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: newOrder)
+        } catch {
+            songs = originalSongs
+            Logger.playlist.error("PlaylistDetailViewModel: reorder failed: \(error)")
+            toastService.showError("Failed to reorder tracks")
         }
     }
 }

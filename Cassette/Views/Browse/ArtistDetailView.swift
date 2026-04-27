@@ -127,7 +127,7 @@ private struct AlbumGridCell: View {
             .aspectRatio(1, contentMode: .fit)
             Text(album.name)
                 .font(.cassetteCellTitle)
-                .lineLimit(2)
+                .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let year = album.year {
                 Text(String(year))
