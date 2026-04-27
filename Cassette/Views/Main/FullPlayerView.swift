@@ -53,7 +53,7 @@ struct FullPlayerView: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                 .padding(.horizontal, CassetteSpacing.xl)
 
-            Spacer(minLength: CassetteSpacing.l)
+            Spacer(minLength: CassetteSpacing.xxl)
 
             TrackInfoSection(
                 playerState: playerState,
