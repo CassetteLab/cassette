@@ -10,6 +10,7 @@ import SwiftSonic
 struct PlaylistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistListViewModel?
+    @State private var showCreateSheet = false
 
     var body: some View {
         Group {
@@ -21,6 +22,22 @@ struct PlaylistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Playlists")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showCreateSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                        .foregroundStyle(Color.cassetteAccent)
+                }
+                .disabled(container?.serverState.isOnline != true)
+            }
+        }
+        .sheet(isPresented: $showCreateSheet) {
+            CreatePlaylistSheet { _ in
+                Task { await viewModel?.load() }
+            }
+        }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = PlaylistListViewModel(libraryService: svc) }
