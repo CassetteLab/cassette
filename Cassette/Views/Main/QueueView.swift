@@ -82,7 +82,6 @@ struct QueueView: View {
             }
         }
         .listStyle(.plain)
-        .environment(\.editMode, .constant(.active))
     }
 
     @ViewBuilder
