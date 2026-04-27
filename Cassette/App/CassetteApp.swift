@@ -20,7 +20,9 @@ struct CassetteApp: App {
                         .environment(\.appContainer, container)
                         .environment(container.dominantColorExtractor)
                         .environment(container.artworkImageCache)
+                        .environment(container.toastService)
                         .modelContainer(container.modelContainer)
+                        .toastOverlay()
                 } else {
                     ProgressView()
                 }

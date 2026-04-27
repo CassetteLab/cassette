@@ -30,6 +30,7 @@ final class AppContainer {
     let favoritesService: any FavoritesServiceProtocol
     let pinService: any PinServiceProtocol
     let playlistService: any PlaylistServiceProtocol
+    let toastService = ToastService()
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
     let dominantColorExtractor = DominantColorExtractor()
