@@ -24,6 +24,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var player: AVPlayer?
     private var timeObserverToken: Any?
     private var endOfTrackObserver: NSObjectProtocol?
+    private var durationObserver: NSKeyValueObservation?
     private var audioSessionConfigured = false
     private var positionSaveTask: Task<Void, Never>?
     // Saved before a shuffle activation; nil when shuffle is off.
@@ -100,6 +101,8 @@ actor PlayerService: PlayerServiceProtocol {
 
         setupEndOfTrackObserver(for: item)
         setupPeriodicTimeObserver(for: newPlayer)
+        setupDurationObserver(for: item)
+        startAssetDurationLoad(for: item, songId: song.id)
 
         newPlayer.play()
 
@@ -186,7 +189,7 @@ actor PlayerService: PlayerServiceProtocol {
         } else if repeatMode == .all {
             try await play(tracks: queue, startIndex: 0)
         } else {
-            await stop()
+            await rewindToFirstTrackPaused()
         }
     }
 
@@ -364,6 +367,7 @@ actor PlayerService: PlayerServiceProtocol {
 
         setupEndOfTrackObserver(for: item)
         setupPeriodicTimeObserver(for: newPlayer)
+        setupDurationObserver(for: item)
 
         let cmTime = CMTime(seconds: position, preferredTimescale: 600)
         await newPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
@@ -430,6 +434,63 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
+    private func rewindToFirstTrackPaused() async {
+        let queue = await MainActor.run { state.queue }
+        guard let firstTrack = queue.first else {
+            await stop()
+            return
+        }
+
+        Logger.player.info("[PLAYBACK] End of queue — rewinding to first track paused")
+
+        player?.pause()
+
+        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
+            await stop()
+            return
+        }
+
+        let source: MediaSource
+        do {
+            source = try await mediaResolver.resolve(songId: firstTrack.id, serverId: serverId)
+        } catch {
+            Logger.player.error("[PLAYBACK] rewindToFirstTrackPaused: media resolve failed — \(error)")
+            await stop()
+            return
+        }
+
+        // Detach item-scoped observers from the expiring item
+        if let observer = endOfTrackObserver {
+            NotificationCenter.default.removeObserver(observer)
+            endOfTrackObserver = nil
+        }
+        durationObserver?.invalidate()
+        durationObserver = nil
+
+        // Swap in new item without destroying the player or its time observer
+        let newItem = makePlayerItem(source: source)
+        player?.replaceCurrentItem(with: newItem)
+
+        setupEndOfTrackObserver(for: newItem)
+        setupDurationObserver(for: newItem)
+        startAssetDurationLoad(for: newItem, songId: firstTrack.id)
+
+        await player?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+
+        let duration = firstTrack.duration
+        await MainActor.run {
+            state.currentIndex = 0
+            state.currentTrack = firstTrack
+            state.position = 0
+            state.duration = duration
+            state.playbackState = .paused
+        }
+
+        stopPositionSaveTimer()
+        await pushPositionSnapshot(rate: 0)
+        await sessionService.save(playerState: state)
+    }
+
     // MARK: - AVPlayer setup
 
     /// Builds an AVPlayerItem from a MediaSource.
@@ -459,6 +520,64 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
+    // Loads the real asset duration asynchronously via full file parsing.
+    // AVPlayerItem.duration (from the header) can underestimate the true length on
+    // some transcoded files. This runs concurrently with playback and refines
+    // state.duration when the result meaningfully differs from the header estimate.
+    private func startAssetDurationLoad(for item: AVPlayerItem, songId: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            let asset = await MainActor.run { item.asset }
+            Logger.player.debug("[DURATION] asset.load starting for songId=\(songId, privacy: .public)")
+            do {
+                let cmDuration = try await asset.load(.duration)
+                let seconds = CMTimeGetSeconds(cmDuration)
+                Logger.player.debug("[DURATION] asset.load result: \(seconds, format: .fixed(precision: 4))s (CMTime flags=\(cmDuration.flags.rawValue))")
+                guard seconds.isFinite, !seconds.isNaN, seconds > 0 else {
+                    Logger.player.warning("[DURATION] Asset load returned invalid: \(seconds)")
+                    return
+                }
+                let (currentTrackId, currentDuration) = await MainActor.run {
+                    (self.state.currentTrack?.id, self.state.duration)
+                }
+                guard currentTrackId == songId else {
+                    Logger.player.debug("[DURATION] Track changed during asset load, discarding")
+                    return
+                }
+                guard abs(seconds - currentDuration) > 0.5 else {
+                    Logger.player.debug("[DURATION] asset.load matches header (delta<0.5s): asset=\(seconds, format: .fixed(precision: 4))s state=\(currentDuration, format: .fixed(precision: 4))s")
+                    return
+                }
+                Logger.player.info("[DURATION] Refined via asset.load: \(currentDuration, format: .fixed(precision: 2))s → \(seconds, format: .fixed(precision: 2))s (delta=\(abs(seconds - currentDuration), format: .fixed(precision: 3))s)")
+                await MainActor.run { self.state.duration = seconds }
+                await self.pushPositionSnapshot()
+            } catch {
+                Logger.player.error("[DURATION] Asset load failed: \(error, privacy: .public)")
+            }
+        }
+    }
+
+    private func setupDurationObserver(for item: AVPlayerItem) {
+        durationObserver?.invalidate()
+        // .initial fires immediately with whatever AVPlayer knows now; .new fires on each update.
+        // AVPlayer refines AVPlayerItem.duration multiple times as it parses the asset header.
+        durationObserver = item.observe(\.duration, options: [.new, .initial]) { [weak self] observedItem, _ in
+            let newDuration = observedItem.duration.seconds
+            guard newDuration.isFinite, !newDuration.isNaN, newDuration > 0 else { return }
+            Task { [weak self] in
+                await self?.updateDuration(newDuration)
+            }
+        }
+    }
+
+    private func updateDuration(_ newDuration: TimeInterval) async {
+        let current = await MainActor.run { state.duration }
+        guard abs(newDuration - current) > 0.1 else { return }
+        Logger.player.info("[DURATION] \(current, format: .fixed(precision: 2))s → \(newDuration, format: .fixed(precision: 2))s (delta=\(abs(newDuration - current), format: .fixed(precision: 3))s)")
+        await MainActor.run { state.duration = newDuration }
+        await pushPositionSnapshot()
+    }
+
     private func setupEndOfTrackObserver(for item: AVPlayerItem) {
         endOfTrackObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
@@ -480,6 +599,8 @@ actor PlayerService: PlayerServiceProtocol {
             NotificationCenter.default.removeObserver(observer)
             endOfTrackObserver = nil
         }
+        durationObserver?.invalidate()
+        durationObserver = nil
         player?.pause()
         player = nil
     }
