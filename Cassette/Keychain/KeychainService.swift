@@ -14,17 +14,26 @@ actor KeychainService: KeychainServiceProtocol {
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
         let data = try JSONEncoder().encode(value)
 
-        let query: [String: Any] = [
+        // Delete query omits kSecAttrAccessible so it matches any existing item
+        // regardless of its accessibility attribute (handles migration from WhenUnlocked).
+        let deleteQuery: [String: Any] = [
             kSecClass as String:       kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-            kSecValueData as String:   data
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        let addQuery: [String: Any] = [
+            kSecClass as String:          kSecClassGenericPassword,
+            kSecAttrService as String:    service,
+            kSecAttrAccount as String:    key,
+            kSecValueData as String:      data,
+            // AfterFirstUnlock allows Keychain reads while the screen is locked,
+            // required for auto-next playback transitions triggered in lock screen.
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         ]
 
-        // Delete any existing item first (update via delete+add is simpler than SecItemUpdate).
-        SecItemDelete(query as CFDictionary)
-
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
         guard status == errSecSuccess else {
             // Never log `data` — it may contain credentials.
             Logger.keychain.error("Keychain write failed for key '\(key, privacy: .public)' — OSStatus \(status)")

@@ -107,16 +107,39 @@ actor ServerService: ServerServiceProtocol {
     }
 
     func loadPersistedState() async {
+        var loadedConfigs: [ServerConfig] = []
         do {
             try await MainActor.run {
                 let context = ModelContext(modelContainer)
                 let configs = try context.fetch(FetchDescriptor<ServerConfig>())
+                loadedConfigs = configs
                 state.servers = configs.map { ServerSnapshot(from: $0) }
                 state.activeServer = configs.first(where: { $0.isActive }).map { ServerSnapshot(from: $0) }
                 state.isLoadingPersistedState = false
             }
         } catch {
             await MainActor.run { state.isLoadingPersistedState = false }
+            return
+        }
+        await migrateCredentialsAccessibility(for: loadedConfigs)
+    }
+
+    /// Re-writes existing Keychain items with AfterFirstUnlock accessibility so
+    /// that lock screen playback transitions can read credentials during KI-2 fix.
+    /// Idempotent: safe to call on every cold start. Never blocks app boot.
+    private func migrateCredentialsAccessibility(for configs: [ServerConfig]) async {
+        for config in configs {
+            let key = ServerCredentials.keychainKey(for: config.id)
+            do {
+                guard let creds = try await keychain.retrieve(ServerCredentials.self, forKey: key) else {
+                    Logger.server.warning("Keychain migration: no credential found for server id=\(config.id, privacy: .public), skipping")
+                    continue
+                }
+                try await keychain.store(creds, forKey: key)
+                Logger.server.info("Keychain migration: credential migrated for server id=\(config.id, privacy: .public)")
+            } catch {
+                Logger.server.warning("Keychain migration: skipped server id=\(config.id, privacy: .public) — \(error, privacy: .public)")
+            }
         }
     }
 
