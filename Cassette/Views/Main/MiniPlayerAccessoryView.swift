@@ -92,7 +92,7 @@ struct MiniPlayerAccessoryView: View {
     private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
         return VStack(spacing: 0) {
-            HStack(spacing: CassetteSpacing.m) {
+            HStack(alignment: .center, spacing: CassetteSpacing.m) {
                 CoverArtCard(id: coverArtId, size: 36)
                     .opacity(isAvailable ? 1.0 : 0.5)
 
@@ -139,6 +139,7 @@ struct MiniPlayerAccessoryView: View {
                         .accessibilityLabel("Skip to next")
                     }
                 }
+                .frame(height: 36)
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.vertical, CassetteSpacing.m)
