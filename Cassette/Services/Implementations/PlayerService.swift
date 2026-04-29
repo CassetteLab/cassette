@@ -116,6 +116,7 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         let artworkURL = await resolveArtworkURL(for: song)
+        Logger.player.debug("[TRANSITION] attempting credentials fetch for NowPlaying headers")
         let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
         let snapshot = NowPlayingSnapshot(
             title: song.title,
@@ -183,10 +184,14 @@ actor PlayerService: PlayerServiceProtocol {
             (state.queue, state.currentIndex, state.repeatMode)
         }
         let nextIndex = currentIndex + 1
+        Logger.player.info("[TRANSITION] skipToNext: currentIndex=\(currentIndex) nextIndex=\(nextIndex) queueCount=\(queue.count)")
 
         if nextIndex < queue.count {
+            let next = queue[nextIndex]
+            Logger.player.info("[TRANSITION] skipToNext → track id=\(next.id, privacy: .public) title=\(next.title, privacy: .public)")
             try await play(tracks: queue, startIndex: nextIndex)
         } else if repeatMode == .all {
+            Logger.player.info("[TRANSITION] skipToNext → wrap-around (repeatAll), restarting queue from index 0")
             try await play(tracks: queue, startIndex: 0)
         } else {
             await rewindToFirstTrackPaused()
@@ -430,6 +435,7 @@ actor PlayerService: PlayerServiceProtocol {
             await seek(to: 0)
             player?.play()
         } else {
+            Logger.player.info("[TRANSITION] handleEndOfTrack: attempting skipToNext (errors swallowed)")
             try? await skipToNext()
         }
     }
@@ -579,12 +585,14 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func setupEndOfTrackObserver(for item: AVPlayerItem) {
+        Logger.player.debug("[TRANSITION] setupEndOfTrackObserver: attaching observer for item \(item.debugDescription, privacy: .public)")
         endOfTrackObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
+            Logger.player.info("[TRANSITION] AVPlayerItemDidPlayToEndTime fired → handleEndOfTrack")
             Task { await self.handleEndOfTrack() }
         }
     }
