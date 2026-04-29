@@ -53,7 +53,10 @@ struct PlaylistDetailView: View {
         }
         .background(
             LinearGradient(
-                colors: [dominantColor.opacity(0.9), dominantColor.opacity(0.7)],
+                colors: [
+                    (dominantColor == .clear ? Color.cassetteSystemBackground : dominantColor).opacity(0.9),
+                    (dominantColor == .clear ? Color.cassetteSystemBackground : dominantColor).opacity(0.7)
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -78,6 +81,14 @@ struct PlaylistDetailView: View {
         }
         .task(id: viewModel?.coverArtId) {
             guard let coverArtId = viewModel?.coverArtId else { return }
+
+            let cached = colorExtractor.dominantColor(for: coverArtId, image: nil)
+            if cached != .clear {
+                dominantColor = cached
+                isLightBackground = cached.luminance > 0.6
+                return
+            }
+
             await loadDominantColor(coverArtId: coverArtId)
         }
         .toolbar {
