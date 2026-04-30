@@ -80,53 +80,47 @@ struct AlbumDetailView: View {
     }
 
     var body: some View {
-        List {
-            albumHeader(vm: viewModel)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+        ScrollView {
+            LazyVStack(spacing: 0) {
+                albumHeader(vm: viewModel)
+                    .frame(maxWidth: .infinity)
 
-            if isLoadingSkeleton {
-                skeletonRows
-            } else if let vm = viewModel {
-                if let error = vm.error, vm.songs.isEmpty {
-                    EmptyStateView(
-                        systemImage: "exclamationmark.triangle",
-                        title: "Unable to Load Album",
-                        subtitle: error.displayMessage,
-                        action: .init(label: "Retry") { Task { await vm.load() } }
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                } else if vm.songs.isEmpty {
-                    EmptyStateView(
-                        systemImage: "music.note",
-                        title: "No Tracks",
-                        subtitle: "This album doesn't have any tracks yet."
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                } else {
-                    let serverId = container?.serverState.activeServer?.id ?? UUID()
-                    AlbumSongRows(
-                        songs: vm.songs,
-                        albumId: albumId,
-                        serverId: serverId,
-                        downloadingIds: vm.downloadingIds,
-                        titleColor: headerTextColor,
-                        secondaryColor: headerSecondaryColor,
-                        onTap: { index in
-                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
-                        },
-                        onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
-                            Task { await vm.downloadSong(id: songId) }
-                        }
-                    )
+                if isLoadingSkeleton {
+                    skeletonRows
+                } else if let vm = viewModel {
+                    if let error = vm.error, vm.songs.isEmpty {
+                        EmptyStateView(
+                            systemImage: "exclamationmark.triangle",
+                            title: "Unable to Load Album",
+                            subtitle: error.displayMessage,
+                            action: .init(label: "Retry") { Task { await vm.load() } }
+                        )
+                    } else if vm.songs.isEmpty {
+                        EmptyStateView(
+                            systemImage: "music.note",
+                            title: "No Tracks",
+                            subtitle: "This album doesn't have any tracks yet."
+                        )
+                    } else {
+                        let serverId = container?.serverState.activeServer?.id ?? UUID()
+                        AlbumSongRows(
+                            songs: vm.songs,
+                            albumId: albumId,
+                            serverId: serverId,
+                            downloadingIds: vm.downloadingIds,
+                            titleColor: headerTextColor,
+                            secondaryColor: headerSecondaryColor,
+                            onTap: { index in
+                                Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                            },
+                            onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
+                                Task { await vm.downloadSong(id: songId) }
+                            }
+                        )
+                    }
                 }
             }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .refreshable { await viewModel?.load() }
         .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await viewModel?.deleteDownload() } }
@@ -209,9 +203,7 @@ struct AlbumDetailView: View {
                 Spacer()
             }
             .padding(.vertical, CassetteSpacing.xs)
-            .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+            .padding(.horizontal, CassetteSpacing.l)
         }
     }
 
@@ -332,7 +324,7 @@ struct AlbumDetailView: View {
                         guard let songs = vm?.songs, !songs.isEmpty else { return }
                         try? await container?.playerService.play(tracks: songs, startIndex: 0)
                     }
-                }, isDisabled: vm?.songs.isEmpty != false || vm?.isDownloadingAlbum == true)
+                }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingAlbum == true))
                 .frame(maxWidth: 400)
 
                 if vm?.isOffline != true {
@@ -466,10 +458,15 @@ private struct AlbumSongRows: View {
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
-            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
-                .onTapGesture { onTap(index) }
-                .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
-                .listRowBackground(Color.clear)
+            VStack(spacing: 0) {
+                SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .onTapGesture { onTap(index) }
+                if index < songs.count - 1 {
+                    Divider()
+                        .padding(.leading, CassetteSpacing.l)
+                }
+            }
         }
     }
 }
