@@ -249,6 +249,7 @@ private struct HomePinnedCard: View {
     @Environment(\.appContainer) private var container
     @Environment(\.modelContext) private var modelContext
     @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var coverImage: PlatformImage?
 
     @ViewBuilder
@@ -259,7 +260,13 @@ private struct HomePinnedCard: View {
                 albumId: item.itemId,
                 albumName: item.displayName,
                 zoomSourceId: item.id,
-                zoomNamespace: namespace
+                zoomNamespace: namespace,
+                coverArtId: item.coverArtId,
+                initialDominantColor: colorExtractor.dominantColor(
+                    for: item.coverArtId ?? item.itemId,
+                    image: nil
+                ),
+                initialCoverImage: coverImage
             )
         case .playlist:
             PlaylistDetailView(playlistId: item.itemId, name: item.displayName)
