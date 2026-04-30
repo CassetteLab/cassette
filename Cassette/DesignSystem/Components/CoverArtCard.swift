@@ -26,7 +26,7 @@ struct CoverArtCard: View {
     var initialImage: PlatformImage? = nil
 
     var body: some View {
-        CoverArtView(id: id, size: Int(size * 2), placeholderSystemImage: placeholderSystemImage, initialImage: initialImage)  // 2× for @2x sharpness
+        CoverArtView(id: id, size: Int(size * 2), cornerRadius: cornerRadius, placeholderSystemImage: placeholderSystemImage, initialImage: initialImage)  // 2× for @2x sharpness
             .frame(width: size, height: size)
             .cassetteCoverStyle(cornerRadius: cornerRadius)
     }

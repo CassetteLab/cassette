@@ -10,6 +10,7 @@ import SwiftUI
 struct CoverArtView: View {
     let id: String
     let size: Int?
+    var cornerRadius: CGFloat = 0
     var placeholderSystemImage: String = "music.note"
     var initialImage: PlatformImage? = nil
 
@@ -26,11 +27,25 @@ struct CoverArtView: View {
                     image
                         .resizable()
                         .scaledToFill()
-                        .onAppear { asyncImageLoaded = true }
-                case .failure, .empty:
-                    if initialImage == nil { placeholder }
+                        .onAppear {
+                            withAnimation(.easeIn(duration: 0.15)) {
+                                asyncImageLoaded = true
+                            }
+                        }
+                case .failure:
+                    placeholder
+                case .empty:
+                    if initialImage == nil {
+                        GeometryReader { geo in
+                            SkeletonBlock(
+                                width: geo.size.width,
+                                height: geo.size.height,
+                                cornerRadius: cornerRadius
+                            )
+                        }
+                    }
                 @unknown default:
-                    if initialImage == nil { placeholder }
+                    EmptyView()
                 }
             }
 
