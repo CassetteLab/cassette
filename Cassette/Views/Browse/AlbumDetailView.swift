@@ -10,26 +10,34 @@ import SwiftData
 struct AlbumDetailView: View {
     private let albumId: String
     private let initialName: String
+    private let zoomSourceId: String?
+    private let zoomNamespace: Namespace.ID?
 
-    init(album: AlbumID3) {
+    init(album: AlbumID3, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
         albumId = album.id
         initialName = album.name
         let cid = "album:\(album.id)"
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+        self.zoomSourceId = zoomSourceId
+        self.zoomNamespace = zoomNamespace
     }
 
-    init(album: DownloadedAlbum) {
+    init(album: DownloadedAlbum, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
         albumId = album.albumId
         initialName = album.name
         let cid = "album:\(album.albumId)"
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+        self.zoomSourceId = zoomSourceId
+        self.zoomNamespace = zoomNamespace
     }
 
-    init(albumId: String, albumName: String) {
+    init(albumId: String, albumName: String, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
         self.albumId = albumId
         self.initialName = albumName
         let cid = "album:\(albumId)"
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+        self.zoomSourceId = zoomSourceId
+        self.zoomNamespace = zoomNamespace
     }
 
     @Environment(\.appContainer) private var container
@@ -116,6 +124,7 @@ struct AlbumDetailView: View {
             await loadDominantColor(coverArtId: coverArtId)
         }
         .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
+        .modifier(ConditionalZoomTransition(sourceId: zoomSourceId, namespace: zoomNamespace))
     }
 
     private func loadDominantColor(coverArtId: String) async {
@@ -393,6 +402,25 @@ private struct AlbumSongRows: View {
                 .onTapGesture { onTap(index) }
                 .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
                 .listRowBackground(Color.clear)
+        }
+    }
+}
+
+// MARK: - Zoom transition modifier
+
+private struct ConditionalZoomTransition: ViewModifier {
+    let sourceId: String?
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let sourceId, let namespace {
+            if #available(macOS 15.0, *) {
+                content.navigationTransition(.zoom(sourceID: sourceId, in: namespace))
+            } else {
+                content
+            }
+        } else {
+            content
         }
     }
 }
