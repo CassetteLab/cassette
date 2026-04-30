@@ -14,6 +14,8 @@ struct HomeView: View {
     @Query(sort: \DownloadedAlbum.downloadedAt, order: .reverse) private var recentDownloadedAlbums: [DownloadedAlbum]
     @Query(sort: \DownloadedPlaylist.downloadedAt, order: .reverse) private var recentDownloadedPlaylists: [DownloadedPlaylist]
     @Namespace private var pinnedZoomNamespace
+    @Namespace private var recentlyAddedZoomNamespace
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
@@ -210,8 +212,17 @@ struct HomeView: View {
                     } else {
                         LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                             ForEach(vm.recentAlbums) { album in
-                                NavigationLink(destination: AlbumDetailView(album: album)) {
-                                    HomeAlbumCell(album: album)
+                                NavigationLink(destination: AlbumDetailView(
+                                    album: album,
+                                    zoomSourceId: album.id,
+                                    zoomNamespace: recentlyAddedZoomNamespace,
+                                    coverArtId: album.coverArt,
+                                    initialDominantColor: colorExtractor.dominantColor(
+                                        for: album.coverArt ?? album.id,
+                                        image: nil
+                                    )
+                                )) {
+                                    HomeAlbumCell(album: album, namespace: recentlyAddedZoomNamespace)
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -491,6 +502,7 @@ private nonisolated struct DownloadedItem: Identifiable, Sendable {
 
 private struct HomeAlbumCell: View {
     let album: AlbumID3
+    let namespace: Namespace.ID
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -504,6 +516,7 @@ private struct HomeAlbumCell: View {
                     .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
             }
             .aspectRatio(1, contentMode: .fit)
+            .modifier(ConditionalMatchedTransitionSource(id: album.id, namespace: namespace))
             Text(album.name)
                 .font(.cassetteCaption)
                 .fontWeight(.semibold)
