@@ -183,7 +183,6 @@ actor DownloadService: DownloadServiceProtocol {
         }
 
         await MainActor.run {
-            let context = ModelContext(modelContainer)
             let record = DownloadedTrack(
                 songId: songId,
                 serverId: serverId,
@@ -199,8 +198,8 @@ actor DownloadService: DownloadServiceProtocol {
                 coverArtId: coverArtId,
                 suffix: suffix
             )
-            context.insert(record)
-            try? context.save()
+            modelContainer.mainContext.insert(record)
+            try? modelContainer.mainContext.save()
         }
 
         emit(progress: DownloadProgress(songId: song.id, serverId: serverId, progress: 1.0, totalBytes: fileSize, receivedBytes: fileSize))
