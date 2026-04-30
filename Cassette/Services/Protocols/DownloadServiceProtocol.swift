@@ -54,6 +54,8 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
 
     /// Returns `true` if a download task is currently in-flight for this song.
     func isDownloading(songId: String, serverId: UUID) async -> Bool
+    func isDownloadingAlbum(_ albumId: String) async -> Bool
+    func isDownloadingPlaylist(_ playlistId: String) async -> Bool
     func cancelDownload(songId: String, serverId: UUID) async
     func remove(songId: String, serverId: UUID) async throws
     func remove(albumId: String, serverId: UUID) async throws

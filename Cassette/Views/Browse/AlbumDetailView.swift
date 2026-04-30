@@ -191,6 +191,7 @@ struct AlbumDetailView: View {
                     albumId: albumId,
                     libraryService: c.libraryService,
                     downloadService: c.downloadService,
+                    toastService: c.toastService,
                     serverState: c.serverState
                 )
             }

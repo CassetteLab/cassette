@@ -18,12 +18,16 @@ actor DownloadService: DownloadServiceProtocol {
     private var progressContinuation: AsyncStream<[DownloadProgress]>.Continuation?
     /// Keyed by "songId::serverId" to allow per-track cancellation.
     private var inFlightTasks: [String: Task<Void, Error>] = [:]
+    private var activeAlbumDownloads: Set<String> = []
+    private var activePlaylistDownloads: Set<String> = []
+    private let toastService: ToastService
 
     nonisolated let progressStream: AsyncStream<[DownloadProgress]>
 
-    init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer) {
+    init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer, toastService: ToastService) {
         self.serverService = serverService
         self.modelContainer = modelContainer
+        self.toastService = toastService
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let base = docs.appendingPathComponent("app.cassette", isDirectory: true)
@@ -213,6 +217,8 @@ actor DownloadService: DownloadServiceProtocol {
 
     func download(album: AlbumID3, serverId: UUID) async throws {
         guard let songs = album.song else { return }
+        activeAlbumDownloads.insert(album.id)
+        defer { activeAlbumDownloads.remove(album.id) }
         let total = songs.count
         var succeeded = 0
         let aid = album.id
@@ -294,6 +300,9 @@ actor DownloadService: DownloadServiceProtocol {
             try? context.save()
         }
         Logger.download.info("Album '\(album.id, privacy: .public)': \(succeeded)/\(total) tracks downloaded.")
+        if succeeded == total {
+            await toastService.showSuccess("\(album.name) downloaded")
+        }
     }
 
     // MARK: - Playlist download
@@ -302,6 +311,8 @@ actor DownloadService: DownloadServiceProtocol {
         let songs = playlist.entry ?? []
         let total = songs.count
         let pid = playlist.id
+        activePlaylistDownloads.insert(playlist.id)
+        defer { activePlaylistDownloads.remove(playlist.id) }
 
         let maxConcurrent = 3
         await withTaskGroup(of: Void.self) { group in
@@ -381,10 +392,21 @@ actor DownloadService: DownloadServiceProtocol {
             try? context.save()
         }
         Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
+        if tracksSucceeded == totalTracks {
+            await toastService.showSuccess("\(playlist.name) downloaded")
+        }
     }
 
     func isDownloading(songId: String, serverId: UUID) async -> Bool {
         inFlightTasks[taskKey(songId: songId, serverId: serverId)] != nil
+    }
+
+    func isDownloadingAlbum(_ albumId: String) async -> Bool {
+        activeAlbumDownloads.contains(albumId)
+    }
+
+    func isDownloadingPlaylist(_ playlistId: String) async -> Bool {
+        activePlaylistDownloads.contains(playlistId)
     }
 
     // MARK: - Cancel

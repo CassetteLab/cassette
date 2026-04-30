@@ -54,6 +54,7 @@ final class PlaylistDetailViewModel {
             await loadFromLocal()
         }
         isLoading = false
+        isDownloadingPlaylist = await downloadService.isDownloadingPlaylist(playlistId)
     }
 
     private func loadFromAPI() async {

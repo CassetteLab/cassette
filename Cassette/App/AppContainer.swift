@@ -52,7 +52,7 @@ final class AppContainer {
         let cache = CacheService(modelContainer: modelContainer)
         cacheService = cache
 
-        let download = DownloadService(serverService: server, modelContainer: modelContainer)
+        let download = DownloadService(serverService: server, modelContainer: modelContainer, toastService: toastService)
         downloadService = download
         artworkImageCache = ArtworkImageCache(downloadService: download, libraryService: library)
 

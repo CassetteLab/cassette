@@ -27,17 +27,20 @@ final class AlbumDetailViewModel {
     private let albumId: String
     private let libraryService: any LibraryServiceProtocol
     private let downloadService: any DownloadServiceProtocol
+    private let toastService: ToastService
     private let serverState: ServerState
 
     init(
         albumId: String,
         libraryService: any LibraryServiceProtocol,
         downloadService: any DownloadServiceProtocol,
+        toastService: ToastService,
         serverState: ServerState
     ) {
         self.albumId = albumId
         self.libraryService = libraryService
         self.downloadService = downloadService
+        self.toastService = toastService
         self.serverState = serverState
     }
 
@@ -50,6 +53,7 @@ final class AlbumDetailViewModel {
             await loadFromLocal()
         }
         isLoading = false
+        isDownloadingAlbum = await downloadService.isDownloadingAlbum(albumId)
     }
 
     private func loadFromAPI() async {
