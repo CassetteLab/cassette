@@ -280,7 +280,18 @@ private struct HomePinnedCard: View {
                 initialCoverImage: coverImage
             )
         case .playlist:
-            PlaylistDetailView(playlistId: item.itemId, name: item.displayName)
+            PlaylistDetailView(
+                playlistId: item.itemId,
+                name: item.displayName,
+                coverArtId: item.coverArtId,
+                initialDominantColor: colorExtractor.dominantColor(
+                    for: item.coverArtId ?? item.itemId,
+                    image: nil
+                ),
+                initialCoverImage: coverImage,
+                zoomSourceId: item.id,
+                zoomNamespace: namespace
+            )
         case .none:
             EmptyView()
         }
