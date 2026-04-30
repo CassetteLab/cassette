@@ -230,7 +230,7 @@ struct AlbumDetailView: View {
         guard let (data, _) = try? await URLSession.shared.data(from: url),
               let image = PlatformImage(data: data) else { return }
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
-        withAnimation(.easeIn(duration: 0.5)) {
+        withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
             isLightBackground = color.luminance > 0.6
         }
@@ -325,6 +325,7 @@ struct AlbumDetailView: View {
                         .cassetteGlassButton(size: 44)
                 }
                 .disabled(vm?.songs.isEmpty != false)
+                .opacity(vm == nil ? 0.4 : 1)
 
                 PlayButton(action: {
                     Task {
@@ -380,12 +381,12 @@ struct AlbumDetailView: View {
                                 .cassetteGlassButton(size: 44)
                         }
                         .disabled(true)
+                        .opacity(0.4)
                     }
                 }
             }
             .buttonStyle(.borderless)
             .padding(.horizontal, CassetteSpacing.xxxl)
-            .opacity(vm == nil ? 0.4 : 1)
 
             if let vm {
                 if vm.isDownloadingAlbum {
