@@ -11,24 +11,38 @@ struct CoverArtView: View {
     let id: String
     let size: Int?
     var placeholderSystemImage: String = "music.note"
+    var initialImage: PlatformImage? = nil
 
     @Environment(\.appContainer) private var container
     @State private var url: URL?
+    @State private var asyncImageLoaded = false
 
     var body: some View {
-        AsyncImage(url: url) { phase in
-            switch phase {
-            case .success(let image):
-                image
+        ZStack {
+            // Async path always resolves; onAppear dismisses the initial image overlay.
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .onAppear { asyncImageLoaded = true }
+                case .failure, .empty:
+                    if initialImage == nil { placeholder }
+                @unknown default:
+                    if initialImage == nil { placeholder }
+                }
+            }
+
+            // Initial image covers the async placeholder until the network image arrives.
+            if let initialImage, !asyncImageLoaded {
+                Image(platformImage: initialImage)
                     .resizable()
                     .scaledToFill()
-            case .failure, .empty:
-                placeholder
-            @unknown default:
-                placeholder
             }
         }
         .task(id: id) {
+            asyncImageLoaded = false
             // Local file first — avoids redundant network requests and works offline.
             if let localURL = await container?.downloadService.localCoverArtURL(forId: id) {
                 url = localURL
