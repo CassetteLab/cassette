@@ -13,6 +13,7 @@ struct HomeView: View {
     @Query(sort: \PinnedItem.sortOrder) private var allPinnedItems: [PinnedItem]
     @Query(sort: \DownloadedAlbum.downloadedAt, order: .reverse) private var recentDownloadedAlbums: [DownloadedAlbum]
     @Query(sort: \DownloadedPlaylist.downloadedAt, order: .reverse) private var recentDownloadedPlaylists: [DownloadedPlaylist]
+    @Namespace private var pinnedZoomNamespace
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
@@ -137,7 +138,7 @@ struct HomeView: View {
                 .font(.cassetteSectionTitle)
             LazyVGrid(columns: pinnedColumns, spacing: CassetteSpacing.m) {
                 ForEach(visiblePinnedItems) { item in
-                    HomePinnedCard(item: item)
+                    HomePinnedCard(item: item, namespace: pinnedZoomNamespace)
                         .scaleEffect(dropTargetId == item.id ? 1.05 : 1.0)
                         .animation(.spring(response: 0.2, dampingFraction: 0.7), value: dropTargetId)
                         .draggable(item.id)
@@ -244,6 +245,7 @@ struct HomeView: View {
 
 private struct HomePinnedCard: View {
     let item: PinnedItem
+    let namespace: Namespace.ID
     @Environment(\.appContainer) private var container
     @Environment(\.modelContext) private var modelContext
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -253,7 +255,12 @@ private struct HomePinnedCard: View {
     private var destination: some View {
         switch PinnedItemType(rawValue: item.itemType) {
         case .album:
-            AlbumDetailView(albumId: item.itemId, albumName: item.displayName)
+            AlbumDetailView(
+                albumId: item.itemId,
+                albumName: item.displayName,
+                zoomSourceId: item.id,
+                zoomNamespace: namespace
+            )
         case .playlist:
             PlaylistDetailView(playlistId: item.itemId, name: item.displayName)
         case .none:
@@ -270,6 +277,7 @@ private struct HomePinnedCard: View {
                         .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
                 }
                 .aspectRatio(1, contentMode: .fit)
+                .modifier(ConditionalMatchedTransitionSource(id: item.id, namespace: namespace))
                 Text(item.displayName)
                     .font(.cassetteCaption)
                     .fontWeight(.semibold)
@@ -516,6 +524,21 @@ private struct HomeAlbumCell: View {
         ) {
             let detail = try await container?.libraryService.album(id: album.id)
             return (detail?.song ?? []).map { DisplayableSong(from: $0) }
+        }
+    }
+}
+
+// MARK: - Zoom transition source modifier
+
+private struct ConditionalMatchedTransitionSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
         }
     }
 }
