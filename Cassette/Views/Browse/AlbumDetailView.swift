@@ -10,34 +10,52 @@ import SwiftData
 struct AlbumDetailView: View {
     private let albumId: String
     private let initialName: String
+    private let coverArtId: String?
+    private let initialDominantColor: Color
+    private let initialCoverImage: PlatformImage?
     private let zoomSourceId: String?
     private let zoomNamespace: Namespace.ID?
 
-    init(album: AlbumID3, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
+    init(album: AlbumID3, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil) {
         albumId = album.id
         initialName = album.name
+        self.coverArtId = coverArtId
+        self.initialDominantColor = initialDominantColor
+        self.initialCoverImage = initialCoverImage
         let cid = "album:\(album.id)"
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
+        _dominantColor = State(initialValue: initialDominantColor)
+        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
-    init(album: DownloadedAlbum, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
+    init(album: DownloadedAlbum, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil) {
         albumId = album.albumId
         initialName = album.name
+        self.coverArtId = coverArtId
+        self.initialDominantColor = initialDominantColor
+        self.initialCoverImage = initialCoverImage
         let cid = "album:\(album.albumId)"
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
+        _dominantColor = State(initialValue: initialDominantColor)
+        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
-    init(albumId: String, albumName: String, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
+    init(albumId: String, albumName: String, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil) {
         self.albumId = albumId
         self.initialName = albumName
+        self.coverArtId = coverArtId
+        self.initialDominantColor = initialDominantColor
+        self.initialCoverImage = initialCoverImage
         let cid = "album:\(albumId)"
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
+        _dominantColor = State(initialValue: initialDominantColor)
+        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
     @Environment(\.appContainer) private var container
@@ -59,12 +77,61 @@ struct AlbumDetailView: View {
     }
 
     var body: some View {
-        Group {
+        List {
+            albumHeader(vm: viewModel)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+
             if let vm = viewModel {
-                content(vm)
+                if let error = vm.error, vm.songs.isEmpty {
+                    EmptyStateView(
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load Album",
+                        subtitle: error.displayMessage,
+                        action: .init(label: "Retry") { Task { await vm.load() } }
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                } else if vm.songs.isEmpty && !vm.isLoading {
+                    EmptyStateView(
+                        systemImage: "music.note",
+                        title: "No Tracks",
+                        subtitle: "This album doesn't have any tracks yet."
+                    )
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                } else if vm.songs.isEmpty {
+                    skeletonRows
+                } else {
+                    let serverId = container?.serverState.activeServer?.id ?? UUID()
+                    AlbumSongRows(
+                        songs: vm.songs,
+                        albumId: albumId,
+                        serverId: serverId,
+                        downloadingIds: vm.downloadingIds,
+                        titleColor: headerTextColor,
+                        secondaryColor: headerSecondaryColor,
+                        onTap: { index in
+                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                        },
+                        onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
+                            Task { await vm.downloadSong(id: songId) }
+                        }
+                    )
+                }
             } else {
-                LoadingStateView()
+                skeletonRows
             }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .refreshable { await viewModel?.load() }
+        .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
+            Button("Remove", role: .destructive) { Task { await viewModel?.deleteDownload() } }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("The audio files will be deleted from this device.")
         }
         .background(
             LinearGradient(
@@ -112,20 +179,48 @@ struct AlbumDetailView: View {
             await viewModel?.load()
         }
         .task(id: viewModel?.coverArtId) {
-            guard let coverArtId = viewModel?.coverArtId else { return }
+            guard let artId = viewModel?.coverArtId else { return }
 
-            let cached = colorExtractor.dominantColor(for: coverArtId, image: nil)
+            let cached = colorExtractor.dominantColor(for: artId, image: nil)
             if cached != .clear {
                 dominantColor = cached
                 isLightBackground = cached.luminance > 0.6
                 return
             }
 
-            await loadDominantColor(coverArtId: coverArtId)
+            await loadDominantColor(coverArtId: artId)
         }
         .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
         .modifier(ConditionalZoomTransition(sourceId: zoomSourceId, namespace: zoomNamespace))
     }
+
+    // MARK: - Skeleton rows
+
+    @ViewBuilder
+    private var skeletonRows: some View {
+        ForEach(0..<4, id: \.self) { _ in
+            HStack(spacing: CassetteSpacing.m) {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 36, height: 36)
+                VStack(alignment: .leading, spacing: 4) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(height: 14)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.gray.opacity(0.15))
+                        .frame(width: 120, height: 11)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, CassetteSpacing.xs)
+            .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+    }
+
+    // MARK: - Color loading
 
     private func loadDominantColor(coverArtId: String) async {
         if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
@@ -146,61 +241,7 @@ struct AlbumDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func content(_ vm: AlbumDetailViewModel) -> some View {
-        if vm.isLoading && vm.songs.isEmpty {
-            LoadingStateView()
-        } else if let error = vm.error, vm.songs.isEmpty {
-            EmptyStateView(
-                systemImage: "exclamationmark.triangle",
-                title: "Unable to Load Album",
-                subtitle: error.displayMessage,
-                action: .init(label: "Retry") { Task { await vm.load() } }
-            )
-        } else {
-            List {
-                albumHeader(vm: vm)
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-
-                if vm.songs.isEmpty {
-                    EmptyStateView(
-                        systemImage: "music.note",
-                        title: "No Tracks",
-                        subtitle: "This album doesn't have any tracks yet."
-                    )
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                }
-
-                let serverId = container?.serverState.activeServer?.id ?? UUID()
-                AlbumSongRows(
-                    songs: vm.songs,
-                    albumId: albumId,
-                    serverId: serverId,
-                    downloadingIds: vm.downloadingIds,
-                    titleColor: headerTextColor,
-                    secondaryColor: headerSecondaryColor,
-                    onTap: { index in
-                        Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
-                    },
-                    onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
-                        Task { await vm.downloadSong(id: songId) }
-                    }
-                )
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .refreshable { await vm.load() }
-            .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
-                Button("Remove", role: .destructive) { Task { await vm.deleteDownload() } }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("The audio files will be deleted from this device.")
-            }
-        }
-    }
+    // MARK: - Download state
 
     private func downloadState(for vm: AlbumDetailViewModel) -> AlbumDownloadState {
         let total = vm.songs.count
@@ -211,22 +252,25 @@ struct AlbumDetailView: View {
         return .partiallyDownloaded(downloaded: downloaded, total: total)
     }
 
-    private func albumHeader(vm: AlbumDetailViewModel) -> some View {
+    // MARK: - Header
+
+    private func albumHeader(vm: AlbumDetailViewModel?) -> some View {
         VStack(spacing: CassetteSpacing.l) {
             CoverArtCard(
-                id: vm.coverArtId ?? albumId,
+                id: vm?.coverArtId ?? coverArtId ?? albumId,
                 size: 220,
-                cornerRadius: CassetteCornerRadius.large
+                cornerRadius: CassetteCornerRadius.large,
+                initialImage: initialCoverImage
             )
             .padding(.top, CassetteSpacing.xxl)
 
             VStack(spacing: CassetteSpacing.s) {
-                Text(vm.albumName)
+                Text(vm?.albumName ?? initialName)
                     .font(.cassetteDetailTitle)
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
-                if let artist = vm.artistName {
-                    if let artistId = vm.artistId, !vm.isOffline {
+                if let artist = vm?.artistName {
+                    if let artistId = vm?.artistId, vm?.isOffline != true {
                         Button {
                             Task {
                                 guard let c = container,
@@ -245,18 +289,20 @@ struct AlbumDetailView: View {
                             .foregroundStyle(headerSecondaryColor)
                     }
                 }
-                HStack(spacing: CassetteSpacing.s) {
-                    if let year = vm.year { Text(String(year)) }
-                    if let genre = vm.genre { Text("·"); Text(genre) }
-                    if let format = vm.songs.first?.audioFormat {
-                        Text("·")
-                        Image(systemName: "waveform")
-                            .font(.system(size: 9, weight: .semibold))
-                        Text(format.uppercased())
+                if let vm {
+                    HStack(spacing: CassetteSpacing.s) {
+                        if let year = vm.year { Text(String(year)) }
+                        if let genre = vm.genre { Text("·"); Text(genre) }
+                        if let format = vm.songs.first?.audioFormat {
+                            Text("·")
+                            Image(systemName: "waveform")
+                                .font(.system(size: 9, weight: .semibold))
+                            Text(format.uppercased())
+                        }
                     }
+                    .font(.cassetteCaption)
+                    .foregroundStyle(headerSecondaryColor.opacity(0.8))
                 }
-                .font(.cassetteCaption)
-                .foregroundStyle(headerSecondaryColor.opacity(0.8))
             }
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -264,8 +310,8 @@ struct AlbumDetailView: View {
                 Button {
                     HapticFeedback.medium.trigger()
                     Task {
-                        let shuffled = vm.songs.shuffled()
-                        try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
+                        guard let songs = vm?.songs, !songs.isEmpty else { return }
+                        try? await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0)
                     }
                 } label: {
                     Image(systemName: "shuffle")
@@ -273,66 +319,81 @@ struct AlbumDetailView: View {
                         .foregroundStyle(Color.cassetteAccent)
                         .cassetteGlassButton(size: 44)
                 }
-                .disabled(vm.songs.isEmpty)
+                .disabled(vm?.songs.isEmpty != false)
 
                 PlayButton(action: {
-                    Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: 0) }
-                }, isDisabled: vm.songs.isEmpty || vm.isDownloadingAlbum)
+                    Task {
+                        guard let songs = vm?.songs, !songs.isEmpty else { return }
+                        try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                    }
+                }, isDisabled: vm?.songs.isEmpty != false || vm?.isDownloadingAlbum == true)
                 .frame(maxWidth: 400)
 
-                if !vm.isOffline {
-                    if vm.isDownloadingAlbum {
-                        Button { Task { await vm.cancelAlbumDownload() } } label: {
-                            Image(systemName: "xmark")
+                if vm?.isOffline != true {
+                    if let vm {
+                        if vm.isDownloadingAlbum {
+                            Button { Task { await vm.cancelAlbumDownload() } } label: {
+                                Image(systemName: "xmark")
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .cassetteGlassButton(size: 44)
+                            }
+                        } else {
+                            switch downloadState(for: vm) {
+                            case .notDownloaded:
+                                Button { Task { await vm.downloadAlbum() } } label: {
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.cassetteCellTitle)
+                                        .foregroundStyle(Color.cassetteAccent)
+                                        .cassetteGlassButton(size: 44)
+                                }
+                                .disabled(vm.songs.isEmpty)
+                            case .partiallyDownloaded:
+                                Button { Task { await vm.downloadMissingTracks() } } label: {
+                                    Image(systemName: "arrow.down.circle.dotted")
+                                        .font(.cassetteCellTitle)
+                                        .foregroundStyle(Color.cassetteAccent)
+                                        .cassetteGlassButton(size: 44)
+                                }
+                            case .fullyDownloaded:
+                                Button {
+                                    HapticFeedback.heavy.trigger()
+                                    showDeleteAlert = true
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.cassetteCellTitle)
+                                        .foregroundStyle(Color.cassetteAccent)
+                                        .cassetteGlassButton(size: 44)
+                                }
+                            }
+                        }
+                    } else {
+                        Button { } label: {
+                            Image(systemName: "arrow.down.circle")
                                 .font(.cassetteCellTitle)
                                 .foregroundStyle(Color.cassetteAccent)
                                 .cassetteGlassButton(size: 44)
                         }
-                    } else {
-                        switch downloadState(for: vm) {
-                        case .notDownloaded:
-                            Button { Task { await vm.downloadAlbum() } } label: {
-                                Image(systemName: "arrow.down.circle")
-                                    .font(.cassetteCellTitle)
-                                    .foregroundStyle(Color.cassetteAccent)
-                                    .cassetteGlassButton(size: 44)
-                            }
-                            .disabled(vm.songs.isEmpty)
-                        case .partiallyDownloaded:
-                            Button { Task { await vm.downloadMissingTracks() } } label: {
-                                Image(systemName: "arrow.down.circle.dotted")
-                                    .font(.cassetteCellTitle)
-                                    .foregroundStyle(Color.cassetteAccent)
-                                    .cassetteGlassButton(size: 44)
-                            }
-                        case .fullyDownloaded:
-                            Button {
-                                HapticFeedback.heavy.trigger()
-                                showDeleteAlert = true
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.cassetteCellTitle)
-                                    .foregroundStyle(Color.cassetteAccent)
-                                    .cassetteGlassButton(size: 44)
-                            }
-                        }
+                        .disabled(true)
                     }
                 }
             }
             .buttonStyle(.borderless)
             .padding(.horizontal, CassetteSpacing.xxxl)
 
-            if vm.isDownloadingAlbum {
-                HStack(spacing: CassetteSpacing.s) {
-                    ProgressView().scaleEffect(0.8)
-                    Text("Downloading…")
+            if let vm {
+                if vm.isDownloadingAlbum {
+                    HStack(spacing: CassetteSpacing.s) {
+                        ProgressView().scaleEffect(0.8)
+                        Text("Downloading…")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(headerSecondaryColor)
+                    }
+                } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
+                    Text("\(downloaded)/\(total) tracks downloaded")
                         .font(.cassetteCaption)
                         .foregroundStyle(headerSecondaryColor)
                 }
-            } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
-                Text("\(downloaded)/\(total) tracks downloaded")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(headerSecondaryColor)
             }
         }
         .padding(.bottom, CassetteSpacing.xxl)
