@@ -23,7 +23,9 @@ struct AlbumDetailView: View {
         self.initialDominantColor = initialDominantColor
         self.initialCoverImage = initialCoverImage
         let cid = "album:\(album.id)"
+        let aid = album.id
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+        _downloadedAlbumTracks = Query(filter: #Predicate<DownloadedTrack> { $0.albumId == aid })
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
         _dominantColor = State(initialValue: initialDominantColor)
@@ -37,7 +39,9 @@ struct AlbumDetailView: View {
         self.initialDominantColor = initialDominantColor
         self.initialCoverImage = initialCoverImage
         let cid = "album:\(album.albumId)"
+        let aid = album.albumId
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+        _downloadedAlbumTracks = Query(filter: #Predicate<DownloadedTrack> { $0.albumId == aid })
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
         _dominantColor = State(initialValue: initialDominantColor)
@@ -51,7 +55,9 @@ struct AlbumDetailView: View {
         self.initialDominantColor = initialDominantColor
         self.initialCoverImage = initialCoverImage
         let cid = "album:\(albumId)"
+        let aid = albumId
         _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+        _downloadedAlbumTracks = Query(filter: #Predicate<DownloadedTrack> { $0.albumId == aid })
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
         _dominantColor = State(initialValue: initialDominantColor)
@@ -68,8 +74,10 @@ struct AlbumDetailView: View {
     @State private var artistToNavigate: ArtistID3?
     @State private var isDismissing = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
+    @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
+    private var downloadedCount: Int { downloadedAlbumTracks.count }
     private var isOnline: Bool { container?.serverState.isOnline == true }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
@@ -397,12 +405,27 @@ struct AlbumDetailView: View {
 
             if let vm {
                 if vm.isDownloadingAlbum {
-                    HStack(spacing: CassetteSpacing.s) {
-                        ProgressView().scaleEffect(0.8)
-                        Text("Downloading…")
-                            .font(.cassetteCaption)
-                            .foregroundStyle(headerSecondaryColor)
+                    let total = vm.songs.count
+                    let downloaded = downloadedCount
+                    VStack(spacing: CassetteSpacing.xs) {
+                        if downloaded == 0 {
+                            HStack(spacing: CassetteSpacing.s) {
+                                ProgressView().scaleEffect(0.8)
+                                Text("Starting download…")
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(headerSecondaryColor)
+                            }
+                        } else {
+                            ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
+                                .progressViewStyle(.linear)
+                                .tint(Color.cassetteAccent)
+                                .frame(maxWidth: 280)
+                            Text("Downloading \(downloaded)/\(total) tracks")
+                                .font(.cassetteCaption)
+                                .foregroundStyle(headerSecondaryColor)
+                        }
                     }
+                    .frame(minHeight: 44)
                 } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
                     Text("\(downloaded)/\(total) tracks downloaded")
                         .font(.cassetteCaption)

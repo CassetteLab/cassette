@@ -55,6 +55,7 @@ struct PlaylistDetailView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Query private var allDownloadedTracks: [DownloadedTrack]
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
@@ -259,6 +260,11 @@ struct PlaylistDetailView: View {
 
     // MARK: - Download state
 
+    private func downloadedPlaylistTracksCount(in songs: [DisplayableSong]) -> Int {
+        let downloadedIds = Set(allDownloadedTracks.map(\.songId))
+        return songs.filter { downloadedIds.contains($0.id) }.count
+    }
+
     private func downloadState(for vm: PlaylistDetailViewModel) -> PlaylistDownloadState {
         let total = vm.songs.count
         guard total > 0 else { return .notDownloaded }
@@ -388,12 +394,27 @@ struct PlaylistDetailView: View {
 
             if let vm {
                 if vm.isDownloadingPlaylist {
-                    HStack(spacing: CassetteSpacing.s) {
-                        ProgressView().scaleEffect(0.8)
-                        Text("Downloading…")
-                            .font(.cassetteCaption)
-                            .foregroundStyle(headerSecondaryColor)
+                    let total = vm.songs.count
+                    let downloaded = downloadedPlaylistTracksCount(in: vm.songs)
+                    VStack(spacing: CassetteSpacing.xs) {
+                        if downloaded == 0 {
+                            HStack(spacing: CassetteSpacing.s) {
+                                ProgressView().scaleEffect(0.8)
+                                Text("Starting download…")
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(headerSecondaryColor)
+                            }
+                        } else {
+                            ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
+                                .progressViewStyle(.linear)
+                                .tint(Color.cassetteAccent)
+                                .frame(maxWidth: 280)
+                            Text("Downloading \(downloaded)/\(total) tracks")
+                                .font(.cassetteCaption)
+                                .foregroundStyle(headerSecondaryColor)
+                        }
                     }
+                    .frame(minHeight: 44)
                 } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
                     Text("\(downloaded)/\(total) tracks downloaded")
                         .font(.cassetteCaption)
