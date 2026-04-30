@@ -69,6 +69,9 @@ struct AlbumDetailView: View {
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
     private var isOnline: Bool { container?.serverState.isOnline == true }
+    private var isLoadingSkeleton: Bool {
+        viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
+    }
     private var headerTextColor: Color {
         dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
     }
@@ -83,7 +86,9 @@ struct AlbumDetailView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
 
-            if let vm = viewModel {
+            if isLoadingSkeleton {
+                skeletonRows
+            } else if let vm = viewModel {
                 if let error = vm.error, vm.songs.isEmpty {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
@@ -93,7 +98,7 @@ struct AlbumDetailView: View {
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                } else if vm.songs.isEmpty && !vm.isLoading {
+                } else if vm.songs.isEmpty {
                     EmptyStateView(
                         systemImage: "music.note",
                         title: "No Tracks",
@@ -101,8 +106,6 @@ struct AlbumDetailView: View {
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                } else if vm.songs.isEmpty {
-                    skeletonRows
                 } else {
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
                     AlbumSongRows(
@@ -120,8 +123,6 @@ struct AlbumDetailView: View {
                         }
                     )
                 }
-            } else {
-                skeletonRows
             }
         }
         .listStyle(.plain)
@@ -198,20 +199,14 @@ struct AlbumDetailView: View {
 
     @ViewBuilder
     private var skeletonRows: some View {
-        ForEach(0..<4, id: \.self) { _ in
+        ForEach(0..<5, id: \.self) { _ in
             HStack(spacing: CassetteSpacing.m) {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 36, height: 36)
-                VStack(alignment: .leading, spacing: 4) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.2))
-                        .frame(height: 14)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.gray.opacity(0.15))
-                        .frame(width: 120, height: 11)
+                SkeletonBlock(width: 20, height: 20, cornerRadius: 4)
+                VStack(alignment: .leading, spacing: 6) {
+                    SkeletonBlock(width: 200, height: 16, cornerRadius: 4)
+                    SkeletonBlock(width: 140, height: 12, cornerRadius: 4)
                 }
-                Spacer(minLength: 0)
+                Spacer()
             }
             .padding(.vertical, CassetteSpacing.xs)
             .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
@@ -256,12 +251,18 @@ struct AlbumDetailView: View {
 
     private func albumHeader(vm: AlbumDetailViewModel?) -> some View {
         VStack(spacing: CassetteSpacing.l) {
-            CoverArtCard(
-                id: vm?.coverArtId ?? coverArtId ?? albumId,
-                size: 220,
-                cornerRadius: CassetteCornerRadius.large,
-                initialImage: initialCoverImage
-            )
+            Group {
+                if initialCoverImage == nil && vm?.coverArtId == nil && coverArtId == nil {
+                    SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
+                } else {
+                    CoverArtCard(
+                        id: vm?.coverArtId ?? coverArtId ?? albumId,
+                        size: 220,
+                        cornerRadius: CassetteCornerRadius.large,
+                        initialImage: initialCoverImage
+                    )
+                }
+            }
             .padding(.top, CassetteSpacing.xxl)
 
             VStack(spacing: CassetteSpacing.s) {
@@ -269,7 +270,9 @@ struct AlbumDetailView: View {
                     .font(.cassetteDetailTitle)
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
-                if let artist = vm?.artistName {
+                if vm == nil {
+                    SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
+                } else if let artist = vm?.artistName {
                     if let artistId = vm?.artistId, vm?.isOffline != true {
                         Button {
                             Task {
@@ -289,7 +292,9 @@ struct AlbumDetailView: View {
                             .foregroundStyle(headerSecondaryColor)
                     }
                 }
-                if let vm {
+                if vm == nil {
+                    SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
+                } else if let vm {
                     HStack(spacing: CassetteSpacing.s) {
                         if let year = vm.year { Text(String(year)) }
                         if let genre = vm.genre { Text("·"); Text(genre) }
@@ -380,6 +385,7 @@ struct AlbumDetailView: View {
             }
             .buttonStyle(.borderless)
             .padding(.horizontal, CassetteSpacing.xxxl)
+            .opacity(vm == nil ? 0.4 : 1)
 
             if let vm {
                 if vm.isDownloadingAlbum {
