@@ -142,7 +142,7 @@ actor DownloadService: DownloadServiceProtocol {
 
         emit(progress: DownloadProgress(songId: song.id, serverId: serverId, progress: 0, totalBytes: nil, receivedBytes: 0))
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (tempURL, response) = try await URLSession.shared.download(for: request)
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -156,7 +156,10 @@ actor DownloadService: DownloadServiceProtocol {
         let fileURL = downloadsDirectory.appendingPathComponent(relativePath)
 
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: fileURL, options: .atomic)
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try FileManager.default.removeItem(at: fileURL)
+        }
+        try FileManager.default.moveItem(at: tempURL, to: fileURL)
 
         // Capture only Sendable values for the MainActor closure.
         let songId = song.id
@@ -168,7 +171,7 @@ actor DownloadService: DownloadServiceProtocol {
         let duration = song.duration
         let coverArtId = song.coverArt
         let suffix = song.suffix
-        let fileSize = Int64(data.count)
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
 
         // Best-effort: persist cover art so it's available offline (compilations, playlist tracks).
         // song.coverArt may differ from album.coverArt on some servers — download it per track.
@@ -203,7 +206,7 @@ actor DownloadService: DownloadServiceProtocol {
         }
 
         emit(progress: DownloadProgress(songId: song.id, serverId: serverId, progress: 1.0, totalBytes: fileSize, receivedBytes: fileSize))
-        Logger.download.info("Downloaded '\(song.id, privacy: .public)' (\(data.count) bytes)")
+        Logger.download.info("Downloaded '\(song.id, privacy: .public)' (\(fileSize) bytes)")
     }
 
     // MARK: - Album download
@@ -214,8 +217,12 @@ actor DownloadService: DownloadServiceProtocol {
         var succeeded = 0
         let aid = album.id
 
+        let maxConcurrent = 3
         await withTaskGroup(of: Bool.self) { group in
-            for song in songs {
+            var iterator = songs.makeIterator()
+
+            for _ in 0..<maxConcurrent {
+                guard let song = iterator.next() else { break }
                 group.addTask {
                     do {
                         try await self.download(song: song, serverId: serverId)
@@ -226,8 +233,20 @@ actor DownloadService: DownloadServiceProtocol {
                     }
                 }
             }
+
             for await didSucceed in group {
                 if didSucceed { succeeded += 1 }
+                if let song = iterator.next() {
+                    group.addTask {
+                        do {
+                            try await self.download(song: song, serverId: serverId)
+                            return true
+                        } catch {
+                            Logger.download.error("Failed song '\(song.id, privacy: .public)' in album '\(aid, privacy: .public)': \(error, privacy: .public)")
+                            return false
+                        }
+                    }
+                }
             }
         }
 
@@ -284,8 +303,12 @@ actor DownloadService: DownloadServiceProtocol {
         let total = songs.count
         let pid = playlist.id
 
+        let maxConcurrent = 3
         await withTaskGroup(of: Void.self) { group in
-            for song in songs {
+            var iterator = songs.makeIterator()
+
+            for _ in 0..<maxConcurrent {
+                guard let song = iterator.next() else { break }
                 group.addTask {
                     do {
                         try await self.download(song: song, serverId: serverId)
@@ -294,7 +317,18 @@ actor DownloadService: DownloadServiceProtocol {
                     }
                 }
             }
-            for await _ in group { }
+
+            for await _ in group {
+                if let song = iterator.next() {
+                    group.addTask {
+                        do {
+                            try await self.download(song: song, serverId: serverId)
+                        } catch {
+                            Logger.download.error("Failed song '\(song.id, privacy: .public)' in playlist '\(pid, privacy: .public)': \(error, privacy: .public)")
+                        }
+                    }
+                }
+            }
         }
 
         let downloadedIds = await downloadedSongIds(serverId: serverId)
