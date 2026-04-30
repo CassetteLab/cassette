@@ -59,12 +59,14 @@ struct AlbumDetailView: View {
     }
 
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
     @State private var artistToNavigate: ArtistID3?
+    @State private var isDismissing = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
@@ -128,6 +130,7 @@ struct AlbumDetailView: View {
         } message: {
             Text("The audio files will be deleted from this device.")
         }
+        .allowsHitTesting(!isDismissing)
         .background(
             LinearGradient(
                 colors: [
@@ -142,7 +145,19 @@ struct AlbumDetailView: View {
         .cassetteContentWidth()
         .navigationTitle(viewModel?.albumName ?? initialName)
         .navigationBarTitleDisplayModeInline()
+        .navigationBarBackButtonHidden(true)
+        .onAppear { isDismissing = false }
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    isDismissing = true
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
                     HapticFeedback.light.trigger()
