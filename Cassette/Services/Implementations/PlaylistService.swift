@@ -4,19 +4,24 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import SwiftData
 import SwiftSonic
 import OSLog
 
 actor PlaylistService: PlaylistServiceProtocol {
     private let serverService: any ServerServiceProtocol
+    private let modelContainer: ModelContainer
+    private let downloadService: DownloadService
     private var cachedClient: SwiftSonicClient?
     private var cachedServerId: UUID?
 
     private var listCache: [Playlist]?
     private var detailCache: [String: PlaylistWithSongs] = [:]
 
-    init(serverService: any ServerServiceProtocol) {
+    init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer, downloadService: DownloadService) {
         self.serverService = serverService
+        self.modelContainer = modelContainer
+        self.downloadService = downloadService
     }
 
     // MARK: - Client
@@ -131,6 +136,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         do {
             try await client().updatePlaylist(id: playlistId, songIdsToAdd: songs.map(\.id))
             Logger.playlist.info("Added \(songs.count) track(s) to playlist id=\(playlistId)")
+            await syncDownloadedPlaylistAfterAdd(playlistId: playlistId, addedSongs: songs)
         } catch {
             detailCache[playlistId] = previousDetail
             listCache = previousList
@@ -142,6 +148,10 @@ actor PlaylistService: PlaylistServiceProtocol {
         let previousDetail = detailCache[playlistId]
         let previousList = listCache
         let indexSet = Set(indices)
+        let removedSongIds: [String] = {
+            guard let entry = detailCache[playlistId]?.entry else { return [] }
+            return indices.compactMap { idx in idx < entry.count ? entry[idx].id : nil }
+        }()
         if let p = detailCache[playlistId], let entry = p.entry {
             let removedDuration = indexSet.reduce(0) { sum, idx in
                 sum + (idx < entry.count ? entry[idx].duration ?? 0 : 0)
@@ -159,6 +169,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         do {
             try await client().updatePlaylist(id: playlistId, songIndexesToRemove: indices)
             Logger.playlist.info("Removed \(indices.count) track(s) from playlist id=\(playlistId)")
+            await syncDownloadedPlaylistAfterRemove(playlistId: playlistId, removedSongIds: removedSongIds)
         } catch {
             detailCache[playlistId] = previousDetail
             listCache = previousList
@@ -179,6 +190,62 @@ actor PlaylistService: PlaylistServiceProtocol {
         } catch {
             detailCache[playlistId] = previousDetail
             throw error
+        }
+    }
+
+    // MARK: - Offline sync
+
+    private func syncDownloadedPlaylistAfterAdd(playlistId: String, addedSongs: [Song]) async {
+        let serverId: UUID? = await MainActor.run { () -> UUID? in
+            let context = modelContainer.mainContext
+            let pid = playlistId
+            let descriptor = FetchDescriptor<DownloadedPlaylist>(
+                predicate: #Predicate { $0.playlistId == pid }
+            )
+            guard let record = try? context.fetch(descriptor).first else { return nil }
+            record.songIds.append(contentsOf: addedSongs.map(\.id))
+            try? context.save()
+            return record.serverId
+        }
+        guard let serverId else { return }
+        for song in addedSongs {
+            Task { [weak self] in
+                try? await self?.downloadService.download(song: song, serverId: serverId)
+            }
+        }
+    }
+
+    private func syncDownloadedPlaylistAfterRemove(playlistId: String, removedSongIds: [String]) async {
+        guard !removedSongIds.isEmpty else { return }
+        await MainActor.run {
+            let context = modelContainer.mainContext
+            let pid = playlistId
+            let descriptor = FetchDescriptor<DownloadedPlaylist>(
+                predicate: #Predicate { $0.playlistId == pid }
+            )
+            guard let record = try? context.fetch(descriptor).first else { return }
+            let removedSet = Set(removedSongIds)
+            record.songIds.removeAll { removedSet.contains($0) }
+            try? context.save()
+        }
+    }
+
+    func retryMissingPlaylistDownloads() async {
+        let records = await MainActor.run { () -> [(playlistId: String, serverId: UUID)] in
+            let context = modelContainer.mainContext
+            let descriptor = FetchDescriptor<DownloadedPlaylist>()
+            guard let fetched = try? context.fetch(descriptor) else { return [] }
+            return fetched
+                .filter { !$0.songIds.isEmpty }
+                .map { (playlistId: $0.playlistId, serverId: $0.serverId) }
+        }
+        guard !records.isEmpty else { return }
+        for record in records {
+            guard let playlist = try? await client().getPlaylist(id: record.playlistId) else { continue }
+            let sid = record.serverId
+            Task { [weak self] in
+                try? await self?.downloadService.download(playlist: playlist, serverId: sid)
+            }
         }
     }
 

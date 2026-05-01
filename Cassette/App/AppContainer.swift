@@ -72,12 +72,14 @@ final class AppContainer {
 
         favoritesService = FavoritesService(libraryService: library, serverState: serverState, modelContainer: modelContainer)
         pinService = PinService(modelContainer: modelContainer)
-        playlistService = PlaylistService(serverService: server)
+        let playlist = PlaylistService(serverService: server, modelContainer: modelContainer, downloadService: download)
+        playlistService = playlist
 
         // Break the circular dependency: PlayerService holds a weak-captured ref to NowPlayingService
         // so it can push explicit snapshots (decision B). Task is fine — both actors are
         // created synchronously above, and setNowPlayingService has no meaningful ordering requirement.
         Task { await player.setNowPlayingService(nowPlaying) }
+        Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
     }
 }
 
