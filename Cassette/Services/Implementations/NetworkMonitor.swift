@@ -16,7 +16,11 @@ final class NetworkMonitor: Sendable {
     func start(serverState: ServerState) {
         monitor.pathUpdateHandler = { path in
             let online = path.status == .satisfied
-            Task { @MainActor in serverState.isOnline = online }
+            let expensive = path.isExpensive
+            Task { @MainActor in
+                serverState.isOnline = online
+                serverState.isExpensive = expensive
+            }
         }
         monitor.start(queue: queue)
         Logger.network.debug("NetworkMonitor started.")

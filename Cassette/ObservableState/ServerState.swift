@@ -32,6 +32,9 @@ final class ServerState {
     var isConnected: Bool = false
     /// Updated by NetworkMonitor. False when NWPathMonitor reports no connectivity.
     var isOnline: Bool = true
+    /// Updated by NetworkMonitor. True when the connection is metered (cellular, hotspot).
+    /// Default false — optimistic until the first NWPath update corrects it on launch (~100ms).
+    var isExpensive: Bool = false
     // Prevents OnboardingView flash before persisted state is restored on launch.
     var isLoadingPersistedState: Bool = true
 }
