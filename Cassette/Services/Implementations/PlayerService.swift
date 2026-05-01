@@ -933,8 +933,9 @@ actor PlayerService: PlayerServiceProtocol {
             let session = AVAudioSession.sharedInstance()
             if !audioSessionConfigured {
                 // .playback disables the silent switch and allows background audio.
-                // AirPlay + Bluetooth options enable wireless output without extra entitlements.
-                try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
+                // .allowBluetooth enables A2DP (high-quality audio). .allowBluetoothHFP is for
+                // .playAndRecord only and raises Code=-50 with .playback.
+                try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetooth])
                 audioSessionConfigured = true
             }
             // Always call setActive(true) — iOS may have deactivated the session during a
