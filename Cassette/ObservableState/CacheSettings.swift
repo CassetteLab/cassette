@@ -7,49 +7,82 @@ import Foundation
 import Observation
 
 /// User-configurable cache preferences persisted in UserDefaults.
-/// @Observable so SettingsView updates live; stored as Double for UserDefaults compatibility
-/// (all quota options ≤ 5 GB fit exactly in a 53-bit Double mantissa).
+/// @Observable so SettingsView updates live when the user changes settings.
 /// Injected into AppContainer; services read values via MainActor.run when needed.
 @Observable
 @MainActor
 final class CacheSettings {
-    // MARK: - Keys
+    // MARK: - Storage (observation ignored)
 
-    private static let ttlKey   = "cache.ttl"
-    private static let quotaKey = "cache.quota"
+    @ObservationIgnored private var _maxTracks: Int
+    @ObservationIgnored private var _cacheFormat: CacheFormat
+    @ObservationIgnored private var _cacheOverCellular: Bool
 
-    // MARK: - Defaults
+    // MARK: - Visible properties (manual observation hooks)
 
-    static let defaultTTLSeconds: Double  = 259_200        // 3 days
-    static let defaultQuotaBytes: Double  = 1_073_741_824  // 1 GB
-
-    // MARK: - Properties
-
-    /// TTL in seconds. Special value: `.greatestFiniteMagnitude` = "until cache is full".
-    var ttlSeconds: Double {
-        didSet { UserDefaults.standard.set(ttlSeconds, forKey: Self.ttlKey) }
+    var maxTracks: Int {
+        get {
+            access(keyPath: \.maxTracks)
+            return _maxTracks
+        }
+        set {
+            let clamped = max(Self.minMaxTracks, min(Self.maxMaxTracks, newValue))
+            withMutation(keyPath: \.maxTracks) {
+                _maxTracks = clamped
+            }
+            UserDefaults.standard.set(clamped, forKey: Self.maxTracksKey)
+        }
     }
 
-    /// Quota in bytes stored as Double. Special value: `.greatestFiniteMagnitude` = "no limit".
-    var quotaBytes: Double {
-        didSet { UserDefaults.standard.set(quotaBytes, forKey: Self.quotaKey) }
+    var cacheFormat: CacheFormat {
+        get {
+            access(keyPath: \.cacheFormat)
+            return _cacheFormat
+        }
+        set {
+            withMutation(keyPath: \.cacheFormat) {
+                _cacheFormat = newValue
+            }
+            UserDefaults.standard.set(newValue.rawValue, forKey: Self.cacheFormatKey)
+        }
     }
 
-    // MARK: - Typed accessors for services
-
-    var ttl: TimeInterval { ttlSeconds }
-
-    var quotaInt64: Int64 {
-        quotaBytes >= Double.greatestFiniteMagnitude ? Int64.max : Int64(quotaBytes)
+    var cacheOverCellular: Bool {
+        get {
+            access(keyPath: \.cacheOverCellular)
+            return _cacheOverCellular
+        }
+        set {
+            withMutation(keyPath: \.cacheOverCellular) {
+                _cacheOverCellular = newValue
+            }
+            UserDefaults.standard.set(newValue, forKey: Self.cacheOverCellularKey)
+        }
     }
+
+    // MARK: - Defaults & keys
+
+    static let defaultMaxTracks: Int = 10
+    static let minMaxTracks: Int = 1
+    static let maxMaxTracks: Int = 10
+    static let defaultFormat: CacheFormat = .matchStream
+    static let defaultCacheOverCellular: Bool = false
+
+    private static let maxTracksKey = "cassette.cache.maxTracks"
+    private static let cacheFormatKey = "cassette.cache.format"
+    private static let cacheOverCellularKey = "cassette.cache.cellular"
 
     // MARK: - Init
 
     init() {
-        let storedTTL = UserDefaults.standard.double(forKey: Self.ttlKey)
-        ttlSeconds = storedTTL > 0 ? storedTTL : Self.defaultTTLSeconds
+        let loadedMaxTracks = UserDefaults.standard.integer(forKey: Self.maxTracksKey)
+        self._maxTracks = (loadedMaxTracks == 0)
+            ? Self.defaultMaxTracks
+            : max(Self.minMaxTracks, min(Self.maxMaxTracks, loadedMaxTracks))
 
-        let storedQuota = UserDefaults.standard.double(forKey: Self.quotaKey)
-        quotaBytes = storedQuota > 0 ? storedQuota : Self.defaultQuotaBytes
+        let loadedFormatRaw = UserDefaults.standard.string(forKey: Self.cacheFormatKey)
+        self._cacheFormat = CacheFormat(rawValue: loadedFormatRaw ?? "") ?? Self.defaultFormat
+
+        self._cacheOverCellular = UserDefaults.standard.bool(forKey: Self.cacheOverCellularKey)
     }
 }
