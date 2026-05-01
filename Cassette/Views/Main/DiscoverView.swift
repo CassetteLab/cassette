@@ -9,6 +9,8 @@ import SwiftSonic
 struct DiscoverView: View {
     @Environment(\.appContainer) private var container
     @State private var vm: DiscoverViewModel?
+    @Namespace private var recentlyPlayedNS
+    @Namespace private var mostPlayedNS
 
     var body: some View {
         ScrollView {
@@ -49,7 +51,7 @@ struct DiscoverView: View {
             } else if vm.recentlyPlayed.isEmpty {
                 emptyStateMessage("No history yet — start playing some tracks.")
             } else {
-                horizontalAlbumScroll(albums: vm.recentlyPlayed)
+                horizontalAlbumScroll(albums: vm.recentlyPlayed, namespace: recentlyPlayedNS)
             }
         }
     }
@@ -61,7 +63,7 @@ struct DiscoverView: View {
             } else if vm.mostPlayed.isEmpty {
                 emptyStateMessage("No frequent plays yet — your top tracks will appear here.")
             } else {
-                horizontalAlbumScroll(albums: vm.mostPlayed)
+                horizontalAlbumScroll(albums: vm.mostPlayed, namespace: mostPlayedNS)
             }
         }
     }
@@ -151,14 +153,15 @@ struct DiscoverView: View {
         }
     }
 
-    private func horizontalAlbumScroll(albums: [AlbumID3]) -> some View {
+    private func horizontalAlbumScroll(albums: [AlbumID3], namespace: Namespace.ID) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: CassetteSpacing.s) {
                 ForEach(albums, id: \.id) { album in
                     NavigationLink {
-                        AlbumDetailView(album: album)
+                        AlbumDetailView(album: album, zoomSourceId: album.id, zoomNamespace: namespace)
                     } label: {
                         AlbumCard(album: album)
+                            .modifier(ConditionalMatchedTransitionSource(id: album.id, namespace: namespace))
                     }
                     .buttonStyle(.plain)
                 }
@@ -226,5 +229,20 @@ struct DiscoverView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, CassetteSpacing.l)
             .padding(.horizontal, CassetteSpacing.m)
+    }
+}
+
+// MARK: - Zoom transition source modifier
+
+private struct ConditionalMatchedTransitionSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15.0, *) {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
     }
 }
