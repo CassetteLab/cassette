@@ -106,7 +106,7 @@ private struct OfflineAlbumsContent: View {
             List {
                 Section("Downloaded Albums") {
                     ForEach(displayAlbums) { display in
-                        NavigationLink(destination: AlbumDetailView(albumId: display.albumId, albumName: display.name)) {
+                        NavigationLink(destination: AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)) {
                             AlbumRow(
                                 albumId: display.albumId,
                                 name: display.name,
