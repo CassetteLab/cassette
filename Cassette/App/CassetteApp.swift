@@ -39,8 +39,6 @@ struct CassetteApp: App {
                 await newContainer.serverService.loadPersistedState()
                 await newContainer.playerService.restoreSession()
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
-                // Best-effort TTL eviction at launch — runs concurrently, never blocks UI.
-                Task { await newContainer.cacheService.evictExpired() }
             }
             .task(id: container?.serverState.isOnline) {
                 guard let c = container, c.serverState.isOnline else { return }

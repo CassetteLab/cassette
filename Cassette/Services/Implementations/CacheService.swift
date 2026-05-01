@@ -7,194 +7,215 @@ import Foundation
 import SwiftData
 import OSLog
 
-// NOTE(v1.x): cache is currently populated only by manual downloads (Étape 6).
-// Automatic stream-alongside-cache will use AVAssetResourceLoaderDelegate once the
-// byte-range / seek-resumption complexity is addressed.
+/// Streaming cache for recently-played tracks. Holds a sliding window of the N most-recently-cached tracks.
+/// FIFO eviction: when count exceeds the limit, the oldest by `cachedAt` is removed (file + record).
+///
+/// Distinct from DownloadService:
+/// - DownloadService → permanent, user-explicit, never auto-evicted, lives in Documents/.
+/// - CacheService → transient, automatic, evicted by FIFO, lives in Caches/.
+///
+/// Populated via the streaming hook in PlayerService (phase 2). MediaResolver reads from this cache
+/// between permanent downloads and remote streaming.
 actor CacheService: CacheServiceProtocol {
     private let modelContainer: ModelContainer
     private let cacheDirectory: URL
+    private(set) var maxTracks: Int
 
-    init(modelContainer: ModelContainer) {
+    nonisolated static let defaultMaxTracks: Int = 10
+    nonisolated static let minMaxTracks: Int = 1
+    nonisolated static let maxMaxTracks: Int = 10
+
+    init(modelContainer: ModelContainer, maxTracks: Int = CacheService.defaultMaxTracks) {
         self.modelContainer = modelContainer
+        self.maxTracks = max(Self.minMaxTracks, min(Self.maxMaxTracks, maxTracks))
+
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         self.cacheDirectory = caches.appendingPathComponent("app.cassette/audio", isDirectory: true)
+
+        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+    }
+
+    // MARK: - Configuration
+
+    /// Updates the maximum number of tracks held in cache. Triggers FIFO eviction if count exceeds
+    /// the new limit. Range is clamped to [1, 10].
+    func setMaxTracks(_ value: Int) async {
+        maxTracks = max(Self.minMaxTracks, min(Self.maxMaxTracks, value))
+        await evictToFitLimit()
     }
 
     // MARK: - Lookup
 
     func cachedURL(forSongId songId: String, serverId: UUID) async -> URL? {
-        let now = Date()
         let filePath: String? = await MainActor.run {
             let context = ModelContext(modelContainer)
-            var descriptor = FetchDescriptor<CachedTrack>(
-                predicate: #Predicate { $0.songId == songId }
-            )
+            var descriptor = FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId })
             descriptor.fetchLimit = 1
-            let track = (try? context.fetch(descriptor))?
-                .first { $0.serverId == serverId && $0.expiresAt > now }
-            return track?.filePath
+            let tracks = (try? context.fetch(descriptor)) ?? []
+            return tracks.first { $0.serverId == serverId }?.filePath
         }
         guard let filePath else { return nil }
         let url = cacheDirectory.appendingPathComponent(filePath)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            // Stale DB record — clean up asynchronously.
+            Logger.cache.warning("Cache record exists but file missing: \(filePath, privacy: .public)")
             await invalidate(songId: songId, serverId: serverId)
             return nil
         }
         return url
     }
 
-    // MARK: - Store
-
-    func store(
-        data: Data,
-        forSongId songId: String,
-        serverId: UUID,
-        mimeType: String,
-        ttl: TimeInterval
-    ) async throws -> URL {
-        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-
-        let ext = mimeType.components(separatedBy: "/").last ?? "mp3"
-        let filename = "\(serverId.uuidString)-\(songId).\(ext)"
-        let fileURL = cacheDirectory.appendingPathComponent(filename)
-        try data.write(to: fileURL, options: .atomic)
-
-        let fileSize = Int64(data.count)
-        let now = Date()
-        // "Until cache is full" is represented as .greatestFiniteMagnitude; clamp to distantFuture
-        // to avoid overflow when computing a Date from an enormous TimeInterval.
-        let expiresAt = ttl >= .greatestFiniteMagnitude ? Date.distantFuture : now.addingTimeInterval(ttl)
-
-        await MainActor.run {
-            let context = ModelContext(modelContainer)
-            context.insert(CachedTrack(
-                songId: songId,
-                serverId: serverId,
-                filePath: filename,
-                fileSize: fileSize,
-                mimeType: mimeType,
-                cachedAt: now,
-                expiresAt: expiresAt,
-                lastAccessedAt: now
-            ))
-            try? context.save()
-        }
-
-        Logger.cache.info("Stored '\(songId, privacy: .public)' (\(fileSize) bytes, expires \(expiresAt, privacy: .public))")
-        return fileURL
+    func touch(songId: String, serverId: UUID) async {
+        // No-op now that LRU is removed. Kept for MediaResolver API stability (phase 5 removes it).
     }
 
-    // MARK: - LRU touch
+    // MARK: - Storage
 
-    func touch(songId: String, serverId: UUID) async {
+    /// Stores audio data in the cache. Upserts the SwiftData record, then runs FIFO eviction.
+    func store(data: Data, forSongId songId: String, serverId: UUID, mimeType: String) async throws -> URL {
+        let ext = mimeType.split(separator: "/").last.map(String.init) ?? "bin"
+        let relativePath = "\(serverId.uuidString)-\(songId).\(ext)"
+        let fileURL = cacheDirectory.appendingPathComponent(relativePath)
+
+        try data.write(to: fileURL, options: .atomic)
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? Int64(data.count)
+
         await MainActor.run {
             let context = ModelContext(modelContainer)
-            let descriptor = FetchDescriptor<CachedTrack>(
-                predicate: #Predicate { $0.songId == songId }
-            )
-            guard let track = (try? context.fetch(descriptor))?.first(where: { $0.serverId == serverId })
-            else { return }
-            track.lastAccessedAt = Date()
+            let existing = (try? context.fetch(FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId })))?
+                .first { $0.serverId == serverId }
+            if let existing {
+                existing.filePath = relativePath
+                existing.fileSize = fileSize
+                existing.mimeType = mimeType
+                existing.cachedAt = Date()
+            } else {
+                context.insert(CachedTrack(
+                    songId: songId,
+                    serverId: serverId,
+                    filePath: relativePath,
+                    fileSize: fileSize,
+                    mimeType: mimeType
+                ))
+            }
             try? context.save()
         }
+
+        await evictToFitLimit()
+        Logger.cache.info("Cached '\(songId, privacy: .public)' (\(fileSize) bytes, \(mimeType, privacy: .public))")
+        return fileURL
     }
 
     // MARK: - Eviction
 
-    func evictExpired() async {
-        let now = Date()
-        let paths: [String] = await MainActor.run {
+    /// FIFO eviction: removes the oldest tracks (by cachedAt asc) until count <= maxTracks.
+    private func evictToFitLimit() async {
+        // Capture actor-isolated maxTracks before the synchronous MainActor closure.
+        let limit = maxTracks
+
+        let toEvict: [(filePath: String, recordId: UUID)] = await MainActor.run {
             let context = ModelContext(modelContainer)
-            guard let tracks = try? context.fetch(FetchDescriptor<CachedTrack>()) else { return [] }
-            let expired = tracks.filter { $0.expiresAt <= now }
-            let paths = expired.map(\.filePath)
-            expired.forEach { context.delete($0) }
-            try? context.save()
-            if !paths.isEmpty {
-                Logger.cache.info("Evicted \(paths.count) expired track(s).")
-            }
-            return paths
+            let descriptor = FetchDescriptor<CachedTrack>(sortBy: [SortDescriptor(\.cachedAt, order: .forward)])
+            let allTracks = (try? context.fetch(descriptor)) ?? []
+            let excess = allTracks.count - limit
+            guard excess > 0 else { return [] }
+            return allTracks.prefix(excess).map { ($0.filePath, $0.id) }
         }
-        paths.forEach { deleteFile(named: $0) }
+
+        guard !toEvict.isEmpty else { return }
+
+        for entry in toEvict {
+            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(entry.filePath))
+        }
+
+        let recordIds = toEvict.map(\.recordId)
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let allTracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
+            allTracks.filter { recordIds.contains($0.id) }.forEach { context.delete($0) }
+            try? context.save()
+        }
+
+        Logger.cache.info("Evicted \(toEvict.count) cache entries (FIFO, oldest first)")
     }
 
-    func evictLRU(toFitQuota quotaBytes: Int64) async {
-        let paths: [String] = await MainActor.run {
-            let context = ModelContext(modelContainer)
-            let descriptor = FetchDescriptor<CachedTrack>(
-                sortBy: [SortDescriptor(\.lastAccessedAt, order: .forward)]
-            )
-            guard let tracks = try? context.fetch(descriptor) else { return [] }
-
-            let total = tracks.reduce(0) { $0 + $1.fileSize }
-            guard total > quotaBytes else { return [] }
-
-            var freed: Int64 = 0
-            let target = total - quotaBytes
-            var paths: [String] = []
-            for track in tracks {
-                guard freed < target else { break }
-                freed += track.fileSize
-                paths.append(track.filePath)
-                context.delete(track)
-            }
-            try? context.save()
-            Logger.cache.info("LRU eviction freed \(freed) bytes (\(paths.count) track(s)).")
-            return paths
-        }
-        paths.forEach { deleteFile(named: $0) }
-    }
-
+    /// Manually invalidates a single entry (file + record). No-op if not cached.
     func invalidate(songId: String, serverId: UUID) async {
-        let path: String? = await MainActor.run {
+        let filePath: String? = await MainActor.run {
             let context = ModelContext(modelContainer)
-            let descriptor = FetchDescriptor<CachedTrack>(
-                predicate: #Predicate { $0.songId == songId }
-            )
-            guard let track = (try? context.fetch(descriptor))?.first(where: { $0.serverId == serverId })
-            else { return nil }
-            let path = track.filePath
-            context.delete(track)
-            try? context.save()
-            return path
+            let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId }))) ?? []
+            return tracks.first { $0.serverId == serverId }?.filePath
         }
-        if let path { deleteFile(named: path) }
+        if let filePath {
+            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+        }
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId }))) ?? []
+            tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
+            try? context.save()
+        }
+        Logger.cache.debug("Invalidated cache for '\(songId, privacy: .public)'")
     }
 
+    /// Clears the entire cache (all servers).
     func clearAll() async {
-        let paths: [String] = await MainActor.run {
+        let allFilePaths: [String] = await MainActor.run {
             let context = ModelContext(modelContainer)
-            guard let tracks = try? context.fetch(FetchDescriptor<CachedTrack>()) else { return [] }
-            let paths = tracks.map(\.filePath)
+            let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
+            return tracks.map(\.filePath)
+        }
+        for filePath in allFilePaths {
+            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+        }
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
             tracks.forEach { context.delete($0) }
             try? context.save()
-            return paths
         }
-        paths.forEach { deleteFile(named: $0) }
-        Logger.cache.info("Cache cleared (\(paths.count) track(s) removed).")
+        Logger.cache.info("Cleared all cache entries")
     }
 
-    // MARK: - Size
+    /// Clears all cache entries for a specific server (used at server switch in phase 6).
+    func clearAllForServer(_ serverId: UUID) async {
+        let filePaths: [String] = await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
+            return tracks.filter { $0.serverId == serverId }.map(\.filePath)
+        }
+        for filePath in filePaths {
+            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+        }
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
+            tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
+            try? context.save()
+        }
+        Logger.cache.info("Cleared cache for server \(serverId.uuidString)")
+    }
 
+    // MARK: - Reporting
+
+    /// Total bytes used by all cached tracks. Used by Settings UI.
     var usedBytes: Int64 {
         get async {
             await MainActor.run {
                 let context = ModelContext(modelContainer)
-                guard let tracks = try? context.fetch(FetchDescriptor<CachedTrack>()) else { return 0 }
-                return tracks.reduce(0) { $0 + $1.fileSize }
+                let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
+                return tracks.map(\.fileSize).reduce(0, +)
             }
         }
     }
 
-    // MARK: - Disk helper
-
-    private func deleteFile(named filename: String) {
-        let url = cacheDirectory.appendingPathComponent(filename)
-        do {
-            try FileManager.default.removeItem(at: url)
-        } catch {
-            Logger.cache.warning("Failed to delete cached file '\(filename, privacy: .public)': \(error, privacy: .public)")
+    /// Number of cached tracks. Used by Settings UI.
+    var trackCount: Int {
+        get async {
+            await MainActor.run {
+                let context = ModelContext(modelContainer)
+                let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
+                return tracks.count
+            }
         }
     }
 }

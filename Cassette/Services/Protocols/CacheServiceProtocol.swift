@@ -6,24 +6,18 @@
 import Foundation
 
 protocol CacheServiceProtocol: AnyObject, Sendable {
+    var usedBytes: Int64 { get async }
+    var trackCount: Int { get async }
+
     func cachedURL(forSongId songId: String, serverId: UUID) async -> URL?
 
-    /// Stores audio data on disk and records it in SwiftData.
-    /// `ttl` controls the expiry window; pass `CacheSettings.ttl` at the call site so this
-    /// actor remains independent of UserDefaults/Settings infrastructure (decision A1).
-    func store(
-        data: Data,
-        forSongId songId: String,
-        serverId: UUID,
-        mimeType: String,
-        ttl: TimeInterval
-    ) async throws -> URL
-
-    /// Updates lastAccessedAt for LRU tracking. Call whenever a cached track is played.
+    /// No-op since LRU removal. Kept for MediaResolver API stability — removed in phase 5.
     func touch(songId: String, serverId: UUID) async
 
-    func evictExpired() async
-    func evictLRU(toFitQuota quotaBytes: Int64) async
+    func store(data: Data, forSongId songId: String, serverId: UUID, mimeType: String) async throws -> URL
+
+    /// Updates the maximum number of cached tracks. Triggers FIFO eviction if current count exceeds the new limit.
+    func setMaxTracks(_ value: Int) async
 
     /// Removes a single record and its file immediately (e.g. on stale-file detection).
     func invalidate(songId: String, serverId: UUID) async
@@ -31,5 +25,6 @@ protocol CacheServiceProtocol: AnyObject, Sendable {
     /// Deletes every cached track and file — called by "Clear cache now".
     func clearAll() async
 
-    var usedBytes: Int64 { get async }
+    /// Deletes all cached tracks for a specific server — called at server switch (phase 6).
+    func clearAllForServer(_ serverId: UUID) async
 }
