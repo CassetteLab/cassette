@@ -145,10 +145,12 @@ private struct DownloadsSectionView: View {
             if !vm.displayAlbums.isEmpty {
                 DisclosureGroup {
                     ForEach(vm.displayAlbums) { album in
-                        HStack {
+                        HStack(spacing: CassetteSpacing.m) {
+                            CoverArtCard(id: album.coverArtId ?? album.albumId, size: 40)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(album.name)
                                     .font(.subheadline)
+                                    .lineLimit(1)
                                 if let total = album.totalTracksCount {
                                     Text("\(album.downloadedTracksCount)/\(total) tracks")
                                         .font(.caption)
@@ -181,11 +183,13 @@ private struct DownloadsSectionView: View {
             if !vm.downloadedPlaylists.isEmpty {
                 DisclosureGroup {
                     ForEach(vm.downloadedPlaylists) { playlist in
-                        HStack {
+                        HStack(spacing: CassetteSpacing.m) {
+                            CoverArtCard(id: playlist.playlistId, size: 40)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(playlist.name)
                                     .font(.subheadline)
-                                Text("\(playlist.tracksCount)/\(playlist.totalTracksCount) tracks\(playlist.isComplete ? "" : " (incomplete)")")
+                                    .lineLimit(1)
+                                Text("\(playlist.tracksCount)/\(playlist.totalTracksCount) tracks")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
