@@ -20,6 +20,9 @@ actor PlayerService: PlayerServiceProtocol {
     private let sessionService: PlaybackSessionService
     private let artworkImageCache: ArtworkImageCache
     private let libraryService: any LibraryServiceProtocol
+    private let cacheService: any CacheServiceProtocol
+    private let downloadService: any DownloadServiceProtocol
+    private let cacheSettings: CacheSettings
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
 
     private var player: AVPlayer?
@@ -31,6 +34,9 @@ actor PlayerService: PlayerServiceProtocol {
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
     private var scrobbleSubmissionTask: Task<Void, Never>?
+    /// Task scheduled to download and cache the current track at +30s of playback.
+    /// Cancelled when track changes via cancelPendingCacheDownload().
+    private var cacheDownloadTask: Task<Void, Never>?
     // Saved before a shuffle activation; nil when shuffle is off.
     private var originalQueueOrder: [DisplayableSong]?
     /// Single-slot guard preventing concurrent auto-extend fetches.
@@ -43,7 +49,10 @@ actor PlayerService: PlayerServiceProtocol {
         serverService: any ServerServiceProtocol,
         sessionService: PlaybackSessionService,
         artworkImageCache: ArtworkImageCache,
-        libraryService: any LibraryServiceProtocol
+        libraryService: any LibraryServiceProtocol,
+        cacheService: any CacheServiceProtocol,
+        downloadService: any DownloadServiceProtocol,
+        cacheSettings: CacheSettings
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
@@ -51,6 +60,9 @@ actor PlayerService: PlayerServiceProtocol {
         self.sessionService = sessionService
         self.artworkImageCache = artworkImageCache
         self.libraryService = libraryService
+        self.cacheService = cacheService
+        self.downloadService = downloadService
+        self.cacheSettings = cacheSettings
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -105,12 +117,13 @@ actor PlayerService: PlayerServiceProtocol {
             throw error
         }
 
-        await startPlayback(song: song, source: source)
+        await startPlayback(song: song, source: source, serverId: serverId)
     }
 
-    private func startPlayback(song: DisplayableSong, source: MediaSource) async {
-        // Cancel any pending +30s scrobble from the previous track.
+    private func startPlayback(song: DisplayableSong, source: MediaSource, serverId: UUID) async {
+        // Cancel any pending +30s scrobble and cache download from the previous track.
         cancelPendingScrobble()
+        cancelPendingCacheDownload()
 
         let songId = song.id
         Task { [libraryService] in
@@ -120,6 +133,52 @@ actor PlayerService: PlayerServiceProtocol {
             try? await Task.sleep(for: .seconds(30))
             guard !Task.isCancelled else { return }
             await libraryService.scrobble(songId: songId, submission: true)
+        }
+
+        // Schedule cache download for stream sources only. Same +30s threshold as scrobble.
+        // Phase 3: reads cacheSettings for format and cellular policy.
+        if case .stream(let streamURL, let customHeaders) = source {
+            // Capture settings at task-creation time — in-flight tasks use values from when they were scheduled.
+            let (allowCellular, cacheFormat) = await MainActor.run {
+                (cacheSettings.cacheOverCellular, cacheSettings.cacheFormat)
+            }
+
+            let cacheStreamURL: URL?
+            if cacheFormat == .matchStream {
+                cacheStreamURL = streamURL
+            } else {
+                cacheStreamURL = (try? await serverService.makeSwiftSonicClient())?.streamURL(
+                    id: songId,
+                    maxBitRate: cacheFormat.subsonicMaxBitRate,
+                    format: cacheFormat.subsonicFormat
+                )
+            }
+
+            if let cacheStreamURL {
+                cacheDownloadTask = Task { [cacheService, downloadService, serverService, weak self] in
+                    try? await Task.sleep(for: .seconds(30))
+                    guard !Task.isCancelled else { return }
+                    if await cacheService.cachedURL(forSongId: songId, serverId: serverId) != nil { return }
+                    if await downloadService.isDownloaded(songId: songId, serverId: serverId) { return }
+                    let isExpensive = await MainActor.run { serverService.state.isExpensive }
+                    if isExpensive && !allowCellular {
+                        Logger.player.debug("Cache skipped — cellular for '\(songId, privacy: .public)'")
+                        return
+                    }
+                    do {
+                        try await self?.downloadAndCache(
+                            songId: songId,
+                            serverId: serverId,
+                            streamURL: cacheStreamURL,
+                            customHeaders: customHeaders
+                        )
+                    } catch {
+                        Logger.player.debug("Cache download failed for '\(songId, privacy: .public)': \(error, privacy: .public)")
+                    }
+                }
+            } else {
+                Logger.player.debug("Cache: no URL for '\(songId, privacy: .public)' in \(cacheFormat.rawValue) — skipping")
+            }
         }
 
         teardownPlayer()
@@ -175,6 +234,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     func playRadio(_ station: InternetRadioStation) async throws {
         cancelPendingScrobble()
+        cancelPendingCacheDownload()
         let source = try await mediaResolver.resolveRadio(station)
 
         teardownPlayer()
@@ -346,6 +406,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     func stop() async {
         cancelPendingScrobble()
+        cancelPendingCacheDownload()
         teardownPlayer()
         await MainActor.run {
             state.playbackState = .idle
@@ -675,6 +736,11 @@ actor PlayerService: PlayerServiceProtocol {
         scrobbleSubmissionTask = nil
     }
 
+    private func cancelPendingCacheDownload() {
+        cacheDownloadTask?.cancel()
+        cacheDownloadTask = nil
+    }
+
     // MARK: - End of track
 
     private func handleEndOfTrack() async {
@@ -899,6 +965,44 @@ actor PlayerService: PlayerServiceProtocol {
         guard let client = try? await serverService.makeSwiftSonicClient() else { return nil }
         let artId = song.coverArtId ?? song.id
         return client.coverArtURL(id: artId, size: 300)
+    }
+
+    // MARK: - Cache download helpers
+
+    /// Downloads the track from its stream URL and stores it in CacheService.
+    /// Uses URLSession.download for disk-streaming efficiency (temp file → read → store).
+    private func downloadAndCache(
+        songId: String,
+        serverId: UUID,
+        streamURL: URL,
+        customHeaders: [String: String]
+    ) async throws {
+        var request = URLRequest(url: streamURL)
+        for (key, value) in customHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+
+        let (tempURL, response) = try await URLSession.shared.download(for: request)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            struct CacheDownloadError: Error, Sendable { let statusCode: Int }
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw CacheDownloadError(statusCode: code)
+        }
+
+        let data = try Data(contentsOf: tempURL)
+        let ext = streamURL.pathExtension
+        let mimeType = response.mimeType ?? (ext.isEmpty ? "audio/mpeg" : "audio/\(ext)")
+
+        _ = try await cacheService.store(
+            data: data,
+            forSongId: songId,
+            serverId: serverId,
+            mimeType: mimeType
+        )
+
+        Logger.player.info("Cached '\(songId, privacy: .public)' from stream (\(data.count) bytes, \(mimeType, privacy: .public))")
     }
 
     /// Pushes a position-only snapshot when track metadata hasn't changed (pause/resume/seek).
