@@ -15,6 +15,7 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if serverState.activeServer != nil {
                 MainTabView()
+                    .accentColor(.cassetteAccent)
             } else {
                 OnboardingView()
             }
