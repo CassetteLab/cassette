@@ -13,11 +13,13 @@ actor ServerService: ServerServiceProtocol {
 
     private let keychain: any KeychainServiceProtocol
     private let modelContainer: ModelContainer
+    private let cacheService: any CacheServiceProtocol
 
-    init(state: ServerState, keychain: any KeychainServiceProtocol, modelContainer: ModelContainer) {
+    init(state: ServerState, keychain: any KeychainServiceProtocol, modelContainer: ModelContainer, cacheService: any CacheServiceProtocol) {
         self.state = state
         self.keychain = keychain
         self.modelContainer = modelContainer
+        self.cacheService = cacheService
     }
 
     func addServer(
@@ -87,7 +89,7 @@ actor ServerService: ServerServiceProtocol {
     }
 
     func setActiveServer(id: UUID) async throws {
-        try await MainActor.run {
+        let allServerIds = try await MainActor.run {
             let context = ModelContext(modelContainer)
             let all = try context.fetch(FetchDescriptor<ServerConfig>())
             guard let target = all.first(where: { $0.id == id }) else {
@@ -98,7 +100,19 @@ actor ServerService: ServerServiceProtocol {
             try context.save()
             state.activeServer = ServerSnapshot(from: target)
             state.isConnected = false
+            return all.map(\.id)
         }
+
+        // Best-effort: clear the audio cache for every server that is no longer active.
+        let othersToClean = allServerIds.filter { $0 != id }
+        guard !othersToClean.isEmpty else {
+            Logger.server.debug("No other servers to clean cache for at switch.")
+            return
+        }
+        for serverId in othersToClean {
+            await cacheService.clearAllForServer(serverId)
+        }
+        Logger.server.info("Cleared cache for \(othersToClean.count) non-active server(s) at switch.")
     }
 
     func updateCustomHeaders(_ headers: [String: String], forServer id: UUID) async throws {

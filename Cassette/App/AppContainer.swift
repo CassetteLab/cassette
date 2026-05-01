@@ -44,15 +44,15 @@ final class AppContainer {
         let keychain = KeychainService()
         keychainService = keychain
 
-        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer)
+        let cache = CacheService(modelContainer: modelContainer, maxTracks: cacheSettings.maxTracks)
+        cacheService = cache
+
+        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer, cacheService: cache)
         serverService = server
         radioService = RadioService(serverService: server)
 
         let library = LibraryService(serverService: server, modelContainer: modelContainer)
         libraryService = library
-
-        let cache = CacheService(modelContainer: modelContainer)
-        cacheService = cache
 
         let download = DownloadService(serverService: server, modelContainer: modelContainer, toastService: toastService)
         downloadService = download
@@ -66,7 +66,7 @@ final class AppContainer {
         )
         mediaResolver = resolver
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library)
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings)
         playerService = player
 
         let nowPlaying = NowPlayingService(playerService: player, artworkImageCache: artworkImageCache)
