@@ -30,6 +30,7 @@ final class AppContainer {
     let favoritesService: any FavoritesServiceProtocol
     let pinService: any PinServiceProtocol
     let playlistService: any PlaylistServiceProtocol
+    let radioService: any RadioServiceProtocol
     let toastService = ToastService()
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
@@ -45,6 +46,7 @@ final class AppContainer {
 
         let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer)
         serverService = server
+        radioService = RadioService(serverService: server)
 
         let library = LibraryService(serverService: server)
         libraryService = library
