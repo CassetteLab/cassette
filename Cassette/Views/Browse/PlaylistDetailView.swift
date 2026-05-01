@@ -157,7 +157,7 @@ struct PlaylistDetailView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear { isDismissing = false }
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .navigation) {
                 Button {
                     isDismissing = true
                     dismiss()
@@ -217,7 +217,7 @@ struct PlaylistDetailView: View {
                 )
             }
         }
-        .modifier(ConditionalZoomTransition(sourceId: zoomSourceId, namespace: zoomNamespace))
+        .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
@@ -515,21 +515,3 @@ private struct PlaylistSongRows: View {
     }
 }
 
-// MARK: - Zoom transition modifier
-
-private struct ConditionalZoomTransition: ViewModifier {
-    let sourceId: String?
-    let namespace: Namespace.ID?
-
-    func body(content: Content) -> some View {
-        if let sourceId, let namespace {
-            if #available(macOS 15.0, *) {
-                content.navigationTransition(.zoom(sourceID: sourceId, in: namespace))
-            } else {
-                content
-            }
-        } else {
-            content
-        }
-    }
-}

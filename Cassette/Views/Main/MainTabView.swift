@@ -36,7 +36,7 @@ struct MainTabView: View {
             .safeAreaInset(edge: .bottom) {
                 if hasTrack { MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer) }
             }
-            .fullScreenCover(isPresented: $showingFullPlayer) {
+            .sheet(isPresented: $showingFullPlayer) {
                 FullPlayerView()
             }
         #endif

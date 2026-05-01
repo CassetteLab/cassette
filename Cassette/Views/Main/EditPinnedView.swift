@@ -73,7 +73,7 @@ struct EditPinnedView: View {
                 }
             }
             .navigationTitle("Edit Pinned")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }

@@ -24,7 +24,7 @@ struct CreatePlaylistSheet: View {
                 }
             }
             .navigationTitle("New Playlist")
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayModeInline()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

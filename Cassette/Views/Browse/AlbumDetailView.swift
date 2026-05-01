@@ -205,7 +205,7 @@ struct AlbumDetailView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear { isDismissing = false }
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .navigation) {
                 Button {
                     isDismissing = true
                     dismiss()
@@ -215,7 +215,7 @@ struct AlbumDetailView: View {
                         .foregroundStyle(.primary)
                 }
             }
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     HapticFeedback.light.trigger()
                     Task {
@@ -259,7 +259,7 @@ struct AlbumDetailView: View {
             await loadDominantColor(coverArtId: artId)
         }
         .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
-        .modifier(ConditionalZoomTransition(sourceId: zoomSourceId, namespace: zoomNamespace))
+        .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
     // MARK: - Skeleton rows
@@ -573,21 +573,3 @@ private struct AlbumSongRows: View {
     }
 }
 
-// MARK: - Zoom transition modifier
-
-private struct ConditionalZoomTransition: ViewModifier {
-    let sourceId: String?
-    let namespace: Namespace.ID?
-
-    func body(content: Content) -> some View {
-        if let sourceId, let namespace {
-            if #available(macOS 15.0, *) {
-                content.navigationTransition(.zoom(sourceID: sourceId, in: namespace))
-            } else {
-                content
-            }
-        } else {
-            content
-        }
-    }
-}
