@@ -822,11 +822,18 @@ actor PlayerService: PlayerServiceProtocol {
     /// ⚠ Monitor Apple AVFoundation release notes — Apple could remove or replace this mechanism.
     private func makePlayerItem(source: MediaSource) -> AVPlayerItem {
         let headers = source.customHeaders
-        guard !headers.isEmpty else {
-            return AVPlayerItem(url: source.url)
+        let item: AVPlayerItem
+        if headers.isEmpty {
+            item = AVPlayerItem(url: source.url)
+        } else {
+            let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFields": headers])
+            item = AVPlayerItem(asset: asset)
         }
-        let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFields": headers])
-        return AVPlayerItem(asset: asset)
+        if source.isLiveStream {
+            // Default buffer is too conservative for high-bitrate FLAC streams; 15s absorbs cellular/wifi jitter.
+            item.preferredForwardBufferDuration = 15.0
+        }
+        return item
     }
 
     private func setupPeriodicTimeObserver(for player: AVPlayer) {
