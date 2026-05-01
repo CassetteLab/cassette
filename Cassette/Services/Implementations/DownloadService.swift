@@ -439,6 +439,21 @@ actor DownloadService: DownloadServiceProtocol {
             tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
             try? context.save()
         }
+        // Sync DownloadedPlaylist.songIds — remove this songId from any playlist that contains it.
+        // Without this, the cold-start retry would re-download the song silently after removal.
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let sid = serverId
+            let playlists = (try? context.fetch(
+                FetchDescriptor<DownloadedPlaylist>(predicate: #Predicate { $0.serverId == sid })
+            )) ?? []
+            var didMutate = false
+            for playlist in playlists where playlist.songIds.contains(songId) {
+                playlist.songIds.removeAll { $0 == songId }
+                didMutate = true
+            }
+            if didMutate { try? context.save() }
+        }
     }
 
     func remove(albumId: String, serverId: UUID) async throws {

@@ -19,6 +19,7 @@ struct SongRow: View {
     var titleColor: Color = .primary
     var secondaryColor: Color = .secondary
     let onDownload: (() -> Void)?
+    let onRemoveDownload: (() -> Void)?
     var isDownloading: Bool = false
 
     @Environment(\.appContainer) private var container
@@ -27,7 +28,7 @@ struct SongRow: View {
     @State private var coverImage: PlatformImage?
     @State private var showAddToPlaylist = false
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
@@ -35,6 +36,7 @@ struct SongRow: View {
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
         self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
         self.isDownloading = isDownloading
         let compositeId = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == compositeId })
@@ -141,6 +143,12 @@ struct SongRow: View {
             if !song.isDownloaded && !isDownloading, let action = onDownload {
                 Button(action: action) {
                     Label("Download", systemImage: "arrow.down.circle")
+                }
+            }
+
+            if song.isDownloaded, let action = onRemoveDownload {
+                Button(role: .destructive, action: action) {
+                    Label("Remove Download", systemImage: "trash")
                 }
             }
 

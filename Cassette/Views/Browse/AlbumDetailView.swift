@@ -125,6 +125,9 @@ struct AlbumDetailView: View {
                             },
                             onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
                                 Task { await vm.downloadSong(id: songId) }
+                            },
+                            onRemoveDownload: { songId in
+                                Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
                             }
                         )
                     }
@@ -427,10 +430,6 @@ struct AlbumDetailView: View {
                         }
                     }
                     .frame(minHeight: 44)
-                } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
-                    Text("\(downloaded)/\(total) tracks downloaded")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(headerSecondaryColor)
                 }
             }
         }
@@ -458,16 +457,18 @@ private struct AlbumSongRows: View {
     let secondaryColor: Color
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
+    let onRemoveDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
         self.onTap = onTap
         self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
         let aid = albumId
         let sid = serverId
         _downloadedTracks = Query(
@@ -497,8 +498,9 @@ private struct AlbumSongRows: View {
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
+            let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
             VStack(spacing: 0) {
-                SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
+                SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
                     .padding(.horizontal, CassetteSpacing.l)
                     .onTapGesture { onTap(index) }
                 if index < songs.count - 1 {

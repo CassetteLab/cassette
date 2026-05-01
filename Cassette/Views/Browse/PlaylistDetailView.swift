@@ -117,6 +117,9 @@ struct PlaylistDetailView: View {
                         onDownload: (vm.isOffline || vm.isDownloadingPlaylist) ? nil : { songId in
                             Task { await vm.downloadSong(id: songId) }
                         },
+                        onRemoveDownload: { songId in
+                            Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
+                        },
                         onRemove: vm.isOffline ? nil : { index in
                             Task { await vm.removeTrack(at: index) }
                         },
@@ -415,10 +418,6 @@ struct PlaylistDetailView: View {
                         }
                     }
                     .frame(minHeight: 44)
-                } else if case .partiallyDownloaded(let downloaded, let total) = downloadState(for: vm) {
-                    Text("\(downloaded)/\(total) tracks downloaded")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(headerSecondaryColor)
                 }
             }
         }
@@ -446,18 +445,20 @@ private struct PlaylistSongRows: View {
     let secondaryColor: Color
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
+    let onRemoveDownload: ((String) -> Void)?
     let onRemove: ((Int) -> Void)?
     let onReorder: ((IndexSet, Int) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
         self.onTap = onTap
         self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
         self.onRemove = onRemove
         self.onReorder = onReorder
         let sid = serverId
@@ -506,7 +507,8 @@ private struct PlaylistSongRows: View {
         )
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
-        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, isDownloading: isDownloading)
+        let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
             .listRowBackground(Color.clear)
