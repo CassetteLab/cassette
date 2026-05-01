@@ -231,20 +231,37 @@ actor PlaylistService: PlaylistServiceProtocol {
     }
 
     func retryMissingPlaylistDownloads() async {
-        let records = await MainActor.run { () -> [(playlistId: String, serverId: UUID)] in
+        let records = await MainActor.run { () -> [(playlistId: String, serverId: UUID, songIds: [String])] in
             let context = modelContainer.mainContext
             let descriptor = FetchDescriptor<DownloadedPlaylist>()
             guard let fetched = try? context.fetch(descriptor) else { return [] }
             return fetched
                 .filter { !$0.songIds.isEmpty }
-                .map { (playlistId: $0.playlistId, serverId: $0.serverId) }
+                .map { (playlistId: $0.playlistId, serverId: $0.serverId, songIds: $0.songIds) }
         }
         guard !records.isEmpty else { return }
+
         for record in records {
-            guard let playlist = try? await client().getPlaylist(id: record.playlistId) else { continue }
-            let sid = record.serverId
-            Task { [weak self] in
-                try? await self?.downloadService.download(playlist: playlist, serverId: sid)
+            let downloadedIds = await downloadService.downloadedSongIds(serverId: record.serverId)
+            let missingIds = record.songIds.filter { !downloadedIds.contains($0) }
+
+            guard !missingIds.isEmpty else { continue }
+
+            Logger.playlist.info("Retrying \(missingIds.count) missing track(s) for playlist '\(record.playlistId, privacy: .public)'")
+
+            guard let playlist = try? await client().getPlaylist(id: record.playlistId) else {
+                Logger.playlist.warning("Failed to fetch playlist '\(record.playlistId, privacy: .public)' for retry — skipping.")
+                continue
+            }
+
+            let missingIdSet = Set(missingIds)
+            let songsToDownload = (playlist.entry ?? []).filter { missingIdSet.contains($0.id) }
+            let serverId = record.serverId
+
+            for song in songsToDownload {
+                Task { [weak self] in
+                    try? await self?.downloadService.download(song: song, serverId: serverId)
+                }
             }
         }
     }
