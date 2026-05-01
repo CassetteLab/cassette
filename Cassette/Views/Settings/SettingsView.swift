@@ -36,6 +36,7 @@ struct SettingsView: View {
     private func form(downloadsVM: DownloadsViewModel) -> some View {
         Form {
             DownloadsSectionView(vm: downloadsVM)
+            CacheSectionView()
             serverSection()
             aboutSection()
         }
@@ -121,6 +122,142 @@ private struct SettingsIcon: View {
             .frame(width: 28, height: 28)
             .background(color)
             .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+// MARK: - Cache section
+
+private struct CacheSectionView: View {
+    @Environment(\.appContainer) private var container
+    @State private var usedBytes: Int64 = 0
+    @State private var trackCount: Int = 0
+    @State private var isClearing: Bool = false
+
+    private var cacheSettings: CacheSettings? { container?.cacheSettings }
+
+    var body: some View {
+        let maxTracks = cacheSettings?.maxTracks ?? 10
+
+        return Section {
+            LabeledContent {
+                Text(usageDescription(maxTracks: maxTracks))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            } label: {
+                Label {
+                    Text("Used")
+                } icon: {
+                    SettingsIcon(systemImage: "externaldrive.fill", color: .green)
+                }
+            }
+
+            if let cacheSettings {
+                Stepper(
+                    value: Binding(
+                        get: { cacheSettings.maxTracks },
+                        set: { cacheSettings.maxTracks = max(1, min(10, $0)) }
+                    ),
+                    in: 1...10
+                ) {
+                    HStack {
+                        Label {
+                            Text("Max tracks")
+                        } icon: {
+                            SettingsIcon(systemImage: "tray.full.fill", color: Color.cassetteAccent)
+                        }
+                        Spacer()
+                        Text("\(maxTracks)")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .font(.body.weight(.medium))
+                    }
+                }
+            }
+
+            if let cacheSettings {
+                Picker(selection: Binding<CacheFormat>(
+                    get: { cacheSettings.cacheFormat },
+                    set: { newValue in cacheSettings.cacheFormat = newValue }
+                )) {
+                    ForEach(CacheFormat.allCases) { format in
+                        Text(format.displayName).tag(format)
+                    }
+                } label: {
+                    Label {
+                        Text("Format")
+                    } icon: {
+                        SettingsIcon(systemImage: "waveform", color: .purple)
+                    }
+                }
+                .pickerStyle(.menu)
+            }
+
+            if let cacheSettings {
+                Toggle(isOn: Binding(
+                    get: { cacheSettings.cacheOverCellular },
+                    set: { cacheSettings.cacheOverCellular = $0 }
+                )) {
+                    Label {
+                        Text("Use cellular data")
+                    } icon: {
+                        SettingsIcon(systemImage: "antenna.radiowaves.left.and.right", color: .blue)
+                    }
+                }
+            }
+
+            Button(role: .destructive) {
+                Task { await clearCache() }
+            } label: {
+                if isClearing {
+                    HStack(spacing: CassetteSpacing.s) {
+                        ProgressView().scaleEffect(0.8)
+                        Text("Clearing…")
+                    }
+                } else {
+                    Label("Clear cache", systemImage: "trash.fill")
+                }
+            }
+            .disabled(isClearing || (usedBytes == 0 && trackCount == 0))
+
+        } header: {
+            Text("Cache")
+        } footer: {
+            Text("Cached tracks let recently-played music load instantly without re-fetching from the server. Cache is automatic, sliding window — the oldest track is replaced when the limit is reached.")
+        }
+        .task {
+            await refreshUsage()
+        }
+        .onChange(of: cacheSettings?.maxTracks) { _, newValue in
+            guard let newValue else { return }
+            Task {
+                await container?.cacheService.setMaxTracks(newValue)
+                await refreshUsage()
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func usageDescription(maxTracks: Int) -> String {
+        let bytesString = ByteCountFormatter.string(fromByteCount: usedBytes, countStyle: .file)
+        return "\(bytesString) · \(trackCount)/\(maxTracks) tracks"
+    }
+
+    private func refreshUsage() async {
+        guard let container else { return }
+        let bytes = await container.cacheService.usedBytes
+        let count = await container.cacheService.trackCount
+        usedBytes = bytes
+        trackCount = count
+    }
+
+    private func clearCache() async {
+        guard let container else { return }
+        isClearing = true
+        defer { isClearing = false }
+        await container.cacheService.clearAll()
+        container.dominantColorExtractor.clearCache()
+        await refreshUsage()
     }
 }
 
