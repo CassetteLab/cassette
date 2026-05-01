@@ -31,7 +31,7 @@ struct ToastView: View {
         )
         .shadow(radius: 8, y: 2)
         .padding(.horizontal, CassetteSpacing.l)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
 
@@ -42,10 +42,10 @@ struct ToastOverlay: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .bottom) {
+            .overlay(alignment: .top) {
                 if let toast = toastService.current {
                     ToastView(toast: toast)
-                        .padding(.bottom, CassetteSpacing.xxl)
+                        .padding(.top, CassetteSpacing.s)
                         .id(toast.id)
                 }
             }
