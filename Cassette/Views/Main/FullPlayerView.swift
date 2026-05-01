@@ -226,8 +226,8 @@ private struct TrackInfoSection: View {
             .gesture(swipeGesture)
             .onChange(of: playerState.currentTrack?.id) { _, _ in swipeDragOffset = 0 }
 
-            if !playerState.isLiveStream {
-                HStack(spacing: CassetteSpacing.s) {
+            HStack(spacing: CassetteSpacing.s) {
+                if !playerState.isLiveStream {
                     Button {
                         HapticFeedback.light.trigger()
                         let fav = isFavorite
@@ -248,8 +248,10 @@ private struct TrackInfoSection: View {
                     .buttonStyle(.borderless)
                     .disabled(!isOnline)
                     .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                }
 
-                    Menu {
+                Menu {
+                    if !playerState.isLiveStream {
                         Button("Go to Album", systemImage: "square.stack") { }
                         Button("Go to Artist", systemImage: "music.mic") { }
                         Divider()
@@ -257,15 +259,21 @@ private struct TrackInfoSection: View {
                             songToAddToPlaylist = playerState.currentTrack
                         }
                         .disabled(!isOnline || playerState.currentTrack == nil)
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.title3)
-                            .foregroundStyle(contentColor)
-                            .cassetteGlassButton(size: 44, tint: glassTint)
+                        Divider()
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("More options")
+                    Button {
+                        Task { await triggerSmartShuffle() }
+                    } label: {
+                        Label("Smart Shuffle", systemImage: "shuffle.circle")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.title3)
+                        .foregroundStyle(contentColor)
+                        .cassetteGlassButton(size: 44, tint: glassTint)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More options")
             }
         }
         .sheet(isPresented: $showArtistSheet) {
@@ -323,6 +331,22 @@ private struct TrackInfoSection: View {
 
     private func bounceBack() {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { swipeDragOffset = 0 }
+    }
+
+    private func triggerSmartShuffle() async {
+        guard let container else { return }
+        do {
+            try await container.playerService.playSmartShuffle()
+        } catch {
+            container.toastService.showError(smartShuffleErrorMessage(from: error))
+        }
+    }
+
+    private func smartShuffleErrorMessage(from error: Error) -> String {
+        if case CassetteError.smartShuffleEmpty = error {
+            return "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
+        }
+        return "Smart Shuffle failed. Please try again."
     }
 }
 

@@ -24,4 +24,5 @@ extension Logger {
     nonisolated static let session     = Logger(subsystem: "app.cassette.session",    category: "PlaybackSessionService")
     nonisolated static let playlist    = Logger(subsystem: "app.cassette.playlist",   category: "PlaylistService")
     nonisolated static let radio       = Logger(subsystem: "app.cassette.radio",      category: "RadioService")
+    nonisolated static let discover    = Logger(subsystem: "app.cassette.discover",   category: "DiscoverViewModel")
 }

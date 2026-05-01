@@ -23,6 +23,40 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     func allAlbums() async throws -> [AlbumID3]
     func lyrics(artist: String?, title: String?) async throws -> Lyrics?
 
+    // MARK: - Discover
+
+    /// Notifies the server about playback activity. v1.3 uses both modes :
+    /// - `submission: false` → "now playing" notification, sent at track start
+    /// - `submission: true` → "completed play", sent after 30s of playback
+    ///
+    /// Errors are silenced — scrobble failures must not interrupt playback or surface to the user.
+    /// Network/auth errors are logged at debug level.
+    func scrobble(songId: String, submission: Bool) async
+
+    /// Recently played albums (Subsonic `getAlbumList2?type=recent`).
+    /// Granularity is album-level — Subsonic does not expose track-level history endpoints.
+    func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3]
+
+    /// Most played albums (Subsonic `getAlbumList2?type=frequent`).
+    func mostPlayedAlbums(size: Int) async throws -> [AlbumID3]
+
+    /// Random songs from the user's library. Used as the source pool for Smart Shuffle (phase 3).
+    /// Server has no "exclude recently played" filter — filtering is done client-side by the consumer.
+    func randomSongs(size: Int) async throws -> [Song]
+
+    /// Builds a queue of tracks for Smart Shuffle (v1.3 Discover feature).
+    ///
+    /// Online: fetches a 200-song random pool, filters out tracks played in the last 30 days,
+    /// relaxing to 60 then 90 days if the pool is too small, falling back to oldest-played
+    /// first if the entire pool is recent. Returns up to `targetSize` tracks.
+    ///
+    /// Offline: returns a pure shuffle over downloaded tracks for the active server.
+    /// No play-date filtering — DownloadedTrack has no local play-date field (roadmap item).
+    ///
+    /// May return fewer than `targetSize` tracks or an empty array if the library is too small.
+    /// Throws only on network/auth failures in the online path.
+    func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong]
+
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
     func getPlayQueue() async throws -> SavedPlayQueue?

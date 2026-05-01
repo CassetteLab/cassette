@@ -19,6 +19,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let serverService: any ServerServiceProtocol
     private let sessionService: PlaybackSessionService
     private let artworkImageCache: ArtworkImageCache
+    private let libraryService: any LibraryServiceProtocol
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
 
     private var player: AVPlayer?
@@ -27,21 +28,29 @@ actor PlayerService: PlayerServiceProtocol {
     private var durationObserver: NSKeyValueObservation?
     private var audioSessionConfigured = false
     private var positionSaveTask: Task<Void, Never>?
+    /// Task scheduling the `submission: true` scrobble at +30s after track start.
+    /// Cancelled and replaced each time a new track starts via `startPlayback()`.
+    private var scrobbleSubmissionTask: Task<Void, Never>?
     // Saved before a shuffle activation; nil when shuffle is off.
     private var originalQueueOrder: [DisplayableSong]?
+    /// Single-slot guard preventing concurrent auto-extend fetches.
+    private var autoExtendFetchTask: Task<Void, Never>?
+    private nonisolated static let autoExtendUserDefaultsKey = "cassette.player.autoExtendEnabled"
 
     init(
         state: PlayerState,
         mediaResolver: any MediaResolverProtocol,
         serverService: any ServerServiceProtocol,
         sessionService: PlaybackSessionService,
-        artworkImageCache: ArtworkImageCache
+        artworkImageCache: ArtworkImageCache,
+        libraryService: any LibraryServiceProtocol
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
         self.serverService = serverService
         self.sessionService = sessionService
         self.artworkImageCache = artworkImageCache
+        self.libraryService = libraryService
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -59,7 +68,14 @@ actor PlayerService: PlayerServiceProtocol {
         let currentQueueIds = await MainActor.run { state.queue.map(\.id) }
         if tracks.map(\.id) != currentQueueIds {
             originalQueueOrder = nil
-            await MainActor.run { state.isShuffled = false }
+            await MainActor.run {
+                state.isShuffled = false
+                state.originalQueueEndIndex = nil
+                if state.isSmartShuffleActive {
+                    state.isSmartShuffleActive = false
+                    Logger.player.debug("Ending Smart Shuffle session — starting new explicit queue")
+                }
+            }
         }
 
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
@@ -93,6 +109,19 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func startPlayback(song: DisplayableSong, source: MediaSource) async {
+        // Cancel any pending +30s scrobble from the previous track.
+        cancelPendingScrobble()
+
+        let songId = song.id
+        Task { [libraryService] in
+            await libraryService.scrobble(songId: songId, submission: false)
+        }
+        scrobbleSubmissionTask = Task { [libraryService] in
+            try? await Task.sleep(for: .seconds(30))
+            guard !Task.isCancelled else { return }
+            await libraryService.scrobble(songId: songId, submission: true)
+        }
+
         teardownPlayer()
 
         #if os(iOS)
@@ -139,11 +168,13 @@ actor PlayerService: PlayerServiceProtocol {
         await sessionService.save(playerState: state)
         startPositionSaveTimer()
         preloadNextTrackArtwork()
+        await evaluateAutoExtend()
     }
 
     // MARK: - Live Stream
 
     func playRadio(_ station: InternetRadioStation) async throws {
+        cancelPendingScrobble()
         let source = try await mediaResolver.resolveRadio(station)
 
         teardownPlayer()
@@ -155,6 +186,8 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run {
             state.currentTrack = nil
             state.currentRadio = station
+            state.isSmartShuffleActive = false
+            state.originalQueueEndIndex = nil
             state.playbackState = .loading
             state.position = 0
             state.duration = 0
@@ -193,6 +226,102 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("Started live stream radio '\(station.name, privacy: .public)'")
     }
 
+    // MARK: - Smart Shuffle
+
+    func playSmartShuffle() async throws {
+        let tracks = try await libraryService.smartShuffleQueue(targetSize: 50)
+        guard !tracks.isEmpty else {
+            Logger.player.info("Smart shuffle returned empty — library too small or no downloads offline")
+            throw CassetteError.smartShuffleEmpty
+        }
+
+        // play(tracks:) resets isSmartShuffleActive via the new-queue check, so set the flag after.
+        try await play(tracks: tracks, startIndex: 0)
+        await MainActor.run { state.isSmartShuffleActive = true }
+
+        Logger.player.info("Started Smart Shuffle session with \(tracks.count) tracks")
+    }
+
+    func setAutoExtendEnabled(_ enabled: Bool) async {
+        await MainActor.run { state.isAutoExtendEnabled = enabled }
+        UserDefaults.standard.set(enabled, forKey: Self.autoExtendUserDefaultsKey)
+        if enabled {
+            // State is updated before re-evaluation so the guards inside read fresh values.
+            await evaluateAutoExtend()
+        } else {
+            await truncateExtensions()
+        }
+        Logger.player.info("Auto-extend \(enabled ? "enabled" : "disabled", privacy: .public)")
+    }
+
+    // MARK: - Auto-extend
+
+    /// Reads queue position and fires a background fetch + append when ≤15 tracks remain.
+    /// Called at the end of every startPlayback(). Guarded by a single-slot task to prevent
+    /// parallel fetches when tracks advance rapidly. Errors are swallowed — natural queue
+    /// end is the graceful fallback.
+    private func evaluateAutoExtend() async {
+        let (isEnabled, repeatMode, currentRadio, remaining) = await MainActor.run {
+            let remaining = state.queue.count - state.currentIndex - 1
+            return (state.isAutoExtendEnabled, state.repeatMode, state.currentRadio, remaining)
+        }
+        guard isEnabled else { return }
+        guard repeatMode == .off else { return }
+        guard currentRadio == nil else { return }
+        guard autoExtendFetchTask == nil else { return }
+        // Trigger threshold : 15 or fewer tracks remaining (including zero — covers singles
+        // and starting from the last track of an album).
+        guard remaining <= 15 else { return }
+
+        Logger.player.info("Auto-extend triggered: \(remaining) tracks remaining, fetching 50 more")
+
+        autoExtendFetchTask = Task { [libraryService, weak self] in
+            defer { Task { await self?.clearAutoExtendFetchTask() } }
+            do {
+                let tracks = try await libraryService.smartShuffleQueue(targetSize: 50)
+                guard !tracks.isEmpty else {
+                    Logger.player.debug("Auto-extend fetch returned empty — library exhausted or offline without downloads")
+                    return
+                }
+                await self?.anchorOriginalQueueBoundaryIfNeeded()
+                await self?.appendToQueue(tracks)
+                Logger.player.info("Auto-extend appended \(tracks.count) tracks to queue")
+            } catch {
+                Logger.player.debug("Auto-extend fetch failed: \(error, privacy: .public)")
+            }
+        }
+    }
+
+    private func clearAutoExtendFetchTask() {
+        autoExtendFetchTask = nil
+    }
+
+    /// Records the current queue count as the boundary between user-intentional and
+    /// auto-extended tracks. No-op if the boundary is already set (first extend wins).
+    private func anchorOriginalQueueBoundaryIfNeeded() async {
+        let alreadySet = await MainActor.run { state.originalQueueEndIndex != nil }
+        guard !alreadySet else { return }
+        let queueCount = await MainActor.run { state.queue.count }
+        await MainActor.run { state.originalQueueEndIndex = queueCount }
+        Logger.player.debug("Auto-extend boundary anchored at \(queueCount)")
+    }
+
+    /// Removes auto-extended tracks when the user is still in the original zone.
+    /// If the user has already advanced into the extended zone, the queue is left intact.
+    private func truncateExtensions() async {
+        let (boundary, currentIndex, queueCount) = await MainActor.run {
+            (state.originalQueueEndIndex, state.currentIndex, state.queue.count)
+        }
+        guard let boundary else { return }
+        guard currentIndex < boundary else { return }
+        guard boundary < queueCount else { return }
+        await MainActor.run {
+            state.queue = Array(state.queue[0..<boundary])
+            state.originalQueueEndIndex = nil
+        }
+        Logger.player.info("Auto-extend tail truncated at boundary \(boundary) (currentIndex=\(currentIndex))")
+    }
+
     // MARK: - Pause / Resume
 
     func pause() async {
@@ -216,11 +345,14 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Stop
 
     func stop() async {
+        cancelPendingScrobble()
         teardownPlayer()
         await MainActor.run {
             state.playbackState = .idle
             state.currentTrack = nil
             state.currentRadio = nil
+            state.isSmartShuffleActive = false
+            state.originalQueueEndIndex = nil
             state.queue = []
             state.position = 0
             state.duration = 0
@@ -289,7 +421,16 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.debug("setRepeatMode ignored — live stream mode")
             return
         }
+        let previousMode = await MainActor.run { state.repeatMode }
         await MainActor.run { state.repeatMode = mode }
+        // Activating any loop mode while in the original zone truncates the auto-extended tail.
+        if previousMode == .off && mode != .off {
+            await truncateExtensions()
+        }
+        // Deactivating loop may newly satisfy the auto-extend repeat guard — re-evaluate.
+        if previousMode != .off && mode == .off {
+            await evaluateAutoExtend()
+        }
         await sessionService.save(playerState: state)
     }
 
@@ -523,6 +664,15 @@ actor PlayerService: PlayerServiceProtocol {
     private func stopPositionSaveTimer() {
         positionSaveTask?.cancel()
         positionSaveTask = nil
+    }
+
+    // MARK: - Scrobble
+
+    /// Cancels any pending `submission: true` scrobble. Called when switching tracks,
+    /// switching to radio, or stopping. Safe to call when no task is scheduled.
+    private func cancelPendingScrobble() {
+        scrobbleSubmissionTask?.cancel()
+        scrobbleSubmissionTask = nil
     }
 
     // MARK: - End of track

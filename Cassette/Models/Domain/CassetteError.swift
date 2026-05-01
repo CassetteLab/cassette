@@ -23,6 +23,8 @@ nonisolated enum CassetteError: Error, Sendable {
     case notImplemented
     /// Requested media is not downloaded and device is offline.
     case offlineUnavailable(songId: String)
+    /// Smart Shuffle returned no eligible tracks (library too small or no downloads offline).
+    case smartShuffleEmpty
 }
 
 extension CassetteError: LocalizedError {
@@ -56,6 +58,8 @@ extension CassetteError: LocalizedError {
             return "This feature is not yet implemented."
         case .offlineUnavailable(let id):
             return "'\(id)' is not downloaded and device is offline."
+        case .smartShuffleEmpty:
+            return "Your library is too small for Smart Shuffle. Try downloading more music or playing some tracks first."
         }
     }
 }

@@ -24,7 +24,7 @@ nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable, Codable {
 }
 
 extension DisplayableSong {
-    init(from song: Song, isDownloaded: Bool = false) {
+    nonisolated init(from song: Song, isDownloaded: Bool = false) {
         self.id = song.id
         self.title = song.title
         self.artist = song.artist

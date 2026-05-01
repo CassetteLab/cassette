@@ -50,9 +50,9 @@ struct MainTabView: View {
                 }
             }
 
-            Tab("Radio", systemImage: "antenna.radiowaves.left.and.right") {
+            Tab("Discover", systemImage: "sparkles") {
                 NavigationStack {
-                    RadioListView()
+                    DiscoverView()
                 }
             }
 

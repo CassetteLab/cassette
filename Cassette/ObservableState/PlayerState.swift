@@ -29,4 +29,16 @@ final class PlayerState {
     var currentRadio: InternetRadioStation?
     /// True when a radio is the current playback source. Equivalent to currentRadio != nil.
     var isLiveStream: Bool { currentRadio != nil }
+    /// True when the current playback session was started via Smart Shuffle.
+    /// Survives skips and pauses; resets on new explicit play, radio, stop, or cold start.
+    var isSmartShuffleActive: Bool = false
+    /// User preference: when enabled, the player automatically appends a fresh smart shuffle batch
+    /// when ≤15 tracks remain. Suppressed by loop mode and live stream mode. Persisted in UserDefaults.
+    var isAutoExtendEnabled: Bool = UserDefaults.standard.bool(forKey: "cassette.player.autoExtendEnabled")
+    /// Boundary between user-intentional queue tracks and auto-extended tracks.
+    /// `nil` when no auto-extend has occurred in the current session.
+    /// When set, indices `[0..<originalQueueEndIndex]` are user-intentional (album, playlist, or initial
+    /// smart shuffle batch), and indices `[originalQueueEndIndex...]` are added by auto-extend.
+    /// Reset to `nil` on play(tracks:), playRadio(), stop().
+    var originalQueueEndIndex: Int?
 }

@@ -33,4 +33,10 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Starts live stream playback of an Internet Radio Station.
     /// Clears the current queue's playing state but preserves the queue itself.
     func playRadio(_ station: InternetRadioStation) async throws
+    /// Builds a Smart Shuffle queue via LibraryService and starts playback. Replaces the current queue.
+    /// Throws `CassetteError.smartShuffleEmpty` if no eligible tracks (library too small / no downloads offline).
+    func playSmartShuffle() async throws
+    /// Toggles the auto-extend preference and persists it to UserDefaults.
+    /// When enabled and ≤15 tracks remain, the player appends a fresh smart shuffle batch automatically.
+    func setAutoExtendEnabled(_ enabled: Bool) async
 }

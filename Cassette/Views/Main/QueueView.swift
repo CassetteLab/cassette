@@ -110,6 +110,19 @@ struct QueueView: View {
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("Repeat: \(playerState.repeatMode == .one ? "One" : playerState.repeatMode == .off ? "Off" : "All")")
+
+            Button {
+                HapticFeedback.light.trigger()
+                Task { await container?.playerService.setAutoExtendEnabled(!playerState.isAutoExtendEnabled) }
+            } label: {
+                Image(systemName: "infinity")
+                    .font(.title3)
+                    .foregroundStyle(playerState.isAutoExtendEnabled ? Color.cassetteAccent : Color.secondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Auto-extend with Smart Shuffle")
+            .accessibilityValue(playerState.isAutoExtendEnabled ? "Enabled" : "Disabled")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, CassetteSpacing.m)

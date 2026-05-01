@@ -14,8 +14,12 @@ struct DiscoverView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: CassetteSpacing.l) {
                 if let vm {
-                    recentlyPlayedSection(vm: vm)
-                    mostPlayedSection(vm: vm)
+                    if vm.isErrorState {
+                        errorBanner(vm: vm)
+                    } else {
+                        recentlyPlayedSection(vm: vm)
+                        mostPlayedSection(vm: vm)
+                    }
                     smartShuffleSection
                     internetRadioSection
                 }
@@ -40,20 +44,32 @@ struct DiscoverView: View {
 
     private func recentlyPlayedSection(vm: DiscoverViewModel) -> some View {
         section(title: "Recently Played") {
-            horizontalAlbumScroll(albums: vm.recentlyPlayed)
+            if vm.isInitialLoading {
+                skeletonScroll()
+            } else if vm.recentlyPlayed.isEmpty {
+                emptyStateMessage("No history yet — start playing some tracks.")
+            } else {
+                horizontalAlbumScroll(albums: vm.recentlyPlayed)
+            }
         }
     }
 
     private func mostPlayedSection(vm: DiscoverViewModel) -> some View {
         section(title: "Most Played") {
-            horizontalAlbumScroll(albums: vm.mostPlayed)
+            if vm.isInitialLoading {
+                skeletonScroll()
+            } else if vm.mostPlayed.isEmpty {
+                emptyStateMessage("No frequent plays yet — your top tracks will appear here.")
+            } else {
+                horizontalAlbumScroll(albums: vm.mostPlayed)
+            }
         }
     }
 
     private var smartShuffleSection: some View {
         section(title: "Smart Shuffle") {
             Button {
-                // TODO(v1.3 phase 3): wire to PlayerService.playSmartShuffle()
+                Task { await triggerSmartShuffle() }
             } label: {
                 HStack(spacing: CassetteSpacing.s) {
                     Image(systemName: "shuffle.circle.fill")
@@ -78,8 +94,23 @@ struct DiscoverView: View {
             }
             .buttonStyle(.plain)
             .padding(.horizontal, CassetteSpacing.m)
-            .disabled(true)
         }
+    }
+
+    private func triggerSmartShuffle() async {
+        guard let container else { return }
+        do {
+            try await container.playerService.playSmartShuffle()
+        } catch {
+            container.toastService.showError(smartShuffleErrorMessage(from: error))
+        }
+    }
+
+    private func smartShuffleErrorMessage(from error: Error) -> String {
+        if case CassetteError.smartShuffleEmpty = error {
+            return "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
+        }
+        return "Smart Shuffle failed. Please try again."
     }
 
     private var internetRadioSection: some View {
@@ -134,5 +165,66 @@ struct DiscoverView: View {
             }
             .padding(.horizontal, CassetteSpacing.m)
         }
+    }
+
+    private func errorBanner(vm: DiscoverViewModel) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            HStack(spacing: CassetteSpacing.s) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                Text("Unable to load Discover")
+                    .font(.cassetteCellTitle)
+            }
+            if let message = vm.loadError?.localizedDescription {
+                Text(message)
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(3)
+            }
+            Button {
+                Task { await vm.load(forceRefresh: true) }
+            } label: {
+                Text("Retry")
+                    .font(.cassetteCellTitle)
+                    .padding(.horizontal, CassetteSpacing.m)
+                    .padding(.vertical, CassetteSpacing.s)
+                    .background(Color.cassetteAccent)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(CassetteSpacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+        .padding(.horizontal, CassetteSpacing.m)
+    }
+
+    private func skeletonScroll() -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: CassetteSpacing.s) {
+                ForEach(0..<6, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                        SkeletonBlock(width: 140, height: 140, cornerRadius: CassetteCornerRadius.standard)
+                        SkeletonBlock(width: 110, height: 12)
+                        SkeletonBlock(width: 80, height: 10)
+                    }
+                    .frame(width: 140)
+                }
+            }
+            .padding(.horizontal, CassetteSpacing.m)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func emptyStateMessage(_ text: String) -> some View {
+        Text(text)
+            .font(.cassetteCaption)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, CassetteSpacing.l)
+            .padding(.horizontal, CassetteSpacing.m)
     }
 }
