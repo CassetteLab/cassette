@@ -60,4 +60,21 @@ actor MediaResolver: MediaResolverProtocol {
         Logger.resolver.debug("Resolved '\(songId, privacy: .public)' as stream.")
         return .stream(streamURL, customHeaders: creds.customHeaders)
     }
+
+    func resolveRadio(_ station: InternetRadioStation) async throws -> MediaSource {
+        guard let url = URL(string: station.streamUrl) else {
+            Logger.resolver.error("Invalid stream URL for radio station '\(station.id, privacy: .public)': \(station.streamUrl, privacy: .private)")
+            throw CassetteError.mediaNotFound(songId: station.id)
+        }
+
+        let isOnline = await MainActor.run { serverState.isOnline }
+        guard isOnline else {
+            Logger.resolver.warning("Radio '\(station.id, privacy: .public)' not available offline.")
+            throw CassetteError.offlineUnavailable(songId: station.id)
+        }
+
+        let creds = try await serverService.activeCredentials()
+        Logger.resolver.debug("Resolved radio '\(station.id, privacy: .public)' as live stream.")
+        return .liveStream(url, customHeaders: creds.customHeaders, stationId: station.id)
+    }
 }
