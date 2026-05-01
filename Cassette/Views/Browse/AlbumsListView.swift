@@ -79,6 +79,7 @@ struct AlbumsListView: View {
 private struct OfflineAlbumsContent: View {
     let serverId: UUID
     @Query private var albums: [DownloadedAlbum]
+    @Query private var tracks: [DownloadedTrack]
 
     init(serverId: UUID) {
         self.serverId = serverId
@@ -87,10 +88,15 @@ private struct OfflineAlbumsContent: View {
             filter: #Predicate<DownloadedAlbum> { album in album.serverId == sid },
             sort: [SortDescriptor(\DownloadedAlbum.name)]
         )
+        _tracks = Query(filter: #Predicate<DownloadedTrack> { track in track.serverId == sid })
+    }
+
+    private var displayAlbums: [DownloadedAlbumDisplay] {
+        DownloadedAlbumMerger.merge(records: albums, tracks: tracks)
     }
 
     var body: some View {
-        if albums.isEmpty {
+        if displayAlbums.isEmpty {
             EmptyStateView(
                 systemImage: "wifi.slash",
                 title: "You're Offline",
@@ -99,14 +105,14 @@ private struct OfflineAlbumsContent: View {
         } else {
             List {
                 Section("Downloaded Albums") {
-                    ForEach(albums) { album in
-                        NavigationLink(destination: AlbumDetailView(albumId: album.albumId, albumName: album.name)) {
+                    ForEach(displayAlbums) { display in
+                        NavigationLink(destination: AlbumDetailView(albumId: display.albumId, albumName: display.name)) {
                             AlbumRow(
-                                albumId: album.albumId,
-                                name: album.name,
-                                artist: album.artist,
+                                albumId: display.albumId,
+                                name: display.name,
+                                artist: display.artist,
                                 year: nil,
-                                coverArtId: album.coverArtId
+                                coverArtId: display.coverArtId
                             )
                         }
                     }

@@ -32,6 +32,7 @@ private struct DownloadedContent: View {
     let serverId: UUID
     @Query private var albums: [DownloadedAlbum]
     @Query private var playlists: [DownloadedPlaylist]
+    @Query private var tracks: [DownloadedTrack]
 
     init(serverId: UUID) {
         self.serverId = serverId
@@ -44,10 +45,15 @@ private struct DownloadedContent: View {
             filter: #Predicate<DownloadedPlaylist> { playlist in playlist.serverId == sid },
             sort: [SortDescriptor(\DownloadedPlaylist.name)]
         )
+        _tracks = Query(filter: #Predicate<DownloadedTrack> { track in track.serverId == sid })
+    }
+
+    private var displayAlbums: [DownloadedAlbumDisplay] {
+        DownloadedAlbumMerger.merge(records: albums, tracks: tracks)
     }
 
     var body: some View {
-        if albums.isEmpty && playlists.isEmpty {
+        if displayAlbums.isEmpty && playlists.isEmpty {
             EmptyStateView(
                 systemImage: "arrow.down.circle",
                 title: "Nothing downloaded",
@@ -55,23 +61,23 @@ private struct DownloadedContent: View {
             )
         } else {
             List {
-                if !albums.isEmpty {
+                if !displayAlbums.isEmpty {
                     Section("Albums") {
-                        ForEach(albums) { album in
-                            NavigationLink(destination: AlbumDetailView(albumId: album.albumId, albumName: album.name)) {
+                        ForEach(displayAlbums) { display in
+                            NavigationLink(destination: AlbumDetailView(albumId: display.albumId, albumName: display.name)) {
                                 HStack(spacing: CassetteSpacing.m) {
-                                    CoverArtCard(id: album.coverArtId ?? album.albumId, size: 56)
+                                    CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(album.name)
+                                        Text(display.name)
                                             .font(.cassetteCellTitle)
                                             .lineLimit(1)
-                                        if let artist = album.artist {
+                                        if let artist = display.artist {
                                             Text(artist)
                                                 .font(.cassetteCellSubtitle)
                                                 .foregroundStyle(.secondary)
                                                 .lineLimit(1)
                                         }
-                                        Text("\(album.tracksCount) track\(album.tracksCount == 1 ? "" : "s")\(album.isComplete ? "" : " (incomplete)")")
+                                        Text("\(display.downloadedTracksCount) track\(display.downloadedTracksCount == 1 ? "" : "s")")
                                             .font(.cassetteCaption)
                                             .foregroundStyle(.tertiary)
                                     }

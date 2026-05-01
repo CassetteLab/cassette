@@ -6,17 +6,6 @@
 import Foundation
 import SwiftData
 
-nonisolated struct DownloadedAlbumDTO: Identifiable, Sendable {
-    let id: UUID
-    let albumId: String
-    let serverId: UUID
-    let name: String
-    let artist: String?
-    let tracksCount: Int
-    let totalTracksCount: Int
-    var isComplete: Bool { tracksCount == totalTracksCount }
-}
-
 nonisolated struct DownloadedPlaylistDTO: Identifiable, Sendable {
     let id: UUID
     let playlistId: String
@@ -30,7 +19,7 @@ nonisolated struct DownloadedPlaylistDTO: Identifiable, Sendable {
 @Observable
 @MainActor
 final class DownloadsViewModel {
-    var downloadedAlbums: [DownloadedAlbumDTO] = []
+    var displayAlbums: [DownloadedAlbumDisplay] = []
     var downloadedPlaylists: [DownloadedPlaylistDTO] = []
     var usedBytesFormatted: String = "—"
     var isClearingAll = false
@@ -55,17 +44,7 @@ final class DownloadsViewModel {
         let playlists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
         let tracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
 
-        downloadedAlbums = albums.map {
-            DownloadedAlbumDTO(
-                id: $0.id,
-                albumId: $0.albumId,
-                serverId: $0.serverId,
-                name: $0.name,
-                artist: $0.artist,
-                tracksCount: $0.tracksCount,
-                totalTracksCount: $0.totalTracksCount
-            )
-        }
+        displayAlbums = DownloadedAlbumMerger.merge(records: albums, tracks: tracks)
 
         downloadedPlaylists = playlists.map {
             DownloadedPlaylistDTO(
@@ -82,8 +61,20 @@ final class DownloadsViewModel {
         usedBytesFormatted = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
     }
 
-    func removeAlbum(_ dto: DownloadedAlbumDTO) async {
-        try? await downloadService.remove(albumId: dto.albumId, serverId: dto.serverId)
+    func removeAlbum(_ display: DownloadedAlbumDisplay) async {
+        if display.hasFullDownloadIntent {
+            try? await downloadService.remove(albumId: display.albumId, serverId: display.serverId)
+        } else {
+            let context = ModelContext(modelContainer)
+            let aid = display.albumId
+            let sid = display.serverId
+            let tracks = (try? context.fetch(
+                FetchDescriptor<DownloadedTrack>(predicate: #Predicate { $0.albumId == aid && $0.serverId == sid })
+            )) ?? []
+            for track in tracks {
+                try? await downloadService.remove(songId: track.songId, serverId: track.serverId)
+            }
+        }
         await loadData()
     }
 
@@ -99,7 +90,7 @@ final class DownloadsViewModel {
         for album in albums {
             try? await downloadService.remove(albumId: album.albumId, serverId: album.serverId)
         }
-        // Remove any tracks not associated with an album.
+        // Remove any tracks not associated with an album record.
         let remaining = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
         for track in remaining {
             try? await downloadService.remove(songId: track.songId, serverId: track.serverId)

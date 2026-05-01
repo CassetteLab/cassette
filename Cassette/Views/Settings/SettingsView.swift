@@ -142,16 +142,22 @@ private struct DownloadsSectionView: View {
                 }
             }
 
-            if !vm.downloadedAlbums.isEmpty {
+            if !vm.displayAlbums.isEmpty {
                 DisclosureGroup {
-                    ForEach(vm.downloadedAlbums) { album in
+                    ForEach(vm.displayAlbums) { album in
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(album.name)
                                     .font(.subheadline)
-                                Text("\(album.tracksCount)/\(album.totalTracksCount) tracks\(album.isComplete ? "" : " (incomplete)")")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                if let total = album.totalTracksCount {
+                                    Text("\(album.downloadedTracksCount)/\(total) tracks")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("\(album.downloadedTracksCount) track\(album.downloadedTracksCount == 1 ? "" : "s")")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                             Spacer()
                             Button(role: .destructive) {
@@ -165,7 +171,7 @@ private struct DownloadsSectionView: View {
                     }
                 } label: {
                     Label {
-                        Text("Albums (\(vm.downloadedAlbums.count))")
+                        Text("Albums (\(vm.displayAlbums.count))")
                     } icon: {
                         SettingsIcon(systemImage: "music.note.list", color: Color.cassetteAccent)
                     }
@@ -202,7 +208,7 @@ private struct DownloadsSectionView: View {
                 }
             }
 
-            if vm.downloadedAlbums.isEmpty && vm.downloadedPlaylists.isEmpty {
+            if vm.displayAlbums.isEmpty && vm.downloadedPlaylists.isEmpty {
                 Text("No downloaded content.")
                     .foregroundStyle(.secondary)
                     .font(.footnote)
@@ -220,7 +226,7 @@ private struct DownloadsSectionView: View {
                     Label("Clear all downloads", systemImage: "trash.fill")
                 }
             }
-            .disabled(vm.isClearingAll || (vm.downloadedAlbums.isEmpty && vm.downloadedPlaylists.isEmpty))
+            .disabled(vm.isClearingAll || (vm.displayAlbums.isEmpty && vm.downloadedPlaylists.isEmpty))
 
         } header: {
             Text("Downloads")
