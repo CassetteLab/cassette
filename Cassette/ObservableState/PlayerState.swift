@@ -5,6 +5,7 @@
 
 import Foundation
 import Observation
+import SwiftSonic
 
 /// Observable UI state for playback. Updated by PlayerService via MainActor.run.
 /// Single source of truth consumed by MiniPlayer, FullPlayer, NowPlayingService,
@@ -23,4 +24,9 @@ final class PlayerState {
     /// False when a restored track cannot be resolved (offline + streamed only).
     /// Resets to true when normal playback starts.
     var isPlaybackAvailable: Bool = true
+    /// Non-nil when the player is in live stream mode (radio playback).
+    /// Mutually exclusive with active queue playback: starting play(tracks:) clears this to nil.
+    var currentRadio: InternetRadioStation?
+    /// True when a radio is the current playback source. Equivalent to currentRadio != nil.
+    var isLiveStream: Bool { currentRadio != nil }
 }

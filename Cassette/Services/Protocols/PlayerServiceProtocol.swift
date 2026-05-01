@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import SwiftSonic
 
 protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Observable playback state (MainActor-isolated).
@@ -29,4 +30,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func moveInQueue(fromIndex: Int, toIndex: Int) async
     func restoreSession() async
     func handleNetworkRestored() async
+    /// Starts live stream playback of an Internet Radio Station.
+    /// Clears the current queue's playing state but preserves the queue itself.
+    func playRadio(_ station: InternetRadioStation) async throws
 }

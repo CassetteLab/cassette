@@ -68,8 +68,12 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         await MainActor.run {
+            if state.currentRadio != nil {
+                Logger.player.debug("Ending live stream session — switching to queue playback")
+            }
             state.queue = tracks
             state.currentIndex = startIndex
+            state.currentRadio = nil
             state.playbackState = .loading
         }
 
@@ -135,6 +139,56 @@ actor PlayerService: PlayerServiceProtocol {
         preloadNextTrackArtwork()
     }
 
+    // MARK: - Live Stream
+
+    func playRadio(_ station: InternetRadioStation) async throws {
+        let source = try await mediaResolver.resolveRadio(station)
+
+        teardownPlayer()
+
+        #if os(iOS)
+        configureAudioSessionIfNeeded()
+        #endif
+
+        await MainActor.run {
+            state.currentTrack = nil
+            state.currentRadio = station
+            state.playbackState = .loading
+            state.position = 0
+            state.duration = 0
+        }
+
+        let item = makePlayerItem(source: source)
+        let newPlayer = AVPlayer(playerItem: item)
+        player = newPlayer
+
+        // Duration and end-of-track observers are not attached — live streams have
+        // indefinite duration and do not fire AVPlayerItemDidPlayToEndTime naturally.
+        setupPeriodicTimeObserver(for: newPlayer)
+        newPlayer.play()
+
+        await MainActor.run {
+            state.playbackState = .playing
+            state.isPlaybackAvailable = true
+        }
+
+        let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
+        await nowPlayingService?.update(with: NowPlayingSnapshot(
+            title: station.name,
+            artist: nil,
+            album: nil,
+            duration: 0,
+            position: 0,
+            playbackRate: 1.0,
+            artworkURL: nil,
+            artworkHeaders: artworkHeaders,
+            coverArtId: station.coverArt
+        ))
+
+        startPositionSaveTimer()
+        Logger.player.info("Started live stream radio '\(station.name, privacy: .public)'")
+    }
+
     // MARK: - Pause / Resume
 
     func pause() async {
@@ -162,6 +216,7 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run {
             state.playbackState = .idle
             state.currentTrack = nil
+            state.currentRadio = nil
             state.queue = []
             state.position = 0
             state.duration = 0
@@ -171,6 +226,10 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Seek
 
     func seek(to position: TimeInterval) async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("seek ignored — live stream mode")
+            return
+        }
         let time = CMTime(seconds: position, preferredTimescale: 1000)
         await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         await MainActor.run { state.position = position }
@@ -180,6 +239,10 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Skip
 
     func skipToNext() async throws {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("skipToNext ignored — live stream mode")
+            return
+        }
         let (queue, currentIndex, repeatMode) = await MainActor.run {
             (state.queue, state.currentIndex, state.repeatMode)
         }
@@ -199,6 +262,10 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func skipToPrevious() async throws {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("skipToPrevious ignored — live stream mode")
+            return
+        }
         let (queue, currentIndex, position) = await MainActor.run {
             (state.queue, state.currentIndex, state.position)
         }
@@ -214,11 +281,19 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Queue management
 
     func setRepeatMode(_ mode: RepeatMode) async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("setRepeatMode ignored — live stream mode")
+            return
+        }
         await MainActor.run { state.repeatMode = mode }
         await sessionService.save(playerState: state)
     }
 
     func toggleShuffle() async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("toggleShuffle ignored — live stream mode")
+            return
+        }
         let isCurrentlyShuffled = await MainActor.run { state.isShuffled }
         if isCurrentlyShuffled {
             await restoreOriginalQueueOrder()
@@ -252,11 +327,19 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func appendToQueue(_ tracks: [DisplayableSong]) async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("appendToQueue ignored — live stream mode")
+            return
+        }
         await MainActor.run { state.queue.append(contentsOf: tracks) }
         await sessionService.save(playerState: state)
     }
 
     func playNext(_ songs: [DisplayableSong]) async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("playNext ignored — live stream mode")
+            return
+        }
         let (queue, currentIndex) = await MainActor.run { (state.queue, state.currentIndex) }
         if queue.isEmpty {
             try? await play(tracks: songs, startIndex: 0)
@@ -281,6 +364,10 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func removeFromQueue(at index: Int) async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("removeFromQueue ignored — live stream mode")
+            return
+        }
         let (queueCount, currentIndex, isShuffled) = await MainActor.run {
             (state.queue.count, state.currentIndex, state.isShuffled)
         }
@@ -300,6 +387,10 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func moveInQueue(fromIndex: Int, toIndex: Int) async {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
+            Logger.player.debug("moveInQueue ignored — live stream mode")
+            return
+        }
         let (queueCount, currentIndex, isShuffled) = await MainActor.run {
             (state.queue.count, state.currentIndex, state.isShuffled)
         }
@@ -336,6 +427,7 @@ actor PlayerService: PlayerServiceProtocol {
             state.queue = data.queue
             state.currentIndex = data.currentIndex
             state.currentTrack = track
+            state.currentRadio = nil
             state.position = data.currentPosition
             state.duration = data.currentTrackDuration
             state.repeatMode = data.repeatMode
