@@ -1,0 +1,15 @@
+// Cassette — Music client for Subsonic/OpenSubsonic servers
+// Copyright (C) 2026 Mathieu Dubart
+// Licensed under the GNU General Public License v3.0 or later.
+// See LICENSE file in the project root for full license information.
+
+import SwiftUI
+
+extension Color {
+    /// Perceived luminance using ITU-R BT.601 coefficients.
+    /// Values > 0.6 indicate a light background that needs dark content.
+    var luminance: Double {
+        guard let components = cgColor?.components, components.count >= 3 else { return 0.5 }
+        return 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
+    }
+}
