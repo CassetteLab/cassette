@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import OSLog
+import Foundation
 
 @main
 struct CassetteApp: App {
@@ -39,6 +40,7 @@ struct CassetteApp: App {
                 await newContainer.serverService.loadPersistedState()
                 await newContainer.playerService.restoreSession()
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
+                Task { await runCoverArtGarbageCollection(container: newContainer) }
             }
             .task(id: container?.serverState.isOnline) {
                 guard let c = container, c.serverState.isOnline else { return }
@@ -50,5 +52,35 @@ struct CassetteApp: App {
             c.sessionService.save(playerState: c.playerState)
             Logger.session.info("App backgrounded — session flushed")
         }
+    }
+
+    // MARK: - Cover art garbage collection
+
+    @MainActor
+    private func runCoverArtGarbageCollection(container: AppContainer) async {
+        let context = container.modelContainer.mainContext
+        var referencedIds: Set<String> = []
+
+        let albums = (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? []
+        for album in albums {
+            if let id = album.coverArtId { referencedIds.insert(id) }
+        }
+
+        let tracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+        for track in tracks {
+            if let id = track.coverArtId { referencedIds.insert(id) }
+        }
+
+        let playlists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
+        for playlist in playlists {
+            if let id = playlist.coverArtId { referencedIds.insert(id) }
+        }
+
+        let pinned = (try? context.fetch(FetchDescriptor<PinnedItem>())) ?? []
+        for item in pinned {
+            if let id = item.coverArtId { referencedIds.insert(id) }
+        }
+
+        await container.downloadService.garbageCollectOrphanedCovers(referencedIds: referencedIds)
     }
 }

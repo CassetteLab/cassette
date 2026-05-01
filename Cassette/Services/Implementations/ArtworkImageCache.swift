@@ -17,9 +17,10 @@ import AppKit
 /// injectable into the SwiftUI environment and readable synchronously from any
 /// MainActor context (context menu previews, NowPlayingInfoCenter updates).
 ///
-/// URL resolution order: local downloaded file → server URL (credentials embedded
-/// as query params by LibraryService, consistent with CoverArtView behaviour).
-/// LRU eviction keeps the cache under maxEntries to prevent memory pressure.
+/// Resolution order: RAM → disk (Documents/coverarts/) → server fetch + persist to disk.
+/// All paths — downloads and streamed covers — share the same disk directory, so a
+/// cover fetched during streaming is available instantly on the next cold start.
+/// LRU eviction keeps the RAM cache under maxEntries to prevent memory pressure.
 @MainActor
 @Observable
 final class ArtworkImageCache {
@@ -46,23 +47,37 @@ final class ArtworkImageCache {
         return image
     }
 
-    /// Returns the image from cache if available; otherwise fetches from local
-    /// disk or server, caches the result, and returns it.
+    /// Returns the image from cache if available; otherwise fetches from disk
+    /// or server, populates the RAM cache, and (on server fetch) persists to disk.
     @discardableResult
     func load(coverArtId: String?) async -> PlatformImage? {
         guard let coverArtId else { return nil }
+
+        // 1. RAM hit.
         if let hit = cache[coverArtId] {
             touch(coverArtId)
             return hit
         }
-        guard let url = await resolveURL(for: coverArtId) else { return nil }
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
+
+        // 2. Disk hit (downloads or previously-persisted streaming covers).
+        if let localURL = await downloadService.localCoverArtURL(forId: coverArtId),
+           let data = try? Data(contentsOf: localURL),
+           let image = PlatformImage(data: data) {
+            store(image: image, for: coverArtId)
+            Logger.player.debug("ArtworkImageCache: disk hit \(coverArtId) (\(self.cache.count)/\(self.maxEntries))")
+            return image
+        }
+
+        // 3. Server fetch → RAM + disk persist.
+        guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 300) else { return nil }
+        guard let (data, _) = try? await URLSession.shared.data(from: serverURL),
               let image = PlatformImage(data: data) else {
-            Logger.player.warning("ArtworkImageCache: failed to load image for \(coverArtId)")
+            Logger.player.warning("ArtworkImageCache: failed to fetch \(coverArtId) from server")
             return nil
         }
         store(image: image, for: coverArtId)
-        Logger.player.debug("ArtworkImageCache: cached \(coverArtId) (\(self.cache.count)/\(self.maxEntries))")
+        await downloadService.persistCover(data, forId: coverArtId)
+        Logger.player.debug("ArtworkImageCache: server fetch + persisted \(coverArtId) (\(self.cache.count)/\(self.maxEntries))")
         return image
     }
 
@@ -72,13 +87,6 @@ final class ArtworkImageCache {
     }
 
     // MARK: - Private
-
-    private func resolveURL(for coverArtId: String) async -> URL? {
-        if let localURL = await downloadService.localCoverArtURL(forId: coverArtId) {
-            return localURL
-        }
-        return await libraryService.coverArtURL(id: coverArtId, size: 300)
-    }
 
     private func store(image: PlatformImage, for coverArtId: String) {
         cache[coverArtId] = image

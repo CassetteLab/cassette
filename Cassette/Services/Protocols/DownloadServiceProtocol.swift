@@ -41,6 +41,13 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
     /// Returns the local file URL for a downloaded cover art, or nil if not cached.
     func localCoverArtURL(forId coverArtId: String) async -> URL?
 
+    /// Persists cover image data to the shared cover art directory (best-effort, errors are logged).
+    func persistCover(_ data: Data, forId coverArtId: String) async
+
+    /// Deletes orphaned cover files whose name is not in `referencedIds`. Returns count deleted.
+    @discardableResult
+    func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int
+
     /// Returns offline-playable album data assembled from persisted tracks, or nil if not downloaded.
     func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData?
     /// Returns offline-playable playlist data assembled from persisted tracks, or nil if not downloaded.

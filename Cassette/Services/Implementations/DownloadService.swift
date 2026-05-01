@@ -75,6 +75,36 @@ actor DownloadService: DownloadServiceProtocol {
         return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
+    func persistCover(_ data: Data, forId coverArtId: String) async {
+        let url = coverArtsDirectory.appendingPathComponent(coverArtId)
+        do {
+            try FileManager.default.createDirectory(at: coverArtsDirectory, withIntermediateDirectories: true)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            Logger.download.debug("Failed to persist cover '\(coverArtId, privacy: .public)': \(error, privacy: .public)")
+        }
+    }
+
+    @discardableResult
+    func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: coverArtsDirectory, includingPropertiesForKeys: nil) else {
+            return 0
+        }
+        var deletedCount = 0
+        for fileURL in entries {
+            let coverArtId = fileURL.lastPathComponent
+            if !referencedIds.contains(coverArtId) {
+                try? fm.removeItem(at: fileURL)
+                deletedCount += 1
+            }
+        }
+        if deletedCount > 0 {
+            Logger.download.info("Garbage collected \(deletedCount) orphaned cover(s).")
+        }
+        return deletedCount
+    }
+
     func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData? {
         await MainActor.run {
             let context = ModelContext(modelContainer)
