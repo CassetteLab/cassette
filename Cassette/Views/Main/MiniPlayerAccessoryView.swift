@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftSonic
 
 struct MiniPlayerAccessoryView: View {
     @Binding var showingFullPlayer: Bool
@@ -28,19 +29,20 @@ struct MiniPlayerAccessoryView: View {
 
     @ViewBuilder
     private func playerContent(_ playerState: PlayerState) -> some View {
-        let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
-        let title = playerState.currentTrack?.title ?? ""
-        let artist = playerState.currentTrack?.artist
-        let audioFormat = playerState.currentTrack?.audioFormat
+        let isLiveStream = playerState.isLiveStream
+        let coverArtId = isLiveStream ? (playerState.currentRadio?.coverArt ?? "") : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? "")
+        let title = isLiveStream ? (playerState.currentRadio?.name ?? "") : (playerState.currentTrack?.title ?? "")
+        let artist: String? = isLiveStream ? "Live Radio" : playerState.currentTrack?.artist
+        let audioFormat: String? = isLiveStream ? nil : playerState.currentTrack?.audioFormat
         let isPlaying = playerState.playbackState == .playing
         let isAvailable = playerState.isPlaybackAvailable
 
         Group {
             if placement == .inline {
-                inlineBar(coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable)
+                inlineBar(coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable, isLiveStream: isLiveStream)
                     .transition(.opacity)
             } else {
-                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable)
+                expandedBar(playerState: playerState, coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable, isLiveStream: isLiveStream)
                     .transition(.opacity)
             }
         }
@@ -49,10 +51,10 @@ struct MiniPlayerAccessoryView: View {
         .opacity(1.0 - min(abs(dragOffset) / 200, 0.4))
         .contentShape(Rectangle())
         .onTapGesture { showingFullPlayer = true }
-        .gesture(isAvailable ? swipeSkipGesture : nil)
+        .gesture(isAvailable && !isLiveStream ? swipeSkipGesture : nil)
     }
 
-    private func inlineBar(coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
+    private func inlineBar(coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool, isLiveStream: Bool) -> some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtCard(id: coverArtId, size: 36)
                 .opacity(isAvailable ? 1.0 : 0.5)
@@ -75,7 +77,7 @@ struct MiniPlayerAccessoryView: View {
                                 .foregroundStyle(typoSecondaryColor)
                                 .lineLimit(1)
                         }
-                        if let format = audioFormat {
+                        if !isLiveStream, let format = audioFormat {
                             AudioFormatBadge(format: format)
                                 .layoutPriority(1)
                         }
@@ -89,7 +91,7 @@ struct MiniPlayerAccessoryView: View {
         .padding(.vertical, CassetteSpacing.s)
     }
 
-    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool) -> some View {
+    private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool, isLiveStream: Bool) -> some View {
         let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: CassetteSpacing.m) {
@@ -114,7 +116,7 @@ struct MiniPlayerAccessoryView: View {
                                     .foregroundStyle(typoSecondaryColor)
                                     .lineLimit(1)
                             }
-                            if let format = audioFormat {
+                            if !isLiveStream, let format = audioFormat {
                                 AudioFormatBadge(format: format)
                                     .layoutPriority(1)
                             }
@@ -126,7 +128,7 @@ struct MiniPlayerAccessoryView: View {
 
                 HStack(spacing: CassetteSpacing.s) {
                     playPauseButton(isPlaying: isPlaying, isAvailable: isAvailable)
-                    if isAvailable {
+                    if isAvailable && !isLiveStream {
                         Button {
                             HapticFeedback.light.trigger()
                             Task { try? await container?.playerService.skipToNext() }
@@ -144,14 +146,28 @@ struct MiniPlayerAccessoryView: View {
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.vertical, CassetteSpacing.m)
 
-            GeometryReader { geo in
-                Capsule()
-                    .fill(isAvailable ? Color.cassetteAccent : Color.secondary.opacity(0.3))
-                    .frame(width: geo.size.width * CGFloat(progress), height: 3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if isLiveStream {
+                HStack(spacing: CassetteSpacing.xs) {
+                    Circle().fill(Color.red).frame(width: 6, height: 6)
+                    Text("LIVE")
+                        .font(.caption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.red)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, CassetteSpacing.l)
+                .frame(height: 3)
+                .accessibilityHidden(true)
+            } else {
+                GeometryReader { geo in
+                    Capsule()
+                        .fill(isAvailable ? Color.cassetteAccent : Color.secondary.opacity(0.3))
+                        .frame(width: geo.size.width * CGFloat(progress), height: 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(height: 3)
+                .accessibilityHidden(true)
             }
-            .frame(height: 3)
-            .accessibilityHidden(true)
         }
     }
 

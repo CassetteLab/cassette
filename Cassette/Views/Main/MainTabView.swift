@@ -12,7 +12,7 @@ struct MainTabView: View {
     @State private var showingFullPlayer = false
 
     private var hasTrack: Bool {
-        container?.playerState.currentTrack != nil
+        container?.playerState.currentTrack != nil || container?.playerState.isLiveStream == true
     }
 
     var body: some View {

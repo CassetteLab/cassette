@@ -31,7 +31,9 @@ struct FullPlayerView: View {
 
     @ViewBuilder
     private func content(_ playerState: PlayerState) -> some View {
-        let coverArtId = playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? ""
+        let coverArtId = playerState.isLiveStream
+            ? (playerState.currentRadio?.coverArt ?? "")
+            : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? "")
         let isPlaying = playerState.playbackState == .playing
 
         VStack(spacing: 0) {
@@ -65,16 +67,18 @@ struct FullPlayerView: View {
             )
             .padding(.horizontal, CassetteSpacing.l)
 
-            ScrubberView(
-                playerState: playerState,
-                playerService: container?.playerService,
-                contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor
-            )
-            .padding(.horizontal, CassetteSpacing.l)
-            .padding(.top, CassetteSpacing.m)
-            .disabled(!playerState.isPlaybackAvailable)
-            .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+            if !playerState.isLiveStream {
+                ScrubberView(
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor
+                )
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.top, CassetteSpacing.m)
+                .disabled(!playerState.isPlaybackAvailable)
+                .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+            }
 
             PlaybackControlsView(
                 playerState: playerState,
@@ -92,6 +96,7 @@ struct FullPlayerView: View {
             BottomToolbar(
                 showLyrics: $showLyrics,
                 showQueue: $showQueue,
+                isLiveStream: playerState.isLiveStream,
                 secondaryContentColor: vm.secondaryContentColor
             )
             .padding(.top, CassetteSpacing.l)
@@ -170,7 +175,7 @@ private struct TrackInfoSection: View {
     var body: some View {
         HStack(alignment: .top, spacing: CassetteSpacing.m) {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                Text(playerState.currentTrack?.title ?? "")
+                Text(playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (playerState.currentTrack?.title ?? ""))
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundStyle(contentColor)
@@ -180,6 +185,11 @@ private struct TrackInfoSection: View {
                 if !playerState.isPlaybackAvailable {
                     Label("Reconnect to resume", systemImage: "wifi.slash")
                         .font(.callout)
+                        .foregroundStyle(secondaryContentColor)
+                        .lineLimit(1)
+                } else if playerState.isLiveStream {
+                    Text("Live Radio")
+                        .font(.subheadline)
                         .foregroundStyle(secondaryContentColor)
                         .lineLimit(1)
                 } else {
@@ -216,44 +226,46 @@ private struct TrackInfoSection: View {
             .gesture(swipeGesture)
             .onChange(of: playerState.currentTrack?.id) { _, _ in swipeDragOffset = 0 }
 
-            HStack(spacing: CassetteSpacing.s) {
-                Button {
-                    HapticFeedback.light.trigger()
-                    let fav = isFavorite
-                    let songId = playerState.currentTrack?.id ?? ""
-                    Task {
-                        if fav {
-                            try? await container?.favoritesService.unstar(itemType: .song, itemId: songId)
-                        } else {
-                            try? await container?.favoritesService.star(itemType: .song, itemId: songId)
+            if !playerState.isLiveStream {
+                HStack(spacing: CassetteSpacing.s) {
+                    Button {
+                        HapticFeedback.light.trigger()
+                        let fav = isFavorite
+                        let songId = playerState.currentTrack?.id ?? ""
+                        Task {
+                            if fav {
+                                try? await container?.favoritesService.unstar(itemType: .song, itemId: songId)
+                            } else {
+                                try? await container?.favoritesService.star(itemType: .song, itemId: songId)
+                            }
                         }
+                    } label: {
+                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+                            .font(.title3)
+                            .foregroundStyle(contentColor)
+                            .cassetteGlassButton(size: 44, tint: glassTint)
                     }
-                } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.title3)
-                        .foregroundStyle(contentColor)
-                        .cassetteGlassButton(size: 44, tint: glassTint)
-                }
-                .buttonStyle(.borderless)
-                .disabled(!isOnline)
-                .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+                    .buttonStyle(.borderless)
+                    .disabled(!isOnline)
+                    .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
 
-                Menu {
-                    Button("Go to Album", systemImage: "square.stack") { }
-                    Button("Go to Artist", systemImage: "music.mic") { }
-                    Divider()
-                    Button("Add to Playlist...", systemImage: "music.note.list") {
-                        songToAddToPlaylist = playerState.currentTrack
+                    Menu {
+                        Button("Go to Album", systemImage: "square.stack") { }
+                        Button("Go to Artist", systemImage: "music.mic") { }
+                        Divider()
+                        Button("Add to Playlist...", systemImage: "music.note.list") {
+                            songToAddToPlaylist = playerState.currentTrack
+                        }
+                        .disabled(!isOnline || playerState.currentTrack == nil)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.title3)
+                            .foregroundStyle(contentColor)
+                            .cassetteGlassButton(size: 44, tint: glassTint)
                     }
-                    .disabled(!isOnline || playerState.currentTrack == nil)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.title3)
-                        .foregroundStyle(contentColor)
-                        .cassetteGlassButton(size: 44, tint: glassTint)
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("More options")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("More options")
             }
         }
         .sheet(isPresented: $showArtistSheet) {
@@ -271,13 +283,13 @@ private struct TrackInfoSection: View {
     private var swipeGesture: some Gesture {
         DragGesture(minimumDistance: 10)
             .onChanged { value in
-                guard !isAnimatingSwipe else { return }
+                guard !isAnimatingSwipe, !playerState.isLiveStream else { return }
                 let h = value.translation.width
                 guard abs(h) > abs(value.translation.height) else { return }
                 withAnimation(.interactiveSpring()) { swipeDragOffset = h }
             }
             .onEnded { value in
-                guard !isAnimatingSwipe else { return }
+                guard !isAnimatingSwipe, !playerState.isLiveStream else { return }
                 let h = value.translation.width
                 let velocity = value.velocity.width
                 guard abs(h) > abs(value.translation.height) else { bounceBack(); return }
@@ -469,17 +481,19 @@ private struct PlaybackControlsView: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
-            Button {
-                HapticFeedback.light.trigger()
-                Task { try? await playerService?.skipToPrevious() }
-            } label: {
-                Image(systemName: "backward.fill")
-                    .font(.title)
-                    .foregroundStyle(contentColor)
-                    .frame(width: 56, height: 56)
+            if !playerState.isLiveStream {
+                Button {
+                    HapticFeedback.light.trigger()
+                    Task { try? await playerService?.skipToPrevious() }
+                } label: {
+                    Image(systemName: "backward.fill")
+                        .font(.title)
+                        .foregroundStyle(contentColor)
+                        .frame(width: 56, height: 56)
+                }
+                .disabled(!isPlaybackAvailable)
+                .accessibilityLabel("Skip to previous")
             }
-            .disabled(!isPlaybackAvailable)
-            .accessibilityLabel("Skip to previous")
 
             Button {
                 HapticFeedback.medium.trigger()
@@ -499,17 +513,19 @@ private struct PlaybackControlsView: View {
             .disabled(!isPlaybackAvailable)
             .accessibilityLabel(playerState.playbackState == .playing ? "Pause" : "Play")
 
-            Button {
-                HapticFeedback.light.trigger()
-                Task { try? await playerService?.skipToNext() }
-            } label: {
-                Image(systemName: "forward.fill")
-                    .font(.title)
-                    .foregroundStyle(contentColor)
-                    .frame(width: 56, height: 56)
+            if !playerState.isLiveStream {
+                Button {
+                    HapticFeedback.light.trigger()
+                    Task { try? await playerService?.skipToNext() }
+                } label: {
+                    Image(systemName: "forward.fill")
+                        .font(.title)
+                        .foregroundStyle(contentColor)
+                        .frame(width: 56, height: 56)
+                }
+                .disabled(!isPlaybackAvailable)
+                .accessibilityLabel("Skip to next")
             }
-            .disabled(!isPlaybackAvailable)
-            .accessibilityLabel("Skip to next")
         }
     }
 }
@@ -519,30 +535,35 @@ private struct PlaybackControlsView: View {
 private struct BottomToolbar: View {
     @Binding var showLyrics: Bool
     @Binding var showQueue: Bool
+    let isLiveStream: Bool
     let secondaryContentColor: Color
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
-            Button { showLyrics = true } label: {
-                Image(systemName: "quote.bubble")
-                    .font(.title3)
-                    .foregroundStyle(secondaryContentColor)
-                    .frame(width: 44, height: 44)
+            if !isLiveStream {
+                Button { showLyrics = true } label: {
+                    Image(systemName: "quote.bubble")
+                        .font(.title3)
+                        .foregroundStyle(secondaryContentColor)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Lyrics")
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Lyrics")
 
             AirPlayRouteButton(tintColor: secondaryContentColor)
                 .frame(width: 44, height: 44)
 
-            Button { showQueue = true } label: {
-                Image(systemName: "list.bullet")
-                    .font(.title3)
-                    .foregroundStyle(secondaryContentColor)
-                    .frame(width: 44, height: 44)
+            if !isLiveStream {
+                Button { showQueue = true } label: {
+                    Image(systemName: "list.bullet")
+                        .font(.title3)
+                        .foregroundStyle(secondaryContentColor)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Queue")
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Queue")
         }
     }
 }
