@@ -123,7 +123,7 @@ struct AddToPlaylistSheet: View {
                     }
                 }
             }
-            .listStyle(.insetGrouped)
+            .cassetteSheetListStyle()
         }
     }
 }

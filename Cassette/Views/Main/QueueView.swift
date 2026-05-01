@@ -25,7 +25,7 @@ struct QueueView: View {
             .navigationTitle("Queue")
             .navigationBarTitleDisplayModeInline()
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Done") { dismiss() }
                 }
             }
