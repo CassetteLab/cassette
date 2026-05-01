@@ -87,6 +87,37 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     // MARK: - Update
 
     func update(with snapshot: NowPlayingSnapshot) async {
+        if snapshot.isLiveStream {
+            // Live stream: fresh dict with the IsLiveStream flag set.
+            // Duration and elapsed time are intentionally omitted — Control Center hides
+            // the scrubber automatically when MPNowPlayingInfoPropertyIsLiveStream is true.
+            var info: [String: Any] = [
+                MPMediaItemPropertyTitle: snapshot.title,
+                MPNowPlayingInfoPropertyIsLiveStream: true,
+                MPNowPlayingInfoPropertyPlaybackRate: snapshot.playbackRate,
+                MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0
+            ]
+            if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
+            let baseInfo = info
+            await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo }
+
+            // Check ArtworkImageCache — radio coverArtId maps to a server thumbnail when available.
+            if let coverArtId = snapshot.coverArtId,
+               let cachedImage = await artworkImageCache.cached(for: coverArtId) {
+                let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in cachedImage }
+                await MainActor.run {
+                    var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? baseInfo
+                    infoWithArt[MPMediaItemPropertyArtwork] = artwork
+                    MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                }
+            }
+
+            updateRemoteCommandsAvailability(isLiveStream: true)
+            return
+        }
+
+        updateRemoteCommandsAvailability(isLiveStream: false)
+
         if snapshot.artworkURL == nil {
             // Position-only update (pause/resume/seek): merge into the existing dict so
             // artwork already loaded for the current track is preserved.
@@ -142,5 +173,16 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
             }
         }
+    }
+
+    // MARK: - Remote command availability
+
+    private func updateRemoteCommandsAvailability(isLiveStream: Bool) {
+        let center = MPRemoteCommandCenter.shared()
+        // Skip, previous, and scrubbing are meaningless for a live stream.
+        // play/pause/togglePlayPause remain enabled in both modes (always-on).
+        center.nextTrackCommand.isEnabled = !isLiveStream
+        center.previousTrackCommand.isEnabled = !isLiveStream
+        center.changePlaybackPositionCommand.isEnabled = !isLiveStream
     }
 }

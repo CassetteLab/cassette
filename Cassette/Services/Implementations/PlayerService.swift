@@ -131,7 +131,9 @@ actor PlayerService: PlayerServiceProtocol {
             playbackRate: 1.0,
             artworkURL: artworkURL,
             artworkHeaders: artworkHeaders,
-            coverArtId: song.coverArtId
+            coverArtId: song.coverArtId,
+            isLiveStream: false,
+            radioStationName: nil
         )
         await nowPlayingService?.update(with: snapshot)
         await sessionService.save(playerState: state)
@@ -175,14 +177,16 @@ actor PlayerService: PlayerServiceProtocol {
         let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
         await nowPlayingService?.update(with: NowPlayingSnapshot(
             title: station.name,
-            artist: nil,
+            artist: "Live Radio",
             album: nil,
             duration: 0,
             position: 0,
             playbackRate: 1.0,
             artworkURL: nil,
             artworkHeaders: artworkHeaders,
-            coverArtId: station.coverArt
+            coverArtId: station.coverArt,
+            isLiveStream: true,
+            radioStationName: station.name
         ))
 
         startPositionSaveTimer()
@@ -487,7 +491,9 @@ actor PlayerService: PlayerServiceProtocol {
             playbackRate: 0.0,
             artworkURL: artworkURL,
             artworkHeaders: artworkHeaders,
-            coverArtId: track.coverArtId
+            coverArtId: track.coverArtId,
+            isLiveStream: false,
+            radioStationName: nil
         ))
     }
 
@@ -769,7 +775,9 @@ actor PlayerService: PlayerServiceProtocol {
             playbackRate: resolvedRate,
             artworkURL: nil,
             artworkHeaders: [:],
-            coverArtId: nil
+            coverArtId: nil,
+            isLiveStream: false,
+            radioStationName: nil
         )
         await nowPlayingService?.update(with: snapshot)
     }
