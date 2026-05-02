@@ -25,14 +25,17 @@ struct DetailHeroView: View {
     var body: some View {
         ZStack(alignment: .leading) {
             if dominantColor != .clear {
-                RadialGradient(
-                    colors: [dominantColor.opacity(0.50), .clear],
-                    center: UnitPoint(x: 0.20, y: 0.50),
-                    startRadius: 0,
-                    endRadius: 400
-                )
-                .blur(radius: 60)
-                .allowsHitTesting(false)
+                GeometryReader { geo in
+                    RadialGradient(
+                        colors: [dominantColor.opacity(0.45), .clear],
+                        center: UnitPoint(x: 0.20, y: 0.50),
+                        startRadius: 0,
+                        endRadius: min(geo.size.width * 0.35, 280)
+                    )
+                    .blur(radius: 40)
+                    .allowsHitTesting(false)
+                }
+                .clipShape(Rectangle())
             }
 
             HStack(alignment: .top, spacing: 32) {
