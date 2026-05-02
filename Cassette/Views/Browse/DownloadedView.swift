@@ -97,7 +97,7 @@ private struct DownloadedContent: View {
                                     Spacer(minLength: 0)
                                 }
                                 .padding(.vertical, CassetteSpacing.xs)
-                                .padding(.trailing, 18)
+                                .padding(.trailing, 32)
                             }
                             .id(display.id)
                         }
@@ -141,7 +141,7 @@ private struct DownloadedContent: View {
                             }
                         }
                     )
-                    .padding(.trailing, 4)
+                    .padding(.trailing, 8)
                 }
             }
         }

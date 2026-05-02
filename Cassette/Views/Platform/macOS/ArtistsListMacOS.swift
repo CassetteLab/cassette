@@ -68,7 +68,7 @@ struct ArtistsListMacOS: View {
                         }
                     }
                     .padding(24)
-                    .padding(.trailing, 18)
+                    .padding(.trailing, 24)
                 }
                 .refreshable { await vm.load() }
                 .overlay(alignment: .trailing) {
@@ -83,7 +83,7 @@ struct ArtistsListMacOS: View {
                                 }
                             }
                         )
-                        .padding(.trailing, 4)
+                        .padding(.trailing, 8)
                     }
                 }
             }

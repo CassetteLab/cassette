@@ -98,7 +98,7 @@ struct AlbumsListView: View {
                                 coverArtId: album.coverArt
                             )
                             .padding(.horizontal, CassetteSpacing.s)
-                            .padding(.trailing, 18)
+                            .padding(.trailing, 32)
                         }
                         .buttonStyle(.plain)
                         .id(album.id)
@@ -121,7 +121,7 @@ struct AlbumsListView: View {
                             }
                         }
                     )
-                    .padding(.trailing, 4)
+                    .padding(.trailing, 8)
                 }
             }
         }
