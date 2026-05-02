@@ -40,11 +40,24 @@ struct BottomPlayerBar: View {
     }
 
     var body: some View {
-        VStack(spacing: 4) {
-            scrubberRow
-            controlsRow
+        HStack(spacing: 0) {
+            playbackControls
+                .padding(.horizontal, 16)
+
+            currentTrackInfo
+                .frame(width: 260)
+                .padding(.trailing, 8)
+
+            scrubberCenter
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 8)
+
+            if !isCompact {
+                secondaryActions
+                    .padding(.horizontal, 16)
+            }
         }
-        .padding(.vertical, 8)
+        .frame(height: 56)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay {
             Capsule()
@@ -57,62 +70,36 @@ struct BottomPlayerBar: View {
         }
     }
 
-    private var scrubberRow: some View {
-        Group {
-            if isLiveStream {
-                HStack {
-                    Spacer()
-                    Text("LIVE")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(.red.opacity(0.15), in: Capsule())
-                    Spacer()
-                }
-            } else {
-                ProgressSlider(
-                    value: Binding(
-                        get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
-                        set: { localScrubPosition = $0 }
-                    ),
-                    total: max(1, playerState?.duration ?? 1),
-                    onEditingChanged: { editing in
-                        if editing { localScrubPosition = playerState?.position ?? 0 }
-                        isScrubbing = editing
-                        if !editing {
-                            let pos = localScrubPosition
-                            Task { await container?.playerService.seek(to: pos) }
-                        }
-                    },
-                    trackColor: .primary.opacity(0.15),
-                    fillColor: Color.cassetteAccent,
-                    height: 24
-                )
-                .disabled(noTrack)
-            }
+    @ViewBuilder
+    private var scrubberCenter: some View {
+        if isLiveStream {
+            Text("LIVE")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.red)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(.red.opacity(0.15), in: Capsule())
+                .frame(maxWidth: .infinity)
+        } else {
+            ProgressSlider(
+                value: Binding(
+                    get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
+                    set: { localScrubPosition = $0 }
+                ),
+                total: max(1, playerState?.duration ?? 1),
+                onEditingChanged: { editing in
+                    if editing { localScrubPosition = playerState?.position ?? 0 }
+                    isScrubbing = editing
+                    if !editing {
+                        let pos = localScrubPosition
+                        Task { await container?.playerService.seek(to: pos) }
+                    }
+                },
+                trackColor: .primary.opacity(0.15),
+                fillColor: Color.cassetteAccent
+            )
+            .disabled(noTrack)
         }
-        .padding(.horizontal, 20)
-    }
-
-    private var controlsRow: some View {
-        HStack(spacing: 0) {
-            playbackControls
-                .padding(.leading, 16)
-
-            Spacer()
-
-            currentTrackInfo
-                .frame(maxWidth: 300)
-
-            Spacer()
-
-            if !isCompact {
-                secondaryActions
-                    .padding(.trailing, 16)
-            }
-        }
-        .frame(height: 44)
     }
 
     // MARK: - Playback Controls
