@@ -130,6 +130,9 @@ struct SongRow: View {
             }
         }
         .padding(.vertical, CassetteSpacing.s)
+        #if os(macOS)
+        .padding(.trailing, CassetteSpacing.s)
+        #endif
         .contentShape(Rectangle())
         #if os(macOS)
         .background(isHovered ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))

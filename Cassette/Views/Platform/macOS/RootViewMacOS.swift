@@ -19,25 +19,23 @@ struct RootViewMacOS: View {
         NavigationSplitView {
             sidebarContent
         } detail: {
-            ZStack(alignment: .bottom) {
-                Group {
-                    if isShowingFullPlayer {
-                        FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
-                    } else {
-                        detailContent
-                    }
+            Group {
+                if isShowingFullPlayer {
+                    FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
+                } else {
+                    detailContent
                 }
-                .safeAreaInset(edge: .bottom) {
-                    if !isShowingFullPlayer {
-                        Color.clear.frame(height: 120)
-                    }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if !isShowingFullPlayer {
+                    Color.clear.frame(height: 120)
                 }
-
+            }
+            .overlay(alignment: .bottom) {
                 if !isShowingFullPlayer {
                     BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
                         .padding(.horizontal, 24)
                         .padding(.bottom, 16)
-                        .zIndex(1)
                 }
             }
         }
