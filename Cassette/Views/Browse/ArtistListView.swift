@@ -93,7 +93,7 @@ struct ArtistListView: View {
                     }
                 }
                 #else
-                .overlay(alignment: .trailing) {
+                .safeAreaInset(edge: .trailing, spacing: 0) {
                     if vm.indexes.count >= 5 {
                         AlphabetJumpBar(
                             availableLetters: Set(vm.indexes.map(\.name)),

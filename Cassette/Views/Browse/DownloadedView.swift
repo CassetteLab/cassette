@@ -97,7 +97,6 @@ private struct DownloadedContent: View {
                                     Spacer(minLength: 0)
                                 }
                                 .padding(.vertical, CassetteSpacing.xs)
-                                .padding(.trailing, 32)
                             }
                             .id(display.id)
                         }
@@ -129,7 +128,7 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
-            .overlay(alignment: .trailing) {
+            .safeAreaInset(edge: .trailing, spacing: 0) {
                 if displayAlbums.count >= 20 {
                     AlphabetJumpBar(
                         availableLetters: displayAlbums.availableAlphabetLetters(keyPath: \.name),
@@ -141,7 +140,7 @@ private struct DownloadedContent: View {
                             }
                         }
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, 4)
                 }
             }
         }

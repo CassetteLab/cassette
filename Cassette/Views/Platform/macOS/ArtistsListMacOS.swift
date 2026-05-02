@@ -68,10 +68,9 @@ struct ArtistsListMacOS: View {
                         }
                     }
                     .padding(24)
-                    .padding(.trailing, 24)
                 }
                 .refreshable { await vm.load() }
-                .overlay(alignment: .trailing) {
+                .safeAreaInset(edge: .trailing, spacing: 0) {
                     if allArtists.count >= 30 {
                         AlphabetJumpBar(
                             availableLetters: Set(vm.indexes.map(\.name)),
@@ -83,7 +82,7 @@ struct ArtistsListMacOS: View {
                                 }
                             }
                         )
-                        .padding(.trailing, 8)
+                        .padding(.trailing, 4)
                     }
                 }
             }

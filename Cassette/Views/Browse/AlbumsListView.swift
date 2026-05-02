@@ -116,7 +116,6 @@ struct AlbumsListView: View {
                                 coverArtId: album.coverArt
                             )
                             .padding(.horizontal, CassetteSpacing.s)
-                            .padding(.trailing, 32)
                         }
                         .buttonStyle(.plain)
                         .id(album.id)
@@ -127,7 +126,7 @@ struct AlbumsListView: View {
                 }
             }
             .refreshable { await vm.load() }
-            .overlay(alignment: .trailing) {
+            .safeAreaInset(edge: .trailing, spacing: 0) {
                 if vm.albums.count >= 20 {
                     AlphabetJumpBar(
                         availableLetters: vm.albums.availableAlphabetLetters(keyPath: \.name),
@@ -139,7 +138,7 @@ struct AlbumsListView: View {
                             }
                         }
                     )
-                    .padding(.trailing, 8)
+                    .padding(.trailing, 4)
                 }
             }
         }
