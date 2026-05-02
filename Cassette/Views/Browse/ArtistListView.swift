@@ -71,7 +71,7 @@ struct ArtistListView: View {
                                 }) {
                                     ArtistRow(artist: artist)
                                         #if os(iOS)
-                                        .padding(.trailing, vm.indexes.count >= 5 ? 28 : 0)
+                                        .padding(.trailing, vm.indexes.count >= 5 ? 32 : 0)
                                         #endif
                                 }
                             }
