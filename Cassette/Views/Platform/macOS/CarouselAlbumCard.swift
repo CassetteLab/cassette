@@ -63,6 +63,19 @@ struct CarouselAlbumCard: View {
         .frame(width: 180)
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onHover { isHovered = $0 }
+        .lazyCollectionContextMenu(
+            itemType: .album,
+            itemId: album.id,
+            displayName: album.name,
+            displaySubtitle: album.artist ?? "",
+            coverArtId: album.coverArt,
+            favoriteType: .album,
+            songLoader: {
+                guard let c = container else { return [] }
+                let loaded = try await c.libraryService.album(id: album.id)
+                return (loaded.song ?? []).map { DisplayableSong(from: $0, isDownloaded: false) }
+            }
+        )
     }
 }
 #endif
