@@ -21,15 +21,7 @@ struct AlbumDetailMacOS: View {
 
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
-    @Environment(ArtworkImageCache.self) private var artworkCache
-    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var vm: AlbumDetailViewModel?
-    @State private var artworkImage: PlatformImage?
-
-    private var effectiveCoverArtId: String? { vm?.coverArtId ?? coverArtId }
-    private var dominantColor: Color {
-        colorExtractor.dominantColor(for: effectiveCoverArtId, image: artworkImage)
-    }
 
     var body: some View {
         Group {
@@ -41,10 +33,6 @@ struct AlbumDetailMacOS: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar { albumToolbar }
-        .task(id: effectiveCoverArtId) {
-            guard let id = effectiveCoverArtId else { artworkImage = nil; return }
-            artworkImage = await artworkCache.load(coverArtId: id)
-        }
         .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
             if vm == nil {
@@ -120,19 +108,6 @@ struct AlbumDetailMacOS: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
-        }
-        .background {
-            LinearGradient(
-                colors: [
-                    dominantColor.opacity(0.30),
-                    dominantColor.opacity(0.18),
-                    dominantColor.opacity(0.08),
-                    Color.clear
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
         }
     }
 

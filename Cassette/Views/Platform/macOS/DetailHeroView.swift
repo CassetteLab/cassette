@@ -14,42 +14,14 @@ struct DetailHeroView: View {
     let primaryAction: () -> Void
     let secondaryAction: () -> Void
 
-    @Environment(ArtworkImageCache.self) private var artworkCache
-    @Environment(DominantColorExtractor.self) private var colorExtractor
-    @State private var artworkImage: PlatformImage? = nil
-
-    private var dominantColor: Color {
-        colorExtractor.dominantColor(for: coverArtId, image: artworkImage)
-    }
-
     var body: some View {
-        ZStack(alignment: .leading) {
-            if dominantColor != .clear {
-                GeometryReader { geo in
-                    RadialGradient(
-                        colors: [dominantColor.opacity(0.45), .clear],
-                        center: UnitPoint(x: 0.20, y: 0.50),
-                        startRadius: 0,
-                        endRadius: min(geo.size.width * 0.35, 280)
-                    )
-                    .blur(radius: 40)
-                    .allowsHitTesting(false)
-                }
-                .clipShape(Rectangle())
-            }
-
-            HStack(alignment: .top, spacing: 32) {
-                coverSection
-                metadataSection
-            }
-            .padding(32)
+        HStack(alignment: .top, spacing: 32) {
+            coverSection
+            metadataSection
         }
+        .padding(32)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 344)
-        .clipped()
-        .task(id: coverArtId) {
-            guard let id = coverArtId else { artworkImage = nil; return }
-            artworkImage = await artworkCache.load(coverArtId: id)
-        }
     }
 
     private var coverSection: some View {

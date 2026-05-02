@@ -22,16 +22,9 @@ struct ArtistDetailMacOS: View {
 
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
-    @Environment(ArtworkImageCache.self) private var artworkCache
-    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var vm: ArtistDetailViewModel?
-    @State private var artworkImage: PlatformImage?
 
     private var effectiveCoverArtId: String? { vm?.artist?.coverArt ?? coverArtId }
-
-    private var dominantColor: Color {
-        colorExtractor.dominantColor(for: effectiveCoverArtId, image: artworkImage)
-    }
 
     var body: some View {
         Group {
@@ -43,10 +36,6 @@ struct ArtistDetailMacOS: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar { artistToolbar }
-        .task(id: effectiveCoverArtId) {
-            guard let id = effectiveCoverArtId else { artworkImage = nil; return }
-            artworkImage = await artworkCache.load(coverArtId: id)
-        }
         .task {
             guard let svc = container?.libraryService else { return }
             if vm == nil { vm = ArtistDetailViewModel(artistId: artistId, libraryService: svc) }
@@ -70,47 +59,18 @@ struct ArtistDetailMacOS: View {
             }
         }
         .refreshable { await vm.load() }
-        .background {
-            LinearGradient(
-                colors: [
-                    dominantColor.opacity(0.30),
-                    dominantColor.opacity(0.18),
-                    dominantColor.opacity(0.08),
-                    Color.clear
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        }
     }
 
     // MARK: - Hero
 
     private func heroSection(vm: ArtistDetailViewModel) -> some View {
-        ZStack(alignment: .leading) {
-            if dominantColor != .clear {
-                GeometryReader { geo in
-                    RadialGradient(
-                        colors: [dominantColor.opacity(0.45), .clear],
-                        center: UnitPoint(x: 0.20, y: 0.50),
-                        startRadius: 0,
-                        endRadius: min(geo.size.width * 0.35, 280)
-                    )
-                    .blur(radius: 40)
-                    .allowsHitTesting(false)
-                }
-                .clipShape(Rectangle())
-            }
-
-            HStack(alignment: .center, spacing: 32) {
-                coverCircle
-                heroMetadata(vm: vm)
-            }
-            .padding(32)
+        HStack(alignment: .center, spacing: 32) {
+            coverCircle
+            heroMetadata(vm: vm)
         }
+        .padding(32)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 344)
-        .clipped()
     }
 
     private var coverCircle: some View {
