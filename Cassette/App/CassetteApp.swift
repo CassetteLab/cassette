@@ -46,6 +46,9 @@ struct CassetteApp: App {
                 guard let c = container, c.serverState.isOnline else { return }
                 await c.playerService.handleNetworkRestored()
             }
+            #if os(macOS)
+            .frame(minHeight: 580)
+            #endif
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .background, let c = container else { return }

@@ -164,6 +164,7 @@ struct AlbumDetailMacOS: View {
                 .help("Download Album")
             }
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 }
 #endif

@@ -168,6 +168,7 @@ struct PlaylistDetailMacOS: View {
                 .help("Download Playlist")
             }
         }
+        .sharedBackgroundVisibility(.hidden)
 
         ToolbarItem(placement: .destructiveAction) {
             Button(role: .destructive) {
@@ -182,6 +183,7 @@ struct PlaylistDetailMacOS: View {
             .disabled(!(vm?.songs.contains { $0.isDownloaded } ?? false))
             .help("Remove Download")
         }
+        .sharedBackgroundVisibility(.hidden)
     }
 }
 #endif
