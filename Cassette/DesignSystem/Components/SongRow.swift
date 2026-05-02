@@ -63,8 +63,13 @@ struct SongRow: View {
             } else {
                 ZStack {
                     Text("\(song.trackNumber ?? index)")
+                        #if os(macOS)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        #else
                         .font(.cassetteCaption)
                         .foregroundStyle(secondaryColor.opacity(0.6))
+                        #endif
                         .opacity(isFavorite ? 0 : 1)
                     if isFavorite {
                         Image(systemName: "heart.fill")
@@ -88,8 +93,13 @@ struct SongRow: View {
                     .lineLimit(1)
                 if let artist = song.artist {
                     Text(artist)
+                        #if os(macOS)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        #else
                         .font(.cassetteCaption)
                         .foregroundStyle(secondaryColor)
+                        #endif
                         .lineLimit(1)
                 }
             }
@@ -108,8 +118,13 @@ struct SongRow: View {
                 }
                 if song.duration > 0 {
                     Text(Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)))
+                        #if os(macOS)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        #else
                         .font(.cassetteCaption)
                         .foregroundStyle(secondaryColor.opacity(0.6))
+                        #endif
                         .monospacedDigit()
                 }
             }
@@ -117,7 +132,7 @@ struct SongRow: View {
         .padding(.vertical, CassetteSpacing.s)
         .contentShape(Rectangle())
         #if os(macOS)
-        .background(isHovered ? Color.white.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+        .background(isHovered ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
         .animation(.easeOut(duration: 0.12), value: isHovered)
         .onHover { isHovered = $0 }
         #endif
