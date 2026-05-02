@@ -26,11 +26,15 @@ struct HomeView: View {
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
     ]
+    #if os(macOS)
+    private let pinnedColumns = [GridItem(.adaptive(minimum: 230))]
+    #else
     private let pinnedColumns = [
         GridItem(.flexible()),
         GridItem(.flexible()),
         GridItem(.flexible())
     ]
+    #endif
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
