@@ -52,6 +52,10 @@ struct CassetteApp: App {
             c.sessionService.save(playerState: c.playerState)
             Logger.session.info("App backgrounded — session flushed")
         }
+        #if os(macOS)
+        .windowStyle(.titleBar)
+        .windowResizability(.contentMinSize)
+        #endif
     }
 
     // MARK: - Cover art garbage collection
