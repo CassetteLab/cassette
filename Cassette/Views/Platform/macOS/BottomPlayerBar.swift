@@ -58,11 +58,11 @@ struct BottomPlayerBar: View {
                     .padding(.horizontal, 16)
             }
         }
-        .frame(height: 56)
-        .background(.ultraThinMaterial, in: Capsule())
+        .frame(height: 80)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
-            Capsule()
-                .stroke(.white.opacity(0.08), lineWidth: 0.5)
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.15), radius: 10, y: 2)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barWidth = $0 }
@@ -93,24 +93,38 @@ struct BottomPlayerBar: View {
                 .background(.red.opacity(0.15), in: Capsule())
                 .frame(maxWidth: .infinity)
         } else {
-            ProgressSlider(
-                value: Binding(
-                    get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
-                    set: { localScrubPosition = $0 }
-                ),
-                total: max(1, playerState?.duration ?? 1),
-                onEditingChanged: { editing in
-                    if editing { localScrubPosition = playerState?.position ?? 0 }
-                    isScrubbing = editing
-                    if !editing {
-                        let pos = localScrubPosition
-                        Task { await container?.playerService.seek(to: pos) }
-                    }
-                },
-                trackColor: .primary.opacity(0.15),
-                fillColor: Color.cassetteAccent
-            )
-            .disabled(noTrack)
+            VStack(spacing: 2) {
+                ProgressSlider(
+                    value: Binding(
+                        get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
+                        set: { localScrubPosition = $0 }
+                    ),
+                    total: max(1, playerState?.duration ?? 1),
+                    onEditingChanged: { editing in
+                        if editing { localScrubPosition = playerState?.position ?? 0 }
+                        isScrubbing = editing
+                        if !editing {
+                            let pos = localScrubPosition
+                            Task { await container?.playerService.seek(to: pos) }
+                        }
+                    },
+                    trackColor: .primary.opacity(0.15),
+                    fillColor: Color.cassetteAccent
+                )
+                .disabled(noTrack)
+
+                HStack {
+                    Text(timeString(isScrubbing ? localScrubPosition : (playerState?.position ?? 0)))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Spacer()
+                    Text(timeString(playerState?.duration ?? 0))
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
         }
     }
 
@@ -195,6 +209,11 @@ struct BottomPlayerBar: View {
             .buttonStyle(.plain)
             .disabled(noTrack)
         }
+    }
+
+    private func timeString(_ seconds: Double) -> String {
+        let s = Int(max(0, seconds))
+        return String(format: "%d:%02d", s / 60, s % 60)
     }
 
     // MARK: - Track Info
