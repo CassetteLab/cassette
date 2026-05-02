@@ -438,7 +438,7 @@ private nonisolated enum PlaylistDownloadState {
 
 /// Sub-view that observes DownloadedTrack changes live via @Query,
 /// overriding the isDownloaded flag per row without requiring a VM reload.
-private struct PlaylistSongRows: View {
+struct PlaylistSongRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
     let titleColor: Color
