@@ -217,25 +217,16 @@ struct BottomPlayerBar: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .onTapGesture { onArtworkTap?() }
 
-            HStack(spacing: 6) {
-                Button {
-                    Task { await toggleFavorite() }
-                } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .font(.system(size: 12))
-                        .foregroundStyle(isFavorite ? Color.cassetteAccent : .secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(noTrack)
-
-                Button { } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .disabled(noTrack)
+            // TODO(phase-9): add right-click context menu on track row instead of ellipsis button
+            Button {
+                Task { await toggleFavorite() }
+            } label: {
+                Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    .font(.system(size: 12))
+                    .foregroundStyle(isFavorite ? Color.cassetteAccent : .secondary)
             }
+            .buttonStyle(.plain)
+            .disabled(noTrack)
         }
     }
 
