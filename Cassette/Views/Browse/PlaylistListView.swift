@@ -82,7 +82,7 @@ struct PlaylistListView: View {
                     PlaylistDetailView(playlist: playlist)
                     #endif
                 }) {
-                    OnlinePlaylistRow(playlist: playlist)
+                    OnlinePlaylistRow(playlist: playlist, onActionCompleted: { Task { await vm.load() } })
                 }
             }
             .listStyle(.plain)
@@ -95,9 +95,14 @@ struct PlaylistListView: View {
 
 private struct OnlinePlaylistRow: View {
     let playlist: Playlist
+    var onActionCompleted: (() -> Void)? = nil
 
+    @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var coverImage: PlatformImage?
+    @State private var playlistForEdit: PlaylistWithSongs?
+    @State private var showEditSheet = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
@@ -122,8 +127,39 @@ private struct OnlinePlaylistRow: View {
             displayName: playlist.name,
             displaySubtitle: "Playlist",
             coverArtId: playlist.coverArt,
-            coverImage: coverImage
+            coverImage: coverImage,
+            onEdit: {
+                Task {
+                    guard let ps = try? await container?.libraryService.playlist(id: playlist.id) else { return }
+                    playlistForEdit = ps
+                    showEditSheet = true
+                }
+            },
+            onDelete: { showDeleteConfirm = true }
         )
+        .sheet(isPresented: $showEditSheet) {
+            if let ps = playlistForEdit {
+                EditPlaylistSheet(playlist: ps, onDeleted: {
+                    showEditSheet = false
+                    onActionCompleted?()
+                })
+            }
+        }
+        .confirmationDialog(
+            "Delete \"\(playlist.name)\"?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    try? await container?.playlistService.deletePlaylist(id: playlist.id)
+                    onActionCompleted?()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete the playlist. This action cannot be undone.")
+        }
     }
 }
 
