@@ -434,6 +434,7 @@ struct ProgressSlider: View {
     let onEditingChanged: (Bool) -> Void
     var trackColor: Color = Color.white.opacity(0.2)
     var fillColor: Color = Color.white.opacity(0.95)
+    var height: CGFloat = 32
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -474,7 +475,7 @@ struct ProgressSlider: View {
                     }
             )
         }
-        .frame(height: 32)
+        .frame(height: height)
         .accessibilityLabel("Playback position")
         .accessibilityValue(Duration.seconds(value).formatted(.time(pattern: .minuteSecond)))
         .accessibilityAdjustableAction { direction in
