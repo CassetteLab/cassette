@@ -135,6 +135,7 @@ struct AlbumDetailMacOS: View {
                 .buttonStyle(.borderless)
                 .help("Back")
             }
+            .sharedBackgroundVisibility(.hidden)
         }
 
         ToolbarItem(placement: .primaryAction) {
