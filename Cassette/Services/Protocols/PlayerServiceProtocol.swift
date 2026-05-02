@@ -39,4 +39,6 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Toggles the auto-extend preference and persists it to UserDefaults.
     /// When enabled and ≤15 tracks remain, the player appends a fresh smart shuffle batch automatically.
     func setAutoExtendEnabled(_ enabled: Bool) async
+    /// Applies the given volume (0.0–1.0) to AVPlayer and persists it to UserDefaults.
+    func setVolume(_ volume: Float) async
 }

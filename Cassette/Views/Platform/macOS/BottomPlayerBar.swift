@@ -14,7 +14,7 @@ struct BottomPlayerBar: View {
     @State private var artworkIsHovered = false
     @State private var showQueue = false
     @State private var isFavorite = false
-    @State private var localVolume: Double = 0.7
+    @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
     @State private var barWidth: CGFloat = 800
 
     var onArtworkTap: (() -> Void)? = nil
@@ -70,6 +70,9 @@ struct BottomPlayerBar: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleQueue)) { _ in
             showQueue.toggle()
+        }
+        .onChange(of: localVolume) { _, newValue in
+            Task { await container?.playerService.setVolume(Float(newValue)) }
         }
     }
 
