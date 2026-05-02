@@ -143,15 +143,25 @@ struct AlbumDetailMacOS: View {
                 Button {
                     Task { await vm?.cancelAlbumDownload() }
                 } label: {
-                    Label("Cancel Download", systemImage: "xmark.circle")
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
                 }
+                .buttonStyle(.borderless)
+                .help("Cancel Download")
             } else {
                 Button {
                     Task { await vm?.downloadAlbum() }
                 } label: {
-                    Label("Download Album", systemImage: "arrow.down.circle")
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
                 }
+                .buttonStyle(.borderless)
                 .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
+                .help("Download Album")
             }
         }
     }

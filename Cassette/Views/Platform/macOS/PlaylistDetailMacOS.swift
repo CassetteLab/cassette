@@ -147,15 +147,25 @@ struct PlaylistDetailMacOS: View {
                 Button {
                     Task { await vm?.cancelPlaylistDownload() }
                 } label: {
-                    Label("Cancel Download", systemImage: "xmark.circle")
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
                 }
+                .buttonStyle(.borderless)
+                .help("Cancel Download")
             } else {
                 Button {
                     Task { await vm?.downloadPlaylist() }
                 } label: {
-                    Label("Download Playlist", systemImage: "arrow.down.circle")
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
                 }
+                .buttonStyle(.borderless)
                 .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
+                .help("Download Playlist")
             }
         }
 
@@ -163,9 +173,14 @@ struct PlaylistDetailMacOS: View {
             Button(role: .destructive) {
                 showDeleteAlert = true
             } label: {
-                Label("Remove Download", systemImage: "trash")
+                Image(systemName: "trash")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .cassetteGlassButton(size: 28)
             }
+            .buttonStyle(.borderless)
             .disabled(!(vm?.songs.contains { $0.isDownloaded } ?? false))
+            .help("Remove Download")
         }
     }
 }
