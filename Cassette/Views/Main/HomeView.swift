@@ -121,7 +121,7 @@ struct HomeView: View {
                         }
                     } label: {
                         Image(systemName: "ellipsis")
-                            .font(.system(size: 11, weight: .medium))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.primary)
                             .cassetteGlassButton(size: 28)
                     }
