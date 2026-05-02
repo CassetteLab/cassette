@@ -167,6 +167,23 @@ struct RootViewMacOS: View {
                 )
             }
         }
+        .contextMenu {
+            Button {
+                selection = .pinned(item.id)
+            } label: {
+                Label("Open", systemImage: "arrow.up.right")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                if let type = PinnedItemType(rawValue: item.itemType) {
+                    container?.pinService.unpin(itemType: type, itemId: item.itemId)
+                }
+            } label: {
+                Label("Unpin", systemImage: "pin.slash")
+            }
+        }
     }
 
     @ViewBuilder
