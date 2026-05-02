@@ -78,25 +78,36 @@ struct AlbumsListView: View {
     }
 
     #if os(macOS)
+    // macOS uses ScrollView+LazyVStack instead of List so that ScrollViewReader.scrollTo()
+    // targets a SwiftUI-native scroll container — NSTableView-backed List does not integrate
+    // correctly with ScrollViewReader and causes scroll offsets to land on the wrong row.
     @ViewBuilder
     private func albumsListMacOS(_ vm: AlbumListViewModel) -> some View {
         ScrollViewReader { proxy in
-            List(vm.albums) { album in
-                NavigationLink(destination: {
-                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                }) {
-                    AlbumRow(
-                        albumId: album.id,
-                        name: album.name,
-                        artist: album.artist,
-                        year: album.year,
-                        coverArtId: album.coverArt
-                    )
-                    .padding(.trailing, 18)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(vm.albums) { album in
+                        NavigationLink(destination: {
+                            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                        }) {
+                            AlbumRow(
+                                albumId: album.id,
+                                name: album.name,
+                                artist: album.artist,
+                                year: album.year,
+                                coverArtId: album.coverArt
+                            )
+                            .padding(.horizontal, CassetteSpacing.s)
+                            .padding(.trailing, 18)
+                        }
+                        .buttonStyle(.plain)
+                        .id(album.id)
+
+                        Divider()
+                            .padding(.leading, 56 + CassetteSpacing.m + CassetteSpacing.s)
+                    }
                 }
-                .id(album.id)
             }
-            .listStyle(.plain)
             .refreshable { await vm.load() }
             .overlay(alignment: .trailing) {
                 if vm.albums.count >= 20 {
