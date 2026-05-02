@@ -98,7 +98,13 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
+                            NavigationLink(destination: {
+                                #if os(macOS)
+                                PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
+                                #else
+                                PlaylistDetailView(playlist: playlist)
+                                #endif
+                            }) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {

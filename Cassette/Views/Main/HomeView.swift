@@ -231,16 +231,22 @@ struct HomeView: View {
                     } else {
                         LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                             ForEach(vm.recentAlbums) { album in
-                                NavigationLink(destination: AlbumDetailView(
-                                    album: album,
-                                    zoomSourceId: album.id,
-                                    zoomNamespace: recentlyAddedZoomNamespace,
-                                    coverArtId: album.coverArt,
-                                    initialDominantColor: colorExtractor.dominantColor(
-                                        for: album.coverArt ?? album.id,
-                                        image: nil
+                                NavigationLink(destination: {
+                                    #if os(macOS)
+                                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                                    #else
+                                    AlbumDetailView(
+                                        album: album,
+                                        zoomSourceId: album.id,
+                                        zoomNamespace: recentlyAddedZoomNamespace,
+                                        coverArtId: album.coverArt,
+                                        initialDominantColor: colorExtractor.dominantColor(
+                                            for: album.coverArt ?? album.id,
+                                            image: nil
+                                        )
                                     )
-                                )) {
+                                    #endif
+                                }) {
                                     HomeAlbumCell(album: album, namespace: recentlyAddedZoomNamespace)
                                 }
                                 .buttonStyle(.plain)
@@ -286,6 +292,9 @@ private struct HomePinnedCard: View {
     private var destination: some View {
         switch PinnedItemType(rawValue: item.itemType) {
         case .album:
+            #if os(macOS)
+            AlbumDetailMacOS(albumId: item.itemId, albumName: item.displayName, coverArtId: item.coverArtId)
+            #else
             AlbumDetailView(
                 albumId: item.itemId,
                 albumName: item.displayName,
@@ -298,7 +307,11 @@ private struct HomePinnedCard: View {
                 ),
                 initialCoverImage: coverImage
             )
+            #endif
         case .playlist:
+            #if os(macOS)
+            PlaylistDetailMacOS(playlistId: item.itemId, name: item.displayName, coverArtId: item.coverArtId)
+            #else
             PlaylistDetailView(
                 playlistId: item.itemId,
                 name: item.displayName,
@@ -311,6 +324,7 @@ private struct HomePinnedCard: View {
                 zoomSourceId: item.id,
                 zoomNamespace: namespace
             )
+            #endif
         case .none:
             EmptyView()
         }
@@ -440,9 +454,17 @@ private struct HomeDownloadedItemCard: View {
     private var destination: some View {
         switch item.type {
         case .album:
+            #if os(macOS)
+            AlbumDetailMacOS(albumId: item.itemId, albumName: item.name, coverArtId: item.coverArtId)
+            #else
             AlbumDetailView(albumId: item.itemId, albumName: item.name)
+            #endif
         case .playlist:
+            #if os(macOS)
+            PlaylistDetailMacOS(playlistId: item.itemId, name: item.name, coverArtId: item.coverArtId)
+            #else
             PlaylistDetailView(playlistId: item.itemId, name: item.name)
+            #endif
         }
     }
 
