@@ -70,6 +70,9 @@ struct ArtistListView: View {
                                     #endif
                                 }) {
                                     ArtistRow(artist: artist)
+                                        #if os(iOS)
+                                        .padding(.trailing, vm.indexes.count >= 5 ? 28 : 0)
+                                        #endif
                                 }
                             }
                         }
