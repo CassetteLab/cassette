@@ -216,12 +216,12 @@ struct FullPlayerExpandedView: View {
 
     private var scrubber: some View {
         VStack(spacing: 6) {
-            Slider(
+            ProgressSlider(
                 value: Binding(
                     get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
                     set: { localScrubPosition = $0 }
                 ),
-                in: 0...max(1, playerState?.duration ?? 1),
+                total: max(1, playerState?.duration ?? 1),
                 onEditingChanged: { editing in
                     if editing { localScrubPosition = playerState?.position ?? 0 }
                     isScrubbing = editing
@@ -229,9 +229,10 @@ struct FullPlayerExpandedView: View {
                         let pos = localScrubPosition
                         Task { await container?.playerService.seek(to: pos) }
                     }
-                }
+                },
+                trackColor: .white.opacity(0.15),
+                fillColor: Color.cassetteAccent
             )
-            .tint(Color.cassetteAccent)
             .disabled(noTrack)
 
             HStack {
