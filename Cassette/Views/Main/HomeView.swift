@@ -92,7 +92,9 @@ struct HomeView: View {
                 if !visiblePinnedItems.isEmpty {
                     pinnedSection
                 }
+                #if os(iOS)
                 librarySection
+                #endif
                 recentlySection
             }
             .padding(.horizontal, CassetteSpacing.l)
