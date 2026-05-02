@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import SwiftUI
+import AVKit
 
 struct BottomPlayerBar: View {
     @Environment(\.appContainer) private var container
@@ -59,9 +60,9 @@ struct BottomPlayerBar: View {
             }
         }
         .frame(height: 80)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(.ultraThinMaterial, in: Capsule())
         .overlay {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
+            Capsule()
                 .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.15), radius: 10, y: 2)
@@ -318,12 +319,8 @@ struct BottomPlayerBar: View {
             }
             .buttonStyle(.plain)
 
-            Button { } label: {
-                Image(systemName: "airplayaudio")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.primary.opacity(0.8))
-            }
-            .buttonStyle(.plain)
+            RoutePickerView()
+                .frame(width: 20, height: 20)
 
             HStack(spacing: 4) {
                 Image(systemName: volumeIconName)
@@ -376,5 +373,14 @@ struct BottomPlayerBar: View {
             isFavorite.toggle()
         } catch {}
     }
+}
+
+private struct RoutePickerView: NSViewRepresentable {
+    func makeNSView(context: Context) -> AVRoutePickerView {
+        let view = AVRoutePickerView()
+        view.isRoutePickerButtonBordered = false
+        return view
+    }
+    func updateNSView(_ view: AVRoutePickerView, context: Context) {}
 }
 #endif
