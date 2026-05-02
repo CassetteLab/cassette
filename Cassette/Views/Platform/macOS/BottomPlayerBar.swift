@@ -13,6 +13,7 @@ struct BottomPlayerBar: View {
     @State private var localScrubPosition: Double = 0
     @State private var artworkIsHovered = false
     @State private var showQueue = false
+    @State private var showAddToPlaylist = false
     @State private var isFavorite = false
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
     @State private var barWidth: CGFloat = 800
@@ -73,6 +74,11 @@ struct BottomPlayerBar: View {
         }
         .onChange(of: localVolume) { _, newValue in
             Task { await container?.playerService.setVolume(Float(newValue)) }
+        }
+        .sheet(isPresented: $showAddToPlaylist) {
+            if let track = currentTrack {
+                AddToPlaylistSheet(song: track)
+            }
         }
     }
 
@@ -210,7 +216,6 @@ struct BottomPlayerBar: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .onTapGesture { onArtworkTap?() }
 
-            // TODO(phase-9): add right-click context menu on track row instead of ellipsis button
             Button {
                 Task { await toggleFavorite() }
             } label: {
@@ -220,6 +225,39 @@ struct BottomPlayerBar: View {
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
+        }
+        .contextMenu {
+            Button {
+                showAddToPlaylist = true
+            } label: {
+                Label("Add to Playlist...", systemImage: "music.note.list")
+            }
+            .disabled(noTrack || container?.serverState.isOnline != true)
+
+            Divider()
+
+            Button {
+                Task { await toggleFavorite() }
+            } label: {
+                Label(
+                    isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: isFavorite ? "heart.slash" : "heart"
+                )
+            }
+            .disabled(noTrack || container?.serverState.isOnline != true)
+
+            Button {
+                guard let track = currentTrack else { return }
+                let info = "\(track.artist ?? "Unknown Artist") \u{2014} \(track.title)"
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(info, forType: .string)
+            } label: {
+                Label("Copy Track Info", systemImage: "doc.on.doc")
+            }
+            .disabled(noTrack)
+            // TODO(v1.5.x): Add "Show in Album" and "Show in Artist" once
+            // albumId/artistId are added to DisplayableSong and NavigationPath
+            // is lifted into RootViewMacOS.
         }
     }
 
