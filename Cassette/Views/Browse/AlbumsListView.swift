@@ -70,13 +70,12 @@ struct AlbumsListView: View {
                             year: album.year,
                             coverArtId: album.coverArt
                         )
-                        .padding(.trailing, vm.albums.count >= 20 ? 36 : 0)
                     }
                     .id(album.id)
                 }
                 .listStyle(.plain)
                 .refreshable { await vm.load() }
-                .overlay(alignment: .trailing) {
+                .safeAreaInset(edge: .trailing, spacing: 0) {
                     if vm.albums.count >= 20 {
                         AlphabetJumpBar(
                             availableLetters: vm.albums.availableAlphabetLetters(keyPath: \.name),

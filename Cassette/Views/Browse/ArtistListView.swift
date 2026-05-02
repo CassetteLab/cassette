@@ -70,9 +70,6 @@ struct ArtistListView: View {
                                     #endif
                                 }) {
                                     ArtistRow(artist: artist)
-                                        #if os(iOS)
-                                        .padding(.trailing, vm.indexes.count >= 5 ? 36 : 0)
-                                        #endif
                                 }
                             }
                         }
@@ -81,6 +78,21 @@ struct ArtistListView: View {
                 }
                 .listStyle(.plain)
                 .refreshable { await vm.load() }
+                #if os(iOS)
+                .safeAreaInset(edge: .trailing, spacing: 0) {
+                    if vm.indexes.count >= 5 {
+                        AlphabetJumpBar(
+                            availableLetters: Set(vm.indexes.map(\.name)),
+                            onLetterTap: { letter in
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo(letter, anchor: .top)
+                                }
+                            }
+                        )
+                        .padding(.trailing, 4)
+                    }
+                }
+                #else
                 .overlay(alignment: .trailing) {
                     if vm.indexes.count >= 5 {
                         AlphabetJumpBar(
@@ -94,6 +106,7 @@ struct ArtistListView: View {
                         .padding(.trailing, 4)
                     }
                 }
+                #endif
             }
         }
     }
