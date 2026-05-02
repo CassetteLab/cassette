@@ -37,6 +37,7 @@ struct RootViewMacOS: View {
                     BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
                         .padding(.horizontal, 24)
                         .padding(.bottom, 16)
+                        .zIndex(1)
                 }
             }
         }
