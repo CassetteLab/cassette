@@ -97,7 +97,13 @@ struct ArtistDetailView: View {
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                         ForEach(albums) { album in
-                            NavigationLink(destination: AlbumDetailView(album: album)) {
+                            NavigationLink(destination: {
+                                #if os(macOS)
+                                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                                #else
+                                AlbumDetailView(album: album)
+                                #endif
+                            }) {
                                 AlbumGridCell(album: album)
                             }
                             .buttonStyle(.plain)

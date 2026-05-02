@@ -64,7 +64,13 @@ private struct DownloadedContent: View {
                 if !displayAlbums.isEmpty {
                     Section("Albums") {
                         ForEach(displayAlbums) { display in
-                            NavigationLink(destination: AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)) {
+                            NavigationLink(destination: {
+                                #if os(macOS)
+                                AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
+                                #else
+                                AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
+                                #endif
+                            }) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {

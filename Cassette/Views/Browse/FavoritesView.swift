@@ -78,7 +78,13 @@ struct FavoritesView: View {
         if !albums.isEmpty {
             Section("Albums") {
                 ForEach(albums) { album in
-                    NavigationLink(destination: AlbumDetailView(album: album)) {
+                    NavigationLink(destination: {
+                        #if os(macOS)
+                        AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                        #else
+                        AlbumDetailView(album: album)
+                        #endif
+                    }) {
                         AlbumRow(
                             albumId: album.id,
                             name: album.name,

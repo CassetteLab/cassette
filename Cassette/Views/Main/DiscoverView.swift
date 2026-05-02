@@ -158,7 +158,11 @@ struct DiscoverView: View {
             LazyHStack(spacing: CassetteSpacing.s) {
                 ForEach(albums, id: \.id) { album in
                     NavigationLink {
+                        #if os(macOS)
+                        AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                        #else
                         AlbumDetailView(album: album, zoomSourceId: album.id, zoomNamespace: namespace)
+                        #endif
                     } label: {
                         AlbumCard(album: album)
                             .modifier(ConditionalMatchedTransitionSource(id: album.id, namespace: namespace))

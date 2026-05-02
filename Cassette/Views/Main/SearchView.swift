@@ -47,7 +47,11 @@ struct SearchView: View {
             ArtistDetailView(artist: artist)
         }
         .navigationDestination(for: AlbumID3.self) { album in
+            #if os(macOS)
+            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+            #else
             AlbumDetailView(album: album)
+            #endif
         }
         .onSubmit(of: .search) { addRecentSearch(searchQuery) }
         .onAppear {
