@@ -28,6 +28,11 @@ struct CassetteCommands: Commands {
         }
 
         CommandGroup(after: .toolbar) {
+            Button("Toggle Sidebar") {
+                NSApp.sendAction(#selector(NSSplitViewController.toggleSidebar(_:)), to: nil, from: nil)
+            }
+            .keyboardShortcut("s", modifiers: [.command, .shift])
+
             Button("Search") {
                 NotificationCenter.default.post(name: .cassetteFocusSearch, object: nil)
             }
