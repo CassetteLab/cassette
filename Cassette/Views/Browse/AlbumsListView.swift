@@ -57,14 +57,11 @@ struct AlbumsListView: View {
                 subtitle: "Your library appears to be empty."
             )
         } else {
+            #if os(macOS)
+            albumsListMacOS(vm)
+            #else
             List(vm.albums) { album in
-                NavigationLink(destination: {
-                    #if os(macOS)
-                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                    #else
-                    AlbumDetailView(album: album)
-                    #endif
-                }) {
+                NavigationLink(destination: { AlbumDetailView(album: album) }) {
                     AlbumRow(
                         albumId: album.id,
                         name: album.name,
@@ -76,8 +73,49 @@ struct AlbumsListView: View {
             }
             .listStyle(.plain)
             .refreshable { await vm.load() }
+            #endif
         }
     }
+
+    #if os(macOS)
+    @ViewBuilder
+    private func albumsListMacOS(_ vm: AlbumListViewModel) -> some View {
+        ScrollViewReader { proxy in
+            List(vm.albums) { album in
+                NavigationLink(destination: {
+                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                }) {
+                    AlbumRow(
+                        albumId: album.id,
+                        name: album.name,
+                        artist: album.artist,
+                        year: album.year,
+                        coverArtId: album.coverArt
+                    )
+                    .padding(.trailing, 18)
+                }
+                .id(album.id)
+            }
+            .listStyle(.plain)
+            .refreshable { await vm.load() }
+            .overlay(alignment: .trailing) {
+                if vm.albums.count >= 20 {
+                    AlphabetJumpBar(
+                        availableLetters: vm.albums.availableAlphabetLetters(keyPath: \.name),
+                        onLetterTap: { letter in
+                            if let id = firstAlphabetItemID(forLetter: letter, in: vm.albums, keyPath: \.name) {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    proxy.scrollTo(id, anchor: .top)
+                                }
+                            }
+                        }
+                    )
+                    .padding(.trailing, 4)
+                }
+            }
+        }
+    }
+    #endif
 }
 
 // MARK: - Offline Albums
