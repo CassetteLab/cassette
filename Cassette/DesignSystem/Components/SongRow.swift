@@ -197,6 +197,9 @@ struct SongRow: View {
                 )
             }
             .disabled(!isOnline)
+
+            // TODO(phase-10): Add "Show in Album" and "Show in Artist" once a
+            // programmatic cross-context navigation pattern is established.
         } preview: {
             SongContextPreview(coverImage: coverImage, song: song)
         }
