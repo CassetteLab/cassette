@@ -67,6 +67,7 @@ struct FullPlayerExpandedView: View {
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
             await refreshFavorite()
         }
+        .environment(\.colorScheme, .dark)
     }
 
     // MARK: - Mesh Gradient Background
@@ -79,17 +80,18 @@ struct FullPlayerExpandedView: View {
 
     private func generatePalette(from base: Color) -> ColorPalette {
         guard base != .clear else {
-            return ColorPalette(dark: .black, mid: Color(white: 0.08), bright: Color(white: 0.12))
+            return ColorPalette(dark: Color(white: 0.10), mid: Color(white: 0.22), bright: Color(white: 0.38))
         }
         guard let nsBase = NSColor(base).usingColorSpace(.sRGB) else {
             return ColorPalette(dark: base.opacity(0.3), mid: base.opacity(0.6), bright: base.opacity(0.9))
         }
         var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         nsBase.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        let sat = Double(s) * 0.7
         return ColorPalette(
-            dark:   Color(hue: Double(h), saturation: Double(s) * 0.9,           brightness: max(0.05, Double(b) * 0.25)),
-            mid:    Color(hue: Double(h), saturation: Double(s),                  brightness: max(0.10, Double(b) * 0.50)),
-            bright: Color(hue: Double(h), saturation: max(0.2, Double(s) * 0.8),  brightness: min(0.70, Double(b) * 0.85))
+            dark:   Color(hue: Double(h), saturation: sat, brightness: max(Double(b) * 0.25, 0.15)),
+            mid:    Color(hue: Double(h), saturation: sat, brightness: max(Double(b) * 0.50, 0.30)),
+            bright: Color(hue: Double(h), saturation: sat, brightness: min(max(Double(b) * 0.85, 0.50), 0.70))
         )
     }
 
@@ -395,10 +397,14 @@ struct FullPlayerExpandedView: View {
                 .scrollContentBackground(.hidden)
             }
         }
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(.black.opacity(0.20))
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        )
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(.white.opacity(0.08), lineWidth: 0.5)
+                .stroke(.white.opacity(0.10), lineWidth: 0.5)
         )
     }
 
