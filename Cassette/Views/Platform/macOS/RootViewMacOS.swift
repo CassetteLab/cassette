@@ -41,7 +41,7 @@ struct RootViewMacOS: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 1100, minHeight: 720)
+        .frame(minWidth: 1100, minHeight: 500)
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }
