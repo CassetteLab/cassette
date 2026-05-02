@@ -5,6 +5,7 @@
 
 #if os(macOS)
 import SwiftUI
+import SwiftData
 
 struct CassetteSettingsScene: Scene {
     let container: AppContainer?
