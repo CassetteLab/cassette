@@ -8,13 +8,24 @@ import SwiftUI
 
 struct CarouselSection<Content: View>: View {
     let title: String
+    var onSeeAll: (() -> Void)? = nil
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            Text(title)
-                .font(.cassetteSectionTitle)
-                .padding(.horizontal, CassetteSpacing.m)
+            HStack {
+                Text(title)
+                    .font(.cassetteSectionTitle)
+                    .padding(.leading, CassetteSpacing.m)
+                Spacer()
+                if let onSeeAll {
+                    Button("See All", action: onSeeAll)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.cassetteAccent)
+                        .buttonStyle(.plain)
+                        .padding(.trailing, CassetteSpacing.m)
+                }
+            }
 
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: CassetteSpacing.m) {
