@@ -149,61 +149,79 @@ private struct DownloadedContent: View {
     #endif
 
     private var downloadedListiOS: some View {
-        List {
-            if !displayAlbums.isEmpty {
-                Section("Albums") {
-                    ForEach(displayAlbums) { display in
-                        NavigationLink(destination: {
-                            AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
-                        }) {
-                            HStack(spacing: CassetteSpacing.m) {
-                                CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(display.name)
-                                        .font(.cassetteCellTitle)
-                                        .lineLimit(1)
-                                    if let artist = display.artist {
-                                        Text(artist)
-                                            .font(.cassetteCellSubtitle)
-                                            .foregroundStyle(.secondary)
+        ScrollViewReader { proxy in
+            List {
+                if !displayAlbums.isEmpty {
+                    Section("Albums") {
+                        ForEach(displayAlbums) { display in
+                            NavigationLink(destination: {
+                                AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
+                            }) {
+                                HStack(spacing: CassetteSpacing.m) {
+                                    CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(display.name)
+                                            .font(.cassetteCellTitle)
                                             .lineLimit(1)
+                                        if let artist = display.artist {
+                                            Text(artist)
+                                                .font(.cassetteCellSubtitle)
+                                                .foregroundStyle(.secondary)
+                                                .lineLimit(1)
+                                        }
+                                        Text("\(display.downloadedTracksCount) track\(display.downloadedTracksCount == 1 ? "" : "s")")
+                                            .font(.cassetteCaption)
+                                            .foregroundStyle(.tertiary)
                                     }
-                                    Text("\(display.downloadedTracksCount) track\(display.downloadedTracksCount == 1 ? "" : "s")")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(.tertiary)
+                                    Spacer(minLength: 0)
                                 }
-                                Spacer(minLength: 0)
+                                .padding(.vertical, CassetteSpacing.xs)
                             }
-                            .padding(.vertical, CassetteSpacing.xs)
+                            .id(display.id)
+                        }
+                    }
+                }
+
+                if !playlists.isEmpty {
+                    Section("Playlists") {
+                        ForEach(playlists) { playlist in
+                            NavigationLink(destination: {
+                                PlaylistDetailView(playlist: playlist)
+                            }) {
+                                HStack(spacing: CassetteSpacing.m) {
+                                    CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(playlist.name)
+                                            .font(.cassetteCellTitle)
+                                            .lineLimit(1)
+                                        Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")\(playlist.isComplete ? "" : " (incomplete)")")
+                                            .font(.cassetteCaption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.vertical, CassetteSpacing.xs)
+                            }
                         }
                     }
                 }
             }
-
-            if !playlists.isEmpty {
-                Section("Playlists") {
-                    ForEach(playlists) { playlist in
-                        NavigationLink(destination: {
-                            PlaylistDetailView(playlist: playlist)
-                        }) {
-                            HStack(spacing: CassetteSpacing.m) {
-                                CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(playlist.name)
-                                        .font(.cassetteCellTitle)
-                                        .lineLimit(1)
-                                    Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")\(playlist.isComplete ? "" : " (incomplete)")")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(.secondary)
+            .listStyle(.plain)
+            .overlay(alignment: .trailing) {
+                if displayAlbums.count >= 20 {
+                    AlphabetJumpBar(
+                        availableLetters: displayAlbums.availableAlphabetLetters(keyPath: \.name),
+                        onLetterTap: { letter in
+                            if let id = firstAlphabetItemID(forLetter: letter, in: displayAlbums, keyPath: \.name) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo(id, anchor: .top)
                                 }
-                                Spacer(minLength: 0)
                             }
-                            .padding(.vertical, CassetteSpacing.xs)
                         }
-                    }
+                    )
+                    .padding(.trailing, 4)
                 }
             }
         }
-        .listStyle(.plain)
     }
 }
