@@ -10,4 +10,6 @@ extension Notification.Name {
     static let cassetteSkipNext = Notification.Name("cassette.skipNext")
     static let cassetteSkipPrevious = Notification.Name("cassette.skipPrevious")
     static let cassetteFocusSearch = Notification.Name("cassette.focusSearch")
+    static let cassetteToggleShuffle = Notification.Name("cassette.toggleShuffle")
+    static let cassetteToggleRepeat = Notification.Name("cassette.toggleRepeat")
 }

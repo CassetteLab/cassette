@@ -25,6 +25,18 @@ struct CassetteCommands: Commands {
                 NotificationCenter.default.post(name: .cassetteSkipPrevious, object: nil)
             }
             .keyboardShortcut(.leftArrow, modifiers: [])
+
+            Divider()
+
+            Button("Toggle Shuffle") {
+                NotificationCenter.default.post(name: .cassetteToggleShuffle, object: nil)
+            }
+            .keyboardShortcut("s", modifiers: .command)
+
+            Button("Toggle Repeat") {
+                NotificationCenter.default.post(name: .cassetteToggleRepeat, object: nil)
+            }
+            .keyboardShortcut("r", modifiers: .command)
         }
 
         CommandGroup(after: .toolbar) {

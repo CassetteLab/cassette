@@ -57,6 +57,15 @@ struct RootViewMacOS: View {
         .onReceive(NotificationCenter.default.publisher(for: .cassetteFocusSearch)) { _ in
             searchFieldFocused = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleShuffle)) { _ in
+            Task { await container?.playerService.toggleShuffle() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleRepeat)) { _ in
+            Task {
+                guard let container else { return }
+                await container.playerService.setRepeatMode(container.playerState.repeatMode.next)
+            }
+        }
     }
 
     // MARK: - Playback
