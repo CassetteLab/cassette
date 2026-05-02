@@ -70,7 +70,7 @@ struct AlbumsListView: View {
                             year: album.year,
                             coverArtId: album.coverArt
                         )
-                        .padding(.trailing, vm.albums.count >= 20 ? 32 : 0)
+                        .padding(.trailing, vm.albums.count >= 20 ? 36 : 0)
                     }
                     .id(album.id)
                 }

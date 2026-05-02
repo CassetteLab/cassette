@@ -176,7 +176,7 @@ private struct DownloadedContent: View {
                                     Spacer(minLength: 0)
                                 }
                                 .padding(.vertical, CassetteSpacing.xs)
-                                .padding(.trailing, displayAlbums.count >= 20 ? 32 : 0)
+                                .padding(.trailing, displayAlbums.count >= 20 ? 36 : 0)
                             }
                             .id(display.id)
                         }
