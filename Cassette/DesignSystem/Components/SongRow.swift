@@ -27,6 +27,9 @@ struct SongRow: View {
     @Query private var favoriteMatches: [FavoriteRecord]
     @State private var coverImage: PlatformImage?
     @State private var showAddToPlaylist = false
+    #if os(macOS)
+    @State private var isHovered = false
+    #endif
 
     init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
@@ -76,7 +79,11 @@ struct SongRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title)
+                    #if os(macOS)
+                    .font(.system(size: 14, weight: .regular))
+                    #else
                     .font(.cassetteCellTitle)
+                    #endif
                     .foregroundStyle(isCurrentTrack ? Color.cassetteAccent : titleColor)
                     .lineLimit(1)
                 if let artist = song.artist {
@@ -109,6 +116,11 @@ struct SongRow: View {
         }
         .padding(.vertical, CassetteSpacing.s)
         .contentShape(Rectangle())
+        #if os(macOS)
+        .background(isHovered ? Color.white.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        #endif
         .task(id: song.id) {
             coverImage = await artworkImageCache.load(coverArtId: song.coverArtId ?? song.id)
         }
