@@ -136,7 +136,7 @@ struct PlaylistDetailMacOS: View {
                         .font(.system(size: 14, weight: .semibold))
                         .cassetteGlassButton(size: 28)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .help("Back")
             }
         }
