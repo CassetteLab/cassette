@@ -1,0 +1,177 @@
+// Cassette — Music client for Subsonic/OpenSubsonic servers
+// Copyright (C) 2026 Mathieu Dubart
+// Licensed under the GNU General Public License v3.0 or later.
+// See LICENSE file in the project root for full license information.
+
+#if os(macOS)
+import SwiftUI
+import SwiftData
+
+struct RootViewMacOS: View {
+    @Environment(\.appContainer) private var container
+    @Query(sort: \PinnedItem.sortOrder) private var pinnedItems: [PinnedItem]
+    @State private var selection: SidebarDestination? = .section(.home)
+    @State private var searchQuery: String = ""
+
+    var body: some View {
+        NavigationSplitView {
+            sidebarContent
+        } detail: {
+            detailContent
+        }
+        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 900, minHeight: 600)
+    }
+
+    // MARK: - Sidebar
+
+    @ViewBuilder
+    private var sidebarContent: some View {
+        List(selection: $selection) {
+            Section {
+                sidebarRow(.search)
+                sidebarRow(.home)
+                sidebarRow(.discover)
+                sidebarRow(.radio)
+            }
+
+            Section("Library") {
+                sidebarRow(.albums)
+                sidebarRow(.artists)
+                sidebarRow(.playlists)
+                sidebarRow(.favorites)
+                sidebarRow(.downloaded)
+            }
+
+            if !pinnedItems.isEmpty {
+                Section("Pinned") {
+                    ForEach(pinnedItems) { item in
+                        pinnedRow(item)
+                            .tag(SidebarDestination.pinned(item.id))
+                    }
+                }
+            }
+
+            Section {
+                sidebarRow(.settings)
+            }
+        }
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            userFooter
+        }
+    }
+
+    private func sidebarRow(_ section: SidebarSection) -> some View {
+        Label(section.displayLabel, systemImage: section.systemImage)
+            .tag(SidebarDestination.section(section))
+    }
+
+    @ViewBuilder
+    private func pinnedRow(_ item: PinnedItem) -> some View {
+        Label {
+            Text(item.displayName)
+        } icon: {
+            if let coverArtId = item.coverArtId {
+                CoverArtView(
+                    id: coverArtId,
+                    size: 22,
+                    cornerRadius: 3,
+                    placeholderSystemImage: item.itemType == PinnedItemType.album.rawValue
+                        ? "square.stack" : "music.note.list"
+                )
+                .frame(width: 22, height: 22)
+            } else {
+                Image(systemName: item.itemType == PinnedItemType.album.rawValue
+                    ? "square.stack" : "music.note.list"
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var userFooter: some View {
+        if let server = container?.serverState.activeServer {
+            VStack(spacing: 0) {
+                Divider()
+                HStack(spacing: 8) {
+                    Image(systemName: "server.rack")
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(server.displayName)
+                            .font(.callout)
+                            .fontWeight(.medium)
+                            .lineLimit(1)
+                        Text(server.username)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+            }
+        }
+    }
+
+    // MARK: - Detail
+
+    @ViewBuilder
+    private var detailContent: some View {
+        NavigationStack {
+            detailView(for: selection ?? .section(.home))
+        }
+    }
+
+    @ViewBuilder
+    private func detailView(for destination: SidebarDestination) -> some View {
+        switch destination {
+        case .section(let section):
+            sectionView(for: section)
+        case .pinned(let id):
+            pinnedDetail(for: id)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionView(for section: SidebarSection) -> some View {
+        switch section {
+        case .search:    SearchView(searchQuery: $searchQuery)
+        case .home:      HomeView()
+        case .discover:  DiscoverView()
+        case .radio:     RadioListView()
+        case .albums:    AlbumsListView()
+        case .artists:   ArtistListView()
+        case .playlists: PlaylistListView()
+        case .favorites: FavoritesView()
+        case .downloaded: DownloadedView()
+        case .settings:  SettingsView()
+        }
+    }
+
+    @ViewBuilder
+    private func pinnedDetail(for id: String) -> some View {
+        if let item = pinnedItems.first(where: { $0.id == id }) {
+            switch PinnedItemType(rawValue: item.itemType) {
+            case .album:
+                AlbumDetailView(
+                    albumId: item.itemId,
+                    albumName: item.displayName,
+                    coverArtId: item.coverArtId
+                )
+            case .playlist:
+                PlaylistDetailView(
+                    playlistId: item.itemId,
+                    name: item.displayName,
+                    coverArtId: item.coverArtId
+                )
+            case .none:
+                ContentUnavailableView("Unknown item type", systemImage: "questionmark")
+            }
+        } else {
+            ContentUnavailableView("Item not found", systemImage: "pin.slash")
+        }
+    }
+}
+#endif
