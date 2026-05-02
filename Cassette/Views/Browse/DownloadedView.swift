@@ -60,16 +60,23 @@ private struct DownloadedContent: View {
                 subtitle: "Albums and playlists you download will be available here, even offline."
             )
         } else {
+            #if os(macOS)
+            downloadedListMacOS
+            #else
+            downloadedListiOS
+            #endif
+        }
+    }
+
+    #if os(macOS)
+    private var downloadedListMacOS: some View {
+        ScrollViewReader { proxy in
             List {
                 if !displayAlbums.isEmpty {
                     Section("Albums") {
                         ForEach(displayAlbums) { display in
                             NavigationLink(destination: {
-                                #if os(macOS)
                                 AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-                                #else
-                                AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
-                                #endif
                             }) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
@@ -90,7 +97,9 @@ private struct DownloadedContent: View {
                                     Spacer(minLength: 0)
                                 }
                                 .padding(.vertical, CassetteSpacing.xs)
+                                .padding(.trailing, 18)
                             }
+                            .id(display.id)
                         }
                     }
                 }
@@ -99,11 +108,7 @@ private struct DownloadedContent: View {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
                             NavigationLink(destination: {
-                                #if os(macOS)
                                 PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
-                                #else
-                                PlaylistDetailView(playlist: playlist)
-                                #endif
                             }) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
@@ -124,6 +129,81 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
+            .overlay(alignment: .trailing) {
+                if displayAlbums.count >= 20 {
+                    AlphabetJumpBar(
+                        availableLetters: displayAlbums.availableAlphabetLetters(keyPath: \.name),
+                        onLetterTap: { letter in
+                            if let id = firstAlphabetItemID(forLetter: letter, in: displayAlbums, keyPath: \.name) {
+                                withAnimation(.easeInOut(duration: 0.3)) {
+                                    proxy.scrollTo(id, anchor: .top)
+                                }
+                            }
+                        }
+                    )
+                    .padding(.trailing, 4)
+                }
+            }
         }
+    }
+    #endif
+
+    private var downloadedListiOS: some View {
+        List {
+            if !displayAlbums.isEmpty {
+                Section("Albums") {
+                    ForEach(displayAlbums) { display in
+                        NavigationLink(destination: {
+                            AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
+                        }) {
+                            HStack(spacing: CassetteSpacing.m) {
+                                CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(display.name)
+                                        .font(.cassetteCellTitle)
+                                        .lineLimit(1)
+                                    if let artist = display.artist {
+                                        Text(artist)
+                                            .font(.cassetteCellSubtitle)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                    Text("\(display.downloadedTracksCount) track\(display.downloadedTracksCount == 1 ? "" : "s")")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(.tertiary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, CassetteSpacing.xs)
+                        }
+                    }
+                }
+            }
+
+            if !playlists.isEmpty {
+                Section("Playlists") {
+                    ForEach(playlists) { playlist in
+                        NavigationLink(destination: {
+                            PlaylistDetailView(playlist: playlist)
+                        }) {
+                            HStack(spacing: CassetteSpacing.m) {
+                                CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(playlist.name)
+                                        .font(.cassetteCellTitle)
+                                        .lineLimit(1)
+                                    Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")\(playlist.isComplete ? "" : " (incomplete)")")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.vertical, CassetteSpacing.xs)
+                        }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
     }
 }
