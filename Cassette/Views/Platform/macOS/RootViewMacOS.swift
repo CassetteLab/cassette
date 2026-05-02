@@ -45,11 +45,28 @@ struct RootViewMacOS: View {
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }
-        .background {
-            // Wired here; Phase 8 will bind it to the Edit → Find menu item.
-            Button("Focus Search") { searchFieldFocused = true }
-                .keyboardShortcut("f", modifiers: .command)
-                .hidden()
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteTogglePlayPause)) { _ in
+            Task { await handleTogglePlayPause() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipNext)) { _ in
+            Task { try? await container?.playerService.skipToNext() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipPrevious)) { _ in
+            Task { try? await container?.playerService.skipToPrevious() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteFocusSearch)) { _ in
+            searchFieldFocused = true
+        }
+    }
+
+    // MARK: - Playback
+
+    private func handleTogglePlayPause() async {
+        guard let container else { return }
+        if container.playerState.playbackState == .playing {
+            await container.playerService.pause()
+        } else {
+            await container.playerService.resume()
         }
     }
 
