@@ -21,11 +21,6 @@ struct PlaylistDetailMacOS: View {
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
 
-    private var displayTitle: String {
-        guard let vm, !vm.name.isEmpty else { return name }
-        return vm.name
-    }
-
     var body: some View {
         Group {
             if let vm {
@@ -34,7 +29,6 @@ struct PlaylistDetailMacOS: View {
                 LoadingStateView()
             }
         }
-        .navigationTitle(displayTitle)
         .toolbar { playlistToolbar }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await vm?.deleteDownload() } }
@@ -61,7 +55,7 @@ struct PlaylistDetailMacOS: View {
     private func playlistContent(_ vm: PlaylistDetailViewModel) -> some View {
         let songs = vm.songs
         let serverId = container?.serverState.activeServer?.id ?? UUID()
-        return List {
+        return VStack(spacing: 0) {
             DetailHeroView(
                 coverArtId: vm.coverArtId ?? coverArtId,
                 title: vm.name.isEmpty ? name : vm.name,
@@ -79,50 +73,50 @@ struct PlaylistDetailMacOS: View {
                     }
                 }
             )
-            .listRowInsets(EdgeInsets())
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+            .frame(maxWidth: .infinity)
 
-            if vm.isLoading && songs.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 60)
+            List {
+                if vm.isLoading && songs.isEmpty {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                } else if songs.isEmpty, let error = vm.error {
+                    EmptyStateView(
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load Playlist",
+                        subtitle: error.displayMessage,
+                        action: .init(label: "Retry") { Task { await vm.load() } }
+                    )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-            } else if songs.isEmpty, let error = vm.error {
-                EmptyStateView(
-                    systemImage: "exclamationmark.triangle",
-                    title: "Unable to Load Playlist",
-                    subtitle: error.displayMessage,
-                    action: .init(label: "Retry") { Task { await vm.load() } }
-                )
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            } else {
-                PlaylistSongRows(
-                    songs: songs,
-                    serverId: serverId,
-                    downloadingIds: vm.downloadingIds,
-                    onTap: { index in
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
-                    },
-                    onDownload: (vm.isOffline || vm.isDownloadingPlaylist) ? nil : { songId in
-                        Task { await vm.downloadSong(id: songId) }
-                    },
-                    onRemoveDownload: { songId in
-                        Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
-                    },
-                    onRemove: vm.isOffline ? nil : { index in
-                        Task { await vm.removeTrack(at: index) }
-                    },
-                    onReorder: vm.isOffline ? nil : { source, dest in
-                        Task { await vm.moveTracks(from: source, to: dest) }
-                    }
-                )
+                } else {
+                    PlaylistSongRows(
+                        songs: songs,
+                        serverId: serverId,
+                        downloadingIds: vm.downloadingIds,
+                        onTap: { index in
+                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                        },
+                        onDownload: (vm.isOffline || vm.isDownloadingPlaylist) ? nil : { songId in
+                            Task { await vm.downloadSong(id: songId) }
+                        },
+                        onRemoveDownload: { songId in
+                            Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
+                        },
+                        onRemove: vm.isOffline ? nil : { index in
+                            Task { await vm.removeTrack(at: index) }
+                        },
+                        onReorder: vm.isOffline ? nil : { source, dest in
+                            Task { await vm.moveTracks(from: source, to: dest) }
+                        }
+                    )
+                }
             }
+            .listStyle(.plain)
+            .refreshable { await vm.load() }
         }
-        .listStyle(.plain)
-        .refreshable { await vm.load() }
     }
 
     @ToolbarContentBuilder

@@ -20,11 +20,6 @@ struct AlbumDetailMacOS: View {
     @Environment(\.appContainer) private var container
     @State private var vm: AlbumDetailViewModel?
 
-    private var displayTitle: String {
-        guard let vm, !vm.albumName.isEmpty else { return albumName }
-        return vm.albumName
-    }
-
     var body: some View {
         Group {
             if let vm {
@@ -33,7 +28,6 @@ struct AlbumDetailMacOS: View {
                 LoadingStateView()
             }
         }
-        .navigationTitle(displayTitle)
         .toolbar { albumToolbar }
         .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
@@ -53,7 +47,7 @@ struct AlbumDetailMacOS: View {
     private func albumContent(_ vm: AlbumDetailViewModel) -> some View {
         let songs = vm.songs
         let serverId = container?.serverState.activeServer?.id ?? UUID()
-        return List {
+        return VStack(spacing: 0) {
             DetailHeroView(
                 coverArtId: vm.coverArtId ?? coverArtId,
                 title: vm.albumName.isEmpty ? albumName : vm.albumName,
@@ -71,45 +65,45 @@ struct AlbumDetailMacOS: View {
                     }
                 }
             )
-            .listRowInsets(EdgeInsets())
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
+            .frame(maxWidth: .infinity)
 
-            if vm.isLoading && songs.isEmpty {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 60)
+            List {
+                if vm.isLoading && songs.isEmpty {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                } else if songs.isEmpty, let error = vm.error {
+                    EmptyStateView(
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load Album",
+                        subtitle: error.displayMessage,
+                        action: .init(label: "Retry") { Task { await vm.load() } }
+                    )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-            } else if songs.isEmpty, let error = vm.error {
-                EmptyStateView(
-                    systemImage: "exclamationmark.triangle",
-                    title: "Unable to Load Album",
-                    subtitle: error.displayMessage,
-                    action: .init(label: "Retry") { Task { await vm.load() } }
-                )
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            } else {
-                AlbumSongRows(
-                    songs: songs,
-                    albumId: albumId,
-                    serverId: serverId,
-                    downloadingIds: vm.downloadingIds,
-                    onTap: { index in
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
-                    },
-                    onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
-                        Task { await vm.downloadSong(id: songId) }
-                    },
-                    onRemoveDownload: { songId in
-                        Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
-                    }
-                )
+                } else {
+                    AlbumSongRows(
+                        songs: songs,
+                        albumId: albumId,
+                        serverId: serverId,
+                        downloadingIds: vm.downloadingIds,
+                        onTap: { index in
+                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                        },
+                        onDownload: (vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
+                            Task { await vm.downloadSong(id: songId) }
+                        },
+                        onRemoveDownload: { songId in
+                            Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
+                        }
+                    )
+                }
             }
+            .listStyle(.plain)
+            .refreshable { await vm.load() }
         }
-        .listStyle(.plain)
-        .refreshable { await vm.load() }
     }
 
     private func secondaryLine(vm: AlbumDetailViewModel) -> String? {
