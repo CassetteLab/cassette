@@ -287,11 +287,17 @@ struct BottomPlayerBar: View {
                 HStack(spacing: 4) {
                     Image(systemName: volumeIconName)
                         .font(.system(size: 11))
-                    Slider(value: $localVolume, in: 0...1)
-                        .frame(width: 60)
-                        .controlSize(.mini)
+                        .foregroundStyle(.secondary)
+                    ProgressSlider(
+                        value: $localVolume,
+                        total: 1.0,
+                        onEditingChanged: { _ in },
+                        trackColor: .primary.opacity(0.15),
+                        fillColor: .primary.opacity(0.6),
+                        height: 20
+                    )
+                    .frame(width: 60)
                 }
-                .foregroundStyle(.secondary)
 
                 Button {
                     showQueue.toggle()
