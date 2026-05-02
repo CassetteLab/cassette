@@ -36,6 +36,7 @@ struct ArtistDetailMacOS: View {
         }
         .navigationBarBackButtonHidden(true)
         .toolbar { artistToolbar }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .task {
             guard let svc = container?.libraryService else { return }
             if vm == nil { vm = ArtistDetailViewModel(artistId: artistId, libraryService: svc) }
