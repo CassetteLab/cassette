@@ -89,9 +89,9 @@ struct FullPlayerExpandedView: View {
         nsBase.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
         let sat = Double(s) * 0.7
         return ColorPalette(
-            dark:   Color(hue: Double(h), saturation: sat, brightness: max(Double(b) * 0.25, 0.15)),
-            mid:    Color(hue: Double(h), saturation: sat, brightness: max(Double(b) * 0.50, 0.30)),
-            bright: Color(hue: Double(h), saturation: sat, brightness: min(max(Double(b) * 0.85, 0.50), 0.70))
+            dark:   Color(hue: Double(h), saturation: sat, brightness: min(max(Double(b) * 0.25, 0.15), 0.20)),
+            mid:    Color(hue: Double(h), saturation: sat, brightness: min(max(Double(b) * 0.50, 0.30), 0.35)),
+            bright: Color(hue: Double(h), saturation: sat, brightness: min(max(Double(b) * 0.85, 0.50), 0.50))
         )
     }
 
