@@ -58,9 +58,10 @@ struct FullPlayerExpandedView: View {
                         .foregroundStyle(.primary)
                         .cassetteGlassButton(size: 28)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
                 .help("Close")
             }
+            .sharedBackgroundVisibility(.hidden)
         }
         .task(id: currentTrack?.id) {
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
