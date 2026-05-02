@@ -56,6 +56,10 @@ struct CassetteApp: App {
         .windowStyle(.titleBar)
         .windowResizability(.contentMinSize)
         #endif
+
+        #if os(macOS)
+        CassetteSettingsScene(container: container)
+        #endif
     }
 
     // MARK: - Cover art garbage collection
