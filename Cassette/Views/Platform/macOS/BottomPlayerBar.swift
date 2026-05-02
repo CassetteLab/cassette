@@ -16,6 +16,7 @@ struct BottomPlayerBar: View {
     @State private var isFavorite = false
     @State private var localVolume: Double = 0.7
     @State private var scrubberZoneWidth: CGFloat = 300
+    @State private var barWidth: CGFloat = 800
 
     var onArtworkTap: (() -> Void)? = nil
 
@@ -25,6 +26,8 @@ struct BottomPlayerBar: View {
     private var isLoading: Bool { playerState?.playbackState == .loading }
     private var isLiveStream: Bool { playerState?.isLiveStream == true }
     private var noTrack: Bool { currentTrack == nil }
+    private var isCompact: Bool { barWidth < 560 }
+    private var isNarrow: Bool { barWidth < 400 }
 
     private var progressFraction: Double {
         let position = isScrubbing ? (localScrubPosition ?? 0) : (playerState?.position ?? 0)
@@ -49,12 +52,19 @@ struct BottomPlayerBar: View {
             playbackControls
                 .padding(.horizontal, 16)
 
-            currentTrackInfo
-                .frame(width: 280)
-                .padding(.horizontal, 12)
+            Group {
+                if isCompact {
+                    currentTrackInfo.frame(maxWidth: .infinity)
+                } else {
+                    currentTrackInfo.frame(width: 280)
+                }
+            }
+            .padding(.horizontal, 12)
 
-            scrubberAndSecondaryArea
-                .frame(maxWidth: .infinity)
+            if !isCompact {
+                scrubberAndSecondaryArea
+                    .frame(maxWidth: .infinity)
+            }
         }
         .frame(height: 56)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
@@ -63,6 +73,7 @@ struct BottomPlayerBar: View {
                 .stroke(.white.opacity(0.08), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.15), radius: 10, y: 2)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barWidth = $0 }
         .task(id: currentTrack?.id) {
             await refreshFavorite()
         }
@@ -72,15 +83,17 @@ struct BottomPlayerBar: View {
 
     private var playbackControls: some View {
         HStack(spacing: 8) {
-            Button {
-                Task { await container?.playerService.toggleShuffle() }
-            } label: {
-                Image(systemName: "shuffle")
-                    .font(.system(size: 12))
-                    .foregroundStyle(playerState?.isShuffled == true ? Color.cassetteAccent : .secondary)
+            if !isNarrow {
+                Button {
+                    Task { await container?.playerService.toggleShuffle() }
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(playerState?.isShuffled == true ? Color.cassetteAccent : .secondary)
+                }
+                .buttonStyle(.plain)
+                .disabled(noTrack)
             }
-            .buttonStyle(.plain)
-            .disabled(noTrack)
 
             Button {
                 Task { try? await container?.playerService.skipToPrevious() }
@@ -104,19 +117,21 @@ struct BottomPlayerBar: View {
             .buttonStyle(.plain)
             .disabled(noTrack)
 
-            Button {
-                Task {
-                    if let mode = playerState?.repeatMode {
-                        await container?.playerService.setRepeatMode(mode.next)
+            if !isNarrow {
+                Button {
+                    Task {
+                        if let mode = playerState?.repeatMode {
+                            await container?.playerService.setRepeatMode(mode.next)
+                        }
                     }
+                } label: {
+                    Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
+                        .font(.system(size: 12))
+                        .foregroundStyle(playerState?.repeatMode != .off ? Color.cassetteAccent : .secondary)
                 }
-            } label: {
-                Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
-                    .font(.system(size: 12))
-                    .foregroundStyle(playerState?.repeatMode != .off ? Color.cassetteAccent : .secondary)
+                .buttonStyle(.plain)
+                .disabled(noTrack)
             }
-            .buttonStyle(.plain)
-            .disabled(noTrack)
         }
     }
 
