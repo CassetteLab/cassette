@@ -198,8 +198,9 @@ struct SongRow: View {
             }
             .disabled(!isOnline)
 
-            // TODO(phase-10): Add "Show in Album" and "Show in Artist" once a
-            // programmatic cross-context navigation pattern is established.
+            // TODO(v1.5.x): Add "Show in Album" and "Show in Artist". Requires:
+            // (1) albumId + artistId fields on DisplayableSong, (2) NavigationPath
+            // lifted into RootViewMacOS and threaded through all section views.
         } preview: {
             SongContextPreview(coverImage: coverImage, song: song)
         }
