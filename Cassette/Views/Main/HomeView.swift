@@ -105,6 +105,22 @@ struct HomeView: View {
         .navigationTitle("Home")
         .toolbar {
             ToolbarItem(placement: .automatic) {
+                #if os(macOS)
+                // Settings is accessible via ⌘, (native Settings scene); only show
+                // the menu when there is something else to offer (Edit Pinned).
+                if !allPinnedItems.isEmpty {
+                    Menu {
+                        Button { showEditPinned = true } label: {
+                            Label("Edit Pinned", systemImage: "pin")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.title3)
+                            .frame(width: 36, height: 36)
+                    }
+                    .buttonStyle(.plain)
+                }
+                #else
                 Menu {
                     if !allPinnedItems.isEmpty {
                         Button { showEditPinned = true } label: {
@@ -120,6 +136,7 @@ struct HomeView: View {
                         .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.plain)
+                #endif
             }
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
