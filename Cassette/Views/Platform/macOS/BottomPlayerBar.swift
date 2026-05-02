@@ -223,9 +223,10 @@ struct BottomPlayerBar: View {
                         .fill(.black.opacity(0.15))
 
                     if !isLiveStream, progressFraction > 0 {
-                        Capsule()
+                        RoundedRectangle(cornerRadius: 18)
                             .fill(Color.cassetteAccent.opacity(0.3))
                             .frame(width: zoneWidth * progressFraction)
+                            .clipShape(Capsule())
                     }
                 }
                 .contentShape(Capsule())
