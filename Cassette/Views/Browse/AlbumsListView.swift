@@ -60,19 +60,37 @@ struct AlbumsListView: View {
             #if os(macOS)
             albumsListMacOS(vm)
             #else
-            List(vm.albums) { album in
-                NavigationLink(destination: { AlbumDetailView(album: album) }) {
-                    AlbumRow(
-                        albumId: album.id,
-                        name: album.name,
-                        artist: album.artist,
-                        year: album.year,
-                        coverArtId: album.coverArt
-                    )
+            ScrollViewReader { proxy in
+                List(vm.albums) { album in
+                    NavigationLink(destination: { AlbumDetailView(album: album) }) {
+                        AlbumRow(
+                            albumId: album.id,
+                            name: album.name,
+                            artist: album.artist,
+                            year: album.year,
+                            coverArtId: album.coverArt
+                        )
+                    }
+                    .id(album.id)
+                }
+                .listStyle(.plain)
+                .refreshable { await vm.load() }
+                .overlay(alignment: .trailing) {
+                    if vm.albums.count >= 20 {
+                        AlphabetJumpBar(
+                            availableLetters: vm.albums.availableAlphabetLetters(keyPath: \.name),
+                            onLetterTap: { letter in
+                                if let id = firstAlphabetItemID(forLetter: letter, in: vm.albums, keyPath: \.name) {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        proxy.scrollTo(id, anchor: .top)
+                                    }
+                                }
+                            }
+                        )
+                        .padding(.trailing, 4)
+                    }
                 }
             }
-            .listStyle(.plain)
-            .refreshable { await vm.load() }
             #endif
         }
     }
