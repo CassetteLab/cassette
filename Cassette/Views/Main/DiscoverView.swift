@@ -45,6 +45,23 @@ struct DiscoverView: View {
     // MARK: - Sections
 
     private func recentlyPlayedSection(vm: DiscoverViewModel) -> some View {
+        #if os(macOS)
+        Group {
+            if vm.isInitialLoading {
+                section(title: "Recently Played") { skeletonScroll() }
+            } else if vm.recentlyPlayed.isEmpty {
+                section(title: "Recently Played") {
+                    emptyStateMessage("No history yet — start playing some tracks.")
+                }
+            } else {
+                CarouselSection(title: "Recently Played") {
+                    ForEach(vm.recentlyPlayed, id: \.id) { album in
+                        CarouselAlbumCard(album: album)
+                    }
+                }
+            }
+        }
+        #else
         section(title: "Recently Played") {
             if vm.isInitialLoading {
                 skeletonScroll()
@@ -54,9 +71,27 @@ struct DiscoverView: View {
                 horizontalAlbumScroll(albums: vm.recentlyPlayed, namespace: recentlyPlayedNS)
             }
         }
+        #endif
     }
 
     private func mostPlayedSection(vm: DiscoverViewModel) -> some View {
+        #if os(macOS)
+        Group {
+            if vm.isInitialLoading {
+                section(title: "Most Played") { skeletonScroll() }
+            } else if vm.mostPlayed.isEmpty {
+                section(title: "Most Played") {
+                    emptyStateMessage("No frequent plays yet — your top tracks will appear here.")
+                }
+            } else {
+                CarouselSection(title: "Most Played") {
+                    ForEach(vm.mostPlayed, id: \.id) { album in
+                        CarouselAlbumCard(album: album)
+                    }
+                }
+            }
+        }
+        #else
         section(title: "Most Played") {
             if vm.isInitialLoading {
                 skeletonScroll()
@@ -66,6 +101,7 @@ struct DiscoverView: View {
                 horizontalAlbumScroll(albums: vm.mostPlayed, namespace: mostPlayedNS)
             }
         }
+        #endif
     }
 
     private var smartShuffleSection: some View {
