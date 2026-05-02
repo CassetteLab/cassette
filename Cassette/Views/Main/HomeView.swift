@@ -19,6 +19,7 @@ struct HomeView: View {
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
+    @State private var navigateToAllAlbums = false
     // Local mutable copy for smooth drag-to-reorder; synced from @Query on count changes.
     @State private var localPinnedItems: [PinnedItem] = []
     @State private var dropTargetId: String?
@@ -96,7 +97,11 @@ struct HomeView: View {
                 #if os(iOS)
                 librarySection
                 #endif
+                #if os(macOS)
+                macOSCarousels
+                #else
                 recentlySection
+                #endif
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.top, CassetteSpacing.m)
@@ -142,6 +147,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
+        #if os(macOS)
+        .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
+        #endif
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {
@@ -151,6 +159,59 @@ struct HomeView: View {
             await viewModel?.load()
         }
     }
+
+    // MARK: - macOS carousels
+
+    #if os(macOS)
+    @ViewBuilder
+    private var macOSCarousels: some View {
+        if let vm = viewModel {
+            if vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
+                ProgressView("Loading your library...")
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 60)
+            } else if let error = vm.error, vm.recentAlbums.isEmpty {
+                EmptyStateView(
+                    systemImage: "exclamationmark.triangle",
+                    title: "Unable to Load",
+                    subtitle: error.displayMessage,
+                    action: .init(label: "Retry") { Task { await vm.load() } }
+                )
+            } else if !vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
+                EmptyStateView(
+                    systemImage: "music.note.list",
+                    title: "No music yet",
+                    subtitle: "Add some music to your server to get started"
+                )
+            } else {
+                VStack(alignment: .leading, spacing: 32) {
+                    if !vm.recentAlbums.isEmpty {
+                        CarouselSection(title: "Recently Added", onSeeAll: { navigateToAllAlbums = true }) {
+                            ForEach(vm.recentAlbums) { album in
+                                CarouselAlbumCard(album: album)
+                            }
+                        }
+                    }
+                    if !vm.recentlyPlayed.isEmpty {
+                        CarouselSection(title: "Recently Played") {
+                            ForEach(vm.recentlyPlayed) { album in
+                                CarouselAlbumCard(album: album)
+                            }
+                        }
+                    }
+                    if !vm.mostPlayed.isEmpty {
+                        CarouselSection(title: "Most Played") {
+                            ForEach(vm.mostPlayed) { album in
+                                CarouselAlbumCard(album: album)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 8)
+            }
+        }
+    }
+    #endif
 
     // MARK: - Pinned section
 
