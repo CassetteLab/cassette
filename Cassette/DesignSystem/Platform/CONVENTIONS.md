@@ -32,4 +32,4 @@ out of view bodies and service layer.
 
 - `Utilities/PlatformImage.swift` — `PlatformImage` typealias (`UIImage`/`NSImage`) and `Image.init(platformImage:)`;
   lives in Utilities because it is used by both the service layer and the UI layer
-- `DesignSystem/Color+Platform.swift` — platform-specific system color wrappers
+- `DesignSystem/Platform/Color+Cassette.swift` — platform-specific system color wrappers
