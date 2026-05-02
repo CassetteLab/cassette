@@ -12,6 +12,7 @@ struct RootViewMacOS: View {
     @Query(sort: \PinnedItem.sortOrder) private var pinnedItems: [PinnedItem]
     @State private var selection: SidebarDestination? = .section(.home)
     @State private var searchQuery: String = ""
+    @FocusState private var searchFieldFocused: Bool
 
     var body: some View {
         NavigationSplitView {
@@ -21,6 +22,12 @@ struct RootViewMacOS: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 900, minHeight: 600)
+        .background {
+            // Wired here; Phase 8 will bind it to the Edit → Find menu item.
+            Button("Focus Search") { searchFieldFocused = true }
+                .keyboardShortcut("f", modifiers: .command)
+                .hidden()
+        }
     }
 
     // MARK: - Sidebar
@@ -29,7 +36,6 @@ struct RootViewMacOS: View {
     private var sidebarContent: some View {
         List(selection: $selection) {
             Section {
-                sidebarRow(.search)
                 sidebarRow(.home)
                 sidebarRow(.discover)
                 sidebarRow(.radio)
@@ -40,7 +46,7 @@ struct RootViewMacOS: View {
                 sidebarRow(.artists)
                 sidebarRow(.playlists)
                 sidebarRow(.favorites)
-                sidebarRow(.downloaded)
+                sidebarRow(.downloads)
             }
 
             if !pinnedItems.isEmpty {
@@ -51,15 +57,40 @@ struct RootViewMacOS: View {
                     }
                 }
             }
-
-            Section {
-                sidebarRow(.settings)
-            }
         }
         .listStyle(.sidebar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            searchField
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             userFooter
         }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.subheadline)
+            TextField("Search your library", text: $searchQuery)
+                .textFieldStyle(.plain)
+                .focused($searchFieldFocused)
+            if !searchQuery.isEmpty {
+                Button {
+                    searchQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background(.bar)
     }
 
     private func sidebarRow(_ section: SidebarSection) -> some View {
@@ -120,7 +151,11 @@ struct RootViewMacOS: View {
     @ViewBuilder
     private var detailContent: some View {
         NavigationStack {
-            detailView(for: selection ?? .section(.home))
+            if !searchQuery.isEmpty {
+                SearchView(searchQuery: $searchQuery)
+            } else {
+                detailView(for: selection ?? .section(.home))
+            }
         }
     }
 
@@ -137,7 +172,6 @@ struct RootViewMacOS: View {
     @ViewBuilder
     private func sectionView(for section: SidebarSection) -> some View {
         switch section {
-        case .search:    SearchView(searchQuery: $searchQuery)
         case .home:      HomeView()
         case .discover:  DiscoverView()
         case .radio:     RadioListView()
@@ -145,8 +179,7 @@ struct RootViewMacOS: View {
         case .artists:   ArtistListView()
         case .playlists: PlaylistListView()
         case .favorites: FavoritesView()
-        case .downloaded: DownloadedView()
-        case .settings:  SettingsView()
+        case .downloads: DownloadedView()
         }
     }
 
