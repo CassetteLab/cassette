@@ -111,7 +111,7 @@ struct SettingsView: View {
 
 // MARK: - Shared icon component
 
-private struct SettingsIcon: View {
+struct SettingsIcon: View {
     let systemImage: String
     let color: Color
 
@@ -127,7 +127,7 @@ private struct SettingsIcon: View {
 
 // MARK: - Cache section
 
-private struct CacheSectionView: View {
+struct CacheSectionView: View {
     @Environment(\.appContainer) private var container
     @State private var usedBytes: Int64 = 0
     @State private var trackCount: Int = 0
@@ -263,7 +263,7 @@ private struct CacheSectionView: View {
 
 // MARK: - Downloads section
 
-private struct DownloadsSectionView: View {
+struct DownloadsSectionView: View {
     let vm: DownloadsViewModel
 
     var body: some View {

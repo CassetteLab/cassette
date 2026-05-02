@@ -19,10 +19,10 @@ struct HomeView: View {
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
+    @State private var navigateToAllAlbums = false
     // Local mutable copy for smooth drag-to-reorder; synced from @Query on count changes.
     @State private var localPinnedItems: [PinnedItem] = []
     @State private var dropTargetId: String?
-
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
     ]
@@ -89,11 +89,19 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
+                #if os(iOS)
                 if !visiblePinnedItems.isEmpty {
                     pinnedSection
                 }
+                #endif
+                #if os(iOS)
                 librarySection
+                #endif
+                #if os(macOS)
+                macOSCarousels
+                #else
                 recentlySection
+                #endif
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.top, CassetteSpacing.m)
@@ -102,6 +110,27 @@ struct HomeView: View {
         .cassetteContentWidth()
         .navigationTitle("Home")
         .toolbar {
+            #if os(macOS)
+            // Settings is accessible via ⌘, (native Settings scene); only show
+            // the menu when there is something else to offer (Edit Pinned).
+            if !allPinnedItems.isEmpty {
+                ToolbarItem(placement: .automatic) {
+                    Menu {
+                        Button { showEditPinned = true } label: {
+                            Label("Edit Pinned", systemImage: "pin")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .cassetteGlassButton(size: 28)
+                    }
+                    .menuIndicator(.hidden)
+                    .buttonStyle(.plain)
+                }
+                .sharedBackgroundVisibility(.hidden)
+            }
+            #else
             ToolbarItem(placement: .automatic) {
                 Menu {
                     if !allPinnedItems.isEmpty {
@@ -119,9 +148,13 @@ struct HomeView: View {
                 }
                 .buttonStyle(.plain)
             }
+            #endif
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
+        #if os(macOS)
+        .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
+        #endif
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {
@@ -131,6 +164,106 @@ struct HomeView: View {
             await viewModel?.load()
         }
     }
+
+    // MARK: - macOS carousels
+
+    #if os(macOS)
+    @ViewBuilder
+    private var macOSCarousels: some View {
+        VStack(alignment: .leading, spacing: 32) {
+            if isOnline {
+                smartShuffleCard
+            }
+            if let vm = viewModel {
+                if vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
+                    ProgressView("Loading your library...")
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                } else if let error = vm.error, vm.recentAlbums.isEmpty {
+                    EmptyStateView(
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load",
+                        subtitle: error.displayMessage,
+                        action: .init(label: "Retry") { Task { await vm.load() } }
+                    )
+                } else if !vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
+                    EmptyStateView(
+                        systemImage: "music.note.list",
+                        title: "No music yet",
+                        subtitle: "Add some music to your server to get started"
+                    )
+                } else {
+                    VStack(alignment: .leading, spacing: 32) {
+                        if !vm.recentAlbums.isEmpty {
+                            CarouselSection(title: "Recently Added", onSeeAll: { navigateToAllAlbums = true }) {
+                                ForEach(vm.recentAlbums) { album in
+                                    CarouselAlbumCard(album: album)
+                                }
+                            }
+                        }
+                        if !vm.recentlyPlayed.isEmpty {
+                            CarouselSection(title: "Recently Played") {
+                                ForEach(vm.recentlyPlayed) { album in
+                                    CarouselAlbumCard(album: album)
+                                }
+                            }
+                        }
+                        if !vm.mostPlayed.isEmpty {
+                            CarouselSection(title: "Most Played") {
+                                ForEach(vm.mostPlayed) { album in
+                                    CarouselAlbumCard(album: album)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+    }
+
+    private var smartShuffleCard: some View {
+        Button {
+            Task {
+                guard let container else { return }
+                do {
+                    try await container.playerService.playSmartShuffle()
+                } catch {
+                    let msg: String
+                    if case CassetteError.smartShuffleEmpty = error {
+                        msg = "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
+                    } else {
+                        msg = "Smart Shuffle failed. Please try again."
+                    }
+                    container.toastService.showError(msg)
+                }
+            }
+        } label: {
+            HStack(spacing: CassetteSpacing.s) {
+                Image(systemName: "shuffle.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.cassetteAccent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Smart Shuffle")
+                        .font(.cassetteCellTitle)
+                    Text("Rediscover your library — tracks you haven't heard recently")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "play.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.cassetteAccent)
+            }
+            .padding(CassetteSpacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.cassetteAccent.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+            .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
+    }
+    #endif
 
     // MARK: - Pinned section
 
@@ -212,16 +345,22 @@ struct HomeView: View {
                     } else {
                         LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                             ForEach(vm.recentAlbums) { album in
-                                NavigationLink(destination: AlbumDetailView(
-                                    album: album,
-                                    zoomSourceId: album.id,
-                                    zoomNamespace: recentlyAddedZoomNamespace,
-                                    coverArtId: album.coverArt,
-                                    initialDominantColor: colorExtractor.dominantColor(
-                                        for: album.coverArt ?? album.id,
-                                        image: nil
+                                NavigationLink(destination: {
+                                    #if os(macOS)
+                                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                                    #else
+                                    AlbumDetailView(
+                                        album: album,
+                                        zoomSourceId: album.id,
+                                        zoomNamespace: recentlyAddedZoomNamespace,
+                                        coverArtId: album.coverArt,
+                                        initialDominantColor: colorExtractor.dominantColor(
+                                            for: album.coverArt ?? album.id,
+                                            image: nil
+                                        )
                                     )
-                                )) {
+                                    #endif
+                                }) {
                                     HomeAlbumCell(album: album, namespace: recentlyAddedZoomNamespace)
                                 }
                                 .buttonStyle(.plain)
@@ -267,6 +406,9 @@ private struct HomePinnedCard: View {
     private var destination: some View {
         switch PinnedItemType(rawValue: item.itemType) {
         case .album:
+            #if os(macOS)
+            AlbumDetailMacOS(albumId: item.itemId, albumName: item.displayName, coverArtId: item.coverArtId)
+            #else
             AlbumDetailView(
                 albumId: item.itemId,
                 albumName: item.displayName,
@@ -279,7 +421,11 @@ private struct HomePinnedCard: View {
                 ),
                 initialCoverImage: coverImage
             )
+            #endif
         case .playlist:
+            #if os(macOS)
+            PlaylistDetailMacOS(playlistId: item.itemId, name: item.displayName, coverArtId: item.coverArtId)
+            #else
             PlaylistDetailView(
                 playlistId: item.itemId,
                 name: item.displayName,
@@ -292,6 +438,7 @@ private struct HomePinnedCard: View {
                 zoomSourceId: item.id,
                 zoomNamespace: namespace
             )
+            #endif
         case .none:
             EmptyView()
         }
@@ -421,9 +568,17 @@ private struct HomeDownloadedItemCard: View {
     private var destination: some View {
         switch item.type {
         case .album:
+            #if os(macOS)
+            AlbumDetailMacOS(albumId: item.itemId, albumName: item.name, coverArtId: item.coverArtId)
+            #else
             AlbumDetailView(albumId: item.itemId, albumName: item.name)
+            #endif
         case .playlist:
+            #if os(macOS)
+            PlaylistDetailMacOS(playlistId: item.itemId, name: item.name, coverArtId: item.coverArtId)
+            #else
             PlaylistDetailView(playlistId: item.itemId, name: item.name)
+            #endif
         }
     }
 

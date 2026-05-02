@@ -171,6 +171,21 @@ warning: Metadata extraction skipped. No AppIntents.framework dependency found.
 
 ---
 
+### App icon PNG size mismatch
+
+```
+warning: AppIcon.appiconset/cassette-wow-loop-1024 N.png is 1024x1024 but should be <size>.
+```
+
+| Field    | Details |
+|----------|---------|
+| **Source** | `Assets.xcassets/AppIcon.appiconset` — 10 PNG slots for macOS sizes 16×16 through 512×512 |
+| **Cause** | All macOS app icon slots are currently filled with the 1024×1024 master PNG. Xcode compiles them but emits a size-mismatch warning for each slot that expects a smaller size. iOS is unaffected (uses a single 1024×1024 slot). |
+| **Action** | Pre-existing warning — no code fix possible. Proper resolution requires exporting correctly-sized PNG variants (16, 32, 64, 128, 256, 512 pt, 1× and 2×) from the original icon source and replacing the placeholder assets. |
+| **Revisit** | Before App Store submission for the macOS target — regenerate the full icon set from the final design source. |
+
+---
+
 ## Licensing
 
 By contributing code to this repository, you agree that your contributions will be licensed under the GNU General Public License v3.0 or later, the same license that covers the project.

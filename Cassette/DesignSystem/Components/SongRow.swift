@@ -27,6 +27,9 @@ struct SongRow: View {
     @Query private var favoriteMatches: [FavoriteRecord]
     @State private var coverImage: PlatformImage?
     @State private var showAddToPlaylist = false
+    #if os(macOS)
+    @State private var isHovered = false
+    #endif
 
     init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false) {
         self.song = song
@@ -60,8 +63,13 @@ struct SongRow: View {
             } else {
                 ZStack {
                     Text("\(song.trackNumber ?? index)")
+                        #if os(macOS)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
+                        #else
                         .font(.cassetteCaption)
                         .foregroundStyle(secondaryColor.opacity(0.6))
+                        #endif
                         .opacity(isFavorite ? 0 : 1)
                     if isFavorite {
                         Image(systemName: "heart.fill")
@@ -76,13 +84,22 @@ struct SongRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(song.title)
+                    #if os(macOS)
+                    .font(.system(size: 14, weight: .regular))
+                    #else
                     .font(.cassetteCellTitle)
+                    #endif
                     .foregroundStyle(isCurrentTrack ? Color.cassetteAccent : titleColor)
                     .lineLimit(1)
                 if let artist = song.artist {
                     Text(artist)
+                        #if os(macOS)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        #else
                         .font(.cassetteCaption)
                         .foregroundStyle(secondaryColor)
+                        #endif
                         .lineLimit(1)
                 }
             }
@@ -101,14 +118,27 @@ struct SongRow: View {
                 }
                 if song.duration > 0 {
                     Text(Duration.seconds(song.duration).formatted(.time(pattern: .minuteSecond)))
+                        #if os(macOS)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        #else
                         .font(.cassetteCaption)
                         .foregroundStyle(secondaryColor.opacity(0.6))
+                        #endif
                         .monospacedDigit()
                 }
             }
         }
         .padding(.vertical, CassetteSpacing.s)
+        #if os(macOS)
+        .padding(.trailing, CassetteSpacing.s)
+        #endif
         .contentShape(Rectangle())
+        #if os(macOS)
+        .background(isHovered ? Color.primary.opacity(0.06) : Color.clear, in: RoundedRectangle(cornerRadius: 4))
+        .animation(.easeOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        #endif
         .task(id: song.id) {
             coverImage = await artworkImageCache.load(coverArtId: song.coverArtId ?? song.id)
         }
@@ -170,6 +200,10 @@ struct SongRow: View {
                 )
             }
             .disabled(!isOnline)
+
+            // TODO(v1.5.x): Add "Show in Album" and "Show in Artist". Requires:
+            // (1) albumId + artistId fields on DisplayableSong, (2) NavigationPath
+            // lifted into RootViewMacOS and threaded through all section views.
         } preview: {
             SongContextPreview(coverImage: coverImage, song: song)
         }

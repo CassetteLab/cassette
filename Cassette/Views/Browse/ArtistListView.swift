@@ -57,17 +57,57 @@ struct ArtistListView: View {
                 subtitle: "Your library appears to be empty."
             )
         } else {
-            List(vm.indexes, id: \.name) { index in
-                Section(index.name) {
-                    ForEach(index.artist) { artist in
-                        NavigationLink(destination: ArtistDetailView(artist: artist)) {
-                            ArtistRow(artist: artist)
+            ScrollViewReader { proxy in
+                List {
+                    ForEach(vm.indexes, id: \.name) { index in
+                        Section(index.name) {
+                            ForEach(index.artist) { artist in
+                                NavigationLink(destination: {
+                                    #if os(macOS)
+                                    ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                                    #else
+                                    ArtistDetailView(artist: artist)
+                                    #endif
+                                }) {
+                                    ArtistRow(artist: artist)
+                                }
+                            }
                         }
+                        .id(index.name)
                     }
                 }
+                .listStyle(.plain)
+                .refreshable { await vm.load() }
+                #if os(iOS)
+                .safeAreaInset(edge: .trailing, spacing: 0) {
+                    if vm.indexes.count >= 5 {
+                        AlphabetJumpBar(
+                            availableLetters: Set(vm.indexes.map(\.name)),
+                            onLetterTap: { letter in
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo(letter, anchor: .top)
+                                }
+                            }
+                        )
+                        .padding(.trailing, 4)
+                    }
+                }
+                #else
+                .safeAreaInset(edge: .trailing, spacing: 0) {
+                    if vm.indexes.count >= 5 {
+                        AlphabetJumpBar(
+                            availableLetters: Set(vm.indexes.map(\.name)),
+                            onLetterTap: { letter in
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    proxy.scrollTo(letter, anchor: .top)
+                                }
+                            }
+                        )
+                        .padding(.trailing, 4)
+                    }
+                }
+                #endif
             }
-            .listStyle(.plain)
-            .refreshable { await vm.load() }
         }
     }
 }

@@ -46,12 +46,27 @@ struct CassetteApp: App {
                 guard let c = container, c.serverState.isOnline else { return }
                 await c.playerService.handleNetworkRestored()
             }
+            #if os(macOS)
+            .frame(minHeight: 580)
+            #endif
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .background, let c = container else { return }
             c.sessionService.save(playerState: c.playerState)
             Logger.session.info("App backgrounded — session flushed")
         }
+        #if os(macOS)
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 1280, height: 800)
+        .commands {
+            CassetteCommands()
+        }
+        #endif
+
+        #if os(macOS)
+        CassetteSettingsScene(container: container)
+        #endif
     }
 
     // MARK: - Cover art garbage collection

@@ -438,7 +438,7 @@ private nonisolated enum PlaylistDownloadState {
 
 /// Sub-view that observes DownloadedTrack changes live via @Query,
 /// overriding the isDownloaded flag per row without requiring a VM reload.
-private struct PlaylistSongRows: View {
+struct PlaylistSongRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
     let titleColor: Color
@@ -508,10 +508,18 @@ private struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
+        #if os(macOS)
         SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
             .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        #else
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
+            .listRowBackground(Color.clear)
+        #endif
     }
 }
 

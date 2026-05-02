@@ -8,9 +8,10 @@ import SwiftSonic
 
 /// Compact album card for horizontal-scroll discover surfaces.
 /// Displays cover art, album name, and artist at a fixed 140pt width.
-/// Does not include zoom transitions or context menus — those are HomeView-specific concerns.
 struct AlbumCard: View {
     let album: AlbumID3
+
+    @Environment(\.appContainer) private var container
 
     private let cardSize: CGFloat = 140
 
@@ -30,5 +31,18 @@ struct AlbumCard: View {
             }
         }
         .frame(width: cardSize)
+        .lazyCollectionContextMenu(
+            itemType: .album,
+            itemId: album.id,
+            displayName: album.name,
+            displaySubtitle: album.artist ?? "",
+            coverArtId: album.coverArt,
+            favoriteType: .album,
+            songLoader: {
+                guard let c = container else { return [] }
+                let loaded = try await c.libraryService.album(id: album.id)
+                return (loaded.song ?? []).map { DisplayableSong(from: $0, isDownloaded: false) }
+            }
+        )
     }
 }

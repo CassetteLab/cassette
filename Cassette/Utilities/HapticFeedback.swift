@@ -13,17 +13,19 @@ import UIKit
 /// Usage: `HapticFeedback.medium.trigger()`
 ///
 /// Catalog:
-/// - `.light`   — navigation, skip prev/next, toggle shuffle/repeat, secondary toggles
-/// - `.medium`  — play/pause, swipe MiniPlayer, play album/playlist, QueueView skip
-/// - `.heavy`   — destructive confirmations (trash download, remove all)
-/// - `.success` — download complete, pin to home
-/// - `.warning` — limit reached (max pinned, offline action)
-/// - `.error`   — download failed, sync failed, playback failed
+/// - `.light`     — navigation, skip prev/next, toggle shuffle/repeat, secondary toggles
+/// - `.medium`    — play/pause, swipe MiniPlayer, play album/playlist, QueueView skip
+/// - `.heavy`     — destructive confirmations (trash download, remove all)
+/// - `.selection` — continuous selection change (alphabet jump bar drag, pickers)
+/// - `.success`   — download complete, pin to home
+/// - `.warning`   — limit reached (max pinned, offline action)
+/// - `.error`     — download failed, sync failed, playback failed
 @MainActor
 enum HapticFeedback {
     case light
     case medium
     case heavy
+    case selection
     case success
     case warning
     case error
@@ -37,6 +39,8 @@ enum HapticFeedback {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         case .heavy:
             UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+        case .selection:
+            UISelectionFeedbackGenerator().selectionChanged()
         case .success:
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         case .warning:

@@ -302,6 +302,12 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("Started Smart Shuffle session with \(tracks.count) tracks")
     }
 
+    func setVolume(_ volume: Float) async {
+        let clamped = max(0, min(1, volume))
+        player?.volume = clamped
+        UserDefaults.standard.set(clamped, forKey: "cassette.lastVolume")
+    }
+
     func setAutoExtendEnabled(_ enabled: Bool) async {
         await MainActor.run { state.isAutoExtendEnabled = enabled }
         UserDefaults.standard.set(enabled, forKey: Self.autoExtendUserDefaultsKey)
@@ -641,6 +647,8 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         await prepareCurrentTrackForRestoration(track: track, position: data.currentPosition)
+        let savedVolume = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
+        if savedVolume > 0 { player?.volume = savedVolume }
         Logger.player.info("Session restored: \(data.queue.count) tracks, index \(data.currentIndex), pos=\(data.currentPosition, format: .fixed(precision: 1))s")
     }
 

@@ -258,7 +258,13 @@ struct AlbumDetailView: View {
 
             await loadDominantColor(coverArtId: artId)
         }
-        .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
+        .navigationDestination(item: $artistToNavigate) { artist in
+            #if os(macOS)
+            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+            #else
+            ArtistDetailView(artist: artist)
+            #endif
+        }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
@@ -511,7 +517,7 @@ private nonisolated enum AlbumDownloadState {
 
 /// Sub-view that observes DownloadedTrack changes live via @Query,
 /// overriding the isDownloaded flag per row without requiring a VM reload.
-private struct AlbumSongRows: View {
+struct AlbumSongRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
     let titleColor: Color
@@ -560,6 +566,13 @@ private struct AlbumSongRows: View {
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
             let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
+            #if os(macOS)
+            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+                .padding(.horizontal, CassetteSpacing.l)
+                .onTapGesture { onTap(index) }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            #else
             VStack(spacing: 0) {
                 SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
                     .padding(.horizontal, CassetteSpacing.l)
@@ -569,6 +582,7 @@ private struct AlbumSongRows: View {
                         .padding(.leading, CassetteSpacing.l)
                 }
             }
+            #endif
         }
     }
 }

@@ -9,7 +9,9 @@ import SwiftSonic
 @Observable
 @MainActor
 final class HomeViewModel {
-    var recentAlbums: [AlbumID3] = []
+    private(set) var recentAlbums: [AlbumID3] = []
+    private(set) var recentlyPlayed: [AlbumID3] = []
+    private(set) var mostPlayed: [AlbumID3] = []
     var isLoading = false
     var error: UserFacingError?
 
@@ -23,7 +25,13 @@ final class HomeViewModel {
         isLoading = true
         error = nil
         do {
-            recentAlbums = try await libraryService.recentlyAddedAlbums(size: 24)
+            async let added = libraryService.recentlyAddedAlbums(size: 20)
+            async let played = libraryService.recentlyPlayedAlbums(size: 20)
+            async let most = libraryService.mostPlayedAlbums(size: 20)
+            let (a, p, m) = try await (added, played, most)
+            recentAlbums = a
+            recentlyPlayed = p
+            mostPlayed = m
         } catch {
             self.error = UserFacingError.from(error)
         }

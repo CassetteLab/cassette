@@ -175,6 +175,8 @@ struct CollectionContextMenuModifier: ViewModifier {
     let coverImage: PlatformImage?
     let songs: [DisplayableSong]
     let favoriteType: FavoriteType?
+    let onEdit: (() -> Void)?
+    let onDelete: (() -> Void)?
 
     @Environment(\.appContainer) private var container
     @State private var showPinLimitAlert = false
@@ -266,6 +268,18 @@ struct CollectionContextMenuModifier: ViewModifier {
                             systemImage: isFavorite ? "heart.slash" : "heart"
                         )
                     }
+                }
+
+                if onEdit != nil || onDelete != nil {
+                    Divider()
+                }
+
+                if let onEdit {
+                    Button { onEdit() } label: { Label("Edit Playlist", systemImage: "pencil") }
+                }
+
+                if let onDelete {
+                    Button(role: .destructive) { onDelete() } label: { Label("Delete Playlist", systemImage: "trash") }
                 }
             } preview: {
                 CollectionContextPreview(
@@ -430,7 +444,9 @@ extension View {
         coverArtId: String? = nil,
         coverImage: PlatformImage? = nil,
         songs: [DisplayableSong] = [],
-        favoriteType: FavoriteType? = nil
+        favoriteType: FavoriteType? = nil,
+        onEdit: (() -> Void)? = nil,
+        onDelete: (() -> Void)? = nil
     ) -> some View {
         modifier(CollectionContextMenuModifier(
             itemType: itemType,
@@ -440,7 +456,9 @@ extension View {
             coverArtId: coverArtId,
             coverImage: coverImage,
             songs: songs,
-            favoriteType: favoriteType
+            favoriteType: favoriteType,
+            onEdit: onEdit,
+            onDelete: onDelete
         ))
     }
 

@@ -278,9 +278,13 @@ private struct TrackInfoSection: View {
         }
         .sheet(isPresented: $showArtistSheet) {
             if let artist = resolvedArtist {
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                #else
                 NavigationStack {
                     ArtistDetailView(artist: artist)
                 }
+                #endif
             }
         }
         .sheet(item: $songToAddToPlaylist) { song in
@@ -430,6 +434,7 @@ struct ProgressSlider: View {
     let onEditingChanged: (Bool) -> Void
     var trackColor: Color = Color.white.opacity(0.2)
     var fillColor: Color = Color.white.opacity(0.95)
+    var height: CGFloat = 32
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -470,7 +475,7 @@ struct ProgressSlider: View {
                     }
             )
         }
-        .frame(height: 32)
+        .frame(height: height)
         .accessibilityLabel("Playback position")
         .accessibilityValue(Duration.seconds(value).formatted(.time(pattern: .minuteSecond)))
         .accessibilityAdjustableAction { direction in
