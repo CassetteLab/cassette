@@ -26,7 +26,7 @@ struct RootViewMacOS: View {
                 }
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 1280, minHeight: 800)
         .background {
             // Wired here; Phase 8 will bind it to the Edit → Find menu item.
             Button("Focus Search") { searchFieldFocused = true }
