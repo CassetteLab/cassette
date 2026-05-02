@@ -206,13 +206,15 @@ struct RootViewMacOS: View {
                 AlbumDetailMacOS(
                     albumId: item.itemId,
                     albumName: item.displayName,
-                    coverArtId: item.coverArtId
+                    coverArtId: item.coverArtId,
+                    showBackButton: false
                 )
             case .playlist:
                 PlaylistDetailMacOS(
                     playlistId: item.itemId,
                     name: item.displayName,
-                    coverArtId: item.coverArtId
+                    coverArtId: item.coverArtId,
+                    showBackButton: false
                 )
             case .none:
                 ContentUnavailableView("Unknown item type", systemImage: "questionmark")

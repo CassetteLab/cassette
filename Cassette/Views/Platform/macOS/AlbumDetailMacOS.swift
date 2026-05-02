@@ -10,14 +10,17 @@ struct AlbumDetailMacOS: View {
     let albumId: String
     let albumName: String
     let coverArtId: String?
+    var showBackButton: Bool = true
 
-    init(albumId: String, albumName: String, coverArtId: String? = nil) {
+    init(albumId: String, albumName: String, coverArtId: String? = nil, showBackButton: Bool = true) {
         self.albumId = albumId
         self.albumName = albumName
         self.coverArtId = coverArtId
+        self.showBackButton = showBackButton
     }
 
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
     @State private var vm: AlbumDetailViewModel?
 
     var body: some View {
@@ -118,6 +121,19 @@ struct AlbumDetailMacOS: View {
 
     @ToolbarContentBuilder
     private var albumToolbar: some ToolbarContent {
+        if showBackButton {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Back")
+            }
+        }
+
         ToolbarItem(placement: .primaryAction) {
             if vm?.isDownloadingAlbum == true {
                 Button {

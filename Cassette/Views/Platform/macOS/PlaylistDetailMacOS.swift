@@ -10,14 +10,17 @@ struct PlaylistDetailMacOS: View {
     let playlistId: String
     let name: String
     let coverArtId: String?
+    var showBackButton: Bool = true
 
-    init(playlistId: String, name: String, coverArtId: String? = nil) {
+    init(playlistId: String, name: String, coverArtId: String? = nil, showBackButton: Bool = true) {
         self.playlistId = playlistId
         self.name = name
         self.coverArtId = coverArtId
+        self.showBackButton = showBackButton
     }
 
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
 
@@ -122,6 +125,19 @@ struct PlaylistDetailMacOS: View {
 
     @ToolbarContentBuilder
     private var playlistToolbar: some ToolbarContent {
+        if showBackButton {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Back")
+            }
+        }
+
         ToolbarItem(placement: .primaryAction) {
             if vm?.isDownloadingPlaylist == true {
                 Button {
