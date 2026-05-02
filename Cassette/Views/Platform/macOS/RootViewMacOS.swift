@@ -29,7 +29,7 @@ struct RootViewMacOS: View {
                 }
                 .safeAreaInset(edge: .bottom) {
                     if !isShowingFullPlayer {
-                        Color.clear.frame(height: 88)
+                        Color.clear.frame(height: 110)
                     }
                 }
 
