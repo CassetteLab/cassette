@@ -22,28 +22,14 @@ struct HomeView: View {
     // Local mutable copy for smooth drag-to-reorder; synced from @Query on count changes.
     @State private var localPinnedItems: [PinnedItem] = []
     @State private var dropTargetId: String?
-    #if os(macOS)
-    @State private var homeWidth: CGFloat = 900
-    #endif
-
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
     ]
-    #if os(macOS)
-    private var pinnedColumns: [GridItem] {
-        let cols: Int
-        if homeWidth < 730 { cols = 2 }
-        else if homeWidth < 980 { cols = 3 }
-        else { cols = 4 }
-        return Array(repeating: GridItem(.flexible(), spacing: 16), count: cols)
-    }
-    #else
     private let pinnedColumns = [
         GridItem(.flexible()),
         GridItem(.flexible()),
         GridItem(.flexible())
     ]
-    #endif
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
@@ -102,9 +88,11 @@ struct HomeView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
+                #if os(iOS)
                 if !visiblePinnedItems.isEmpty {
                     pinnedSection
                 }
+                #endif
                 #if os(iOS)
                 librarySection
                 #endif
@@ -114,11 +102,7 @@ struct HomeView: View {
             .padding(.top, CassetteSpacing.m)
             .padding(.bottom, CassetteSpacing.xl)
         }
-        #if os(macOS)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { homeWidth = $0 }
-        #else
         .cassetteContentWidth()
-        #endif
         .navigationTitle("Home")
         .toolbar {
             ToolbarItem(placement: .automatic) {
