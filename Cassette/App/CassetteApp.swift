@@ -53,7 +53,7 @@ struct CassetteApp: App {
             Logger.session.info("App backgrounded — session flushed")
         }
         #if os(macOS)
-        .windowStyle(.titleBar)
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         #endif
 
