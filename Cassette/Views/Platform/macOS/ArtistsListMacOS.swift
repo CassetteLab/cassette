@@ -48,25 +48,45 @@ struct ArtistsListMacOS: View {
                 subtitle: "Your library appears to be empty."
             )
         } else {
-            ScrollView {
-                // TODO(v1.5.x): Add sticky alphabet sidebar for libraries with 200+ artists
-                LazyVGrid(columns: columns, spacing: 32) {
-                    ForEach(vm.indexes.flatMap(\.artist)) { artist in
-                        NavigationLink {
-                            ArtistDetailMacOS(
-                                artistId: artist.id,
-                                artistName: artist.name,
-                                coverArtId: artist.coverArt
-                            )
-                        } label: {
-                            ArtistGridCard(artist: artist)
+            let allArtists = vm.indexes.flatMap(\.artist)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    // TODO(v1.5.x): Add visible alphabet section headers (jump bar already implemented in v1.5)
+                    LazyVGrid(columns: columns, spacing: 32) {
+                        ForEach(allArtists) { artist in
+                            NavigationLink {
+                                ArtistDetailMacOS(
+                                    artistId: artist.id,
+                                    artistName: artist.name,
+                                    coverArtId: artist.coverArt
+                                )
+                            } label: {
+                                ArtistGridCard(artist: artist)
+                            }
+                            .buttonStyle(.plain)
+                            .id(artist.id)
                         }
-                        .buttonStyle(.plain)
+                    }
+                    .padding(24)
+                    .padding(.trailing, 18)
+                }
+                .refreshable { await vm.load() }
+                .overlay(alignment: .trailing) {
+                    if allArtists.count >= 30 {
+                        AlphabetJumpBar(
+                            availableLetters: Set(vm.indexes.map(\.name)),
+                            onLetterTap: { letter in
+                                if let artist = vm.indexes.first(where: { $0.name == letter })?.artist.first {
+                                    withAnimation(.easeInOut(duration: 0.3)) {
+                                        proxy.scrollTo(artist.id, anchor: .top)
+                                    }
+                                }
+                            }
+                        )
+                        .padding(.trailing, 4)
                     }
                 }
-                .padding(24)
             }
-            .refreshable { await vm.load() }
         }
     }
 }
