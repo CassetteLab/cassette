@@ -56,8 +56,7 @@ struct FullPlayerExpandedView: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .frame(width: 28, height: 28)
-                        .background(.ultraThinMaterial, in: Circle())
+                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.plain)
                 .help("Close")

@@ -132,6 +132,7 @@ struct PlaylistDetailMacOS: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .semibold))
+                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.plain)
                 .help("Back")
