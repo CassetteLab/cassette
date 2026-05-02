@@ -12,4 +12,5 @@ extension Notification.Name {
     static let cassetteFocusSearch = Notification.Name("cassette.focusSearch")
     static let cassetteToggleShuffle = Notification.Name("cassette.toggleShuffle")
     static let cassetteToggleRepeat = Notification.Name("cassette.toggleRepeat")
+    static let cassetteToggleQueue = Notification.Name("cassette.toggleQueue")
 }

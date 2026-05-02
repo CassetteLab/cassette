@@ -68,6 +68,9 @@ struct BottomPlayerBar: View {
         .task(id: currentTrack?.id) {
             await refreshFavorite()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleQueue)) { _ in
+            showQueue.toggle()
+        }
     }
 
     @ViewBuilder

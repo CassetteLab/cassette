@@ -37,6 +37,13 @@ struct CassetteCommands: Commands {
                 NotificationCenter.default.post(name: .cassetteToggleRepeat, object: nil)
             }
             .keyboardShortcut("r", modifiers: .command)
+
+            Divider()
+
+            Button("Show Queue") {
+                NotificationCenter.default.post(name: .cassetteToggleQueue, object: nil)
+            }
+            .keyboardShortcut("e", modifiers: .command)
         }
 
         CommandGroup(after: .toolbar) {
