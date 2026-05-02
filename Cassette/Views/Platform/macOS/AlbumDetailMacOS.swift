@@ -28,6 +28,7 @@ struct AlbumDetailMacOS: View {
                 LoadingStateView()
             }
         }
+        .navigationBarBackButtonHidden(true)
         .toolbar { albumToolbar }
         .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }

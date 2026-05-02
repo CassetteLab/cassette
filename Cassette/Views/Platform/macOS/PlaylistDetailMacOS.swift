@@ -29,6 +29,7 @@ struct PlaylistDetailMacOS: View {
                 LoadingStateView()
             }
         }
+        .navigationBarBackButtonHidden(true)
         .toolbar { playlistToolbar }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await vm?.deleteDownload() } }
