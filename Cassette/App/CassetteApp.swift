@@ -55,6 +55,7 @@ struct CassetteApp: App {
         #if os(macOS)
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
+        .defaultSize(width: 1280, height: 800)
         .commands {
             CassetteCommands()
         }
