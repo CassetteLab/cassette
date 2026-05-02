@@ -70,6 +70,13 @@ struct ArtistDetailMacOS: View {
             }
         }
         .refreshable { await vm.load() }
+        .background(
+            LinearGradient(
+                colors: [dominantColor.opacity(0.25), dominantColor.opacity(0.08), Color.clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
     }
 
     // MARK: - Hero

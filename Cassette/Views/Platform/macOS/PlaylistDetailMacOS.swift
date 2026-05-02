@@ -21,8 +21,16 @@ struct PlaylistDetailMacOS: View {
 
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
+    @Environment(ArtworkImageCache.self) private var artworkCache
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
+    @State private var artworkImage: PlatformImage?
+
+    private var effectiveCoverArtId: String? { vm?.coverArtId ?? coverArtId }
+    private var dominantColor: Color {
+        colorExtractor.dominantColor(for: effectiveCoverArtId, image: artworkImage)
+    }
 
     var body: some View {
         Group {
@@ -39,6 +47,10 @@ struct PlaylistDetailMacOS: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("The audio files will be deleted from this device.")
+        }
+        .task(id: effectiveCoverArtId) {
+            guard let id = effectiveCoverArtId else { artworkImage = nil; return }
+            artworkImage = await artworkCache.load(coverArtId: id)
         }
         .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
@@ -121,6 +133,13 @@ struct PlaylistDetailMacOS: View {
             .listStyle(.plain)
             .refreshable { await vm.load() }
         }
+        .background(
+            LinearGradient(
+                colors: [dominantColor.opacity(0.25), dominantColor.opacity(0.08), Color.clear],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
     }
 
     @ToolbarContentBuilder
