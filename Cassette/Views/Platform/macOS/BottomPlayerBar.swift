@@ -15,6 +15,7 @@ struct BottomPlayerBar: View {
     @State private var showQueue = false
     @State private var isFavorite = false
     @State private var localVolume: Double = 0.7
+    @State private var scrubberZoneWidth: CGFloat = 300
 
     private var playerState: PlayerState? { container?.playerState }
     private var currentTrack: DisplayableSong? { playerState?.currentTrack }
@@ -213,50 +214,47 @@ struct BottomPlayerBar: View {
     // MARK: - Scrubber + Secondary Controls
 
     private var scrubberAndSecondaryArea: some View {
-        GeometryReader { geo in
-            let zoneWidth = geo.size.width
-
+        ZStack(alignment: .leading) {
+            // Background capsule + progress fill — carries the drag gesture
             ZStack(alignment: .leading) {
-                // Background capsule + progress fill — carries the drag gesture
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(.black.opacity(0.15))
+                Capsule()
+                    .fill(.black.opacity(0.15))
 
-                    if !isLiveStream, progressFraction > 0 {
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(Color.cassetteAccent.opacity(0.3))
-                            .frame(width: zoneWidth * progressFraction)
-                            .clipShape(Capsule())
-                    }
+                if !isLiveStream, progressFraction > 0 {
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color.cassetteAccent.opacity(0.3))
+                        .frame(width: scrubberZoneWidth * progressFraction)
+                        .clipShape(Capsule())
                 }
-                .contentShape(Capsule())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            guard !isLiveStream else { return }
-                            let duration = playerState?.duration ?? 0
-                            guard duration > 0 else { return }
-                            let fraction = max(0, min(1, value.location.x / zoneWidth))
-                            localScrubPosition = fraction * duration
-                            isScrubbing = true
-                        }
-                        .onEnded { value in
-                            guard !isLiveStream else { return }
-                            let duration = playerState?.duration ?? 0
-                            guard duration > 0 else { return }
-                            let fraction = max(0, min(1, value.location.x / zoneWidth))
-                            let pos = fraction * duration
-                            Task { await container?.playerService.seek(to: pos) }
-                            isScrubbing = false
-                            localScrubPosition = nil
-                        }
-                )
-
-                // Floating icons — on top, handle their own taps independently
-                floatingIconsRow
             }
+            .contentShape(Capsule())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        guard !isLiveStream else { return }
+                        let duration = playerState?.duration ?? 0
+                        guard duration > 0 else { return }
+                        let fraction = max(0, min(1, value.location.x / scrubberZoneWidth))
+                        localScrubPosition = fraction * duration
+                        isScrubbing = true
+                    }
+                    .onEnded { value in
+                        guard !isLiveStream else { return }
+                        let duration = playerState?.duration ?? 0
+                        guard duration > 0 else { return }
+                        let fraction = max(0, min(1, value.location.x / scrubberZoneWidth))
+                        let pos = fraction * duration
+                        Task { await container?.playerService.seek(to: pos) }
+                        isScrubbing = false
+                        localScrubPosition = nil
+                    }
+            )
+
+            // Floating icons — on top, handle their own taps independently
+            floatingIconsRow
         }
         .frame(height: 36)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { scrubberZoneWidth = $0 }
     }
 
     @ViewBuilder
