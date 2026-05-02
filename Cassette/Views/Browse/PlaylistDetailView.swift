@@ -508,10 +508,18 @@ struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
+        #if os(macOS)
         SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
             .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        #else
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
+            .listRowBackground(Color.clear)
+        #endif
     }
 }
 

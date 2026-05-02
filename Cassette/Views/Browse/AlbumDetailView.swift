@@ -566,6 +566,13 @@ struct AlbumSongRows: View {
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
             let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
+            #if os(macOS)
+            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+                .padding(.horizontal, CassetteSpacing.l)
+                .onTapGesture { onTap(index) }
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            #else
             VStack(spacing: 0) {
                 SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
                     .padding(.horizontal, CassetteSpacing.l)
@@ -575,6 +582,7 @@ struct AlbumSongRows: View {
                         .padding(.leading, CassetteSpacing.l)
                 }
             }
+            #endif
         }
     }
 }
