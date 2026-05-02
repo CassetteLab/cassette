@@ -40,28 +40,14 @@ struct BottomPlayerBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            playbackControls
-                .padding(.horizontal, 16)
-
-            Group {
-                if isCompact {
-                    currentTrackInfo.frame(maxWidth: .infinity)
-                } else {
-                    currentTrackInfo.frame(width: 280)
-                }
-            }
-            .padding(.horizontal, 12)
-
-            if !isCompact {
-                scrubberAndSecondaryArea
-                    .frame(maxWidth: .infinity)
-            }
+        VStack(spacing: 4) {
+            scrubberRow
+            controlsRow
         }
-        .frame(height: 56)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: Capsule())
         .overlay {
-            RoundedRectangle(cornerRadius: 16)
+            Capsule()
                 .stroke(.white.opacity(0.08), lineWidth: 0.5)
         }
         .shadow(color: .black.opacity(0.15), radius: 10, y: 2)
@@ -69,6 +55,64 @@ struct BottomPlayerBar: View {
         .task(id: currentTrack?.id) {
             await refreshFavorite()
         }
+    }
+
+    private var scrubberRow: some View {
+        Group {
+            if isLiveStream {
+                HStack {
+                    Spacer()
+                    Text("LIVE")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.red.opacity(0.15), in: Capsule())
+                    Spacer()
+                }
+            } else {
+                ProgressSlider(
+                    value: Binding(
+                        get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
+                        set: { localScrubPosition = $0 }
+                    ),
+                    total: max(1, playerState?.duration ?? 1),
+                    onEditingChanged: { editing in
+                        if editing { localScrubPosition = playerState?.position ?? 0 }
+                        isScrubbing = editing
+                        if !editing {
+                            let pos = localScrubPosition
+                            Task { await container?.playerService.seek(to: pos) }
+                        }
+                    },
+                    trackColor: .primary.opacity(0.15),
+                    fillColor: Color.cassetteAccent,
+                    height: 24
+                )
+                .disabled(noTrack)
+            }
+        }
+        .padding(.horizontal, 20)
+    }
+
+    private var controlsRow: some View {
+        HStack(spacing: 0) {
+            playbackControls
+                .padding(.leading, 16)
+
+            Spacer()
+
+            currentTrackInfo
+                .frame(maxWidth: 300)
+
+            Spacer()
+
+            if !isCompact {
+                secondaryActions
+                    .padding(.trailing, 16)
+            }
+        }
+        .frame(height: 44)
     }
 
     // MARK: - Playback Controls
@@ -222,98 +266,51 @@ struct BottomPlayerBar: View {
         .onTapGesture { onArtworkTap?() }
     }
 
-    // MARK: - Scrubber + Secondary Controls
+    // MARK: - Secondary Actions
 
-    private var scrubberAndSecondaryArea: some View {
-        ZStack {
-            ProgressSlider(
-                value: Binding(
-                    get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
-                    set: { localScrubPosition = $0 }
-                ),
-                total: max(1, playerState?.duration ?? 1),
-                onEditingChanged: { editing in
-                    if editing { localScrubPosition = playerState?.position ?? 0 }
-                    isScrubbing = editing
-                    if !editing {
-                        let pos = localScrubPosition
-                        Task { await container?.playerService.seek(to: pos) }
-                    }
-                },
-                trackColor: .primary.opacity(0.15),
-                fillColor: Color.cassetteAccent
-            )
-            .disabled(isLiveStream || noTrack)
-
-            // Floating icons — on top, handle their own taps independently
-            floatingIconsRow
-        }
-        .frame(height: 36)
-    }
-
-    @ViewBuilder
-    private var floatingIconsRow: some View {
-        HStack(spacing: 0) {
-            // Lyrics (left anchor)
+    private var secondaryActions: some View {
+        HStack(spacing: 12) {
             Button { } label: {
                 Image(systemName: "quote.bubble")
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.8))
             }
             .buttonStyle(.plain)
-            .padding(.leading, 12)
 
-            Spacer()
+            Button { } label: {
+                Image(systemName: "airplayaudio")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.primary.opacity(0.8))
+            }
+            .buttonStyle(.plain)
 
-            // Live badge (centre, radio mode only)
-            if isLiveStream {
-                Text("LIVE")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.red.opacity(0.15), in: Capsule())
-
-                Spacer()
+            HStack(spacing: 4) {
+                Image(systemName: volumeIconName)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                ProgressSlider(
+                    value: $localVolume,
+                    total: 1.0,
+                    onEditingChanged: { _ in },
+                    trackColor: .primary.opacity(0.15),
+                    fillColor: .primary.opacity(0.6),
+                    height: 20
+                )
+                .frame(width: 60)
             }
 
-            // Right cluster: AirPlay · volume · queue
-            HStack(spacing: 12) {
-                Button { } label: {
-                    Image(systemName: "airplayaudio")
-                }
-                .buttonStyle(.plain)
-
-                HStack(spacing: 4) {
-                    Image(systemName: volumeIconName)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    ProgressSlider(
-                        value: $localVolume,
-                        total: 1.0,
-                        onEditingChanged: { _ in },
-                        trackColor: .primary.opacity(0.15),
-                        fillColor: .primary.opacity(0.6),
-                        height: 20
-                    )
-                    .frame(width: 60)
-                }
-
-                Button {
-                    showQueue.toggle()
-                } label: {
-                    Image(systemName: "list.bullet.indent")
-                        .foregroundStyle(showQueue ? Color.cassetteAccent : .primary.opacity(0.8))
-                }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showQueue, arrowEdge: .top) {
-                    QueueView()
-                        .frame(width: 400, height: 600)
-                }
+            Button {
+                showQueue.toggle()
+            } label: {
+                Image(systemName: "list.bullet.indent")
+                    .font(.system(size: 12))
+                    .foregroundStyle(showQueue ? Color.cassetteAccent : .primary.opacity(0.8))
             }
-            .font(.system(size: 12))
-            .foregroundStyle(.primary.opacity(0.8))
-            .padding(.trailing, 12)
+            .buttonStyle(.plain)
+            .popover(isPresented: $showQueue, arrowEdge: .top) {
+                QueueView()
+                    .frame(width: 400, height: 600)
+            }
         }
     }
 
