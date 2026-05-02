@@ -13,20 +13,30 @@ struct RootViewMacOS: View {
     @State private var selection: SidebarDestination? = .section(.home)
     @State private var searchQuery: String = ""
     @FocusState private var searchFieldFocused: Bool
+    @State private var isShowingFullPlayer = false
 
     var body: some View {
         NavigationSplitView {
             sidebarContent
         } detail: {
-            detailContent
-                .safeAreaInset(edge: .bottom) {
-                    BottomPlayerBar()
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 16)
+            Group {
+                if isShowingFullPlayer {
+                    FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
+                } else {
+                    detailContent
                 }
+            }
+            .safeAreaInset(edge: .bottom) {
+                BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1280, minHeight: 800)
+        .onChange(of: selection) { _, _ in
+            if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
+        }
         .background {
             // Wired here; Phase 8 will bind it to the Edit → Find menu item.
             Button("Focus Search") { searchFieldFocused = true }

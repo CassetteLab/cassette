@@ -17,6 +17,8 @@ struct BottomPlayerBar: View {
     @State private var localVolume: Double = 0.7
     @State private var scrubberZoneWidth: CGFloat = 300
 
+    var onArtworkTap: (() -> Void)? = nil
+
     private var playerState: PlayerState? { container?.playerState }
     private var currentTrack: DisplayableSong? { playerState?.currentTrack }
     private var isPlaying: Bool { playerState?.playbackState == .playing }
@@ -162,6 +164,7 @@ struct BottomPlayerBar: View {
                     .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .onTapGesture { onArtworkTap?() }
 
             HStack(spacing: 6) {
                 Button {
@@ -209,6 +212,7 @@ struct BottomPlayerBar: View {
             artworkIsHovered = hovering
             if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
+        .onTapGesture { onArtworkTap?() }
     }
 
     // MARK: - Scrubber + Secondary Controls
