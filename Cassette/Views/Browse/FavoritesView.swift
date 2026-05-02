@@ -103,7 +103,13 @@ struct FavoritesView: View {
         if !artists.isEmpty {
             Section("Artists") {
                 ForEach(artists) { artist in
-                    NavigationLink(destination: ArtistDetailView(artist: artist)) {
+                    NavigationLink(destination: {
+                        #if os(macOS)
+                        ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                        #else
+                        ArtistDetailView(artist: artist)
+                        #endif
+                    }) {
                         ArtistRow(artist: artist)
                     }
                 }

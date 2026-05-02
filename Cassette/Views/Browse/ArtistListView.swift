@@ -60,7 +60,13 @@ struct ArtistListView: View {
             List(vm.indexes, id: \.name) { index in
                 Section(index.name) {
                     ForEach(index.artist) { artist in
-                        NavigationLink(destination: ArtistDetailView(artist: artist)) {
+                        NavigationLink(destination: {
+                            #if os(macOS)
+                            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                            #else
+                            ArtistDetailView(artist: artist)
+                            #endif
+                        }) {
                             ArtistRow(artist: artist)
                         }
                     }

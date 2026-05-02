@@ -278,9 +278,13 @@ private struct TrackInfoSection: View {
         }
         .sheet(isPresented: $showArtistSheet) {
             if let artist = resolvedArtist {
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                #else
                 NavigationStack {
                     ArtistDetailView(artist: artist)
                 }
+                #endif
             }
         }
         .sheet(item: $songToAddToPlaylist) { song in

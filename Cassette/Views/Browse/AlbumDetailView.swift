@@ -258,7 +258,13 @@ struct AlbumDetailView: View {
 
             await loadDominantColor(coverArtId: artId)
         }
-        .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
+        .navigationDestination(item: $artistToNavigate) { artist in
+            #if os(macOS)
+            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+            #else
+            ArtistDetailView(artist: artist)
+            #endif
+        }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 

@@ -191,7 +191,7 @@ struct RootViewMacOS: View {
         case .discover:  DiscoverView()
         case .radio:     RadioListView()
         case .albums:    AlbumsListView()
-        case .artists:   ArtistListView()
+        case .artists:   ArtistsListMacOS()
         case .playlists: PlaylistListView()
         case .favorites: FavoritesView()
         case .downloads: DownloadedView()
