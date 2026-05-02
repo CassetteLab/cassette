@@ -10,12 +10,11 @@ struct BottomPlayerBar: View {
     @Environment(\.appContainer) private var container
 
     @State private var isScrubbing = false
-    @State private var localScrubPosition: Double? = nil
+    @State private var localScrubPosition: Double = 0
     @State private var artworkIsHovered = false
     @State private var showQueue = false
     @State private var isFavorite = false
     @State private var localVolume: Double = 0.7
-    @State private var scrubberZoneWidth: CGFloat = 300
     @State private var barWidth: CGFloat = 800
 
     var onArtworkTap: (() -> Void)? = nil
@@ -28,13 +27,6 @@ struct BottomPlayerBar: View {
     private var noTrack: Bool { currentTrack == nil }
     private var isCompact: Bool { barWidth < 560 }
     private var isNarrow: Bool { barWidth < 400 }
-
-    private var progressFraction: Double {
-        let position = isScrubbing ? (localScrubPosition ?? 0) : (playerState?.position ?? 0)
-        let duration = playerState?.duration ?? 0
-        guard duration > 0 else { return 0 }
-        return min(1, max(0, position / duration))
-    }
 
     private var volumeIconName: String {
         if localVolume < 0.01 { return "speaker.slash.fill" }
@@ -233,47 +225,30 @@ struct BottomPlayerBar: View {
     // MARK: - Scrubber + Secondary Controls
 
     private var scrubberAndSecondaryArea: some View {
-        ZStack(alignment: .leading) {
-            // Background capsule + progress fill — carries the drag gesture
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(.black.opacity(0.15))
-
-                if !isLiveStream, progressFraction > 0 {
-                    RoundedRectangle(cornerRadius: 18)
-                        .fill(Color.cassetteAccent.opacity(0.3))
-                        .frame(width: scrubberZoneWidth * progressFraction)
-                        .clipShape(Capsule())
-                }
-            }
-            .contentShape(Capsule())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        guard !isLiveStream else { return }
-                        let duration = playerState?.duration ?? 0
-                        guard duration > 0 else { return }
-                        let fraction = max(0, min(1, value.location.x / scrubberZoneWidth))
-                        localScrubPosition = fraction * duration
-                        isScrubbing = true
-                    }
-                    .onEnded { value in
-                        guard !isLiveStream else { return }
-                        let duration = playerState?.duration ?? 0
-                        guard duration > 0 else { return }
-                        let fraction = max(0, min(1, value.location.x / scrubberZoneWidth))
-                        let pos = fraction * duration
+        ZStack {
+            ProgressSlider(
+                value: Binding(
+                    get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
+                    set: { localScrubPosition = $0 }
+                ),
+                total: max(1, playerState?.duration ?? 1),
+                onEditingChanged: { editing in
+                    if editing { localScrubPosition = playerState?.position ?? 0 }
+                    isScrubbing = editing
+                    if !editing {
+                        let pos = localScrubPosition
                         Task { await container?.playerService.seek(to: pos) }
-                        isScrubbing = false
-                        localScrubPosition = nil
                     }
+                },
+                trackColor: .primary.opacity(0.15),
+                fillColor: Color.cassetteAccent
             )
+            .disabled(isLiveStream || noTrack)
 
             // Floating icons — on top, handle their own taps independently
             floatingIconsRow
         }
         .frame(height: 36)
-        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { scrubberZoneWidth = $0 }
     }
 
     @ViewBuilder
