@@ -118,15 +118,22 @@ struct AlbumDetailMacOS: View {
                 }
             }
             .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
         }
-        .background(
+        .background {
             LinearGradient(
-                colors: [dominantColor.opacity(0.25), dominantColor.opacity(0.08), Color.clear],
+                colors: [
+                    dominantColor.opacity(0.30),
+                    dominantColor.opacity(0.18),
+                    dominantColor.opacity(0.08),
+                    Color.clear
+                ],
                 startPoint: .top,
                 endPoint: .bottom
             )
-        )
+            .ignoresSafeArea()
+        }
     }
 
     private func secondaryLine(vm: AlbumDetailViewModel) -> String? {
