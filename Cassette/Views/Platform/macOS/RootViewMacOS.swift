@@ -19,6 +19,11 @@ struct RootViewMacOS: View {
             sidebarContent
         } detail: {
             detailContent
+                .safeAreaInset(edge: .bottom) {
+                    BottomPlayerBar()
+                        .padding(.horizontal, 24)
+                        .padding(.bottom, 16)
+                }
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 900, minHeight: 600)
