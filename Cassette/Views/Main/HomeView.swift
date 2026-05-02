@@ -165,51 +165,98 @@ struct HomeView: View {
     #if os(macOS)
     @ViewBuilder
     private var macOSCarousels: some View {
-        if let vm = viewModel {
-            if vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
-                ProgressView("Loading your library...")
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 60)
-            } else if let error = vm.error, vm.recentAlbums.isEmpty {
-                EmptyStateView(
-                    systemImage: "exclamationmark.triangle",
-                    title: "Unable to Load",
-                    subtitle: error.displayMessage,
-                    action: .init(label: "Retry") { Task { await vm.load() } }
-                )
-            } else if !vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
-                EmptyStateView(
-                    systemImage: "music.note.list",
-                    title: "No music yet",
-                    subtitle: "Add some music to your server to get started"
-                )
-            } else {
-                VStack(alignment: .leading, spacing: 32) {
-                    if !vm.recentAlbums.isEmpty {
-                        CarouselSection(title: "Recently Added", onSeeAll: { navigateToAllAlbums = true }) {
-                            ForEach(vm.recentAlbums) { album in
-                                CarouselAlbumCard(album: album)
+        VStack(alignment: .leading, spacing: 32) {
+            if isOnline {
+                smartShuffleCard
+            }
+            if let vm = viewModel {
+                if vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
+                    ProgressView("Loading your library...")
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                } else if let error = vm.error, vm.recentAlbums.isEmpty {
+                    EmptyStateView(
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load",
+                        subtitle: error.displayMessage,
+                        action: .init(label: "Retry") { Task { await vm.load() } }
+                    )
+                } else if !vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
+                    EmptyStateView(
+                        systemImage: "music.note.list",
+                        title: "No music yet",
+                        subtitle: "Add some music to your server to get started"
+                    )
+                } else {
+                    VStack(alignment: .leading, spacing: 32) {
+                        if !vm.recentAlbums.isEmpty {
+                            CarouselSection(title: "Recently Added", onSeeAll: { navigateToAllAlbums = true }) {
+                                ForEach(vm.recentAlbums) { album in
+                                    CarouselAlbumCard(album: album)
+                                }
+                            }
+                        }
+                        if !vm.recentlyPlayed.isEmpty {
+                            CarouselSection(title: "Recently Played") {
+                                ForEach(vm.recentlyPlayed) { album in
+                                    CarouselAlbumCard(album: album)
+                                }
+                            }
+                        }
+                        if !vm.mostPlayed.isEmpty {
+                            CarouselSection(title: "Most Played") {
+                                ForEach(vm.mostPlayed) { album in
+                                    CarouselAlbumCard(album: album)
+                                }
                             }
                         }
                     }
-                    if !vm.recentlyPlayed.isEmpty {
-                        CarouselSection(title: "Recently Played") {
-                            ForEach(vm.recentlyPlayed) { album in
-                                CarouselAlbumCard(album: album)
-                            }
-                        }
-                    }
-                    if !vm.mostPlayed.isEmpty {
-                        CarouselSection(title: "Most Played") {
-                            ForEach(vm.mostPlayed) { album in
-                                CarouselAlbumCard(album: album)
-                            }
-                        }
-                    }
+                    .padding(.vertical, 8)
                 }
-                .padding(.vertical, 8)
             }
         }
+    }
+
+    private var smartShuffleCard: some View {
+        Button {
+            Task {
+                guard let container else { return }
+                do {
+                    try await container.playerService.playSmartShuffle()
+                } catch {
+                    let msg: String
+                    if case CassetteError.smartShuffleEmpty = error {
+                        msg = "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
+                    } else {
+                        msg = "Smart Shuffle failed. Please try again."
+                    }
+                    container.toastService.showError(msg)
+                }
+            }
+        } label: {
+            HStack(spacing: CassetteSpacing.s) {
+                Image(systemName: "shuffle.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Color.cassetteAccent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Smart Shuffle")
+                        .font(.cassetteCellTitle)
+                    Text("Rediscover your library — tracks you haven't heard recently")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "play.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.cassetteAccent)
+            }
+            .padding(CassetteSpacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.cassetteAccent.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+            .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
     }
     #endif
 

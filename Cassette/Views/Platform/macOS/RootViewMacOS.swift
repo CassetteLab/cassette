@@ -87,7 +87,6 @@ struct RootViewMacOS: View {
         List(selection: $selection) {
             Section {
                 sidebarRow(.home)
-                sidebarRow(.discover)
                 sidebarRow(.radio)
             }
 
@@ -240,7 +239,6 @@ struct RootViewMacOS: View {
     private func sectionView(for section: SidebarSection) -> some View {
         switch section {
         case .home:      HomeView()
-        case .discover:  DiscoverView()
         case .radio:     RadioListView()
         case .albums:    AlbumsListView()
         case .artists:   ArtistsListMacOS()

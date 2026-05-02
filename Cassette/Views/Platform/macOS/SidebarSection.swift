@@ -8,7 +8,6 @@ import Foundation
 
 nonisolated enum SidebarSection: String, Hashable, Identifiable, CaseIterable {
     case home
-    case discover
     case radio
     case albums
     case artists
@@ -21,7 +20,6 @@ nonisolated enum SidebarSection: String, Hashable, Identifiable, CaseIterable {
     var displayLabel: String {
         switch self {
         case .home:      return "Home"
-        case .discover:  return "Discover"
         case .radio:     return "Radio"
         case .albums:    return "Albums"
         case .artists:   return "Artists"
@@ -34,7 +32,6 @@ nonisolated enum SidebarSection: String, Hashable, Identifiable, CaseIterable {
     var systemImage: String {
         switch self {
         case .home:      return "house"
-        case .discover:  return "sparkles"
         case .radio:     return "antenna.radiowaves.left.and.right"
         case .albums:    return "square.stack"
         case .artists:   return "music.mic"
