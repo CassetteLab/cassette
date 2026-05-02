@@ -75,7 +75,13 @@ struct PlaylistListView: View {
             )
         } else {
             List(vm.playlists) { playlist in
-                NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
+                NavigationLink(destination: {
+                    #if os(macOS)
+                    PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
+                    #else
+                    PlaylistDetailView(playlist: playlist)
+                    #endif
+                }) {
                     OnlinePlaylistRow(playlist: playlist)
                 }
             }
@@ -147,7 +153,13 @@ private struct OfflinePlaylistContent: View {
             List {
                 Section("Downloaded Playlists") {
                     ForEach(playlists) { playlist in
-                        NavigationLink(destination: PlaylistDetailView(playlist: playlist)) {
+                        NavigationLink(destination: {
+                            #if os(macOS)
+                            PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
+                            #else
+                            PlaylistDetailView(playlist: playlist)
+                            #endif
+                        }) {
                             OfflinePlaylistRow(playlist: playlist)
                         }
                     }

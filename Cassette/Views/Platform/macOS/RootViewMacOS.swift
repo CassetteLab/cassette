@@ -203,13 +203,13 @@ struct RootViewMacOS: View {
         if let item = pinnedItems.first(where: { $0.id == id }) {
             switch PinnedItemType(rawValue: item.itemType) {
             case .album:
-                AlbumDetailView(
+                AlbumDetailMacOS(
                     albumId: item.itemId,
                     albumName: item.displayName,
                     coverArtId: item.coverArtId
                 )
             case .playlist:
-                PlaylistDetailView(
+                PlaylistDetailMacOS(
                     playlistId: item.itemId,
                     name: item.displayName,
                     coverArtId: item.coverArtId
