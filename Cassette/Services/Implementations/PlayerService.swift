@@ -24,6 +24,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let downloadService: any DownloadServiceProtocol
     private let cacheSettings: CacheSettings
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
+    private let toastService: ToastService
 
     private var player: AVPlayer?
     private var timeObserverToken: Any?
@@ -52,7 +53,8 @@ actor PlayerService: PlayerServiceProtocol {
         libraryService: any LibraryServiceProtocol,
         cacheService: any CacheServiceProtocol,
         downloadService: any DownloadServiceProtocol,
-        cacheSettings: CacheSettings
+        cacheSettings: CacheSettings,
+        toastService: ToastService
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
@@ -63,6 +65,7 @@ actor PlayerService: PlayerServiceProtocol {
         self.cacheService = cacheService
         self.downloadService = downloadService
         self.cacheSettings = cacheSettings
+        self.toastService = toastService
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -237,6 +240,19 @@ actor PlayerService: PlayerServiceProtocol {
         cancelPendingCacheDownload()
         let source = try await mediaResolver.resolveRadio(station)
 
+        let codecResult = await checkCodecSupport(url: source.url, headers: source.customHeaders)
+        if case .unsupported(let contentType) = codecResult {
+            Logger.player.warning("[RADIO-CODEC] rejected stream, content-type=\(contentType, privacy: .public)")
+            await MainActor.run {
+                toastService.show(
+                    "This radio uses an unsupported audio format. Cassette can play MP3 and AAC live streams currently.",
+                    style: .error,
+                    duration: 5.0
+                )
+            }
+            return
+        }
+
         teardownPlayer()
 
         #if os(iOS)
@@ -284,6 +300,42 @@ actor PlayerService: PlayerServiceProtocol {
 
         startPositionSaveTimer()
         Logger.player.info("Started live stream radio '\(station.name, privacy: .public)'")
+    }
+
+    // MARK: - Live Stream Codec Check & Failsafe
+
+    private nonisolated enum LiveStreamCodecResult {
+        case supported
+        case unsupported(contentType: String)
+        case ambiguous
+    }
+
+    private func checkCodecSupport(url: URL, headers: [String: String]) async -> LiveStreamCodecResult {
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringCacheData, timeoutInterval: 2.0)
+        request.httpMethod = "HEAD"
+        for (key, value) in headers {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        guard let (_, response) = try? await URLSession.shared.data(for: request),
+              let httpResponse = response as? HTTPURLResponse else {
+            Logger.player.debug("[RADIO-CODEC] HEAD request failed or timed out — letting AVPlayer try")
+            return .ambiguous
+        }
+        let rawType = (httpResponse.allHeaderFields["Content-Type"] as? String ?? "").lowercased()
+        let contentType = rawType.components(separatedBy: ";").first?.trimmingCharacters(in: .whitespaces) ?? ""
+
+        let whitelist: Set<String> = ["audio/mpeg", "audio/mp4", "audio/aac", "audio/x-aac", "audio/aacp"]
+        let blacklist: Set<String> = ["audio/flac", "audio/x-flac", "audio/opus", "audio/ogg", "audio/vorbis"]
+
+        if whitelist.contains(contentType) {
+            Logger.player.debug("[RADIO-CODEC] content-type=\(contentType, privacy: .public) → supported")
+            return .supported
+        }
+        if blacklist.contains(contentType) {
+            return .unsupported(contentType: contentType)
+        }
+        Logger.player.debug("[RADIO-CODEC] content-type=\(contentType.isEmpty ? "(empty)" : contentType, privacy: .public) → ambiguous, letting AVPlayer try")
+        return .ambiguous
     }
 
     // MARK: - Smart Shuffle
