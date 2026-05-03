@@ -54,7 +54,6 @@ struct PlaylistDetailView: View {
 
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.isPresented) private var isPresented
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Query private var allDownloadedTracks: [DownloadedTrack]
     @State private var viewModel: PlaylistDetailViewModel?
@@ -140,6 +139,7 @@ struct PlaylistDetailView: View {
         } message: {
             Text("The audio files will be deleted from this device.")
         }
+        .allowsHitTesting(!isDismissing)
         .background(
             LinearGradient(
                 colors: [
@@ -218,16 +218,6 @@ struct PlaylistDetailView: View {
             }
         }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
-        .overlay {
-            if isDismissing {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .ignoresSafeArea()
-            }
-        }
-        .onChange(of: isPresented) { _, newValue in
-            if !newValue { isDismissing = true }
-        }
     }
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
