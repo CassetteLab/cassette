@@ -30,6 +30,8 @@ actor PlayerService: PlayerServiceProtocol {
     private var timeObserverToken: Any?
     private var endOfTrackObserver: NSObjectProtocol?
     private var durationObserver: NSKeyValueObservation?
+    private var liveStreamFailureObserver: NSKeyValueObservation?
+    private var liveStreamStallTask: Task<Void, Never>?
     private var audioSessionConfigured = false
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
@@ -277,6 +279,7 @@ actor PlayerService: PlayerServiceProtocol {
         // indefinite duration and do not fire AVPlayerItemDidPlayToEndTime naturally.
         setupPeriodicTimeObserver(for: newPlayer)
         newPlayer.play()
+        setupLiveStreamObservers(for: item, stationName: station.name)
 
         await MainActor.run {
             state.playbackState = .playing
@@ -336,6 +339,47 @@ actor PlayerService: PlayerServiceProtocol {
         }
         Logger.player.debug("[RADIO-CODEC] content-type=\(contentType.isEmpty ? "(empty)" : contentType, privacy: .public) → ambiguous, letting AVPlayer try")
         return .ambiguous
+    }
+
+    private func setupLiveStreamObservers(for item: AVPlayerItem, stationName: String) {
+        // Immediate failure: AVPlayerItem.status transitions to .failed
+        liveStreamFailureObserver = item.observe(\.status, options: [.new]) { [weak self] observedItem, _ in
+            guard observedItem.status == .failed else { return }
+            let error = observedItem.error
+            Task { [weak self] in
+                await self?.handleLiveStreamFailure(stationName: stationName, error: error)
+            }
+        }
+
+        // Stall detection: if state.position (driven by the periodic time observer) hasn't
+        // advanced past 1s after 8s of attempted playback, the stream is stalled or undecodable.
+        liveStreamStallTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard !Task.isCancelled else { return }
+            guard let self else { return }
+            let (isStillLive, position) = await MainActor.run { (self.state.isLiveStream, self.state.position) }
+            guard isStillLive, position < 1.0 else { return }
+            await self.handleLiveStreamFailure(stationName: stationName, error: nil)
+        }
+    }
+
+    private func handleLiveStreamFailure(stationName: String, error: Error?) async {
+        let isStillLive = await MainActor.run { state.isLiveStream }
+        guard isStillLive else { return }
+
+        Logger.player.error("[RADIO-FAILSAFE] live stream '\(stationName, privacy: .public)' failed: \(error?.localizedDescription ?? "stall timeout", privacy: .public)")
+
+        teardownPlayer()
+
+        await MainActor.run {
+            state.currentRadio = nil
+            state.playbackState = .idle
+            toastService.show(
+                "Stream unavailable. The radio may be down or use an unsupported format.",
+                style: .error,
+                duration: 5.0
+            )
+        }
     }
 
     // MARK: - Smart Shuffle
@@ -997,6 +1041,10 @@ actor PlayerService: PlayerServiceProtocol {
         }
         durationObserver?.invalidate()
         durationObserver = nil
+        liveStreamFailureObserver?.invalidate()
+        liveStreamFailureObserver = nil
+        liveStreamStallTask?.cancel()
+        liveStreamStallTask = nil
         player?.pause()
         player = nil
     }
