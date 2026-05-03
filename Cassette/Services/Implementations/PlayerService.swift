@@ -554,7 +554,11 @@ actor PlayerService: PlayerServiceProtocol {
         }
         let (queue, currentIndex) = await MainActor.run { (state.queue, state.currentIndex) }
         if queue.isEmpty {
-            try? await play(tracks: songs, startIndex: 0)
+            do {
+                try await play(tracks: songs, startIndex: 0)
+            } catch {
+                Logger.player.error("[PLAYBACK] playNext: play() failed on empty queue: \(error, privacy: .public)")
+            }
         } else {
             let insertAt = min(currentIndex + 1, queue.count)
             await MainActor.run { state.queue.insert(contentsOf: songs, at: insertAt) }
@@ -757,8 +761,11 @@ actor PlayerService: PlayerServiceProtocol {
             await seek(to: 0)
             player?.play()
         } else {
-            Logger.player.info("[TRANSITION] handleEndOfTrack: attempting skipToNext (errors swallowed)")
-            try? await skipToNext()
+            do {
+                try await skipToNext()
+            } catch {
+                Logger.player.error("[TRANSITION] handleEndOfTrack: skipToNext() failed: \(error, privacy: .public)")
+            }
         }
     }
 
