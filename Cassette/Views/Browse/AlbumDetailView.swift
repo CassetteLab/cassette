@@ -83,7 +83,6 @@ struct AlbumDetailView: View {
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
     @State private var artistToNavigate: ArtistID3?
-    @State private var isDismissing = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -187,7 +186,6 @@ struct AlbumDetailView: View {
         } message: {
             Text("The audio files will be deleted from this device.")
         }
-        .allowsHitTesting(!isDismissing)
         .background(
             LinearGradient(
                 colors: [
@@ -203,11 +201,9 @@ struct AlbumDetailView: View {
         .navigationTitle(viewModel?.albumName ?? initialName)
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
-        .onAppear { isDismissing = false }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
-                    isDismissing = true
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")

@@ -62,7 +62,6 @@ struct PlaylistDetailView: View {
     @State private var showDeleteAlert = false
     @State private var showEditSheet = false
     @State private var editSheetDeletedPlaylist = false
-    @State private var isDismissing = false
 
     private var headerTextColor: Color {
         dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
@@ -139,7 +138,6 @@ struct PlaylistDetailView: View {
         } message: {
             Text("The audio files will be deleted from this device.")
         }
-        .allowsHitTesting(!isDismissing)
         .background(
             LinearGradient(
                 colors: [
@@ -155,11 +153,9 @@ struct PlaylistDetailView: View {
         .navigationTitle(viewModel?.name ?? initialName)
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
-        .onAppear { isDismissing = false }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
-                    isDismissing = true
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
