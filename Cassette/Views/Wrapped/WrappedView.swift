@@ -70,6 +70,8 @@ struct WrappedView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Wrapped")
+        .toolbarBackground(.regularMaterial, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .task(id: selectedPeriod) {
             await loadData()
         }
