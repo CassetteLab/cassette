@@ -8,6 +8,7 @@ import OSLog
 
 struct WrappedView: View {
     @Environment(\.appContainer) private var container
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPeriod: WrappedPeriod = .currentMonth()
     @State private var data: WrappedData?
     @State private var isLoading = true
@@ -68,6 +69,7 @@ struct WrappedView: View {
             .padding(.top, CassetteSpacing.l)
             .padding(.bottom, CassetteSpacing.xl)
         }
+        .background(colorScheme == .dark ? Color.black : Color(.systemBackground))
         .cassetteContentWidth()
         .navigationTitle("Wrapped")
         .toolbarBackground(.regularMaterial, for: .navigationBar)
