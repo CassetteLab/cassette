@@ -65,7 +65,7 @@ struct WrappedView: View {
                 }
             }
             .padding(.horizontal, CassetteSpacing.l)
-            .padding(.top, CassetteSpacing.m)
+            .padding(.top, CassetteSpacing.l)
             .padding(.bottom, CassetteSpacing.xl)
         }
         .cassetteContentWidth()
