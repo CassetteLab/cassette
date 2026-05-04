@@ -63,6 +63,7 @@ struct WrappedTopArtistsSection: View {
                     )
                     dominantColors[artist.artistId, default: .clear]
                         .opacity(0.15)
+                        .frame(width: cardWidth, height: cardWidth)
                         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
                     rankBadge(artist.rank)
                         .padding(CassetteSpacing.xs)
