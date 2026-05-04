@@ -44,9 +44,17 @@ actor WrappedPlaylistService {
     /// Determines which past months are missing from the annual playlist and processes
     /// them in order. Idempotent: calling repeatedly is safe due to per-month dedup.
     func runMonthlyUpdateIfNeeded(serverId: String, calendar: Calendar) async -> MonthlyUpdateResult {
+        Logger.wrapped.debug("[WRAPPED-FLOW] start update for serverId=\(serverId, privacy: .public)")
+
+        let lastUpdated = preferences.lastUpdatedMonth(serverId: serverId)
+        Logger.wrapped.debug("[WRAPPED-FLOW] lastWrappedMonthUpdated read = \(lastUpdated?.description ?? "nil", privacy: .public)")
+
         let months = monthsNeedingUpdate(serverId: serverId, calendar: calendar)
+        let monthsDesc = months.map(\.description).joined(separator: ", ")
+        Logger.wrapped.debug("[WRAPPED-FLOW] months to process: \(months.count, privacy: .public) — [\(monthsDesc, privacy: .public)]")
+
         guard !months.isEmpty else {
-            Logger.wrapped.debug("Up-to-date (serverId=\(serverId, privacy: .public))")
+            Logger.wrapped.debug("[WRAPPED-FLOW] decision: UP-TO-DATE, returning early")
             return .upToDate
         }
 
@@ -106,15 +114,21 @@ actor WrappedPlaylistService {
             year: cm == 1 ? cy - 1 : cy,
             month: cm == 1 ? 12 : cm - 1
         )
+        Logger.wrapped.debug("[WRAPPED-FLOW] current month = \(String(format: "%04d-%02d", cy, cm), privacy: .public), target (previous closed month) = \(previousMonth, privacy: .public)")
 
         let startMonth: YearMonth
         if let last = preferences.lastUpdatedMonth(serverId: serverId) {
             startMonth = last.advanced(by: 1)
+            Logger.wrapped.debug("[WRAPPED-FLOW] last persisted = \(last, privacy: .public), startMonth = \(startMonth, privacy: .public)")
         } else {
             startMonth = YearMonth(year: cy, month: 1)
+            Logger.wrapped.debug("[WRAPPED-FLOW] no persisted state, startMonth = \(startMonth, privacy: .public)")
         }
 
-        guard startMonth <= previousMonth else { return [] }
+        guard startMonth <= previousMonth else {
+            Logger.wrapped.debug("[WRAPPED-FLOW] startMonth \(startMonth, privacy: .public) > previousMonth \(previousMonth, privacy: .public) → nothing to do")
+            return []
+        }
 
         var months: [YearMonth] = []
         var current = startMonth
@@ -128,24 +142,33 @@ actor WrappedPlaylistService {
     // MARK: - Month processing
 
     private func processMonth(_ ym: YearMonth, serverId: String, calendar: Calendar) async throws -> ProcessResult {
+        Logger.wrapped.debug("[WRAPPED-FLOW] processing \(ym, privacy: .public)")
         let period = WrappedPeriod.month(year: ym.year, month: ym.month)
         let data = await statsService.wrappedData(for: period, serverId: serverId, calendar: calendar)
+        Logger.wrapped.debug("[WRAPPED-FLOW] wrappedData totalTracksPlayed=\(data.totalTracksPlayed, privacy: .public) topTracks=\(data.topTracks.count, privacy: .public)")
 
         guard data.totalTracksPlayed > 0 else {
+            Logger.wrapped.debug("[WRAPPED-FLOW] decision: SKIP no-data — flag set: lastWrappedMonthUpdated = \(ym, privacy: .public)")
             preferences.setLastUpdatedMonth(ym, serverId: serverId)
             Logger.wrapped.debug("No data for \(ym, privacy: .public) — skipping (serverId=\(serverId, privacy: .public))")
             return .skipped
         }
 
+        Logger.wrapped.debug("[WRAPPED-FLOW] decision: PROCEED — fetching/creating playlist for year \(ym.year, privacy: .public)")
         let topTrackIds = data.topTracks.map(\.trackId)
+        Logger.wrapped.debug("[WRAPPED-FLOW] calling getOrCreatePlaylist for year=\(ym.year, privacy: .public)")
         let playlistId = try await getOrCreatePlaylist(for: ym.year, serverId: serverId)
+        Logger.wrapped.debug("[WRAPPED-FLOW] playlistId=\(playlistId, privacy: .public), fetching current entries")
 
         let client = try await serverService.makeSwiftSonicClient()
         let currentPlaylist = try await client.getPlaylist(id: playlistId)
         let existingIds = Set((currentPlaylist.entry ?? []).map(\.id))
+        Logger.wrapped.debug("[WRAPPED-FLOW] playlist has \(existingIds.count, privacy: .public) existing tracks")
 
         let newTrackIds = topTrackIds.filter { !existingIds.contains($0) }
+        Logger.wrapped.debug("[WRAPPED-FLOW] new (non-duplicate) tracks to consider: \(newTrackIds.count, privacy: .public)")
         guard !newTrackIds.isEmpty else {
+            Logger.wrapped.debug("[WRAPPED-FLOW] decision: SKIP all-duplicates — flag set: lastWrappedMonthUpdated = \(ym, privacy: .public)")
             preferences.setLastUpdatedMonth(ym, serverId: serverId)
             Logger.wrapped.info("\(ym, privacy: .public) — all tracks already in playlist, skipping")
             return .skipped
@@ -154,14 +177,18 @@ actor WrappedPlaylistService {
         // Cap at 120 tracks total for the annual playlist
         let available = max(0, 120 - existingIds.count)
         let tracksToAdd = Array(newTrackIds.prefix(available))
+        Logger.wrapped.debug("[WRAPPED-FLOW] available slots=\(available, privacy: .public), tracksToAdd=\(tracksToAdd.count, privacy: .public)")
         guard !tracksToAdd.isEmpty else {
+            Logger.wrapped.debug("[WRAPPED-FLOW] decision: SKIP 120-cap — flag set: lastWrappedMonthUpdated = \(ym, privacy: .public)")
             preferences.setLastUpdatedMonth(ym, serverId: serverId)
             Logger.wrapped.info("\(ym, privacy: .public) — playlist at 120-track cap, skipping")
             return .skipped
         }
 
         // Mark done ONLY after successful server update (idempotence guarantee)
+        Logger.wrapped.debug("[WRAPPED-FLOW] calling updatePlaylist id=\(playlistId, privacy: .public) adding \(tracksToAdd.count, privacy: .public) tracks")
         try await client.updatePlaylist(id: playlistId, songIdsToAdd: tracksToAdd)
+        Logger.wrapped.debug("[WRAPPED-FLOW] flag set: lastWrappedMonthUpdated = \(ym, privacy: .public)")
         preferences.setLastUpdatedMonth(ym, serverId: serverId)
         Logger.wrapped.info("Added \(tracksToAdd.count, privacy: .public) tracks for \(ym, privacy: .public) → playlist \(playlistId, privacy: .public)")
         return .processed(tracksAdded: tracksToAdd.count)

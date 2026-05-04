@@ -119,13 +119,50 @@ struct SettingsView: View {
                     Logger.wrapped.info("[WRAPPED-DEBUG] result=\(String(describing: result), privacy: .public)")
                 }
             }
+            Button("Dump Wrapped UserDefaults") {
+                dumpWrappedUserDefaults()
+            }
+            Button("Reset Wrapped State (current server)", role: .destructive) {
+                guard let container,
+                      let sid = container.serverState.activeServer?.id.uuidString else {
+                    Logger.wrapped.warning("[WRAPPED-RESET] No active server")
+                    return
+                }
+                resetWrappedState(serverId: sid)
+            }
         }
+    }
+
+    private func dumpWrappedUserDefaults() {
+        let ud = UserDefaults.standard
+        let prefix = "cassette.wrapped."
+        let allKeys = ud.dictionaryRepresentation().keys.filter { $0.hasPrefix(prefix) }.sorted()
+        if allKeys.isEmpty {
+            Logger.wrapped.info("[WRAPPED-DUMP] No cassette.wrapped.* keys found in UserDefaults")
+        } else {
+            Logger.wrapped.info("[WRAPPED-DUMP] Found \(allKeys.count, privacy: .public) cassette.wrapped.* key(s):")
+            for key in allKeys {
+                let value = ud.object(forKey: key)
+                Logger.wrapped.info("[WRAPPED-DUMP] \(key, privacy: .public) = \(String(describing: value), privacy: .public)")
+            }
+        }
+    }
+
+    private func resetWrappedState(serverId: String) {
+        let ud = UserDefaults.standard
+        let keysToRemove = ud.dictionaryRepresentation().keys.filter {
+            $0.hasPrefix("cassette.wrapped.") && $0.hasSuffix(".\(serverId)")
+        }
+        for key in keysToRemove {
+            ud.removeObject(forKey: key)
+        }
+        Logger.wrapped.info("[WRAPPED-RESET] Cleared \(keysToRemove.count, privacy: .public) key(s) for serverId=\(serverId, privacy: .public)")
     }
 
     private func seedPreviousMonth() async {
         guard let container,
               let sid = container.serverState.activeServer?.id.uuidString else {
-            Logger.stats.warning("[WRAPPED-DEBUG-SEED] No active server — aborting")
+            Logger.stats.warning("[WRAPPED-SEED] No active server — aborting")
             return
         }
 
