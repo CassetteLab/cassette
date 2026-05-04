@@ -16,8 +16,6 @@ struct WrappedTopArtistsSection: View {
     @State private var dominantColors: [String: Color] = [:]
     @State private var coverImages: [String: PlatformImage] = [:]
 
-    private let cardSize: CGFloat = 110
-
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             Text("Top Artists")
@@ -25,18 +23,6 @@ struct WrappedTopArtistsSection: View {
             if artists.isEmpty {
                 emptyLabel("No artist data for this period.")
             } else {
-                if let topArtist = artists.first {
-                    WrappedArtistHeroCard(
-                        artist: topArtist,
-                        dominantColor: dominantColors[topArtist.artistId, default: .clear],
-                        image: coverImages[topArtist.artistId],
-                        onTap: {
-                            Task {
-                                artistToNavigate = try? await container?.libraryService.artist(id: topArtist.artistId)
-                            }
-                        }
-                    )
-                }
                 carouselView
             }
         }
@@ -46,12 +32,12 @@ struct WrappedTopArtistsSection: View {
 
     @ViewBuilder
     private var carouselView: some View {
-        let carouselArtists = Array(artists.dropFirst().prefix(9))
-        if !carouselArtists.isEmpty {
+        let allArtists = Array(artists.prefix(10))
+        if !allArtists.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(spacing: CassetteSpacing.m) {
-                    ForEach(carouselArtists) { artist in
-                        artistCard(artist)
+                    ForEach(allArtists.indices, id: \.self) { index in
+                        artistCard(allArtists[index], isFirst: index == 0)
                     }
                 }
                 .padding(.horizontal, CassetteSpacing.l)
@@ -60,8 +46,9 @@ struct WrappedTopArtistsSection: View {
         }
     }
 
-    private func artistCard(_ artist: TopArtistEntry) -> some View {
-        Button {
+    private func artistCard(_ artist: TopArtistEntry, isFirst: Bool) -> some View {
+        let cardWidth: CGFloat = isFirst ? 240 : 200
+        return Button {
             Task {
                 artistToNavigate = try? await container?.libraryService.artist(id: artist.artistId)
             }
@@ -70,7 +57,7 @@ struct WrappedTopArtistsSection: View {
                 ZStack(alignment: .topLeading) {
                     CoverArtCard(
                         id: artist.artistId,
-                        size: cardSize,
+                        size: cardWidth,
                         cornerRadius: CassetteCornerRadius.large,
                         initialImage: coverImages[artist.artistId]
                     )
@@ -87,7 +74,7 @@ struct WrappedTopArtistsSection: View {
                     .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
             }
-            .frame(width: cardSize)
+            .frame(width: cardWidth)
         }
         .buttonStyle(.plain)
     }
