@@ -77,6 +77,17 @@ actor WrappedPlaylistService {
         return .updated(monthsProcessed: monthsProcessed, tracksAdded: totalTracksAdded)
     }
 
+    /// Checks whether the calendar year has advanced since the last recorded marker.
+    /// When it has, updates the local year marker so the next monthly update will
+    /// create a fresh "Cassette Wrapped <newYear>" playlist automatically.
+    /// No-op if already current.
+    func handleYearTransitionIfNeeded(serverId: String, calendar: Calendar) async {
+        let currentYear = calendar.component(.year, from: Date())
+        if let last = preferences.lastWrappedYear(serverId: serverId), last >= currentYear { return }
+        preferences.setLastWrappedYear(currentYear, serverId: serverId)
+        Logger.wrapped.info("Year marker → \(currentYear, privacy: .public) (serverId=\(serverId, privacy: .public))")
+    }
+
     // MARK: - Private types
 
     private enum ProcessResult {
