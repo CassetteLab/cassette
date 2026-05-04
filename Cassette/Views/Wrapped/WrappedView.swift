@@ -12,6 +12,7 @@ struct WrappedView: View {
     @State private var data: WrappedData?
     @State private var isLoading = true
     @State private var wrappedPlaylistId: String?
+    @State private var appeared = false
 
     private var availablePeriods: [WrappedPeriod] {
         let calendar = Calendar.current
@@ -41,10 +42,15 @@ struct WrappedView: View {
                         .padding(.top, CassetteSpacing.xxxxl)
                 } else if let d = data, d.totalTracksPlayed > 0 {
                     WrappedStatHero(data: d)
+                        .cascadeAppear(order: 0, trigger: appeared)
                     WrappedTopArtistsSection(artists: d.topArtists)
+                        .cascadeAppear(order: 1, trigger: appeared)
                     WrappedTopTracksSection(tracks: d.topTracks)
+                        .cascadeAppear(order: 2, trigger: appeared)
                     WrappedTopAlbumsSection(albums: d.topAlbums)
+                        .cascadeAppear(order: 3, trigger: appeared)
                     WrappedRewardsSection(data: d)
+                        .cascadeAppear(order: 4, trigger: appeared)
                     if case .year = selectedPeriod {
                         WrappedYearCard(
                             year: currentYear,
@@ -52,6 +58,7 @@ struct WrappedView: View {
                             lastTrack: d.lastTrackOfPeriod,
                             playlistId: wrappedPlaylistId
                         )
+                        .cascadeAppear(order: 5, trigger: appeared)
                     }
                 } else {
                     emptyState
@@ -94,6 +101,7 @@ struct WrappedView: View {
             return
         }
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch start period=\(selectedPeriod.displayName, privacy: .public)")
+        appeared = false
         isLoading = true
         data = nil
         wrappedPlaylistId = nil
@@ -106,6 +114,21 @@ struct WrappedView: View {
         }
         data = result
         isLoading = false
+        appeared = true
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch done totalPlays=\(result.totalTracksPlayed, privacy: .public)")
+    }
+}
+
+// MARK: - Cascade appear modifier
+
+private extension View {
+    func cascadeAppear(order: Int, trigger: Bool) -> some View {
+        self
+            .opacity(trigger ? 1 : 0)
+            .offset(y: trigger ? 0 : 16)
+            .animation(
+                .spring(response: 0.45, dampingFraction: 0.82).delay(Double(order) * 0.07),
+                value: trigger
+            )
     }
 }
