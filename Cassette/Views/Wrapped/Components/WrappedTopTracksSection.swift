@@ -8,37 +8,79 @@ import SwiftUI
 struct WrappedTopTracksSection: View {
     let tracks: [TopTrackEntry]
 
+    @Environment(\.appContainer) private var container
+
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             Text("Top Tracks")
                 .font(.cassetteSectionTitle)
             if tracks.isEmpty {
-                Text("No track data for this period.")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
+                emptyLabel("No track data for this period.")
             } else {
-                ForEach(tracks.prefix(5)) { track in
-                    HStack(spacing: CassetteSpacing.s) {
-                        Text("\(track.rank).")
-                            .font(.cassetteCaption)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 20, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(track.title)
-                                .font(.cassetteCellTitle)
-                                .lineLimit(1)
-                            Text(track.artistName)
-                                .font(.cassetteCaption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
+                let visible = Array(tracks.prefix(10))
+                VStack(spacing: 0) {
+                    ForEach(Array(visible.enumerated()), id: \.element.id) { index, track in
+                        trackRow(track)
+                        if index < visible.count - 1 {
+                            Divider()
+                                .padding(.leading, CassetteSpacing.m + 20 + CassetteSpacing.m + 44 + CassetteSpacing.m)
                         }
-                        Spacer(minLength: 0)
-                        Text("\(track.playCount)x")
-                            .font(.cassetteCaption)
-                            .foregroundStyle(.secondary)
                     }
                 }
             }
         }
+    }
+
+    private func trackRow(_ track: TopTrackEntry) -> some View {
+        Button {
+            Task {
+                guard let container else { return }
+                let song = DisplayableSong(
+                    id: track.trackId,
+                    title: track.title,
+                    artist: track.artistName,
+                    albumId: nil,
+                    albumName: track.albumTitle,
+                    artistId: nil,
+                    genre: nil,
+                    duration: 0,
+                    trackNumber: nil,
+                    isDownloaded: false,
+                    coverArtId: track.trackId,
+                    audioFormat: nil
+                )
+                try? await container.playerService.play(tracks: [song], startIndex: 0)
+            }
+        } label: {
+            HStack(spacing: CassetteSpacing.m) {
+                Text("\(track.rank)")
+                    .font(.cassetteCellTitle)
+                    .foregroundStyle(Color.cassetteAccent)
+                    .frame(width: 20, alignment: .center)
+                CoverArtCard(id: track.trackId, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(track.title)
+                        .font(.cassetteCellTitle)
+                        .lineLimit(1)
+                    Text(track.artistName)
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Text(track.playCount.plural("play", "plays"))
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, CassetteSpacing.s)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func emptyLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.cassetteCaption)
+            .foregroundStyle(.secondary)
     }
 }
