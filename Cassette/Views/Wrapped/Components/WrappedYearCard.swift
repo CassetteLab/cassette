@@ -11,30 +11,51 @@ struct WrappedYearCard: View {
     let lastTrack: TopTrackEntry?
     let playlistId: String?
 
+    private var yearString: String { String(year) }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            gradientHeader
+        Group {
             if let pid = playlistId {
-                playlistLink(pid)
+                NavigationLink {
+                    PlaylistDetailView(playlistId: pid, name: "Cassette Wrapped \(yearString)")
+                } label: {
+                    cardContent(hasPlaylist: true)
+                }
+                .buttonStyle(.plain)
+            } else {
+                cardContent(hasPlaylist: false)
             }
         }
     }
 
-    private var gradientHeader: some View {
+    private func cardContent(hasPlaylist: Bool) -> some View {
         ZStack(alignment: .bottomLeading) {
             LinearGradient(
                 colors: [Color.cassetteAccent, Color.cassetteAccent.opacity(0.55)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                Text("Cassette Wrapped \(year)")
-                    .font(.cassetteDetailTitle)
-                    .foregroundStyle(Color.cassetteAccentText)
-                subtitle
-                    .font(.cassetteCaption)
-                    .foregroundStyle(Color.cassetteAccentText.opacity(0.80))
-                    .lineLimit(2)
+            HStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                    Text("Cassette Wrapped \(yearString)")
+                        .font(.cassetteDetailTitle)
+                        .foregroundStyle(Color.cassetteAccentText)
+                    subtitleView
+                        .font(.cassetteCaption)
+                        .foregroundStyle(Color.cassetteAccentText.opacity(0.80))
+                        .lineLimit(2)
+                    if !hasPlaylist {
+                        Text("Playlist not yet generated")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(Color.cassetteAccentText.opacity(0.60))
+                    }
+                }
+                Spacer(minLength: 0)
+                if hasPlaylist {
+                    Image(systemName: "chevron.right")
+                        .font(.body)
+                        .foregroundStyle(Color.cassetteAccentText.opacity(0.70))
+                }
             }
             .padding(CassetteSpacing.l)
         }
@@ -44,7 +65,7 @@ struct WrappedYearCard: View {
     }
 
     @ViewBuilder
-    private var subtitle: some View {
+    private var subtitleView: some View {
         if let first = firstTrack, let last = lastTrack, first.trackId != last.trackId {
             Text("Started with \(first.title) · Ended with \(last.title)")
         } else if let first = firstTrack {
@@ -52,28 +73,5 @@ struct WrappedYearCard: View {
         } else {
             Text("Your year in music")
         }
-    }
-
-    private func playlistLink(_ pid: String) -> some View {
-        NavigationLink {
-            PlaylistDetailView(playlistId: pid, name: "Cassette Wrapped \(year)")
-        } label: {
-            HStack {
-                Image(systemName: "music.note.list")
-                    .font(.body)
-                    .foregroundStyle(Color.cassetteAccent)
-                Text("Open Playlist")
-                    .font(.cassetteCellTitle)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(CassetteSpacing.m)
-            .background(Color.cassetteAccent.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 }
