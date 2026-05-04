@@ -131,6 +131,17 @@ struct SettingsView: View {
                 }
                 resetWrappedState(serverId: sid)
             }
+            Button("Wipe All Playback Events (current server)", role: .destructive) {
+                Task {
+                    guard let container,
+                          let sid = container.serverState.activeServer?.id.uuidString else {
+                        Logger.stats.warning("[WRAPPED-WIPE] No active server")
+                        return
+                    }
+                    await container.statsService.deleteAllEvents(forServer: sid)
+                    Logger.stats.info("[WRAPPED-WIPE] Cleared all PlaybackEvents for serverId=\(sid, privacy: .public)")
+                }
+            }
         }
     }
 
