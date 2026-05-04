@@ -48,7 +48,15 @@ struct WrappedTopArtistsSection: View {
         } label: {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 ZStack(alignment: .topLeading) {
-                    CoverArtCard(id: artist.artistId, size: cardSize, cornerRadius: CassetteCornerRadius.large)
+                    CoverArtCard(
+                        id: artist.artistId,
+                        size: cardSize,
+                        cornerRadius: CassetteCornerRadius.large,
+                        initialImage: coverImages[artist.artistId]
+                    )
+                    dominantColors[artist.artistId, default: .clear]
+                        .opacity(0.15)
+                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
                     rankBadge(artist.rank)
                         .padding(CassetteSpacing.xs)
                 }
