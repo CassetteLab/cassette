@@ -1,0 +1,31 @@
+// Cassette — Music client for Subsonic/OpenSubsonic servers
+// Copyright (C) 2026 Mathieu Dubart
+// Licensed under the GNU General Public License v3.0 or later.
+// See LICENSE file in the project root for full license information.
+
+import Foundation
+
+extension TimeInterval {
+    /// Returns (number, unit) for Wrapped stat hero display.
+    func wrappedHeroFormat() -> (number: String, unit: String) {
+        let totalMinutes = Int(self / 60)
+        if totalMinutes < 60 {
+            return ("\(totalMinutes)", totalMinutes == 1 ? "minute listened" : "minutes listened")
+        }
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if minutes > 0 {
+            return ("\(hours)h \(minutes)m", "listened")
+        }
+        return ("\(hours)", hours == 1 ? "hour listened" : "hours listened")
+    }
+
+    /// Short compact label for secondary display ("42m", "2h 15m", "3h").
+    func wrappedCompactLabel() -> String {
+        let totalMinutes = Int(self / 60)
+        if totalMinutes < 60 { return "\(totalMinutes)m" }
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h"
+    }
+}

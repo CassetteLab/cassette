@@ -152,3 +152,59 @@ deux régressions :
 ---
 
 *Créé le 2026-04-27 — Diagnostic post-revert v1.0 candidate*
+
+---
+
+## Wrapped — Limitations connues (Phase 4b)
+
+### WR-1 — mostPlayedDay absent des Highlights
+
+**Symptôme** : la highlight card "Most Played Day" n'est pas implémentée en Phase 4b.
+
+**Cause** : `WrappedData` expose uniquement des données agrégées. `PlaybackEvent` stocke un timestamp par écoute mais `StatsService.wrappedData()` ne retourne pas de répartition par jour.
+
+**Fix v1.6.x** :
+- Ajouter `mostPlayedDay: Date?` et `dailyDistribution: [Date: Int]` à `WrappedData`
+- Implémenter dans `StatsService` via `GROUP BY` sur la date tronquée au jour
+- Ajouter la card dans `WrappedRewardsSection`
+
+---
+
+## Won't fix v1 — investigated
+
+### Tap-through during zoom dismiss (AlbumDetailView, PlaylistDetailView)
+
+**Symptôme** : pendant la zoom-out animation (~300ms), taps sur song rows /
+boutons header (Play, Shuffle, Download) / cover art déclenchent leur action
+alors que la vue est en train de dismiss.
+
+**Fréquence** : reproductible uniquement en tapant intentionnellement pendant
+l'animation. Aucun feedback TestFlight à date.
+
+**Impact** : faible — fenêtre de vulnérabilité ~300ms, geste involontaire
+peu probable en usage normal.
+
+**Diag (2026-05-03)** :
+- `@Environment(\.isPresented)` flip à `false` APRÈS la fin de l'animation
+  (équivalent `onDisappear`), pas au début — confirmé via logs `[DISMISS-DIAG]`
+  dans `Logger.player`. Flag `isDismissing` ne peut donc pas être armé avant
+  les premiers frames de l'animation.
+- Patterns testés et abandonnés :
+  * Overlay absorber `Color.clear.contentShape().ignoresSafeArea()` au root
+    → régressait le scroll de la vue parente (overlay débordait hors des bounds
+    visuels animés de la detail view)
+  * `.disabled(isDismissing)` au root → flag flip trop tard (après animation),
+    taps acceptés pendant toute la durée de la transition
+  * `.allowsHitTesting(!isDismissing)` sur ScrollView/List → même cause racine
+  * Guards in closures : même cause racine (flag pas armé à temps)
+  * `isDismissing = true` sur bouton back uniquement : couvre back button tap
+    mais pas swipe-back natif iOS
+
+**Conclusion** : aucune option non-bancale identifiée dans le modèle
+SwiftUI / iOS 26. Le hook SwiftUI d'entrée de dismiss (avant animation)
+n'est pas exposé publiquement pour `.navigationTransition(.zoom)`.
+
+**Revisit en v1.x si** :
+- Users remontent le bug en TestFlight (zéro feedback à date)
+- Nouveau hook SwiftUI disponible dans une future version iOS
+- Changement de système de transition (abandonner zoom pour slide/push)
