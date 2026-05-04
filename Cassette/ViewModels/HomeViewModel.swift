@@ -25,7 +25,7 @@ final class HomeViewModel {
         isLoading = true
         error = nil
         do {
-            async let added = libraryService.recentlyAddedAlbums(size: 20)
+            async let added = libraryService.recentlyAddedAlbums(size: 60)
             async let played = libraryService.recentlyPlayedAlbums(size: 20)
             async let most = libraryService.mostPlayedAlbums(size: 20)
             let (a, p, m) = try await (added, played, most)
