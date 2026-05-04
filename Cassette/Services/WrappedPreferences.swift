@@ -47,6 +47,11 @@ nonisolated struct YearMonth: Comparable, Hashable, Sendable, CustomStringConver
 /// All keys are namespaced under "cassette.wrapped." and scoped per-server.
 /// Thread-safe: UserDefaults is documented thread-safe for get/set operations.
 nonisolated struct WrappedPreferences: Sendable {
+    private let userDefaults: UserDefaults
+
+    init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+    }
 
     private static func lastMonthKey(_ serverId: String) -> String {
         "cassette.wrapped.lastUpdatedMonth.\(serverId)"
@@ -63,32 +68,32 @@ nonisolated struct WrappedPreferences: Sendable {
     // MARK: - Last updated month
 
     func lastUpdatedMonth(serverId: String) -> YearMonth? {
-        guard let raw = UserDefaults.standard.string(forKey: Self.lastMonthKey(serverId)) else { return nil }
+        guard let raw = userDefaults.string(forKey: Self.lastMonthKey(serverId)) else { return nil }
         return YearMonth(string: raw)
     }
 
     func setLastUpdatedMonth(_ ym: YearMonth, serverId: String) {
-        UserDefaults.standard.set(ym.description, forKey: Self.lastMonthKey(serverId))
+        userDefaults.set(ym.description, forKey: Self.lastMonthKey(serverId))
     }
 
     // MARK: - Annual playlist ID cache
 
     func playlistId(year: Int, serverId: String) -> String? {
-        UserDefaults.standard.string(forKey: Self.playlistIdKey(year, serverId))
+        userDefaults.string(forKey: Self.playlistIdKey(year, serverId))
     }
 
     func setPlaylistId(_ id: String, year: Int, serverId: String) {
-        UserDefaults.standard.set(id, forKey: Self.playlistIdKey(year, serverId))
+        userDefaults.set(id, forKey: Self.playlistIdKey(year, serverId))
     }
 
     // MARK: - Last known year marker
 
     func lastWrappedYear(serverId: String) -> Int? {
-        let v = UserDefaults.standard.integer(forKey: Self.lastYearKey(serverId))
+        let v = userDefaults.integer(forKey: Self.lastYearKey(serverId))
         return v == 0 ? nil : v
     }
 
     func setLastWrappedYear(_ year: Int, serverId: String) {
-        UserDefaults.standard.set(year, forKey: Self.lastYearKey(serverId))
+        userDefaults.set(year, forKey: Self.lastYearKey(serverId))
     }
 }

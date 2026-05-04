@@ -7,13 +7,36 @@ import Foundation
 import SwiftSonic
 import OSLog
 
+// MARK: - PlaylistSyncClient
+
+/// Minimal protocol over the four SwiftSonic calls used by WrappedPlaylistService.
+/// SwiftSonicClient satisfies every requirement via its existing methods (empty conformance below).
+nonisolated protocol PlaylistSyncClient: Sendable {
+    func getPlaylists(username: String?) async throws -> [Playlist]
+    func getPlaylist(id: String) async throws -> PlaylistWithSongs
+    func createPlaylist(name: String?, playlistId: String?, songIds: [String]) async throws -> PlaylistWithSongs
+    func updatePlaylist(id: String, name: String?, comment: String?, isPublic: Bool?, songIdsToAdd: [String], songIndexesToRemove: [Int]) async throws
+}
+
+extension SwiftSonicClient: PlaylistSyncClient {}
+
 // MARK: - MonthlyUpdateResult
 
-nonisolated enum MonthlyUpdateResult: @unchecked Sendable {
+nonisolated enum MonthlyUpdateResult: @unchecked Sendable, Equatable {
     case upToDate
     case updated(monthsProcessed: Int, tracksAdded: Int)
     case skippedNoData
     case serverError(any Error)
+
+    static func == (lhs: MonthlyUpdateResult, rhs: MonthlyUpdateResult) -> Bool {
+        switch (lhs, rhs) {
+        case (.upToDate, .upToDate): return true
+        case (.skippedNoData, .skippedNoData): return true
+        case (.updated(let m1, let t1), .updated(let m2, let t2)): return m1 == m2 && t1 == t2
+        case (.serverError, .serverError): return true
+        default: return false
+        }
+    }
 }
 
 // MARK: - WrappedPlaylistService
@@ -25,31 +48,47 @@ nonisolated enum MonthlyUpdateResult: @unchecked Sendable {
 /// All persistence is either in UserDefaults (WrappedPreferences) or on the
 /// server — no SwiftData access.
 actor WrappedPlaylistService {
-    private let serverService: any ServerServiceProtocol
     private let statsService: StatsService
     private let preferences: WrappedPreferences
+    private let makeClient: @Sendable () async throws -> any PlaylistSyncClient
 
+    /// Production init — captures serverService in the client factory closure.
     init(
         serverService: any ServerServiceProtocol,
         statsService: StatsService,
         preferences: WrappedPreferences = WrappedPreferences()
     ) {
-        self.serverService = serverService
         self.statsService = statsService
         self.preferences = preferences
+        self.makeClient = { try await serverService.makeSwiftSonicClient() }
+    }
+
+    /// Test init — accepts a pre-built client factory for full isolation.
+    init(
+        clientFactory: @escaping @Sendable () async throws -> any PlaylistSyncClient,
+        statsService: StatsService,
+        preferences: WrappedPreferences
+    ) {
+        self.statsService = statsService
+        self.preferences = preferences
+        self.makeClient = clientFactory
     }
 
     // MARK: - Public API
 
     /// Determines which past months are missing from the annual playlist and processes
     /// them in order. Idempotent: calling repeatedly is safe due to per-month dedup.
-    func runMonthlyUpdateIfNeeded(serverId: String, calendar: Calendar) async -> MonthlyUpdateResult {
+    func runMonthlyUpdateIfNeeded(
+        serverId: String,
+        calendar: Calendar,
+        currentDate: Date = Date()
+    ) async -> MonthlyUpdateResult {
         Logger.wrapped.debug("[WRAPPED-FLOW] start update for serverId=\(serverId, privacy: .public)")
 
         let lastUpdated = preferences.lastUpdatedMonth(serverId: serverId)
         Logger.wrapped.debug("[WRAPPED-FLOW] lastWrappedMonthUpdated read = \(lastUpdated?.description ?? "nil", privacy: .public)")
 
-        let months = monthsNeedingUpdate(serverId: serverId, calendar: calendar)
+        let months = monthsNeedingUpdate(serverId: serverId, calendar: calendar, currentDate: currentDate)
         let monthsDesc = months.map(\.description).joined(separator: ", ")
         Logger.wrapped.debug("[WRAPPED-FLOW] months to process: \(months.count, privacy: .public) — [\(monthsDesc, privacy: .public)]")
 
@@ -89,8 +128,12 @@ actor WrappedPlaylistService {
     /// When it has, updates the local year marker so the next monthly update will
     /// create a fresh "Cassette Wrapped <newYear>" playlist automatically.
     /// No-op if already current.
-    func handleYearTransitionIfNeeded(serverId: String, calendar: Calendar) async {
-        let currentYear = calendar.component(.year, from: Date())
+    func handleYearTransitionIfNeeded(
+        serverId: String,
+        calendar: Calendar,
+        currentDate: Date = Date()
+    ) async {
+        let currentYear = calendar.component(.year, from: currentDate)
         if let last = preferences.lastWrappedYear(serverId: serverId), last >= currentYear { return }
         preferences.setLastWrappedYear(currentYear, serverId: serverId)
         Logger.wrapped.info("Year marker → \(currentYear, privacy: .public) (serverId=\(serverId, privacy: .public))")
@@ -105,10 +148,9 @@ actor WrappedPlaylistService {
 
     // MARK: - Months calculation
 
-    private func monthsNeedingUpdate(serverId: String, calendar: Calendar) -> [YearMonth] {
-        let now = Date()
-        let cy = calendar.component(.year, from: now)
-        let cm = calendar.component(.month, from: now)
+    private func monthsNeedingUpdate(serverId: String, calendar: Calendar, currentDate: Date) -> [YearMonth] {
+        let cy = calendar.component(.year, from: currentDate)
+        let cm = calendar.component(.month, from: currentDate)
 
         let previousMonth = YearMonth(
             year: cm == 1 ? cy - 1 : cy,
@@ -157,10 +199,11 @@ actor WrappedPlaylistService {
         Logger.wrapped.debug("[WRAPPED-FLOW] decision: PROCEED — fetching/creating playlist for year \(ym.year, privacy: .public)")
         let topTrackIds = data.topTracks.map(\.trackId)
         Logger.wrapped.debug("[WRAPPED-FLOW] calling getOrCreatePlaylist for year=\(ym.year, privacy: .public)")
-        let playlistId = try await getOrCreatePlaylist(for: ym.year, serverId: serverId)
+
+        let client = try await makeClient()
+        let playlistId = try await getOrCreatePlaylist(for: ym.year, serverId: serverId, client: client)
         Logger.wrapped.debug("[WRAPPED-FLOW] playlistId=\(playlistId, privacy: .public), fetching current entries")
 
-        let client = try await serverService.makeSwiftSonicClient()
         let currentPlaylist = try await client.getPlaylist(id: playlistId)
         let existingIds = Set((currentPlaylist.entry ?? []).map(\.id))
         Logger.wrapped.debug("[WRAPPED-FLOW] playlist has \(existingIds.count, privacy: .public) existing tracks")
@@ -187,7 +230,14 @@ actor WrappedPlaylistService {
 
         // Mark done ONLY after successful server update (idempotence guarantee)
         Logger.wrapped.debug("[WRAPPED-FLOW] calling updatePlaylist id=\(playlistId, privacy: .public) adding \(tracksToAdd.count, privacy: .public) tracks")
-        try await client.updatePlaylist(id: playlistId, songIdsToAdd: tracksToAdd)
+        try await client.updatePlaylist(
+            id: playlistId,
+            name: nil,
+            comment: nil,
+            isPublic: nil,
+            songIdsToAdd: tracksToAdd,
+            songIndexesToRemove: []
+        )
         Logger.wrapped.debug("[WRAPPED-FLOW] flag set: lastWrappedMonthUpdated = \(ym, privacy: .public)")
         preferences.setLastUpdatedMonth(ym, serverId: serverId)
         Logger.wrapped.info("Added \(tracksToAdd.count, privacy: .public) tracks for \(ym, privacy: .public) → playlist \(playlistId, privacy: .public)")
@@ -196,14 +246,13 @@ actor WrappedPlaylistService {
 
     // MARK: - Get-or-create annual playlist
 
-    private func getOrCreatePlaylist(for year: Int, serverId: String) async throws -> String {
+    private func getOrCreatePlaylist(for year: Int, serverId: String, client: any PlaylistSyncClient) async throws -> String {
         if let cached = preferences.playlistId(year: year, serverId: serverId) {
             return cached
         }
 
-        let client = try await serverService.makeSwiftSonicClient()
         let name = "Cassette Wrapped \(year)"
-        let playlists = try await client.getPlaylists()
+        let playlists = try await client.getPlaylists(username: nil)
 
         if let existing = playlists.first(where: { $0.name == name }) {
             preferences.setPlaylistId(existing.id, year: year, serverId: serverId)
@@ -211,7 +260,7 @@ actor WrappedPlaylistService {
             return existing.id
         }
 
-        let created = try await client.createPlaylist(name: name)
+        let created = try await client.createPlaylist(name: name, playlistId: nil, songIds: [])
         preferences.setPlaylistId(created.id, year: year, serverId: serverId)
         Logger.wrapped.info("Created '\(name, privacy: .public)' id=\(created.id, privacy: .public) (serverId=\(serverId, privacy: .public))")
         return created.id
