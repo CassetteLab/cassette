@@ -4,9 +4,13 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 struct WrappedView: View {
+    @Environment(\.appContainer) private var container
     @State private var selectedPeriod: WrappedPeriod = .currentMonth()
+    @State private var data: WrappedData?
+    @State private var isLoading = true
 
     private var availablePeriods: [WrappedPeriod] {
         let calendar = Calendar.current
@@ -29,12 +33,21 @@ struct WrappedView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
                 WrappedPeriodPicker(selectedPeriod: $selectedPeriod, availablePeriods: availablePeriods)
-                WrappedStatHero(data: nil)
-                WrappedTopArtistsSection(artists: [])
-                WrappedTopTracksSection(tracks: [])
-                WrappedTopAlbumsSection(albums: [])
-                WrappedRewardsSection(data: nil)
-                WrappedYearCard(year: currentYear)
+
+                if isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, CassetteSpacing.xxxxl)
+                } else if let d = data, d.totalTracksPlayed > 0 {
+                    WrappedStatHero(data: d)
+                    WrappedTopArtistsSection(artists: d.topArtists)
+                    WrappedTopTracksSection(tracks: d.topTracks)
+                    WrappedTopAlbumsSection(albums: d.topAlbums)
+                    WrappedRewardsSection(data: d)
+                    WrappedYearCard(year: currentYear)
+                } else {
+                    emptyState
+                }
             }
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.top, CassetteSpacing.m)
@@ -42,5 +55,45 @@ struct WrappedView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Wrapped")
+        .task(id: selectedPeriod) {
+            await loadData()
+        }
+    }
+
+    // MARK: - Empty state
+
+    private var emptyState: some View {
+        VStack(spacing: CassetteSpacing.s) {
+            Image(systemName: "waveform")
+                .font(.largeTitle)
+                .foregroundStyle(Color.cassetteAccent.opacity(0.5))
+            Text("No listens for this period.")
+                .font(.cassetteCellTitle)
+            Text("Listen up — we'll keep track of your activity.")
+                .font(.cassetteCaption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, CassetteSpacing.xxxxl)
+    }
+
+    // MARK: - Data loading
+
+    private func loadData() async {
+        guard let container, let serverId = container.serverState.activeServer?.id.uuidString else {
+            isLoading = false
+            return
+        }
+        Logger.wrapped.debug("[WRAPPED-VIEW] fetch start period=\(selectedPeriod.displayName, privacy: .public)")
+        isLoading = true
+        data = nil
+        let result = await container.statsService.wrappedData(
+            for: selectedPeriod, serverId: serverId, calendar: .current
+        )
+        guard !Task.isCancelled else { return }
+        data = result
+        isLoading = false
+        Logger.wrapped.debug("[WRAPPED-VIEW] fetch done totalPlays=\(result.totalTracksPlayed, privacy: .public)")
     }
 }
