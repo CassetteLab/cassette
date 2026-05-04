@@ -23,6 +23,7 @@ struct DiscoverView: View {
                         mostPlayedSection(vm: vm)
                     }
                     smartShuffleSection
+                    wrappedSection
                     internetRadioSection
                 }
             }
@@ -149,6 +150,38 @@ struct DiscoverView: View {
             return "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
         }
         return "Smart Shuffle failed. Please try again."
+    }
+
+    private var wrappedSection: some View {
+        section(title: "Wrapped") {
+            NavigationLink {
+                WrappedView()
+            } label: {
+                HStack(spacing: CassetteSpacing.s) {
+                    Image(systemName: "music.note.list")
+                        .font(.title2)
+                        .foregroundStyle(Color.cassetteAccent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Your Listening Recap")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(.primary)
+                        Text("Monthly and annual stats")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(CassetteSpacing.m)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.cassetteAccent.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, CassetteSpacing.m)
+        }
     }
 
     private var internetRadioSection: some View {
