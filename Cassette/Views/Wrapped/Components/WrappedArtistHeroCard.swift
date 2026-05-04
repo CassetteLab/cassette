@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import OSLog
+import SwiftSonic
 import SwiftUI
 
 struct WrappedArtistHeroCard: View {
@@ -11,6 +12,10 @@ struct WrappedArtistHeroCard: View {
     let dominantColor: Color
     let image: PlatformImage?
     let onTap: () -> Void
+
+    @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @State private var resolvedCoverImage: PlatformImage? = nil
 
     var body: some View {
         Button(action: onTap) {
@@ -27,6 +32,9 @@ struct WrappedArtistHeroCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
         }
         .buttonStyle(.plain)
+        .task(id: artist.artistId) {
+            resolvedCoverImage = await resolveCoverImage()
+        }
         .onAppear {
             Logger.wrapped.debug("[HERO-CARD-DIAG] init artistId=\(artist.artistId, privacy: .public) name=\(artist.name, privacy: .public) playCount=\(artist.playCount, privacy: .public)")
             let imgDesc = image.map { "loaded \(Int($0.size.width))×\(Int($0.size.height))" } ?? "NIL"
@@ -39,8 +47,8 @@ struct WrappedArtistHeroCard: View {
 
     @ViewBuilder
     private var blurredBackground: some View {
-        if let image {
-            Image(platformImage: image)
+        if let img = resolvedCoverImage {
+            Image(platformImage: img)
                 .resizable()
                 .scaledToFill()
                 .blur(radius: 80, opaque: true)
@@ -55,7 +63,7 @@ struct WrappedArtistHeroCard: View {
                 id: artist.artistId,
                 size: 80,
                 cornerRadius: CassetteCornerRadius.large,
-                initialImage: image
+                initialImage: resolvedCoverImage ?? image
             )
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 Text("#1")
@@ -80,5 +88,25 @@ struct WrappedArtistHeroCard: View {
             Spacer(minLength: 0)
         }
         .padding(CassetteSpacing.l)
+    }
+
+    // MARK: - Cover cascade: artist coverArt → first album coverArt → prop fallback
+
+    private func resolveCoverImage() async -> PlatformImage? {
+        guard let container else { return image }
+        if let artistID3 = try? await container.libraryService.artist(id: artist.artistId) {
+            // Level 1: artist's own cover art
+            if let coverArtId = artistID3.coverArt,
+               let img = await artworkImageCache.load(coverArtId: coverArtId) {
+                return img
+            }
+            // Level 2: first album cover art (primary fallback — album covers are always available)
+            if let albumCoverArtId = artistID3.album?.first?.coverArt,
+               let img = await artworkImageCache.load(coverArtId: albumCoverArtId) {
+                return img
+            }
+        }
+        // Level 3: prop passed by parent
+        return image
     }
 }
