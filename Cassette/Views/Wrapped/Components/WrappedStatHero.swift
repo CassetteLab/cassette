@@ -92,7 +92,7 @@ private struct AnimatedHeroText: View, Animatable {
     }
 
     var body: some View {
-        let (number, unit) = seconds.wrappedHeroFormat()
+        let (number, unit) = seconds.wrappedHeroMinutesFormat()
         VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
             Text(number)
                 .font(.system(size: 96, weight: .black, design: .rounded))

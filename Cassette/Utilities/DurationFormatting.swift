@@ -20,6 +20,19 @@ extension TimeInterval {
         return ("\(hours)", hours == 1 ? "hour listened" : "hours listened")
     }
 
+    /// Returns (number, unit) for Wrapped stat hero display — always in minutes.
+    /// Uses a non-breaking space (U+00A0) as thousands separator to avoid locale bugs.
+    func wrappedHeroMinutesFormat() -> (number: String, unit: String) {
+        let totalMinutes = max(0, Int(self / 60))
+        let formatter = NumberFormatter()
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = "\u{00A0}"
+        formatter.groupingSize = 3
+        let number = formatter.string(from: totalMinutes as NSNumber) ?? "\(totalMinutes)"
+        let unit = totalMinutes == 1 ? "minute listened" : "minutes listened"
+        return (number, unit)
+    }
+
     /// Short compact label for secondary display ("42m", "2h 15m", "3h").
     func wrappedCompactLabel() -> String {
         let totalMinutes = Int(self / 60)
