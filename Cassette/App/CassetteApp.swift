@@ -42,7 +42,7 @@ struct CassetteApp: App {
                     processingTask.setTaskCompleted(success: false)
                     return
                 }
-                let result = await service.runMonthlyUpdateIfNeeded(serverId: serverId, calendar: .current)
+                let result = await service.runYearlyPlaylistSyncIfNeeded(serverId: serverId, calendar: .current)
                 Logger.wrapped.info("BGTask result: \(String(describing: result), privacy: .public)")
                 processingTask.setTaskCompleted(success: true)
                 CassetteApp.scheduleWrappedUpdate()
@@ -165,7 +165,7 @@ struct CassetteApp: App {
     private func runWrappedUpdate(container: AppContainer) async {
         guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
         await container.wrappedPlaylistService.handleYearTransitionIfNeeded(serverId: serverId, calendar: .current)
-        let result = await container.wrappedPlaylistService.runMonthlyUpdateIfNeeded(serverId: serverId, calendar: .current)
+        let result = await container.wrappedPlaylistService.runYearlyPlaylistSyncIfNeeded(serverId: serverId, calendar: .current)
         Logger.wrapped.info("Cold start result: \(String(describing: result), privacy: .public)")
     }
 }

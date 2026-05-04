@@ -106,7 +106,7 @@ struct SettingsView: View {
             Button("Seed Previous Month — 10 events") {
                 Task { await seedPreviousMonth() }
             }
-            Button("Force Wrapped Monthly Update") {
+            Button("Force Wrapped Yearly Sync Now") {
                 Task {
                     guard let container,
                           let sid = container.serverState.activeServer?.id.uuidString else {
@@ -115,7 +115,7 @@ struct SettingsView: View {
                     }
                     await container.wrappedPlaylistService.handleYearTransitionIfNeeded(
                         serverId: sid, calendar: .current)
-                    let result = await container.wrappedPlaylistService.runMonthlyUpdateIfNeeded(
+                    let result = await container.wrappedPlaylistService.runYearlyPlaylistSyncIfNeeded(
                         serverId: sid, calendar: .current)
                     Logger.wrapped.info("[WRAPPED-DEBUG] result=\(String(describing: result), privacy: .public)")
                 }

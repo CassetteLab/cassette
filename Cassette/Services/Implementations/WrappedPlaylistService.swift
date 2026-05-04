@@ -78,12 +78,12 @@ actor WrappedPlaylistService {
 
     /// Determines which past months are missing from the annual playlist and processes
     /// them in order. Idempotent: calling repeatedly is safe due to per-month dedup.
-    func runMonthlyUpdateIfNeeded(
+    func runYearlyPlaylistSyncIfNeeded(
         serverId: String,
         calendar: Calendar,
         currentDate: Date = Date()
     ) async -> MonthlyUpdateResult {
-        Logger.wrapped.debug("[WRAPPED-FLOW] start update for serverId=\(serverId, privacy: .public)")
+        Logger.wrapped.debug("[WRAPPED-SYNC] start update for serverId=\(serverId, privacy: .public)")
 
         let lastUpdated = preferences.lastUpdatedMonth(serverId: serverId)
         Logger.wrapped.debug("[WRAPPED-FLOW] lastWrappedMonthUpdated read = \(lastUpdated?.description ?? "nil", privacy: .public)")
