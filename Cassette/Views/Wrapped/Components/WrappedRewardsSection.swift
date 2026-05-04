@@ -66,13 +66,13 @@ struct WrappedRewardsSection: View {
             Text("Highlights")
                 .font(.cassetteSectionTitle)
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: CassetteSpacing.m) {
+                HStack(spacing: CassetteSpacing.m) {
                     ForEach(Array(cards.prefix(5).enumerated()), id: \.offset) { _, card in
                         highlightCard(card)
                     }
                 }
-                .padding(.horizontal, CassetteSpacing.l)
             }
+            .contentMargins(.horizontal, CassetteSpacing.l, for: .scrollContent)
             .padding(.horizontal, -CassetteSpacing.l)
         }
     }
