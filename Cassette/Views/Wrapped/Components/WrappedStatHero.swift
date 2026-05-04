@@ -9,31 +9,47 @@ struct WrappedStatHero: View {
     let data: WrappedData
 
     var body: some View {
+        let palette = WrappedYearPalette.colors(for: data.period.calendarYear)
         let (number, unit) = data.totalSecondsListened.wrappedHeroFormat()
-        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+
+        MeshGradientBackground(palette: palette, animated: true)
+            .frame(minHeight: 340)
+            .frame(maxWidth: .infinity)
+            .overlay(alignment: .bottomLeading) {
+                heroContent(number: number, unit: unit)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
+    }
+
+    private func heroContent(number: String, unit: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             Text(number)
-                .font(.system(size: 72, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.cassetteAccent)
+                .font(.system(size: 96, weight: .black, design: .rounded))
+                .kerning(-2)
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             Text(unit)
-                .font(.cassetteDetailTitle)
-                .foregroundStyle(.primary)
+                .font(.system(size: 22, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(.top, CassetteSpacing.xs)
+
+            Color.white.opacity(0.2)
+                .frame(maxWidth: .infinity)
+                .frame(height: 1)
+                .padding(.vertical, CassetteSpacing.m)
+
             HStack(spacing: CassetteSpacing.xs) {
                 Text(data.totalTracksPlayed.plural("play", "plays"))
-                Text("·")
-                    .foregroundStyle(.tertiary)
+                Text("·").foregroundStyle(.white.opacity(0.4))
                 Text(data.totalUniqueArtists.plural("artist", "artists"))
-                Text("·")
-                    .foregroundStyle(.tertiary)
+                Text("·").foregroundStyle(.white.opacity(0.4))
                 Text(data.totalUniqueAlbums.plural("album", "albums"))
             }
-            .font(.cassetteCaption)
-            .foregroundStyle(.secondary)
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(.white.opacity(0.7))
         }
-        .padding(CassetteSpacing.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.cassetteAccent.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+        .padding(.horizontal, CassetteSpacing.xl)
+        .padding(.vertical, CassetteSpacing.l)
     }
 }
