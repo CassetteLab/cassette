@@ -3,7 +3,6 @@
 // Licensed under the GNU General Public License v3.0 or later.
 // See LICENSE file in the project root for full license information.
 
-import OSLog
 import SwiftSonic
 import SwiftUI
 
@@ -38,14 +37,6 @@ struct WrappedArtistHeroCard: View {
         .buttonStyle(.plain)
         .task(id: artist.artistId) {
             resolvedCoverImage = await resolveCoverImage()
-        }
-        .onAppear {
-            Logger.wrapped.debug("[HERO-CARD-DIAG] init artistId=\(artist.artistId, privacy: .public) name=\(artist.name, privacy: .public) playCount=\(artist.playCount, privacy: .public)")
-            let imgDesc = image.map { "loaded \(Int($0.size.width))×\(Int($0.size.height))" } ?? "NIL"
-            Logger.wrapped.debug("[HERO-CARD-DIAG] image=\(imgDesc, privacy: .public) dominantColor=\(String(describing: dominantColor), privacy: .public)")
-        }
-        .task(id: dominantColor) {
-            Logger.wrapped.debug("[HERO-CARD-DIAG] dominantColor update=\(String(describing: dominantColor), privacy: .public) imageNil=\(image == nil, privacy: .public)")
         }
     }
 
