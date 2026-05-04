@@ -96,8 +96,14 @@ struct SettingsView: View {
             Button("Print Wrapped — This Month") {
                 Task { await printWrapped(period: .currentMonth(), tag: "[WRAPPED-DEBUG-MONTH]") }
             }
+            Button("Print Wrapped — Previous Month") {
+                Task { await printWrapped(period: .previousMonth(), tag: "[WRAPPED-DEBUG-PREV]") }
+            }
             Button("Print Wrapped — This Year") {
                 Task { await printWrapped(period: .currentYear(), tag: "[WRAPPED-DEBUG-YEAR]") }
+            }
+            Button("Seed Previous Month — 10 events") {
+                Task { await seedPreviousMonth() }
             }
             Button("Force Wrapped Monthly Update") {
                 Task {
@@ -114,6 +120,109 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private func seedPreviousMonth() async {
+        guard let container,
+              let sid = container.serverState.activeServer?.id.uuidString else {
+            Logger.stats.warning("[WRAPPED-DEBUG-SEED] No active server — aborting")
+            return
+        }
+
+        let cal = Calendar.current
+        let now = Date()
+        let startOfCurrentMonth = cal.date(from: DateComponents(
+            year: cal.component(.year, from: now),
+            month: cal.component(.month, from: now),
+            day: 1
+        ))!
+        let startOfPrevMonth = cal.date(byAdding: .month, value: -1, to: startOfCurrentMonth)!
+        let prevYear = cal.component(.year, from: startOfPrevMonth)
+        let prevMonth = cal.component(.month, from: startOfPrevMonth)
+
+        func dayInPrevMonth(_ day: Int, hour: Int = 12) -> Date {
+            cal.date(from: DateComponents(
+                year: prevYear, month: prevMonth, day: day, hour: hour
+            )) ?? startOfPrevMonth
+        }
+
+        let events: [PlaybackEventDTO] = [
+            PlaybackEventDTO(trackId: "seed-t1", trackTitle: "Track [seed] Alpha",
+                             albumId: "seed-alb1", albumTitle: "Album [seed] Q1",
+                             artistId: "seed-art1", artistName: "Artist [seed] One",
+                             genre: "Indie [seed]",
+                             timestamp: dayInPrevMonth(3, hour: 10),
+                             durationListened: 210, trackDuration: 220,
+                             wasCompleted: true, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t1", trackTitle: "Track [seed] Alpha",
+                             albumId: "seed-alb1", albumTitle: "Album [seed] Q1",
+                             artistId: "seed-art1", artistName: "Artist [seed] One",
+                             genre: "Indie [seed]",
+                             timestamp: dayInPrevMonth(5, hour: 14),
+                             durationListened: 215, trackDuration: 220,
+                             wasCompleted: true, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t2", trackTitle: "Track [seed] Beta",
+                             albumId: "seed-alb1", albumTitle: "Album [seed] Q1",
+                             artistId: "seed-art1", artistName: "Artist [seed] One",
+                             genre: "Indie [seed]",
+                             timestamp: dayInPrevMonth(5, hour: 15),
+                             durationListened: 180, trackDuration: 195,
+                             wasCompleted: true, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t3", trackTitle: "Track [seed] Gamma",
+                             albumId: "seed-alb2", albumTitle: "Album [seed] Q2",
+                             artistId: "seed-art2", artistName: "Artist [seed] Two",
+                             genre: "Jazz [seed]",
+                             timestamp: dayInPrevMonth(8, hour: 9),
+                             durationListened: 240, trackDuration: 250,
+                             wasCompleted: true, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t3", trackTitle: "Track [seed] Gamma",
+                             albumId: "seed-alb2", albumTitle: "Album [seed] Q2",
+                             artistId: "seed-art2", artistName: "Artist [seed] Two",
+                             genre: "Jazz [seed]",
+                             timestamp: dayInPrevMonth(9, hour: 11),
+                             durationListened: 235, trackDuration: 250,
+                             wasCompleted: true, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t3", trackTitle: "Track [seed] Gamma",
+                             albumId: "seed-alb2", albumTitle: "Album [seed] Q2",
+                             artistId: "seed-art2", artistName: "Artist [seed] Two",
+                             genre: "Jazz [seed]",
+                             timestamp: dayInPrevMonth(10, hour: 8),
+                             durationListened: 230, trackDuration: 250,
+                             wasCompleted: false, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t4", trackTitle: "Track [seed] Delta",
+                             albumId: "seed-alb2", albumTitle: "Album [seed] Q2",
+                             artistId: "seed-art3", artistName: "Artist [seed] Three",
+                             genre: "Jazz [seed]",
+                             timestamp: dayInPrevMonth(12, hour: 20),
+                             durationListened: 120, trackDuration: 200,
+                             wasCompleted: false, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t5", trackTitle: "Track [seed] Epsilon",
+                             albumId: "seed-alb1", albumTitle: "Album [seed] Q1",
+                             artistId: "seed-art3", artistName: "Artist [seed] Three",
+                             genre: "Indie [seed]",
+                             timestamp: dayInPrevMonth(15, hour: 18),
+                             durationListened: 90, trackDuration: 180,
+                             wasCompleted: false, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t1", trackTitle: "Track [seed] Alpha",
+                             albumId: "seed-alb1", albumTitle: "Album [seed] Q1",
+                             artistId: "seed-art1", artistName: "Artist [seed] One",
+                             genre: "Indie [seed]",
+                             timestamp: dayInPrevMonth(18, hour: 21),
+                             durationListened: 218, trackDuration: 220,
+                             wasCompleted: true, serverId: sid),
+            PlaybackEventDTO(trackId: "seed-t2", trackTitle: "Track [seed] Beta",
+                             albumId: "seed-alb1", albumTitle: "Album [seed] Q1",
+                             artistId: "seed-art1", artistName: "Artist [seed] One",
+                             genre: "Indie [seed]",
+                             timestamp: dayInPrevMonth(20, hour: 16),
+                             durationListened: 185, trackDuration: 195,
+                             wasCompleted: true, serverId: sid),
+        ]
+
+        for event in events {
+            await container.statsService.recordPlayback(event)
+        }
+        Logger.stats.info("[WRAPPED-DEBUG-SEED] Seeded \(events.count, privacy: .public) events for \(prevYear, privacy: .public)-\(String(format: "%02d", prevMonth), privacy: .public) (serverId=\(sid, privacy: .public))")
     }
 
     private func printWrapped(period: WrappedPeriod, tag: String) async {
