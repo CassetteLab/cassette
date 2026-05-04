@@ -23,7 +23,7 @@ struct WrappedTopTracksSection: View {
                         trackRow(track)
                         if index < visible.count - 1 {
                             Divider()
-                                .padding(.leading, CassetteSpacing.m + 20 + CassetteSpacing.m + 44 + CassetteSpacing.m)
+                                .padding(.leading, CassetteSpacing.m + 28 + CassetteSpacing.m + 44 + CassetteSpacing.m)
                         }
                     }
                 }
@@ -53,10 +53,15 @@ struct WrappedTopTracksSection: View {
             }
         } label: {
             HStack(spacing: CassetteSpacing.m) {
-                Text("\(track.rank)")
-                    .font(.cassetteCellTitle)
-                    .foregroundStyle(Color.cassetteAccent)
-                    .frame(width: 20, alignment: .center)
+                ZStack {
+                    Circle()
+                        .fill(Color.cassetteAccent.opacity(0.15))
+                        .frame(width: 28, height: 28)
+                    Text("\(track.rank)")
+                        .font(.system(.caption, design: .rounded, weight: .heavy))
+                        .foregroundStyle(Color.cassetteAccent)
+                }
+                .frame(width: 28)
                 CoverArtCard(id: track.trackId, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(track.title)
