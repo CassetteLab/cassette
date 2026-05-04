@@ -16,19 +16,14 @@ enum WrappedTestError: Error { case generic }
 final actor MockPlaylistSyncClient: PlaylistSyncClient {
     // Configurable responses
     var playlists: [Playlist] = []
-    var existingEntries: [Song] = []
 
     // Per-method error injection
     var getPlaylistsError: Error?
-    var getPlaylistError: Error?
     var createPlaylistError: Error?
-    var updatePlaylistError: Error?
 
     // Call tracking
     private(set) var getPlaylistsCalls: Int = 0
-    private(set) var createPlaylistCalls: [String?] = []
-    private(set) var getPlaylistCalls: [String] = []
-    private(set) var updatePlaylistCalls: [(id: String, songIdsToAdd: [String])] = []
+    private(set) var createPlaylistCalls: [(name: String?, playlistId: String?, songIds: [String])] = []
 
     private var createCount = 0
 
@@ -38,23 +33,18 @@ final actor MockPlaylistSyncClient: PlaylistSyncClient {
         return playlists
     }
 
-    func getPlaylist(id: String) async throws -> PlaylistWithSongs {
-        getPlaylistCalls.append(id)
-        if let err = getPlaylistError { throw err }
-        return PlaylistWithSongs(id: id, name: "", songCount: existingEntries.count, duration: 0, entry: existingEntries)
-    }
-
     func createPlaylist(name: String?, playlistId: String?, songIds: [String]) async throws -> PlaylistWithSongs {
         if let err = createPlaylistError { throw err }
-        createCount += 1
-        let newId = "pl-created-\(createCount)"
-        createPlaylistCalls.append(name)
-        return PlaylistWithSongs(id: newId, name: name ?? "", songCount: 0, duration: 0)
-    }
-
-    func updatePlaylist(id: String, name: String?, comment: String?, isPublic: Bool?, songIdsToAdd: [String], songIndexesToRemove: [Int]) async throws {
-        if let err = updatePlaylistError { throw err }
-        updatePlaylistCalls.append((id: id, songIdsToAdd: songIdsToAdd))
+        createPlaylistCalls.append((name: name, playlistId: playlistId, songIds: songIds))
+        // Replace mode: preserve the given id. Create mode: generate a new one.
+        let returnId: String
+        if let pid = playlistId {
+            returnId = pid
+        } else {
+            createCount += 1
+            returnId = "pl-created-\(createCount)"
+        }
+        return PlaylistWithSongs(id: returnId, name: name ?? "", songCount: songIds.count, duration: 0)
     }
 }
 
@@ -112,338 +102,223 @@ private func makeEvent(
     )
 }
 
-// currentDate used in all single-month tests: May 4 2026 → previousMonth = April 2026
+// testNow: May 4, 2026 → year=2026, currentYearMonth=2026-05
 private let testNow = wDate(year: 2026, month: 5, day: 4)
 
 // MARK: - Suite
 
-@Suite("WrappedPlaylistService Monthly Update")
+@Suite("WrappedPlaylistService Yearly Sync")
 struct WrappedPlaylistServiceTests {
 
-    // a1: no events → skippedNoData, zero server calls
-    @Test func noEvents_returnsSkippedNoData_noServerCalls() async throws {
+    // a: first sync with events — creates playlist then replaces with SET TOTAL
+    @Test func firstSync_createsPlaylist_thenReplacesSetTotal() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        let result = await service.runMonthlyUpdateIfNeeded(
-            serverId: "srv", calendar: wrappedCal, currentDate: testNow
-        )
-
-        #expect(result == .skippedNoData)
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.isEmpty)
-        let creates = await mock.createPlaylistCalls
-        #expect(creates.isEmpty)
-    }
-
-    // a2: events exist → playlist created, tracks added, month marked
-    @Test func withEvents_updatesPlaylist() async throws {
-        let mock = MockPlaylistSyncClient()
-        let stats = try makeStats()
-        let prefs = makePrefs()
-        let service = makeService(mock: mock, stats: stats, prefs: prefs)
-
-        // Process only April by setting lastUpdated to March
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
-
-        // Seed April events
         for i in 1...3 {
             await stats.recordPlayback(makeEvent(
                 trackId: "track-\(i)",
-                timestamp: wDate(year: 2026, month: 4, day: i),
+                timestamp: wDate(year: 2026, month: 3, day: i),
                 durationListened: TimeInterval(300 - i * 10)
             ))
         }
 
-        let result = await service.runMonthlyUpdateIfNeeded(
+        let result = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srv", calendar: wrappedCal, currentDate: testNow
         )
 
-        #expect(result == .updated(monthsProcessed: 1, tracksAdded: 3))
+        #expect(result == .updated(tracksCount: 3))
 
         let creates = await mock.createPlaylistCalls
-        #expect(creates.count == 1)
-        #expect(creates[0] == "Cassette Wrapped 2026")
+        // 2 calls: first creates the empty playlist, second replaces it
+        #expect(creates.count == 2)
+        #expect(creates[0].name == "Cassette Wrapped 2026")
+        #expect(creates[0].playlistId == nil)
+        #expect(creates[0].songIds.isEmpty)
+        #expect(creates[1].name == nil)
+        #expect(creates[1].playlistId == prefs.playlistId(year: 2026, serverId: "srv"))
+        #expect(creates[1].songIds.count == 3)
 
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.count == 1)
-        #expect(updates[0].songIdsToAdd.count == 3)
-
-        let marked = prefs.lastUpdatedMonth(serverId: "srv")
-        #expect(marked == YearMonth(string: "2026-04"))
+        #expect(prefs.lastUpdatedMonth(serverId: "srv") == YearMonth(year: 2026, month: 5))
+        #expect(prefs.lastWrappedYear(serverId: "srv") == 2026)
     }
 
-    // b: second run after successful update returns upToDate, no new server calls
-    @Test func idempotence_secondRunIsNoOp() async throws {
+    // b: idempotence — second call in the same calendar month returns upToDate with no server calls
+    @Test func idempotence_sameMonth_returnsUpToDate_noServerCalls() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
+        await stats.recordPlayback(makeEvent(trackId: "t1", timestamp: wDate(year: 2026, month: 3, day: 1)))
 
-        await stats.recordPlayback(makeEvent(
-            trackId: "t1", timestamp: wDate(year: 2026, month: 4, day: 1)
-        ))
-
-        _ = await service.runMonthlyUpdateIfNeeded(
+        _ = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srv", calendar: wrappedCal, currentDate: testNow
         )
-        let updateCountAfterFirst = await mock.updatePlaylistCalls.count
+        let callsAfterFirst = await mock.createPlaylistCalls.count
 
-        let second = await service.runMonthlyUpdateIfNeeded(
+        let second = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srv", calendar: wrappedCal, currentDate: testNow
         )
 
         #expect(second == .upToDate)
-        let updateCountAfterSecond = await mock.updatePlaylistCalls.count
-        #expect(updateCountAfterSecond == updateCountAfterFirst)
+        let callsAfterSecond = await mock.createPlaylistCalls.count
+        #expect(callsAfterSecond == callsAfterFirst)
     }
 
-    // c: catch-up three months: one playlist created, three updates
-    @Test func catchUp_threeMonths_onePlaylistThreeUpdates() async throws {
+    // c: SET TOTAL — second sync in a new month replaces via createPlaylist with existing playlistId
+    @Test func setTotal_secondSync_newMonth_replacesExistingPlaylist() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-01")!, serverId: "srv")
-
-        for (month, trackId) in [(2, "feb-t"), (3, "mar-t"), (4, "apr-t")] {
-            await stats.recordPlayback(makeEvent(
-                trackId: trackId,
-                timestamp: wDate(year: 2026, month: month, day: 15)
-            ))
-        }
-
-        let result = await service.runMonthlyUpdateIfNeeded(
-            serverId: "srv", calendar: wrappedCal, currentDate: testNow
+        // First sync in February: Jan event exists
+        await stats.recordPlayback(makeEvent(trackId: "jan-t", timestamp: wDate(year: 2026, month: 1, day: 15)))
+        _ = await service.runYearlyPlaylistSyncIfNeeded(
+            serverId: "srv", calendar: wrappedCal, currentDate: wDate(year: 2026, month: 2, day: 1)
         )
 
-        #expect(result == .updated(monthsProcessed: 3, tracksAdded: 3))
+        let cachedId = prefs.playlistId(year: 2026, serverId: "srv")
+        #expect(cachedId != nil)
+
+        // Second sync in May: Apr event added
+        await stats.recordPlayback(makeEvent(trackId: "apr-t", timestamp: wDate(year: 2026, month: 4, day: 15)))
+        _ = await service.runYearlyPlaylistSyncIfNeeded(
+            serverId: "srv", calendar: wrappedCal, currentDate: testNow
+        )
 
         let creates = await mock.createPlaylistCalls
-        #expect(creates.count == 1)
-        #expect(creates[0] == "Cassette Wrapped 2026")
-
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.count == 3)
-
-        let marked = prefs.lastUpdatedMonth(serverId: "srv")
-        #expect(marked == YearMonth(string: "2026-04"))
+        let replaceCalls = creates.filter { $0.playlistId == cachedId }
+        // Both the Feb and May syncs issued a replace call with the same playlistId
+        #expect(replaceCalls.count == 2)
+        // The May replace contains ALL year tracks (SET TOTAL — not just the new Apr track)
+        #expect(replaceCalls.last!.songIds.count == 2)
+        // Second sync reused the cached id and skipped getPlaylists
+        let getCount = await mock.getPlaylistsCalls
+        #expect(getCount == 1)
     }
 
-    // d: empty month in the middle is skipped but marked done; surrounding months processed
-    @Test func emptyMonthInMiddle_skippedAndMarkedDone() async throws {
+    // d: skippedNoData — no events → flag set, no server calls
+    @Test func noEvents_returnsSkippedNoData_flagSet_noServerCalls() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-01")!, serverId: "srv")
-
-        // Feb and Apr have events; Mar is intentionally empty
-        await stats.recordPlayback(makeEvent(trackId: "feb-t", timestamp: wDate(year: 2026, month: 2, day: 15)))
-        await stats.recordPlayback(makeEvent(trackId: "apr-t", timestamp: wDate(year: 2026, month: 4, day: 15)))
-
-        let result = await service.runMonthlyUpdateIfNeeded(
-            serverId: "srv", calendar: wrappedCal, currentDate: testNow
-        )
-
-        #expect(result == .updated(monthsProcessed: 2, tracksAdded: 2))
-
-        // Mar (no-data) must not trigger any updatePlaylist; only Feb and Apr should
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.count == 2)
-
-        let marked = prefs.lastUpdatedMonth(serverId: "srv")
-        #expect(marked == YearMonth(string: "2026-04"))
-    }
-
-    // e1: trackA already in playlist → only new trackC is added
-    @Test func partialDedup_onlyNewTracksAdded() async throws {
-        let mock = MockPlaylistSyncClient()
-        let stats = try makeStats()
-        let prefs = makePrefs()
-        let service = makeService(mock: mock, stats: stats, prefs: prefs)
-
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
-
-        // Existing playlist contains trackA
-        await mock.setExistingEntries([Song(id: "trackA", title: "Track A")])
-
-        // Both trackA and trackC appear in top tracks (trackA longer → higher rank)
-        await stats.recordPlayback(makeEvent(trackId: "trackA", timestamp: wDate(year: 2026, month: 4, day: 1), durationListened: 300))
-        await stats.recordPlayback(makeEvent(trackId: "trackC", timestamp: wDate(year: 2026, month: 4, day: 2), durationListened: 200))
-
-        let result = await service.runMonthlyUpdateIfNeeded(
-            serverId: "srv", calendar: wrappedCal, currentDate: testNow
-        )
-
-        #expect(result == .updated(monthsProcessed: 1, tracksAdded: 1))
-
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.count == 1)
-        #expect(updates[0].songIdsToAdd == ["trackC"])
-    }
-
-    // e2: all top tracks already in playlist → skipped, no updatePlaylist call
-    @Test func allDuplicates_skipped_noUpdateCall() async throws {
-        let mock = MockPlaylistSyncClient()
-        let stats = try makeStats()
-        let prefs = makePrefs()
-        let service = makeService(mock: mock, stats: stats, prefs: prefs)
-
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
-
-        await mock.setExistingEntries([
-            Song(id: "trackA", title: "A"),
-            Song(id: "trackB", title: "B")
-        ])
-
-        await stats.recordPlayback(makeEvent(trackId: "trackA", timestamp: wDate(year: 2026, month: 4, day: 1), durationListened: 300))
-        await stats.recordPlayback(makeEvent(trackId: "trackB", timestamp: wDate(year: 2026, month: 4, day: 2), durationListened: 200))
-
-        let result = await service.runMonthlyUpdateIfNeeded(
+        let result = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srv", calendar: wrappedCal, currentDate: testNow
         )
 
         #expect(result == .skippedNoData)
-
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.isEmpty)
+        let creates = await mock.createPlaylistCalls
+        #expect(creates.isEmpty)
+        // Month is marked even on skip to avoid re-running until next month
+        #expect(prefs.lastUpdatedMonth(serverId: "srv") == YearMonth(year: 2026, month: 5))
     }
 
-    // f: playlist already has 117 tracks → only 3 slots remain out of 10 new tracks
-    @Test func cap120Tracks_onlyRemainingSlotsFilled() async throws {
-        let mock = MockPlaylistSyncClient()
-        let stats = try makeStats()
-        let prefs = makePrefs()
-        let service = makeService(mock: mock, stats: stats, prefs: prefs)
-
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
-
-        let existing = (1...117).map { Song(id: "ex-\($0)", title: "Existing \($0)") }
-        await mock.setExistingEntries(existing)
-
-        // 10 distinct new tracks, each with unique decreasing duration for stable ranking
-        for i in 1...10 {
-            await stats.recordPlayback(makeEvent(
-                trackId: "new-\(i)",
-                timestamp: wDate(year: 2026, month: 4, day: i),
-                durationListened: TimeInterval(300 - i * 5)
-            ))
-        }
-
-        let result = await service.runMonthlyUpdateIfNeeded(
-            serverId: "srv", calendar: wrappedCal, currentDate: testNow
-        )
-
-        #expect(result == .updated(monthsProcessed: 1, tracksAdded: 3))
-
-        let updates = await mock.updatePlaylistCalls
-        #expect(updates.count == 1)
-        #expect(updates[0].songIdsToAdd.count == 3)
-    }
-
-    // g1: createPlaylist throws → serverError, month not marked
+    // e1: createPlaylist throws → serverError, month NOT marked (sync is retentable)
     @Test func createPlaylistThrows_serverError_monthNotMarked() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
+        // Pre-cache playlist id so only the replace call is made, isolating the failure
+        prefs.setPlaylistId("pl-existing", year: 2026, serverId: "srv")
         await mock.setCreatePlaylistError(WrappedTestError.generic)
+        await stats.recordPlayback(makeEvent(trackId: "t1", timestamp: wDate(year: 2026, month: 3, day: 1)))
 
-        await stats.recordPlayback(makeEvent(trackId: "t1", timestamp: wDate(year: 2026, month: 4, day: 1)))
-
-        let result = await service.runMonthlyUpdateIfNeeded(
+        let result = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srv", calendar: wrappedCal, currentDate: testNow
         )
 
-        #expect(result == .serverError(WrappedTestError.generic))
-        #expect(prefs.lastUpdatedMonth(serverId: "srv") == YearMonth(string: "2026-03"))
+        guard case .serverError = result else {
+            Issue.record("Expected serverError, got \(result)")
+            return
+        }
+        #expect(prefs.lastUpdatedMonth(serverId: "srv") == nil)
     }
 
-    // g2: updatePlaylist throws → serverError, month not marked
-    @Test func updatePlaylistThrows_serverError_monthNotMarked() async throws {
-        let mock = MockPlaylistSyncClient()
-        let stats = try makeStats()
-        let prefs = makePrefs()
-        let service = makeService(mock: mock, stats: stats, prefs: prefs)
-
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
-        await mock.setUpdatePlaylistError(WrappedTestError.generic)
-
-        await stats.recordPlayback(makeEvent(trackId: "t1", timestamp: wDate(year: 2026, month: 4, day: 1)))
-
-        let result = await service.runMonthlyUpdateIfNeeded(
-            serverId: "srv", calendar: wrappedCal, currentDate: testNow
-        )
-
-        #expect(result == .serverError(WrappedTestError.generic))
-        #expect(prefs.lastUpdatedMonth(serverId: "srv") == YearMonth(string: "2026-03"))
-    }
-
-    // g3: getPlaylists throws → serverError, month not marked
+    // e2: getPlaylists throws → serverError, month NOT marked
     @Test func getPlaylistsThrows_serverError_monthNotMarked() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srv")
         await mock.setGetPlaylistsError(WrappedTestError.generic)
+        await stats.recordPlayback(makeEvent(trackId: "t1", timestamp: wDate(year: 2026, month: 3, day: 1)))
 
-        await stats.recordPlayback(makeEvent(trackId: "t1", timestamp: wDate(year: 2026, month: 4, day: 1)))
-
-        let result = await service.runMonthlyUpdateIfNeeded(
+        let result = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srv", calendar: wrappedCal, currentDate: testNow
         )
 
-        #expect(result == .serverError(WrappedTestError.generic))
-        #expect(prefs.lastUpdatedMonth(serverId: "srv") == YearMonth(string: "2026-03"))
+        guard case .serverError = result else {
+            Issue.record("Expected serverError, got \(result)")
+            return
+        }
+        #expect(prefs.lastUpdatedMonth(serverId: "srv") == nil)
     }
 
-    // h: two servers share one service — each server's state is fully isolated
+    // f: multi-server isolation — srvA sync does not affect srvB state
     @Test func multiServerIsolation() async throws {
         let mock = MockPlaylistSyncClient()
         let stats = try makeStats()
         let prefs = makePrefs()
         let service = makeService(mock: mock, stats: stats, prefs: prefs)
 
-        // srvA: has events for April
-        prefs.setLastUpdatedMonth(YearMonth(string: "2026-03")!, serverId: "srvA")
         await stats.recordPlayback(makeEvent(
-            trackId: "a-t1", timestamp: wDate(year: 2026, month: 4, day: 1), serverId: "srvA"
+            trackId: "a-t1", timestamp: wDate(year: 2026, month: 3, day: 1), serverId: "srvA"
         ))
 
-        // srvB: no events, no lastUpdated (processes Jan-Apr, all empty)
-        let resultA = await service.runMonthlyUpdateIfNeeded(
+        let resultA = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srvA", calendar: wrappedCal, currentDate: testNow
         )
-        let resultB = await service.runMonthlyUpdateIfNeeded(
+        let resultB = await service.runYearlyPlaylistSyncIfNeeded(
             serverId: "srvB", calendar: wrappedCal, currentDate: testNow
         )
 
-        #expect(resultA == .updated(monthsProcessed: 1, tracksAdded: 1))
+        #expect(resultA == .updated(tracksCount: 1))
         #expect(resultB == .skippedNoData)
-
-        // srvA has playlist cached; srvB does not (skipped before any playlist API call)
         #expect(prefs.playlistId(year: 2026, serverId: "srvA") != nil)
         #expect(prefs.playlistId(year: 2026, serverId: "srvB") == nil)
+        #expect(prefs.lastUpdatedMonth(serverId: "srvA") == YearMonth(year: 2026, month: 5))
+        #expect(prefs.lastUpdatedMonth(serverId: "srvB") == YearMonth(year: 2026, month: 5))
+    }
+
+    // h: top-100 limit — 110 tracks seeded, only 100 sent to the replace call
+    @Test func top100Limit_moreThan100Tracks_only100InReplaceCall() async throws {
+        let mock = MockPlaylistSyncClient()
+        let stats = try makeStats()
+        let prefs = makePrefs()
+        let service = makeService(mock: mock, stats: stats, prefs: prefs)
+
+        for i in 1...110 {
+            await stats.recordPlayback(makeEvent(
+                trackId: "t\(i)",
+                timestamp: wDate(year: 2026, month: 3, day: 1),
+                durationListened: TimeInterval(1000 - i)
+            ))
+        }
+
+        let result = await service.runYearlyPlaylistSyncIfNeeded(
+            serverId: "srv", calendar: wrappedCal, currentDate: testNow
+        )
+
+        #expect(result == .updated(tracksCount: 100))
+
+        let creates = await mock.createPlaylistCalls
+        let replaceCall = creates.first { $0.playlistId != nil }
+        #expect(replaceCall?.songIds.count == 100)
     }
 }
 
 // MARK: - MockPlaylistSyncClient mutation helpers
-// Async setters used in tests to mutate mock state before exercising the service.
 
 extension MockPlaylistSyncClient {
-    func setExistingEntries(_ songs: [Song]) { existingEntries = songs }
     func setGetPlaylistsError(_ error: Error?) { getPlaylistsError = error }
     func setCreatePlaylistError(_ error: Error?) { createPlaylistError = error }
-    func setUpdatePlaylistError(_ error: Error?) { updatePlaylistError = error }
 }
