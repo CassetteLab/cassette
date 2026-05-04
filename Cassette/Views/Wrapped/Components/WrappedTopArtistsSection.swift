@@ -10,7 +10,11 @@ struct WrappedTopArtistsSection: View {
     let artists: [TopArtistEntry]
 
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @Environment(DominantColorExtractor.self) private var dominantColorExtractor
     @State private var artistToNavigate: ArtistID3?
+    @State private var dominantColors: [String: Color] = [:]
+    @State private var coverImages: [String: PlatformImage] = [:]
 
     private let cardSize: CGFloat = 110
 
@@ -33,6 +37,7 @@ struct WrappedTopArtistsSection: View {
             }
         }
         .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
+        .task(id: artists.map(\.artistId)) { await preloadColors() }
     }
 
     private func artistCard(_ artist: TopArtistEntry) -> some View {
@@ -73,5 +78,31 @@ struct WrappedTopArtistsSection: View {
         Text(text)
             .font(.cassetteCaption)
             .foregroundStyle(.secondary)
+    }
+
+    private func preloadColors() async {
+        let topArtists = Array(artists.prefix(10))
+        var colors: [String: Color] = [:]
+        var images: [String: PlatformImage] = [:]
+        await withTaskGroup(of: (String, Color).self) { group in
+            for artist in topArtists {
+                let artistId = artist.artistId
+                group.addTask { @MainActor [artworkImageCache, dominantColorExtractor] in
+                    let image = await artworkImageCache.load(coverArtId: artistId)
+                    let color = dominantColorExtractor.dominantColor(for: artistId, image: image)
+                    return (artistId, color)
+                }
+            }
+            for await (id, color) in group {
+                colors[id] = color
+            }
+        }
+        for artist in topArtists {
+            if let image = artworkImageCache.cached(for: artist.artistId) {
+                images[artist.artistId] = image
+            }
+        }
+        dominantColors = colors
+        coverImages = images
     }
 }
