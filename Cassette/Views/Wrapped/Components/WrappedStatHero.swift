@@ -6,37 +6,34 @@
 import SwiftUI
 
 struct WrappedStatHero: View {
-    let data: WrappedData?
-
-    private var heroNumber: String {
-        guard let data else { return "—" }
-        let minutes = Int(data.totalSecondsListened / 60)
-        return minutes >= 60 ? "\(minutes / 60)" : "\(minutes)"
-    }
-
-    private var heroUnit: String {
-        guard let data else { return "minutes listened" }
-        let minutes = Int(data.totalSecondsListened / 60)
-        return minutes >= 60 ? "hours listened" : "minutes listened"
-    }
+    let data: WrappedData
 
     var body: some View {
+        let (number, unit) = data.totalSecondsListened.wrappedHeroFormat()
         VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-            Text(heroNumber)
-                .font(.cassettePlayerTitle)
+            Text(number)
+                .font(.system(size: 72, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.cassetteAccent)
-            Text(heroUnit)
-                .font(.cassetteCellTitle)
-                .foregroundStyle(.secondary)
-            if let data {
-                Text("\(data.totalTracksPlayed) plays · \(data.totalUniqueArtists) artist(s)")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Text(unit)
+                .font(.cassetteDetailTitle)
+                .foregroundStyle(.primary)
+            HStack(spacing: CassetteSpacing.xs) {
+                Text(data.totalTracksPlayed.plural("play", "plays"))
+                Text("·")
+                    .foregroundStyle(.tertiary)
+                Text(data.totalUniqueArtists.plural("artist", "artists"))
+                Text("·")
+                    .foregroundStyle(.tertiary)
+                Text(data.totalUniqueAlbums.plural("album", "albums"))
             }
+            .font(.cassetteCaption)
+            .foregroundStyle(.secondary)
         }
-        .padding(CassetteSpacing.m)
+        .padding(CassetteSpacing.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.cassetteAccent.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
     }
 }
