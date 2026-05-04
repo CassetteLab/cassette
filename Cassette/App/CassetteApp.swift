@@ -7,11 +7,63 @@ import SwiftUI
 import SwiftData
 import OSLog
 import Foundation
+#if os(iOS)
+import BackgroundTasks
+#endif
 
 @main
 struct CassetteApp: App {
     @State private var container: AppContainer?
     @Environment(\.scenePhase) private var scenePhase
+
+    // Statics for BGTask handler access — set once after AppContainer init.
+    // nonisolated(unsafe) is intentional: the BGTask closure runs off-actor;
+    // these are written once on MainActor and read in a non-isolated context.
+    #if os(iOS)
+    nonisolated(unsafe) private static var _bgTaskService: WrappedPlaylistService?
+    nonisolated(unsafe) private static var _bgTaskServerState: ServerState?
+    #endif
+
+    init() {
+        #if os(iOS)
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: "app.cassette.wrapped.monthly-update",
+            using: nil
+        ) { task in
+            guard let processingTask = task as? BGProcessingTask,
+                  let service = CassetteApp._bgTaskService,
+                  let serverState = CassetteApp._bgTaskServerState else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            let workTask = Task {
+                let serverId = await MainActor.run { serverState.activeServer?.id.uuidString }
+                guard let serverId else {
+                    processingTask.setTaskCompleted(success: false)
+                    return
+                }
+                let result = await service.runMonthlyUpdateIfNeeded(serverId: serverId, calendar: .current)
+                Logger.wrapped.info("BGTask result: \(String(describing: result), privacy: .public)")
+                processingTask.setTaskCompleted(success: true)
+                CassetteApp.scheduleWrappedUpdate()
+            }
+            processingTask.expirationHandler = {
+                workTask.cancel()
+                Logger.wrapped.warning("BGTask expired — rescheduling for tomorrow")
+                CassetteApp.scheduleWrappedUpdate()
+            }
+        }
+        #endif
+    }
+
+    #if os(iOS)
+    static func scheduleWrappedUpdate() {
+        let request = BGProcessingTaskRequest(identifier: "app.cassette.wrapped.monthly-update")
+        request.requiresNetworkConnectivity = true
+        request.earliestBeginDate = Date().addingTimeInterval(24 * 3600)
+        try? BGTaskScheduler.shared.submit(request)
+    }
+    #endif
 
     var body: some Scene {
         WindowGroup {

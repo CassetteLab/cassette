@@ -36,6 +36,8 @@ final class AppContainer {
     let sessionService: PlaybackSessionService
     let dominantColorExtractor = DominantColorExtractor()
     let artworkImageCache: ArtworkImageCache
+    let statsService: StatsService
+    let wrappedPlaylistService: WrappedPlaylistService
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -47,8 +49,12 @@ final class AppContainer {
         let cache = CacheService(modelContainer: modelContainer, maxTracks: cacheSettings.maxTracks)
         cacheService = cache
 
-        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer, cacheService: cache)
+        let stats = StatsService(modelContainer: modelContainer)
+        statsService = stats
+
+        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer, cacheService: cache, statsService: stats)
         serverService = server
+        wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
         radioService = RadioService(serverService: server)
 
         let library = LibraryService(serverService: server, modelContainer: modelContainer)
@@ -66,7 +72,7 @@ final class AppContainer {
         )
         mediaResolver = resolver
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, toastService: toastService)
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, toastService: toastService, statsService: stats)
         playerService = player
 
         let nowPlaying = NowPlayingService(playerService: player, artworkImageCache: artworkImageCache)
@@ -101,7 +107,8 @@ extension ModelContainer {
             QueueSnapshot.self,
             FavoriteRecord.self,
             PinnedItem.self,
-            PlaybackSession.self
+            PlaybackSession.self,
+            PlaybackEvent.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)

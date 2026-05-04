@@ -16,6 +16,11 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
+		<string>processing</string>
+	</array>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>app.cassette.wrapped.monthly-update</string>
 	</array>
 </dict>
 </plist>
