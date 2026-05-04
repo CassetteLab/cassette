@@ -35,7 +35,7 @@ struct WrappedTopArtistsSection: View {
         let allArtists = Array(artists.prefix(10))
         if !allArtists.isEmpty {
             ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: CassetteSpacing.m) {
+                LazyHStack(alignment: .top, spacing: CassetteSpacing.m) {
                     ForEach(allArtists.indices, id: \.self) { index in
                         artistCard(allArtists[index], isFirst: index == 0)
                     }
