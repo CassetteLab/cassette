@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 struct SettingsView: View {
     @Environment(\.appContainer) private var container
@@ -39,6 +40,9 @@ struct SettingsView: View {
             CacheSectionView()
             serverSection()
             aboutSection()
+            #if DEBUG
+            debugSection()
+            #endif
         }
         .formStyle(.grouped)
         .refreshable {
@@ -85,6 +89,61 @@ struct SettingsView: View {
             // TODO(v1.x): multi-server management (add / remove / switch servers)
         }
     }
+
+    #if DEBUG
+    private func debugSection() -> some View {
+        Section("Debug") {
+            Button("Print Wrapped — This Month") {
+                Task { await printWrapped(period: .currentMonth(), tag: "[WRAPPED-DEBUG-MONTH]") }
+            }
+            Button("Print Wrapped — This Year") {
+                Task { await printWrapped(period: .currentYear(), tag: "[WRAPPED-DEBUG-YEAR]") }
+            }
+            Button("Force Wrapped Monthly Update") {
+                Task {
+                    guard let container,
+                          let sid = container.serverState.activeServer?.id.uuidString else {
+                        Logger.wrapped.warning("[WRAPPED-DEBUG] No active server")
+                        return
+                    }
+                    await container.wrappedPlaylistService.handleYearTransitionIfNeeded(
+                        serverId: sid, calendar: .current)
+                    let result = await container.wrappedPlaylistService.runMonthlyUpdateIfNeeded(
+                        serverId: sid, calendar: .current)
+                    Logger.wrapped.info("[WRAPPED-DEBUG] result=\(String(describing: result), privacy: .public)")
+                }
+            }
+        }
+    }
+
+    private func printWrapped(period: WrappedPeriod, tag: String) async {
+        guard let container,
+              let sid = container.serverState.activeServer?.id.uuidString else {
+            Logger.stats.warning("\(tag, privacy: .public) No active server — aborting")
+            return
+        }
+        let data = await container.statsService.wrappedData(for: period, serverId: sid, calendar: .current)
+        Logger.stats.info("\(tag, privacy: .public) period=\(data.period.displayName, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) totalSeconds=\(data.totalSecondsListened, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) totalTracksPlayed=\(data.totalTracksPlayed, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) totalUniqueTracks=\(data.totalUniqueTracks, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) totalUniqueArtists=\(data.totalUniqueArtists, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) totalUniqueAlbums=\(data.totalUniqueAlbums, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) streakDays=\(data.streakDays, privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) dominantGenre=\(data.dominantGenre ?? "nil", privacy: .public)")
+        for track in data.topTracks {
+            Logger.stats.info("\(tag, privacy: .public) track #\(track.rank, privacy: .public): \(track.title, privacy: .public) — \(track.artistName, privacy: .public) — \(Int(track.totalSecondsListened), privacy: .public)s × \(track.playCount, privacy: .public)")
+        }
+        for album in data.topAlbums {
+            Logger.stats.info("\(tag, privacy: .public) album #\(album.rank, privacy: .public): \(album.title, privacy: .public) — \(album.artistName, privacy: .public) — \(Int(album.totalSecondsListened), privacy: .public)s × \(album.playCount, privacy: .public)")
+        }
+        for artist in data.topArtists {
+            Logger.stats.info("\(tag, privacy: .public) artist #\(artist.rank, privacy: .public): \(artist.name, privacy: .public) — \(Int(artist.totalSecondsListened), privacy: .public)s × \(artist.playCount, privacy: .public)")
+        }
+        Logger.stats.info("\(tag, privacy: .public) firstTrack=\(data.firstTrackOfPeriod?.title ?? "nil", privacy: .public)")
+        Logger.stats.info("\(tag, privacy: .public) lastTrack=\(data.lastTrackOfPeriod?.title ?? "nil", privacy: .public)")
+    }
+    #endif
 
     private func aboutSection() -> some View {
         Section("About") {

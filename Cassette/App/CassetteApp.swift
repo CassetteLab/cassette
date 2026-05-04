@@ -93,6 +93,14 @@ struct CassetteApp: App {
                 await newContainer.playerService.restoreSession()
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 Task { await runCoverArtGarbageCollection(container: newContainer) }
+                // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
+                // Fire-and-forget — must never block app launch.
+                Task { await runWrappedUpdate(container: newContainer) }
+                #if os(iOS)
+                CassetteApp._bgTaskService = newContainer.wrappedPlaylistService
+                CassetteApp._bgTaskServerState = newContainer.serverState
+                CassetteApp.scheduleWrappedUpdate()
+                #endif
             }
             .task(id: container?.serverState.isOnline) {
                 guard let c = container, c.serverState.isOnline else { return }
@@ -149,5 +157,15 @@ struct CassetteApp: App {
         }
 
         await container.downloadService.garbageCollectOrphanedCovers(referencedIds: referencedIds)
+    }
+
+    // MARK: - Wrapped update
+
+    @MainActor
+    private func runWrappedUpdate(container: AppContainer) async {
+        guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
+        await container.wrappedPlaylistService.handleYearTransitionIfNeeded(serverId: serverId, calendar: .current)
+        let result = await container.wrappedPlaylistService.runMonthlyUpdateIfNeeded(serverId: serverId, calendar: .current)
+        Logger.wrapped.info("Cold start result: \(String(describing: result), privacy: .public)")
     }
 }
