@@ -3,6 +3,7 @@
 // Licensed under the GNU General Public License v3.0 or later.
 // See LICENSE file in the project root for full license information.
 
+import OSLog
 import SwiftUI
 
 struct WrappedArtistHeroCard: View {
@@ -13,17 +14,27 @@ struct WrappedArtistHeroCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            ZStack(alignment: .bottomLeading) {
-                blurredBackground
-                dominantColor.opacity(0.5)
-                Color.black.opacity(0.25)
-                heroContent
-            }
+            heroContent
+                .frame(maxWidth: .infinity, minHeight: 200, alignment: .bottomLeading)
+                .background {
+                    ZStack {
+                        Color.black
+                        blurredBackground
+                        dominantColor.opacity(0.5)
+                        Color.black.opacity(0.25)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
         }
         .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
-        .frame(height: 200)
-        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
+        .onAppear {
+            Logger.wrapped.debug("[HERO-CARD-DIAG] init artistId=\(artist.artistId, privacy: .public) name=\(artist.name, privacy: .public) playCount=\(artist.playCount, privacy: .public)")
+            let imgDesc = image.map { "loaded \(Int($0.size.width))×\(Int($0.size.height))" } ?? "NIL"
+            Logger.wrapped.debug("[HERO-CARD-DIAG] image=\(imgDesc, privacy: .public) dominantColor=\(String(describing: dominantColor), privacy: .public)")
+        }
+        .task(id: dominantColor) {
+            Logger.wrapped.debug("[HERO-CARD-DIAG] dominantColor update=\(String(describing: dominantColor), privacy: .public) imageNil=\(image == nil, privacy: .public)")
+        }
     }
 
     @ViewBuilder
