@@ -19,11 +19,13 @@ final class DownloadedTrack {
     // Denormalized metadata for offline display (no network required in offline mode)
     var title: String
     var artist: String?
+    var artistId: String?
     var album: String?
     var trackNumber: Int?
     var durationSeconds: Int?
     var coverArtId: String?
     var suffix: String?
+    var genre: String?
 
     init(
         id: UUID = UUID(),
@@ -36,11 +38,13 @@ final class DownloadedTrack {
         downloadedAt: Date = Date(),
         title: String,
         artist: String? = nil,
+        artistId: String? = nil,
         album: String? = nil,
         trackNumber: Int? = nil,
         durationSeconds: Int? = nil,
         coverArtId: String? = nil,
-        suffix: String? = nil
+        suffix: String? = nil,
+        genre: String? = nil
     ) {
         self.id = id
         self.songId = songId
@@ -52,10 +56,12 @@ final class DownloadedTrack {
         self.downloadedAt = downloadedAt
         self.title = title
         self.artist = artist
+        self.artistId = artistId
         self.album = album
         self.trackNumber = trackNumber
         self.durationSeconds = durationSeconds
         self.coverArtId = coverArtId
         self.suffix = suffix
+        self.genre = genre
     }
 }

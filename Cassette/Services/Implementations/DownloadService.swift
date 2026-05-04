@@ -198,9 +198,11 @@ actor DownloadService: DownloadServiceProtocol {
         // Capture only Sendable values for the MainActor closure.
         let songId = song.id
         let albumId = song.albumId
+        let artistId = song.artistId
         let title = song.title
         let artist = song.artist
         let album = song.album
+        let genre = song.genres?.first?.name ?? song.genre
         let track = song.track
         let duration = song.duration
         let coverArtId = song.coverArt
@@ -229,11 +231,13 @@ actor DownloadService: DownloadServiceProtocol {
                 mimeType: mimeType,
                 title: title,
                 artist: artist,
+                artistId: artistId,
                 album: album,
                 trackNumber: track,
                 durationSeconds: duration,
                 coverArtId: coverArtId,
-                suffix: suffix
+                suffix: suffix,
+                genre: genre
             )
             modelContainer.mainContext.insert(record)
             try? modelContainer.mainContext.save()
