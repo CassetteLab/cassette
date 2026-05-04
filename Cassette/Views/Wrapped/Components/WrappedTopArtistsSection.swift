@@ -25,19 +25,39 @@ struct WrappedTopArtistsSection: View {
             if artists.isEmpty {
                 emptyLabel("No artist data for this period.")
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: CassetteSpacing.m) {
-                        ForEach(artists.prefix(5)) { artist in
-                            artistCard(artist)
+                if let topArtist = artists.first {
+                    WrappedArtistHeroCard(
+                        artist: topArtist,
+                        dominantColor: dominantColors[topArtist.artistId, default: .clear],
+                        image: coverImages[topArtist.artistId],
+                        onTap: {
+                            Task {
+                                artistToNavigate = try? await container?.libraryService.artist(id: topArtist.artistId)
+                            }
                         }
-                    }
-                    .padding(.horizontal, CassetteSpacing.l)
+                    )
                 }
-                .padding(.horizontal, -CassetteSpacing.l)
+                carouselView
             }
         }
         .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
         .task(id: artists.map(\.artistId)) { await preloadColors() }
+    }
+
+    @ViewBuilder
+    private var carouselView: some View {
+        let carouselArtists = Array(artists.dropFirst().prefix(9))
+        if !carouselArtists.isEmpty {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: CassetteSpacing.m) {
+                    ForEach(carouselArtists) { artist in
+                        artistCard(artist)
+                    }
+                }
+                .padding(.horizontal, CassetteSpacing.l)
+            }
+            .padding(.horizontal, -CassetteSpacing.l)
+        }
     }
 
     private func artistCard(_ artist: TopArtistEntry) -> some View {
