@@ -11,6 +11,7 @@ struct WrappedView: View {
     @State private var selectedPeriod: WrappedPeriod = .currentMonth()
     @State private var data: WrappedData?
     @State private var isLoading = true
+    @State private var wrappedPlaylistId: String?
 
     private var availablePeriods: [WrappedPeriod] {
         let calendar = Calendar.current
@@ -44,7 +45,14 @@ struct WrappedView: View {
                     WrappedTopTracksSection(tracks: d.topTracks)
                     WrappedTopAlbumsSection(albums: d.topAlbums)
                     WrappedRewardsSection(data: d)
-                    WrappedYearCard(year: currentYear)
+                    if case .year = selectedPeriod {
+                        WrappedYearCard(
+                            year: currentYear,
+                            firstTrack: d.firstTrackOfPeriod,
+                            lastTrack: d.lastTrackOfPeriod,
+                            playlistId: wrappedPlaylistId
+                        )
+                    }
                 } else {
                     emptyState
                 }
@@ -88,10 +96,14 @@ struct WrappedView: View {
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch start period=\(selectedPeriod.displayName, privacy: .public)")
         isLoading = true
         data = nil
+        wrappedPlaylistId = nil
         let result = await container.statsService.wrappedData(
             for: selectedPeriod, serverId: serverId, calendar: .current
         )
         guard !Task.isCancelled else { return }
+        if case .year(let y) = selectedPeriod {
+            wrappedPlaylistId = await container.wrappedPlaylistService.playlistId(year: y, serverId: serverId)
+        }
         data = result
         isLoading = false
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch done totalPlays=\(result.totalTracksPlayed, privacy: .public)")

@@ -124,6 +124,12 @@ actor WrappedPlaylistService {
         return .updated(monthsProcessed: monthsProcessed, tracksAdded: totalTracksAdded)
     }
 
+    /// Returns the cached server playlist ID for the given year, or nil if the playlist
+    /// has not yet been created by a monthly update run.
+    func playlistId(year: Int, serverId: String) -> String? {
+        preferences.playlistId(year: year, serverId: serverId)
+    }
+
     /// Checks whether the calendar year has advanced since the last recorded marker.
     /// When it has, updates the local year marker so the next monthly update will
     /// create a fresh "Cassette Wrapped <newYear>" playlist automatically.
@@ -251,7 +257,7 @@ actor WrappedPlaylistService {
             return cached
         }
 
-        let name = "Cassette Wrapped \(year)"
+        let name = "Replay \(year)"
         let playlists = try await client.getPlaylists(username: nil)
 
         if let existing = playlists.first(where: { $0.name == name }) {
