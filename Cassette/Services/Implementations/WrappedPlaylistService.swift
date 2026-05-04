@@ -129,7 +129,7 @@ actor WrappedPlaylistService {
 
         let trackIds = tracks.map(\.trackId)
         do {
-            _ = try await client.createPlaylist(name: nil, playlistId: pid, songIds: trackIds)
+            try await replacePlaylistTracks(playlistId: pid, trackIds: trackIds, client: client)
         } catch {
             Logger.wrapped.error("[WRAPPED-SYNC] replace playlist failed: \(error, privacy: .public)")
             return .serverError(error.localizedDescription)
@@ -265,6 +265,20 @@ actor WrappedPlaylistService {
         preferences.setLastUpdatedMonth(ym, serverId: serverId)
         Logger.wrapped.info("Added \(tracksToAdd.count, privacy: .public) tracks for \(ym, privacy: .public) → playlist \(playlistId, privacy: .public)")
         return .processed(tracksAdded: tracksToAdd.count)
+    }
+
+    // MARK: - Replace playlist tracks
+
+    /// Atomically replaces a playlist's entire track list using the SwiftSonic
+    /// createPlaylist replace mode: passing a non-nil playlistId sets the full
+    /// song list in one call without a prior fetch.
+    private func replacePlaylistTracks(
+        playlistId: String,
+        trackIds: [String],
+        client: any PlaylistSyncClient
+    ) async throws {
+        _ = try await client.createPlaylist(name: nil, playlistId: playlistId, songIds: trackIds)
+        Logger.wrapped.debug("[WRAPPED-SYNC] replaced playlist=\(playlistId, privacy: .public) with \(trackIds.count, privacy: .public) tracks")
     }
 
     // MARK: - Get-or-create annual playlist
