@@ -20,7 +20,7 @@ nonisolated protocol PlaylistSyncClient: Sendable {
 
 extension SwiftSonicClient: PlaylistSyncClient {}
 
-// MARK: - MonthlyUpdateResult
+// MARK: - MonthlyUpdateResult (deprecated — will be removed)
 
 nonisolated enum MonthlyUpdateResult: @unchecked Sendable, Equatable {
     case upToDate
@@ -37,6 +37,15 @@ nonisolated enum MonthlyUpdateResult: @unchecked Sendable, Equatable {
         default: return false
         }
     }
+}
+
+// MARK: - SyncResult
+
+nonisolated enum SyncResult: Sendable, Equatable {
+    case upToDate
+    case updated(tracksCount: Int)
+    case skippedNoData
+    case serverError(String)
 }
 
 // MARK: - WrappedPlaylistService
@@ -82,46 +91,54 @@ actor WrappedPlaylistService {
         serverId: String,
         calendar: Calendar,
         currentDate: Date = Date()
-    ) async -> MonthlyUpdateResult {
-        Logger.wrapped.debug("[WRAPPED-SYNC] start update for serverId=\(serverId, privacy: .public)")
+    ) async -> SyncResult {
+        let year = calendar.component(.year, from: currentDate)
+        let currentYearMonth = YearMonth(year: year, month: calendar.component(.month, from: currentDate))
 
-        let lastUpdated = preferences.lastUpdatedMonth(serverId: serverId)
-        Logger.wrapped.debug("[WRAPPED-FLOW] lastWrappedMonthUpdated read = \(lastUpdated?.description ?? "nil", privacy: .public)")
-
-        let months = monthsNeedingUpdate(serverId: serverId, calendar: calendar, currentDate: currentDate)
-        let monthsDesc = months.map(\.description).joined(separator: ", ")
-        Logger.wrapped.debug("[WRAPPED-FLOW] months to process: \(months.count, privacy: .public) — [\(monthsDesc, privacy: .public)]")
-
-        guard !months.isEmpty else {
-            Logger.wrapped.debug("[WRAPPED-FLOW] decision: UP-TO-DATE, returning early")
+        if let last = preferences.lastUpdatedMonth(serverId: serverId), last >= currentYearMonth {
+            Logger.wrapped.debug("[WRAPPED-SYNC] up-to-date last=\(last, privacy: .public) current=\(currentYearMonth, privacy: .public)")
             return .upToDate
         }
 
-        Logger.wrapped.info("Processing \(months.count, privacy: .public) month(s) for serverId=\(serverId, privacy: .public)")
+        Logger.wrapped.debug("[WRAPPED-SYNC] start year=\(year, privacy: .public) serverId=\(serverId, privacy: .public)")
 
-        var monthsProcessed = 0
-        var totalTracksAdded = 0
-        var anyData = false
+        let tracks = await statsService.topTracks(forPeriod: .year(year), serverId: serverId, limit: 100, calendar: calendar)
+        Logger.wrapped.debug("[WRAPPED-SYNC] top tracks count=\(tracks.count, privacy: .public)")
 
-        for ym in months {
-            do {
-                let result = try await processMonth(ym, serverId: serverId, calendar: calendar)
-                switch result {
-                case .processed(let count):
-                    anyData = true
-                    monthsProcessed += 1
-                    totalTracksAdded += count
-                case .skipped:
-                    break
-                }
-            } catch {
-                Logger.wrapped.error("Server error for \(ym, privacy: .public): \(error, privacy: .public)")
-                return .serverError(error)
-            }
+        guard !tracks.isEmpty else {
+            preferences.setLastUpdatedMonth(currentYearMonth, serverId: serverId)
+            Logger.wrapped.debug("[WRAPPED-SYNC] no data for year=\(year, privacy: .public) — skipped")
+            return .skippedNoData
         }
 
-        guard anyData else { return .skippedNoData }
-        return .updated(monthsProcessed: monthsProcessed, tracksAdded: totalTracksAdded)
+        let client: any PlaylistSyncClient
+        do {
+            client = try await makeClient()
+        } catch {
+            Logger.wrapped.error("[WRAPPED-SYNC] client init failed: \(error, privacy: .public)")
+            return .serverError(error.localizedDescription)
+        }
+
+        let pid: String
+        do {
+            pid = try await getOrCreatePlaylist(for: year, serverId: serverId, client: client)
+        } catch {
+            Logger.wrapped.error("[WRAPPED-SYNC] getOrCreatePlaylist failed: \(error, privacy: .public)")
+            return .serverError(error.localizedDescription)
+        }
+
+        let trackIds = tracks.map(\.trackId)
+        do {
+            _ = try await client.createPlaylist(name: nil, playlistId: pid, songIds: trackIds)
+        } catch {
+            Logger.wrapped.error("[WRAPPED-SYNC] replace playlist failed: \(error, privacy: .public)")
+            return .serverError(error.localizedDescription)
+        }
+
+        preferences.setLastUpdatedMonth(currentYearMonth, serverId: serverId)
+        preferences.setLastWrappedYear(year, serverId: serverId)
+        Logger.wrapped.info("[WRAPPED-SYNC] updated year=\(year, privacy: .public) tracks=\(tracks.count, privacy: .public) playlist=\(pid, privacy: .public)")
+        return .updated(tracksCount: tracks.count)
     }
 
     /// Returns the cached server playlist ID for the given year, or nil if the playlist
@@ -257,7 +274,7 @@ actor WrappedPlaylistService {
             return cached
         }
 
-        let name = "Replay \(year)"
+        let name = "Cassette Wrapped \(year)"
         let playlists = try await client.getPlaylists(username: nil)
 
         if let existing = playlists.first(where: { $0.name == name }) {
