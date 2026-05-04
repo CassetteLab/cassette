@@ -10,17 +10,20 @@ struct WrappedStatHero: View {
     let data: WrappedData
 
     @State private var animatedSeconds: TimeInterval = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let palette = WrappedYearPalette.colors(for: data.period.calendarYear)
 
-        MeshGradientBackground(palette: palette, animated: true)
+        MeshGradientBackground(palette: palette, animated: !reduceMotion)
             .frame(minHeight: 340)
             .frame(maxWidth: .infinity)
             .overlay(alignment: .bottomLeading) {
                 heroContent
             }
             .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(accessibilityDescription)
             .onAppear { triggerAnimation() }
             .onChange(of: data.totalSecondsListened) { _, _ in triggerAnimation() }
     }
@@ -48,7 +51,28 @@ struct WrappedStatHero: View {
         .padding(.vertical, CassetteSpacing.l)
     }
 
+    private var accessibilityDescription: String {
+        let totalMinutes = Int(data.totalSecondsListened / 60)
+        let durationText: String
+        if totalMinutes < 60 {
+            durationText = "\(totalMinutes) \(totalMinutes == 1 ? "minute" : "minutes") listened"
+        } else {
+            let hours = totalMinutes / 60
+            let minutes = totalMinutes % 60
+            if minutes > 0 {
+                durationText = "\(hours) \(hours == 1 ? "hour" : "hours") \(minutes) \(minutes == 1 ? "minute" : "minutes") listened"
+            } else {
+                durationText = "\(hours) \(hours == 1 ? "hour" : "hours") listened"
+            }
+        }
+        return "\(durationText), \(data.totalTracksPlayed.plural("play", "plays")), \(data.totalUniqueArtists.plural("artist", "artists")), \(data.totalUniqueAlbums.plural("album", "albums"))"
+    }
+
     private func triggerAnimation() {
+        if reduceMotion {
+            animatedSeconds = data.totalSecondsListened
+            return
+        }
         Logger.wrapped.debug("[WRAPPED-HERO] counter animation triggered seconds=\(data.totalSecondsListened, privacy: .public)")
         animatedSeconds = 0
         withAnimation(.spring(response: 1.2, dampingFraction: 0.8)) {
