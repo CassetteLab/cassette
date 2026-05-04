@@ -158,6 +158,7 @@ actor WrappedPlaylistService {
     ) async {
         let currentYear = calendar.component(.year, from: currentDate)
         if let last = preferences.lastWrappedYear(serverId: serverId), last >= currentYear { return }
+        preferences.clearLastUpdatedMonth(serverId: serverId)
         preferences.setLastWrappedYear(currentYear, serverId: serverId)
         Logger.wrapped.info("Year marker → \(currentYear, privacy: .public) (serverId=\(serverId, privacy: .public))")
     }

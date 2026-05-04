@@ -76,6 +76,10 @@ nonisolated struct WrappedPreferences: Sendable {
         userDefaults.set(ym.description, forKey: Self.lastMonthKey(serverId))
     }
 
+    func clearLastUpdatedMonth(serverId: String) {
+        userDefaults.removeObject(forKey: Self.lastMonthKey(serverId))
+    }
+
     // MARK: - Annual playlist ID cache
 
     func playlistId(year: Int, serverId: String) -> String? {
