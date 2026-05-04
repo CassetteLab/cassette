@@ -20,16 +20,20 @@ struct WrappedArtistHeroCard: View {
     var body: some View {
         Button(action: onTap) {
             heroContent
-                .frame(maxWidth: .infinity, minHeight: 200, alignment: .bottomLeading)
+                .frame(maxWidth: .infinity, minHeight: 320)
                 .background {
                     ZStack {
                         Color.black
                         blurredBackground
-                        dominantColor.opacity(0.5)
-                        Color.black.opacity(0.25)
+                        dominantColor.opacity(0.4)
+                        LinearGradient(
+                            colors: [.clear, Color.black.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.cinematic, style: .continuous))
         }
         .buttonStyle(.plain)
         .task(id: artist.artistId) {
@@ -51,43 +55,41 @@ struct WrappedArtistHeroCard: View {
             Image(platformImage: img)
                 .resizable()
                 .scaledToFill()
-                .blur(radius: 80, opaque: true)
+                .blur(radius: 60)
         } else {
             dominantColor
         }
     }
 
     private var heroContent: some View {
-        HStack(alignment: .bottom, spacing: CassetteSpacing.m) {
-            CoverArtCard(
-                id: artist.artistId,
-                size: 80,
-                cornerRadius: CassetteCornerRadius.large,
-                initialImage: resolvedCoverImage ?? image
-            )
+        VStack(alignment: .leading, spacing: 0) {
+            Text("#1")
+                .font(.system(size: 28, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.top, CassetteSpacing.l)
+
+            Spacer()
+
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                Text("#1")
-                    .font(.cassetteCaption2)
-                    .fontWeight(.bold)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
                 Text(artist.name)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
-                    .lineLimit(2)
-                HStack(spacing: CassetteSpacing.xs) {
-                    Text(artist.playCount.plural("play", "plays"))
-                    Text("·").foregroundStyle(.white.opacity(0.4))
-                    Text(artist.totalSecondsListened.wrappedCompactLabel())
-                }
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                Text(listenTimeText)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
             }
-            Spacer(minLength: 0)
+            .padding(.horizontal, CassetteSpacing.l)
+            .padding(.bottom, CassetteSpacing.l)
         }
-        .padding(CassetteSpacing.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var listenTimeText: String {
+        let (n, u) = artist.totalSecondsListened.wrappedHeroMinutesFormat()
+        return "\(n) \(u)"
     }
 
     // MARK: - Cover cascade: artist coverArt → first album coverArt → prop fallback

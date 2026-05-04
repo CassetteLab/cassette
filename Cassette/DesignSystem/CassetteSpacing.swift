@@ -24,9 +24,10 @@ enum CassetteCornerRadius {
     static let xs: CGFloat       = 4
     static let s: CGFloat        = 6
     static let standard: CGFloat = 8    // all cover arts, most cards
-    static let large: CGFloat    = 12   // full-player cover art, sheets
-    static let hero: CGFloat     = 20   // Wrapped hero card, year card
-    static let pill: CGFloat     = 999  // capsule buttons
+    static let large: CGFloat     = 12   // full-player cover art, sheets
+    static let cinematic: CGFloat = 16   // Wrapped artist hero, full-bleed immersive cards
+    static let hero: CGFloat      = 20   // Wrapped stat hero, year card
+    static let pill: CGFloat      = 999  // capsule buttons
 }
 
 // MARK: - Shadow presets
