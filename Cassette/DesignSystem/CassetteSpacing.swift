@@ -25,6 +25,7 @@ enum CassetteCornerRadius {
     static let s: CGFloat        = 6
     static let standard: CGFloat = 8    // all cover arts, most cards
     static let large: CGFloat    = 12   // full-player cover art, sheets
+    static let hero: CGFloat     = 20   // Wrapped hero card, year card
     static let pill: CGFloat     = 999  // capsule buttons
 }
 

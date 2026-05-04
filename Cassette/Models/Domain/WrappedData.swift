@@ -79,6 +79,13 @@ nonisolated enum WrappedPeriod: Sendable, Hashable {
         let year = calendar.component(.year, from: Date())
         return .year(year)
     }
+
+    var calendarYear: Int {
+        switch self {
+        case let .month(year, _): return year
+        case let .year(year): return year
+        }
+    }
 }
 
 // MARK: - Entry types
