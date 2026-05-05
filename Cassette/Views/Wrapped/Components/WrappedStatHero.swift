@@ -8,7 +8,6 @@ import SwiftUI
 
 struct WrappedStatHero: View {
     let data: WrappedData
-    var parallaxOffset: CGFloat = 0
 
     @State private var animatedSeconds: TimeInterval = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,15 +15,9 @@ struct WrappedStatHero: View {
     var body: some View {
         let palette = WrappedYearPalette.colors(for: data.period.calendarYear)
 
-        Color.clear
+        MeshGradientBackground(palette: palette, animated: !reduceMotion)
             .frame(minHeight: 340)
             .frame(maxWidth: .infinity)
-            .overlay {
-                MeshGradientBackground(palette: palette, animated: !reduceMotion)
-                    .frame(minHeight: 340 + 80)
-                    .frame(maxWidth: .infinity)
-                    .offset(y: parallaxOffset)
-            }
             .overlay(alignment: .bottomLeading) {
                 heroContent
             }
