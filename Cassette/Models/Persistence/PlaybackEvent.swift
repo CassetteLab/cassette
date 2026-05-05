@@ -15,8 +15,10 @@ import SwiftData
 /// use PlaybackEventDTO for all inter-actor communication.
 @Model
 final class PlaybackEvent {
-    @Attribute(.indexed) var timestamp: Date
-    @Attribute(.indexed) var serverId: String
+    #Index<PlaybackEvent>([\.timestamp], [\.serverId])
+
+    var timestamp: Date
+    var serverId: String
 
     var id: UUID
     var trackId: String
