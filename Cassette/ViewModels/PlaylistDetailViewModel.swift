@@ -93,11 +93,11 @@ final class PlaylistDetailViewModel {
         songs = songs.map { song in
             DisplayableSong(
                 id: song.id, title: song.title, artist: song.artist,
-                albumName: song.albumName, duration: song.duration,
-                trackNumber: song.trackNumber,
+                albumId: song.albumId, albumName: song.albumName,
+                artistId: song.artistId, genre: song.genre,
+                duration: song.duration, trackNumber: song.trackNumber,
                 isDownloaded: downloadedIds.contains(song.id),
-                coverArtId: song.coverArtId,
-                audioFormat: song.audioFormat
+                coverArtId: song.coverArtId, audioFormat: song.audioFormat
             )
         }
         isDownloadingPlaylist = false
@@ -122,11 +122,11 @@ final class PlaylistDetailViewModel {
             let s = songs[idx]
             songs[idx] = DisplayableSong(
                 id: s.id, title: s.title, artist: s.artist,
-                albumName: s.albumName, duration: s.duration,
-                trackNumber: s.trackNumber,
+                albumId: s.albumId, albumName: s.albumName,
+                artistId: s.artistId, genre: s.genre,
+                duration: s.duration, trackNumber: s.trackNumber,
                 isDownloaded: allDownloaded.contains(id),
-                coverArtId: s.coverArtId,
-                audioFormat: s.audioFormat
+                coverArtId: s.coverArtId, audioFormat: s.audioFormat
             )
         }
     }
@@ -145,11 +145,11 @@ final class PlaylistDetailViewModel {
         let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
         songs = songs.map {
             DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
-                            albumName: $0.albumName, duration: $0.duration,
-                            trackNumber: $0.trackNumber,
+                            albumId: $0.albumId, albumName: $0.albumName,
+                            artistId: $0.artistId, genre: $0.genre,
+                            duration: $0.duration, trackNumber: $0.trackNumber,
                             isDownloaded: allDownloaded.contains($0.id),
-                            coverArtId: $0.coverArtId,
-                            audioFormat: $0.audioFormat)
+                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat)
         }
         isDownloadingPlaylist = false
     }
@@ -162,10 +162,11 @@ final class PlaylistDetailViewModel {
         try? await downloadService.remove(playlistId: playlistId, serverId: serverId)
         songs = songs.map {
             DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
-                            albumName: $0.albumName, duration: $0.duration,
-                            trackNumber: $0.trackNumber, isDownloaded: false,
-                            coverArtId: $0.coverArtId,
-                            audioFormat: $0.audioFormat)
+                            albumId: $0.albumId, albumName: $0.albumName,
+                            artistId: $0.artistId, genre: $0.genre,
+                            duration: $0.duration, trackNumber: $0.trackNumber,
+                            isDownloaded: false,
+                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat)
         }
     }
 
