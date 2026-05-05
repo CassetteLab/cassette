@@ -9,17 +9,13 @@ import SwiftData
 
 struct ArtistDetailView: View {
     let artist: ArtistID3
-    private let zoomSourceId: String?
-    private let zoomNamespace: Namespace.ID?
 
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistDetailViewModel?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
 
-    init(artist: ArtistID3, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
+    init(artist: ArtistID3) {
         self.artist = artist
-        self.zoomSourceId = zoomSourceId
-        self.zoomNamespace = zoomNamespace
         let cid = "artist:\(artist.id)"
         _artistFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -67,7 +63,6 @@ struct ArtistDetailView: View {
             if viewModel == nil { viewModel = ArtistDetailViewModel(artistId: artist.id, libraryService: svc) }
             await viewModel?.load()
         }
-        .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
     private var skeletonGrid: some View {
