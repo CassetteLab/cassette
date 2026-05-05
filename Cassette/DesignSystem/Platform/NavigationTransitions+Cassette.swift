@@ -19,4 +19,18 @@ extension View {
         self
         #endif
     }
+
+    /// Marks this view as the source of a zoom navigation transition (iOS 18+). No-op on macOS.
+    @ViewBuilder
+    func cassetteMatchedTransitionSource<T: Hashable>(id: T, in namespace: Namespace.ID?) -> some View {
+        #if os(iOS)
+        if let namespace {
+            self.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
+    }
 }
