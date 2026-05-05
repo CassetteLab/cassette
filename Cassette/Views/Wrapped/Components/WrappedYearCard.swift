@@ -12,7 +12,6 @@ struct WrappedYearCard: View {
     let lastTrack: TopTrackEntry?
     let playlistId: String?
     var parallaxOffset: CGFloat = 0
-    var zoomNamespace: Namespace.ID? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -21,12 +20,10 @@ struct WrappedYearCard: View {
     var body: some View {
         Group {
             if let pid = playlistId {
-                let zoomId = "wrapped-year-\(year)"
                 NavigationLink {
-                    PlaylistDetailView(playlistId: pid, name: "Cassette Wrapped \(yearString)", zoomSourceId: zoomId, zoomNamespace: zoomNamespace)
+                    PlaylistDetailView(playlistId: pid, name: "Cassette Wrapped \(yearString)")
                 } label: {
                     cardContent
-                        .cassetteMatchedTransitionSource(id: zoomId, in: zoomNamespace)
                 }
                 .buttonStyle(.plain)
                 .simultaneousGesture(TapGesture().onEnded {

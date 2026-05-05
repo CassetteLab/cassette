@@ -69,8 +69,7 @@ struct WrappedView: View {
                             firstTrack: d.firstTrackOfPeriod,
                             lastTrack: d.lastTrackOfPeriod,
                             playlistId: wrappedPlaylistId,
-                            parallaxOffset: reduceMotion ? 0 : scrollOffset * 0.15,
-                            zoomNamespace: wrappedZoomNamespace
+                            parallaxOffset: reduceMotion ? 0 : scrollOffset * 0.15
                         )
                         .cascadeAppear(order: 5, trigger: appeared)
                     }
