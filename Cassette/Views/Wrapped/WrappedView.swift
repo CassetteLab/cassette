@@ -55,7 +55,7 @@ struct WrappedView: View {
                                 .fill(colorScheme == .dark ? Color.white.opacity(0.03) : Color.cassetteAccent.opacity(0.04))
                         )
                         .cascadeAppear(order: 2, trigger: appeared)
-                    WrappedTopAlbumsSection(albums: d.topAlbums)
+                    WrappedTopAlbumsSection(albums: d.topAlbums, zoomNamespace: wrappedZoomNamespace)
                         .cascadeAppear(order: 3, trigger: appeared)
                     WrappedRewardsSection(data: d)
                         .background(
