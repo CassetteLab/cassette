@@ -8,6 +8,7 @@ import SwiftSonic
 
 struct WrappedTopArtistsSection: View {
     let artists: [TopArtistEntry]
+    let zoomNamespace: Namespace.ID
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -26,7 +27,9 @@ struct WrappedTopArtistsSection: View {
                 carouselView
             }
         }
-        .navigationDestination(item: $artistToNavigate) { ArtistDetailView(artist: $0) }
+        .navigationDestination(item: $artistToNavigate) {
+            ArtistDetailView(artist: $0, zoomSourceId: $0.id, zoomNamespace: zoomNamespace)
+        }
         .task(id: artists.map(\.artistId)) { await preloadColors() }
     }
 
@@ -76,6 +79,7 @@ struct WrappedTopArtistsSection: View {
                     .foregroundStyle(.secondary)
             }
             .frame(width: cardWidth)
+            .cassetteMatchedTransitionSource(id: artist.artistId, in: zoomNamespace)
         }
         .buttonStyle(.plain)
     }

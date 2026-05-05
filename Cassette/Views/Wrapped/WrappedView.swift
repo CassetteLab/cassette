@@ -10,6 +10,7 @@ struct WrappedView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var wrappedZoomNamespace
     @State private var selectedPeriod: WrappedPeriod = .currentMonth()
     @State private var data: WrappedData?
     @State private var isLoading = true
@@ -46,7 +47,7 @@ struct WrappedView: View {
                 } else if let d = data, d.totalTracksPlayed > 0 {
                     WrappedStatHero(data: d, parallaxOffset: reduceMotion ? 0 : scrollOffset * 0.15)
                         .cascadeAppear(order: 0, trigger: appeared)
-                    WrappedTopArtistsSection(artists: d.topArtists)
+                    WrappedTopArtistsSection(artists: d.topArtists, zoomNamespace: wrappedZoomNamespace)
                         .cascadeAppear(order: 1, trigger: appeared)
                     WrappedTopTracksSection(tracks: d.topTracks)
                         .background(
