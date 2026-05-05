@@ -7,7 +7,6 @@ import SwiftUI
 
 struct WrappedTopAlbumsSection: View {
     let albums: [TopAlbumEntry]
-    let zoomNamespace: Namespace.ID
 
     private let columns = [
         GridItem(.flexible(), spacing: CassetteSpacing.m),
@@ -24,10 +23,9 @@ struct WrappedTopAlbumsSection: View {
                 LazyVGrid(columns: columns, spacing: CassetteSpacing.m) {
                     ForEach(albums.prefix(6)) { album in
                         NavigationLink {
-                            AlbumDetailView(albumId: album.albumId, albumName: album.title, zoomSourceId: album.albumId, zoomNamespace: zoomNamespace, coverArtId: album.albumId)
+                            AlbumDetailView(albumId: album.albumId, albumName: album.title, coverArtId: album.albumId)
                         } label: {
                             albumCard(album)
-                                .cassetteMatchedTransitionSource(id: album.albumId, in: zoomNamespace)
                         }
                         .buttonStyle(.plain)
                     }
