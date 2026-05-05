@@ -30,6 +30,8 @@ struct WrappedYearCard: View {
                 })
             } else {
                 cardContent
+                    .grayscale(0.5)
+                    .opacity(0.7)
             }
         }
     }
@@ -83,7 +85,9 @@ struct WrappedYearCard: View {
 
     @ViewBuilder
     private var subtitleView: some View {
-        if let first = firstTrack, let last = lastTrack, first.trackId != last.trackId {
+        if playlistId == nil {
+            Text("Aucune playlist générée pour le moment")
+        } else if let first = firstTrack, let last = lastTrack, first.trackId != last.trackId {
             Text("Started with \(first.title) · Ended with \(last.title)")
         } else if let first = firstTrack {
             Text("Your year started with \(first.title)")
