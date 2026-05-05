@@ -9,11 +9,13 @@ import OSLog
 struct WrappedView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedPeriod: WrappedPeriod = .currentMonth()
     @State private var data: WrappedData?
     @State private var isLoading = true
     @State private var wrappedPlaylistId: String?
     @State private var appeared = false
+    @State private var scrollOffset: CGFloat = 0
 
     private var availablePeriods: [WrappedPeriod] {
         let calendar = Calendar.current
@@ -42,7 +44,7 @@ struct WrappedView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.top, CassetteSpacing.xxxxl)
                 } else if let d = data, d.totalTracksPlayed > 0 {
-                    WrappedStatHero(data: d)
+                    WrappedStatHero(data: d, parallaxOffset: reduceMotion ? 0 : scrollOffset * 0.15)
                         .cascadeAppear(order: 0, trigger: appeared)
                     WrappedTopArtistsSection(artists: d.topArtists)
                         .cascadeAppear(order: 1, trigger: appeared)
@@ -65,7 +67,8 @@ struct WrappedView: View {
                             year: currentYear,
                             firstTrack: d.firstTrackOfPeriod,
                             lastTrack: d.lastTrackOfPeriod,
-                            playlistId: wrappedPlaylistId
+                            playlistId: wrappedPlaylistId,
+                            parallaxOffset: reduceMotion ? 0 : scrollOffset * 0.15
                         )
                         .cascadeAppear(order: 5, trigger: appeared)
                     }
@@ -76,6 +79,9 @@ struct WrappedView: View {
             .padding(.horizontal, CassetteSpacing.l)
             .padding(.top, CassetteSpacing.l)
             .padding(.bottom, CassetteSpacing.xl)
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y } action: { _, newValue in
+            scrollOffset = newValue
         }
         .background(colorScheme == .dark ? Color.black : Color(.systemBackground))
         .cassetteContentWidth()

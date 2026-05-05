@@ -11,6 +11,7 @@ struct WrappedYearCard: View {
     let firstTrack: TopTrackEntry?
     let lastTrack: TopTrackEntry?
     let playlistId: String?
+    var parallaxOffset: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -38,9 +39,15 @@ struct WrappedYearCard: View {
 
     private var cardContent: some View {
         let palette = WrappedYearPalette.colors(for: year)
-        return MeshGradientBackground(palette: palette, animated: !reduceMotion)
-            .frame(maxWidth: .infinity)
+        return Color.clear
             .frame(height: 380)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                MeshGradientBackground(palette: palette, animated: !reduceMotion)
+                    .frame(height: 380 + 80)
+                    .frame(maxWidth: .infinity)
+                    .offset(y: parallaxOffset)
+            }
             .overlay { overlayContent }
             .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.hero, style: .continuous))
             .accessibilityElement(children: .ignore)
