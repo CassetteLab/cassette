@@ -11,6 +11,7 @@ struct DiscoverView: View {
     @State private var vm: DiscoverViewModel?
     @Namespace private var recentlyPlayedNS
     @Namespace private var mostPlayedNS
+    @State private var yearlyPlaylists: [WrappedYearlyPlaylist] = []
 
     var body: some View {
         ScrollView {
@@ -37,6 +38,8 @@ struct DiscoverView: View {
                 vm = DiscoverViewModel(libraryService: container.libraryService)
             }
             await vm?.load()
+            guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
+            yearlyPlaylists = await container.wrappedPlaylistService.fetchYearlyPlaylists(serverId: serverId)
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
@@ -153,35 +156,48 @@ struct DiscoverView: View {
     }
 
     private var wrappedSection: some View {
-        section(title: "Wrapped") {
-            NavigationLink {
-                WrappedView()
-            } label: {
-                HStack(spacing: CassetteSpacing.s) {
-                    Image(systemName: "music.note.list")
-                        .font(.title2)
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            HStack {
+                Text("Wrapped")
+                    .font(.cassetteSectionTitle)
+                Spacer(minLength: 0)
+                NavigationLink {
+                    WrappedView()
+                } label: {
+                    Text("See all")
+                        .font(.cassetteCaption)
                         .foregroundStyle(Color.cassetteAccent)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Your Listening Recap")
-                            .font(.cassetteCellTitle)
-                            .foregroundStyle(.primary)
-                        Text("Monthly and annual stats")
-                            .font(.cassetteCaption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                .padding(CassetteSpacing.m)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.cassetteAccent.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, CassetteSpacing.m)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: CassetteSpacing.s) {
+                    ForEach(yearlyPlaylists) { playlist in
+                        WrappedYearlyCard(playlist: playlist)
+                    }
+                    ForEach(wrappedCardPeriods, id: \.self) { period in
+                        WrappedRecapMonthCard(period: period)
+                    }
+                }
+                .padding(.horizontal, CassetteSpacing.m)
+            }
         }
+    }
+
+    private var wrappedCardPeriods: [WrappedPeriod] {
+        let calendar = Calendar.current
+        let now = Date()
+        let year = calendar.component(.year, from: now)
+        let month = calendar.component(.month, from: now)
+        var periods: [WrappedPeriod] = stride(from: month, through: max(1, month - 3), by: -1)
+            .map { .month(year: year, month: $0) }
+        let hasServerYearPlaylist = yearlyPlaylists.contains { $0.year == year }
+        if !hasServerYearPlaylist {
+            periods.append(.year(year))
+        }
+        return periods
     }
 
     private var internetRadioSection: some View {

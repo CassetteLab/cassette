@@ -17,6 +17,10 @@ struct WrappedView: View {
     @State private var appeared = false
     @Query private var allEvents: [PlaybackEvent]
 
+    init(initialPeriod: WrappedPeriod = .currentMonth()) {
+        _selectedPeriod = State(initialValue: initialPeriod)
+    }
+
     private var availablePeriods: [WrappedPeriod] {
         let calendar = Calendar.current
         let now = Date()

@@ -18,6 +18,15 @@ nonisolated protocol PlaylistSyncClient: Sendable {
 
 extension SwiftSonicClient: PlaylistSyncClient {}
 
+// MARK: - WrappedYearlyPlaylist
+
+nonisolated struct WrappedYearlyPlaylist: Sendable, Identifiable {
+    let id: String
+    let year: Int
+    let name: String
+    let coverArtId: String?
+}
+
 // MARK: - SyncResult
 
 nonisolated enum SyncResult: Sendable, Equatable {
@@ -36,6 +45,8 @@ nonisolated enum SyncResult: Sendable, Equatable {
 /// replace mode. All persistence is either in UserDefaults (WrappedPreferences)
 /// or on the server — no SwiftData access.
 actor WrappedPlaylistService {
+    nonisolated static let wrappedPlaylistNamePrefix = "Cassette Wrapped "
+
     private let statsService: StatsService
     private let preferences: WrappedPreferences
     private let makeClient: @Sendable () async throws -> any PlaylistSyncClient
@@ -140,6 +151,30 @@ actor WrappedPlaylistService {
         preferences.clearLastUpdatedMonth(serverId: serverId)
         preferences.setLastWrappedYear(currentYear, serverId: serverId)
         Logger.wrapped.info("Year marker → \(currentYear, privacy: .public) (serverId=\(serverId, privacy: .public))")
+    }
+
+    /// Returns all server playlists whose names match the wrapped prefix, sorted by year descending.
+    func fetchYearlyPlaylists(serverId: String) async -> [WrappedYearlyPlaylist] {
+        let client: any PlaylistSyncClient
+        do {
+            client = try await makeClient()
+        } catch {
+            Logger.wrapped.error("[WRAPPED] fetchYearlyPlaylists client init failed: \(error, privacy: .public)")
+            return []
+        }
+        do {
+            let all = try await client.getPlaylists(username: nil)
+            return all.compactMap { playlist -> WrappedYearlyPlaylist? in
+                guard playlist.name.hasPrefix(WrappedPlaylistService.wrappedPlaylistNamePrefix),
+                      let year = Int(playlist.name.dropFirst(WrappedPlaylistService.wrappedPlaylistNamePrefix.count))
+                else { return nil }
+                return WrappedYearlyPlaylist(id: playlist.id, year: year, name: playlist.name, coverArtId: playlist.coverArt)
+            }
+            .sorted { $0.year > $1.year }
+        } catch {
+            Logger.wrapped.error("[WRAPPED] fetchYearlyPlaylists failed: \(error, privacy: .public)")
+            return []
+        }
     }
 
     // MARK: - Replace playlist tracks
