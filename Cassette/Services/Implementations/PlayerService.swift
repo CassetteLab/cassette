@@ -1041,12 +1041,19 @@ actor PlayerService: PlayerServiceProtocol {
 
     private func setupPeriodicTimeObserver(for player: AVPlayer) {
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
+        // previousPeriodicTime is a local var captured by the closure and only ever
+        // mutated from .main, so no concurrency issue even though PlayerService is an actor.
+        var previousPeriodicTime: TimeInterval = -1
         // .main queue so MainActor.assumeIsolated is valid in the block.
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self else { return }
+            let current = time.seconds
             MainActor.assumeIsolated {
-                self.state.position = time.seconds
+                self.state.position = current
             }
+            let delta = previousPeriodicTime >= 0 ? current - previousPeriodicTime : 0.0
+            Logger.nowPlayingDebug.debug("[TICK] currentTime=\(current, format: .fixed(precision: 3))s prev=\(previousPeriodicTime, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
+            previousPeriodicTime = current
         }
     }
 
@@ -1234,6 +1241,21 @@ actor PlayerService: PlayerServiceProtocol {
         } else {
             resolvedRate = 0.0
         }
+
+        // Instrumentation: compare raw AVPlayer time to the position being pushed so we can
+        // detect any lag between what AVPlayer reports and what MediaPlayer receives.
+        let avTime = player?.currentTime().seconds ?? -1
+        let prePushDrift = avTime >= 0 ? avTime - position : 0.0
+        let stateLabel: String
+        switch playbackState {
+        case .playing:  stateLabel = "playing"
+        case .paused:   stateLabel = "paused"
+        case .loading:  stateLabel = "loading"
+        case .idle:     stateLabel = "idle"
+        case .error:    stateLabel = "error"
+        }
+        Logger.nowPlayingDebug.debug("[PUSH] avPlayer=\(avTime, format: .fixed(precision: 3))s state.position=\(position, format: .fixed(precision: 3))s pre-push-drift=\(prePushDrift, format: .fixed(precision: 3))s rate=\(resolvedRate, format: .fixed(precision: 1)) duration=\(duration, format: .fixed(precision: 3))s playbackState=\(stateLabel, privacy: .public)")
+
         let snapshot = NowPlayingSnapshot(
             title: track.title,
             artist: track.artist,
