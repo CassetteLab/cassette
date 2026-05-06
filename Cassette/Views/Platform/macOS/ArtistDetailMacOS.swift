@@ -112,6 +112,7 @@ struct ArtistDetailMacOS: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(Color.cassetteAccent)
+                .disabled(vm?.isPlayLoading ?? false || vm?.artist?.album?.isEmpty ?? true)
 
                 Button {
                     Task { await playAll(shuffle: true) }
@@ -121,28 +122,28 @@ struct ArtistDetailMacOS: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
+                .disabled(vm?.isPlayLoading ?? false || vm?.artist?.album?.isEmpty ?? true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 240)
     }
 
-    // MARK: - Play all albums sequentially
+    // MARK: - Play all
 
     private func playAll(shuffle: Bool) async {
-        guard let c = container, let albums = vm?.artist?.album else { return }
-        var allTracks: [DisplayableSong] = []
-        for album in albums {
-            if let detail = try? await c.libraryService.album(id: album.id),
-               let songs = detail.song {
-                allTracks.append(contentsOf: songs.map { DisplayableSong(from: $0, isDownloaded: false) })
-            }
+        guard let c = container else { return }
+        vm?.isPlayLoading = true
+        defer { vm?.isPlayLoading = false }
+        do {
+            let tracks = try await c.libraryService.fetchAllTracks(forArtistID: artistId)
+            let queue = shuffle ? tracks.shuffled() : tracks
+            try await c.playerService.play(tracks: queue, startIndex: 0)
+        } catch CassetteError.artistTracksUnavailable {
+            c.toastService.showError("Unable to load artist tracks. Please check your connection and try again.")
+        } catch {
+            c.toastService.showError("Playback failed. Please try again.")
         }
-        guard !allTracks.isEmpty else { return }
-        if shuffle && !c.playerState.isShuffled {
-            await c.playerService.toggleShuffle()
-        }
-        try? await c.playerService.play(tracks: allTracks, startIndex: 0)
     }
 
     // MARK: - Toolbar

@@ -11,6 +11,7 @@ import SwiftSonic
 final class ArtistDetailViewModel {
     var artist: ArtistID3?
     var isLoading = false
+    var isPlayLoading = false
     var error: UserFacingError?
 
     private let artistId: String

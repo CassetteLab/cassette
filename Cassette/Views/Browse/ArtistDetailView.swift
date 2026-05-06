@@ -86,20 +86,24 @@ struct ArtistDetailView: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 HStack(spacing: CassetteSpacing.s) {
-                    Button { } label: {
+                    Button {
+                        Task { await playAll(shuffled: false) }
+                    } label: {
                         Label("Play", systemImage: "play.fill")
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(Color.cassetteAccent)
-                    .disabled(true) // wired in commit 3b
+                    .disabled(vm.isPlayLoading || albums.isEmpty)
 
-                    Button { } label: {
+                    Button {
+                        Task { await playAll(shuffled: true) }
+                    } label: {
                         Label("Shuffle", systemImage: "shuffle")
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .buttonStyle(.bordered)
-                    .disabled(true) // wired in commit 3b
+                    .disabled(vm.isPlayLoading || albums.isEmpty)
                 }
             }
             .frame(height: 100)
@@ -107,6 +111,21 @@ struct ArtistDetailView: View {
         .padding(.horizontal, CassetteSpacing.l)
         .padding(.top, CassetteSpacing.m)
         .padding(.bottom, CassetteSpacing.s)
+    }
+
+    private func playAll(shuffled: Bool) async {
+        guard let c = container else { return }
+        viewModel?.isPlayLoading = true
+        defer { viewModel?.isPlayLoading = false }
+        do {
+            let tracks = try await c.libraryService.fetchAllTracks(forArtistID: artist.id)
+            let queue = shuffled ? tracks.shuffled() : tracks
+            try await c.playerService.play(tracks: queue, startIndex: 0)
+        } catch CassetteError.artistTracksUnavailable {
+            c.toastService.showError("Unable to load artist tracks. Please check your connection and try again.")
+        } catch {
+            c.toastService.showError("Playback failed. Please try again.")
+        }
     }
 
     private var skeletonGrid: some View {
