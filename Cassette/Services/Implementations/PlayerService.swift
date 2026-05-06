@@ -511,6 +511,10 @@ actor PlayerService: PlayerServiceProtocol {
         #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
+        // Lazily set trackStartDate for session-restored tracks that resume for the first time.
+        if trackStartDate == nil {
+            trackStartDate = Date()
+        }
         player?.play()
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
