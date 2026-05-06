@@ -17,4 +17,9 @@ protocol NowPlayingServiceProtocol: AnyObject, Sendable {
 
     /// Pushes a full metadata + artwork update (called from PlayerService on track change or seek).
     func update(with snapshot: NowPlayingSnapshot) async
+
+    /// Merges elapsed time, rate, and duration into the existing nowPlayingInfo dict without
+    /// touching title, artist, or artwork. Called on every periodic tick to prevent iOS
+    /// extrapolation drift on the lock screen.
+    func pushPosition(elapsed: TimeInterval, rate: Float, duration: TimeInterval) async
 }

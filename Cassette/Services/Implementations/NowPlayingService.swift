@@ -179,6 +179,21 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         }
     }
 
+    // MARK: - Periodic position push
+
+    func pushPosition(elapsed: TimeInterval, rate: Float, duration: TimeInterval) async {
+        guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
+        let ts = Date().timeIntervalSince1970
+        Logger.nowPlayingDebug.debug("[MPNOW-PUSH periodic] elapsed=\(elapsed, format: .fixed(precision: 3))s rate=\(rate, format: .fixed(precision: 1)) duration=\(duration, format: .fixed(precision: 3))s ts=\(ts, format: .fixed(precision: 3))")
+        await MainActor.run {
+            var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed
+            info[MPNowPlayingInfoPropertyPlaybackRate] = rate
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+        }
+    }
+
     // MARK: - Remote command availability
 
     private func updateRemoteCommandsAvailability(isLiveStream: Bool) {

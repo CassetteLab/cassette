@@ -1054,7 +1054,20 @@ actor PlayerService: PlayerServiceProtocol {
             let delta = previousPeriodicTime >= 0 ? current - previousPeriodicTime : 0.0
             Logger.nowPlayingDebug.debug("[TICK] currentTime=\(current, format: .fixed(precision: 3))s prev=\(previousPeriodicTime, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
             previousPeriodicTime = current
+            Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
         }
+    }
+
+    /// Called from the periodic time observer to keep MPNowPlayingInfoCenter in sync.
+    /// Guards ensure we only push during live playback — not during transitions, live streams,
+    /// or when elapsed is out of range — so we never send a stale or impossible position.
+    private func periodicNowPlayingPush(elapsed: TimeInterval) async {
+        let (playbackState, duration, isLiveStream, hasTrack) = await MainActor.run {
+            (state.playbackState, state.duration, state.isLiveStream, state.currentTrack != nil)
+        }
+        guard case .playing = playbackState, !isLiveStream, hasTrack else { return }
+        guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
+        await nowPlayingService?.pushPosition(elapsed: elapsed, rate: 1.0, duration: duration)
     }
 
     // Loads the real asset duration asynchronously via full file parsing.
