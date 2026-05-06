@@ -16,12 +16,28 @@ struct WrappedAwardMedal: View {
     let palette: [Color]
     let isFocused: Bool
 
+    @State private var ringDegrees: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
-            // Outer holographic ring
+            // Outer holographic ring — rotates when focused
             Circle()
                 .strokeBorder(holoGradient, lineWidth: 12)
                 .frame(width: 140, height: 140)
+                .rotationEffect(.degrees(ringDegrees))
+                .onChange(of: isFocused, initial: true) { _, focused in
+                    if focused && !reduceMotion {
+                        ringDegrees = 0
+                        withAnimation(.linear(duration: 5).repeatForever(autoreverses: false)) {
+                            ringDegrees = 360
+                        }
+                    } else {
+                        var t = Transaction()
+                        t.disablesAnimations = true
+                        withTransaction(t) { ringDegrees = 0 }
+                    }
+                }
 
             // Intermediate accent ring
             Circle()
