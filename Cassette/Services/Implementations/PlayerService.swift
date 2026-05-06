@@ -1036,6 +1036,15 @@ actor PlayerService: PlayerServiceProtocol {
             // Default buffer is too conservative for high-bitrate FLAC streams; 15s absorbs cellular/wifi jitter.
             item.preferredForwardBufferDuration = 15.0
         }
+        // FLAC files tagged with embedded cover art (attached_pic) expose a MJPEG video stream.
+        // AVPlayer waits for that visual stream to reach its end before firing
+        // AVPlayerItemDidPlayToEndTime, causing currentTime to drift 6-13s past audio duration.
+        // Deselecting the visual group tells AVPlayer to ignore those tracks entirely.
+        Task { [item] in
+            if let visualGroup = try? await item.asset.loadMediaSelectionGroup(for: .visual) {
+                await MainActor.run { item.select(nil, in: visualGroup) }
+            }
+        }
         return item
     }
 
