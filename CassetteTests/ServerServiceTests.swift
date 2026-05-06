@@ -31,6 +31,20 @@ final actor MockKeychain: KeychainServiceProtocol {
     }
 }
 
+final actor MockCacheService: CacheServiceProtocol {
+    var usedBytes: Int64 = 0
+    var trackCount: Int = 0
+    func cachedURL(forSongId songId: String, serverId: UUID) async -> URL? { nil }
+    func touch(songId: String, serverId: UUID) async {}
+    func store(data: Data, forSongId songId: String, serverId: UUID, mimeType: String) async throws -> URL {
+        struct MockError: Error {}; throw MockError()
+    }
+    func setMaxTracks(_ value: Int) async {}
+    func invalidate(songId: String, serverId: UUID) async {}
+    func clearAll() async {}
+    func clearAllForServer(_ serverId: UUID) async {}
+}
+
 // MARK: - Suite
 
 @Suite("ServerService")
@@ -40,7 +54,7 @@ struct ServerServiceTests {
     private func makeService(keychain: MockKeychain = MockKeychain()) throws -> (ServerService, ServerState) {
         let container = try ModelContainer.cassette(inMemory: true)
         let state = ServerState()
-        let service = ServerService(state: state, keychain: keychain, modelContainer: container)
+        let service = ServerService(state: state, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
         return (service, state)
     }
 
@@ -162,7 +176,7 @@ struct ServerServiceTests {
         let container = try ModelContainer.cassette(inMemory: true)
 
         let state1 = ServerState()
-        let service1 = ServerService(state: state1, keychain: keychain, modelContainer: container)
+        let service1 = ServerService(state: state1, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
         try await service1.addServer(
             displayName: "Persisted", baseURL: "https://s.example.com",
             username: "user", password: "pass", customHeaders: [:]
@@ -170,7 +184,7 @@ struct ServerServiceTests {
 
         // Simulate app restart: new service with the same container
         let state2 = ServerState()
-        let service2 = ServerService(state: state2, keychain: keychain, modelContainer: container)
+        let service2 = ServerService(state: state2, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
 
         #expect(state2.servers.isEmpty)
         await service2.loadPersistedState()
