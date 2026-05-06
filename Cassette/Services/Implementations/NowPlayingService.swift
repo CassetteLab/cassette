@@ -5,7 +5,6 @@
 
 import Foundation
 import MediaPlayer
-import OSLog
 
 /// Manages MPNowPlayingInfoCenter + MPRemoteCommandCenter.
 /// Active from v1 (lockscreen, Control Center, AirPods, Apple Watch).
@@ -121,8 +120,6 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         if snapshot.artworkURL == nil {
             // Position-only update (pause/resume/seek): merge into the existing dict so
             // artwork already loaded for the current track is preserved.
-            let ts = Date().timeIntervalSince1970
-            Logger.nowPlayingDebug.debug("[MPNOW-PUSH position-only] elapsed=\(snapshot.position, format: .fixed(precision: 3))s rate=\(snapshot.playbackRate, format: .fixed(precision: 1)) duration=\(snapshot.duration, format: .fixed(precision: 3))s ts=\(ts, format: .fixed(precision: 3))")
             await MainActor.run {
                 var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
                 info[MPMediaItemPropertyTitle] = snapshot.title
@@ -150,8 +147,6 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
         let baseInfo = info
-        let newTrackTs = Date().timeIntervalSince1970
-        Logger.nowPlayingDebug.debug("[MPNOW-PUSH new-track] elapsed=\(snapshot.position, format: .fixed(precision: 3))s rate=\(snapshot.playbackRate, format: .fixed(precision: 1)) duration=\(snapshot.duration, format: .fixed(precision: 3))s ts=\(newTrackTs, format: .fixed(precision: 3))")
         await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo }
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
@@ -183,8 +178,6 @@ actor NowPlayingService: NowPlayingServiceProtocol {
 
     func pushPosition(elapsed: TimeInterval, rate: Float, duration: TimeInterval) async {
         guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
-        let ts = Date().timeIntervalSince1970
-        Logger.nowPlayingDebug.debug("[MPNOW-PUSH periodic] elapsed=\(elapsed, format: .fixed(precision: 3))s rate=\(rate, format: .fixed(precision: 1)) duration=\(duration, format: .fixed(precision: 3))s ts=\(ts, format: .fixed(precision: 3))")
         await MainActor.run {
             var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
             info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed
