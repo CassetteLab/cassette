@@ -187,17 +187,8 @@ struct DiscoverView: View {
     }
 
     private var wrappedCardPeriods: [WrappedPeriod] {
-        let calendar = Calendar.current
-        let now = Date()
-        let year = calendar.component(.year, from: now)
-        let month = calendar.component(.month, from: now)
-        var periods: [WrappedPeriod] = stride(from: month, through: max(1, month - 3), by: -1)
-            .map { .month(year: year, month: $0) }
-        let hasServerYearPlaylist = yearlyPlaylists.contains { $0.year == year }
-        if !hasServerYearPlaylist {
-            periods.append(.year(year))
-        }
-        return periods
+        let year = Calendar.current.component(.year, from: Date())
+        return yearlyPlaylists.contains { $0.year == year } ? [] : [.year(year)]
     }
 
     private var internetRadioSection: some View {
