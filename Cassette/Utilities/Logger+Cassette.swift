@@ -30,4 +30,5 @@ extension Logger {
     nonisolated static let wrapped       = Logger(subsystem: "app.cassette.wrapped",       category: "WrappedPlaylistService")
     nonisolated static let scrubberDebug   = Logger(subsystem: "app.cassette.scrubber-debug",   category: "ScrubberDrift")
     nonisolated static let nowPlayingDebug = Logger(subsystem: "app.cassette.nowplaying-debug", category: "NowPlayingDrift")
+    nonisolated static let investigation   = Logger(subsystem: "app.cassette.investigation",    category: "Investigation")
 }

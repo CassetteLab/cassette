@@ -1040,6 +1040,7 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func setupPeriodicTimeObserver(for player: AVPlayer) {
+        Logger.investigation.debug("[INVESTIGATION] setupPeriodicTimeObserver: registering (prior timeObserverToken: \(self.timeObserverToken == nil ? "nil" : "non-nil", privacy: .public))")
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
         // previousPeriodicTime is a local var captured by the closure and only ever
         // mutated from .main, so no concurrency issue even though PlayerService is an actor.
@@ -1054,6 +1055,15 @@ actor PlayerService: PlayerServiceProtocol {
             let delta = previousPeriodicTime >= 0 ? current - previousPeriodicTime : 0.0
             Logger.nowPlayingDebug.debug("[TICK] currentTime=\(current, format: .fixed(precision: 3))s prev=\(previousPeriodicTime, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
             previousPeriodicTime = current
+            // [INVESTIGATION] H3: capture item state at each tick to diagnose currentTime vs duration boundary
+            let itemDuration = player.currentItem?.duration.seconds ?? -1.0
+            let loadedEnd: Double
+            if let lastRange = player.currentItem?.loadedTimeRanges.last?.timeRangeValue {
+                loadedEnd = lastRange.end.seconds
+            } else {
+                loadedEnd = -1.0
+            }
+            Logger.investigation.debug("[INVESTIGATION] tick: currentTime=\(current, format: .fixed(precision: 3))s item.duration=\(itemDuration, format: .fixed(precision: 3))s loadedRanges.last.end=\(loadedEnd, format: .fixed(precision: 3))s")
             Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
         }
     }
@@ -1134,8 +1144,13 @@ actor PlayerService: PlayerServiceProtocol {
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
-        ) { [weak self] _ in
+        ) { [weak self, weak item] _ in
             guard let self else { return }
+            // [INVESTIGATION] H3: capture exact state at the moment the notification fires
+            let itemCurrentTime = item?.currentTime().seconds ?? -1.0
+            let itemDuration = item?.duration.seconds ?? -1.0
+            let delta = itemCurrentTime - itemDuration
+            Logger.investigation.debug("[INVESTIGATION] DidPlayToEndTime fired: item.currentTime=\(itemCurrentTime, format: .fixed(precision: 3))s item.duration=\(itemDuration, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
             Logger.player.info("[TRANSITION] AVPlayerItemDidPlayToEndTime fired → handleEndOfTrack")
             Task { await self.handleEndOfTrack() }
         }
