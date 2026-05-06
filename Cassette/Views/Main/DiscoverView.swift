@@ -162,7 +162,7 @@ struct DiscoverView: View {
                     .font(.cassetteSectionTitle)
                 Spacer(minLength: 0)
                 NavigationLink {
-                    WrappedView()
+                    WrappedYearlyListView()
                 } label: {
                     Text("See all")
                         .font(.cassetteCaption)
