@@ -20,25 +20,25 @@ struct CassetteTapeIcon: Shape {
         )
 
         // Left reel hole
-        let reelR = w * 0.165
+        let reelR = w * 0.16
         let reelY = h * 0.40
         path.addEllipse(in: CGRect(
-            x: w * 0.285 - reelR, y: reelY - reelR,
+            x: w * 0.285 - reelR, y: reelY - reelR/2,
             width: reelR * 2, height: reelR * 2
         ))
 
         // Right reel hole
         path.addEllipse(in: CGRect(
-            x: w * 0.715 - reelR, y: reelY - reelR,
+            x: w * 0.715 - reelR, y: reelY - reelR/2,
             width: reelR * 2, height: reelR * 2
         ))
 
         // Tape window (bottom centre)
-        let winW = w * 0.50
+        let winW = w * 0.2
         let winH = h * 0.185
         let winCorner = winH * 0.40
         path.addRoundedRect(
-            in: CGRect(x: (w - winW) / 2, y: h * 0.64, width: winW, height: winH),
+            in: CGRect(x: (w - winW) / 2, y: h * 0.44, width: winW, height: winH),
             cornerSize: CGSize(width: winCorner, height: winCorner)
         )
 
