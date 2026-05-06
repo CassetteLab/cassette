@@ -5,52 +5,69 @@
 
 import SwiftUI
 
-struct WrappedAwardMedal: View {
-    enum MedalIcon {
-        case cassetteTape
-        case system(String)
-    }
+enum AwardIcon {
+    case sf(String)
+    case cassette
+}
 
-    let icon: MedalIcon
-    let headline: String
-    let subline: String
+struct WrappedAwardMedal: View {
+    let icon: AwardIcon
+    let value: String
     let palette: [Color]
+    let isFocused: Bool
 
     var body: some View {
-        VStack(spacing: CassetteSpacing.m) {
-            badge
-            labels
-        }
-        .frame(width: 160)
-        .padding(.vertical, CassetteSpacing.l)
-    }
-
-    private var badge: some View {
         ZStack {
+            // Outer holographic ring
             Circle()
-                .fill(holoGradient)
-            Circle()
-                .fill(Color(.systemBackground))
-                .padding(11)
-            iconView
-        }
-        .frame(width: 96, height: 96)
-    }
+                .strokeBorder(holoGradient, lineWidth: 12)
+                .frame(width: 140, height: 140)
 
-    private var labels: some View {
-        VStack(spacing: CassetteSpacing.xs) {
-            Text(headline)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.65)
-            Text(subline)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .multilineTextAlignment(.center)
+            // Intermediate accent ring
+            Circle()
+                .strokeBorder(.white.opacity(0.4), lineWidth: 2)
+                .frame(width: 116, height: 116)
+
+            // Central radial circle
+            Circle()
+                .fill(centralGradient)
+                .frame(width: 100, height: 100)
+
+            // Metal polish — top highlight
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.white.opacity(0.15), .clear],
+                        startPoint: .top,
+                        endPoint: .center
+                    )
+                )
+                .frame(width: 100, height: 100)
+
+            // Metal polish — bottom shadow
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [.clear, .black.opacity(0.10)],
+                        startPoint: .center,
+                        endPoint: .bottom
+                    )
+                )
+                .frame(width: 100, height: 100)
+
+            // Icon + value
+            VStack(spacing: 4) {
+                iconView
+                Text(value)
+                    .font(.system(size: 24, weight: .black, design: .rounded))
+                    .foregroundStyle(.white)
+                    .shadow(color: .black.opacity(0.25), radius: 1, x: 0, y: 1)
+                    .shadow(color: .white.opacity(0.15), radius: 0, x: 0, y: -1)
+                    .minimumScaleFactor(0.65)
+                    .lineLimit(1)
+            }
         }
-        .frame(maxWidth: .infinity)
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 
     private var holoGradient: AngularGradient {
@@ -68,31 +85,47 @@ struct WrappedAwardMedal: View {
         )
     }
 
+    private var centralGradient: RadialGradient {
+        RadialGradient(
+            colors: [
+                .white.opacity(0.30),
+                (palette.last ?? palette[0]).opacity(0.10),
+            ],
+            center: .center,
+            startRadius: 0,
+            endRadius: 50
+        )
+    }
+
     @ViewBuilder
     private var iconView: some View {
         switch icon {
-        case .cassetteTape:
+        case .cassette:
             CassetteTapeIcon()
-                .fill(.primary, style: FillStyle(eoFill: true))
-                .frame(width: 42, height: 28)
-        case .system(let name):
+                .fill(.white, style: FillStyle(eoFill: true))
+                .frame(width: 38, height: 25)
+                .shadow(color: .white.opacity(0.3), radius: 4)
+        case .sf(let name):
             Image(systemName: name)
-                .font(.system(size: 26, weight: .medium))
-                .foregroundStyle(.primary)
+                .font(.system(size: 32, weight: .semibold))
+                .foregroundStyle(.white)
+                .shadow(color: .white.opacity(0.3), radius: 4)
         }
     }
 }
 
 #Preview {
     let palette = WrappedYearPalette.colors(for: 2026)
-    ScrollView(.horizontal) {
-        HStack(spacing: 0) {
-            WrappedAwardMedal(icon: .cassetteTape, headline: "1 234", subline: "minutes listened", palette: palette)
-            WrappedAwardMedal(icon: .system("flame.fill"), headline: "12", subline: "day streak", palette: palette)
-            WrappedAwardMedal(icon: .system("music.note"), headline: "342", subline: "unique tracks", palette: palette)
-            WrappedAwardMedal(icon: .system("person.2.fill"), headline: "48", subline: "artists discovered", palette: palette)
-            WrappedAwardMedal(icon: .system("guitars.fill"), headline: "Rock", subline: "dominant genre", palette: palette)
+    ScrollView(.horizontal, showsIndicators: false) {
+        HStack(spacing: CassetteSpacing.l) {
+            WrappedAwardMedal(icon: .cassette,         value: "45",  palette: palette, isFocused: true)
+            WrappedAwardMedal(icon: .sf("flame.fill"), value: "7",   palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .sf("music.note"), value: "127", palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .sf("person.2.fill"), value: "42", palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .sf("guitars.fill"), value: "Pop", palette: palette, isFocused: false)
         }
         .padding(.horizontal, CassetteSpacing.l)
+        .padding(.vertical, CassetteSpacing.xl)
     }
+    .background(Color(.systemBackground))
 }
