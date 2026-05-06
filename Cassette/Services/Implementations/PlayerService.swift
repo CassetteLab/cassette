@@ -547,40 +547,9 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
         let time = CMTime(seconds: position, preferredTimescale: 1000)
-        Logger.scrubberDebug.debug("[SEEK] requested=\(position, format: .fixed(precision: 3))s")
-
-        // Completion-handler variant used solely for drift instrumentation.
-        // AVPlayer is not captured in the @Sendable handler — continuation bridges back to the actor.
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            guard let p = player else {
-                continuation.resume()
-                return
-            }
-            p.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
-                continuation.resume()
-            }
-        }
-
-        let actualSeconds = player?.currentTime().seconds ?? position
-        let delta = actualSeconds - position
-        Logger.scrubberDebug.debug("[SEEK] actual=\(actualSeconds, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
-
-        // Fire-and-forget: sample currentTime 100 ms after completion to check stability.
-        // [weak self] causes the task to lose actor-isolation inference, so player is
-        // accessed via an explicit actor-isolated helper called with await.
-        Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(100))
-            guard let self else { return }
-            let later = await self.currentTimeSecondsForDiagnostics() ?? actualSeconds
-            Logger.scrubberDebug.debug("[SEEK+100ms] currentTime=\(later, format: .fixed(precision: 3))s post-seek-drift=\(later - actualSeconds, format: .fixed(precision: 3))s")
-        }
-
+        player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
-    }
-
-    private func currentTimeSecondsForDiagnostics() -> TimeInterval? {
-        player?.currentTime().seconds
     }
 
     // MARK: - Skip
@@ -1047,11 +1016,7 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func setupPeriodicTimeObserver(for player: AVPlayer) {
-        Logger.investigation.debug("[INVESTIGATION] setupPeriodicTimeObserver: registering (prior timeObserverToken: \(self.timeObserverToken == nil ? "nil" : "non-nil", privacy: .public))")
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
-        // previousPeriodicTime is a local var captured by the closure and only ever
-        // mutated from .main, so no concurrency issue even though PlayerService is an actor.
-        var previousPeriodicTime: TimeInterval = -1
         // .main queue so MainActor.assumeIsolated is valid in the block.
         timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self else { return }
@@ -1060,18 +1025,6 @@ actor PlayerService: PlayerServiceProtocol {
                 let dur = self.state.duration
                 self.state.position = dur > 0 ? min(current, dur) : current
             }
-            let delta = previousPeriodicTime >= 0 ? current - previousPeriodicTime : 0.0
-            Logger.nowPlayingDebug.debug("[TICK] currentTime=\(current, format: .fixed(precision: 3))s prev=\(previousPeriodicTime, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
-            previousPeriodicTime = current
-            // [INVESTIGATION] H3: capture item state at each tick to diagnose currentTime vs duration boundary
-            let itemDuration = player.currentItem?.duration.seconds ?? -1.0
-            let loadedEnd: Double
-            if let lastRange = player.currentItem?.loadedTimeRanges.last?.timeRangeValue {
-                loadedEnd = lastRange.end.seconds
-            } else {
-                loadedEnd = -1.0
-            }
-            Logger.investigation.debug("[INVESTIGATION] tick: currentTime=\(current, format: .fixed(precision: 3))s item.duration=\(itemDuration, format: .fixed(precision: 3))s loadedRanges.last.end=\(loadedEnd, format: .fixed(precision: 3))s")
             Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
         }
     }
@@ -1163,13 +1116,8 @@ actor PlayerService: PlayerServiceProtocol {
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
             queue: .main
-        ) { [weak self, weak item] _ in
+        ) { [weak self] _ in
             guard let self else { return }
-            // [INVESTIGATION] H3: capture exact state at the moment the notification fires
-            let itemCurrentTime = item?.currentTime().seconds ?? -1.0
-            let itemDuration = item?.duration.seconds ?? -1.0
-            let delta = itemCurrentTime - itemDuration
-            Logger.investigation.debug("[INVESTIGATION] DidPlayToEndTime fired: item.currentTime=\(itemCurrentTime, format: .fixed(precision: 3))s item.duration=\(itemDuration, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
             Logger.player.info("[TRANSITION] AVPlayerItemDidPlayToEndTime fired → handleEndOfTrack")
             Task { await self.handleEndOfTrack() }
         }
@@ -1288,20 +1236,6 @@ actor PlayerService: PlayerServiceProtocol {
         } else {
             resolvedRate = 0.0
         }
-
-        // Instrumentation: compare raw AVPlayer time to the position being pushed so we can
-        // detect any lag between what AVPlayer reports and what MediaPlayer receives.
-        let avTime = player?.currentTime().seconds ?? -1
-        let prePushDrift = avTime >= 0 ? avTime - position : 0.0
-        let stateLabel: String
-        switch playbackState {
-        case .playing:  stateLabel = "playing"
-        case .paused:   stateLabel = "paused"
-        case .loading:  stateLabel = "loading"
-        case .idle:     stateLabel = "idle"
-        case .error:    stateLabel = "error"
-        }
-        Logger.nowPlayingDebug.debug("[PUSH] avPlayer=\(avTime, format: .fixed(precision: 3))s state.position=\(position, format: .fixed(precision: 3))s pre-push-drift=\(prePushDrift, format: .fixed(precision: 3))s rate=\(resolvedRate, format: .fixed(precision: 1)) duration=\(duration, format: .fixed(precision: 3))s playbackState=\(stateLabel, privacy: .public)")
 
         let clampedPosition = duration > 0 ? min(position, duration) : position
         let snapshot = NowPlayingSnapshot(

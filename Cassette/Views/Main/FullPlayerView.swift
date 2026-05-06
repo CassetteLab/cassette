@@ -389,12 +389,8 @@ private struct ScrubberView: View {
                 value: positionBinding,
                 total: effectiveDuration,
                 onEditingChanged: { editing in
-                    if editing {
-                        Logger.player.debug("[SCRUB] drag start — total=\(self.effectiveDuration, format: .fixed(precision: 2))s (state.duration=\(self.playerState.duration, format: .fixed(precision: 2))s, metadata=\(Double(self.playerState.currentTrack?.duration ?? 0), format: .fixed(precision: 2))s)")
-                    }
                     isDragging = editing
                     if !editing {
-                        Logger.player.debug("[SCRUB] drag drop  — total=\(self.effectiveDuration, format: .fixed(precision: 2))s, target=\(self.displayPosition, format: .fixed(precision: 2))s")
                         isSeeking = true
                         let target = displayPosition
                         Task {
@@ -409,12 +405,6 @@ private struct ScrubberView: View {
 
             HStack {
                 Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
-                    .onAppear {
-                        Logger.player.debug("[SCRUB] render — total=\(self.effectiveDuration, format: .fixed(precision: 2))s (state.duration=\(self.playerState.duration, format: .fixed(precision: 2))s, metadata=\(Double(self.playerState.currentTrack?.duration ?? 0), format: .fixed(precision: 2))s)")
-                    }
-                    .onChange(of: playerState.currentTrack?.id) { _, _ in
-                        Logger.player.debug("[SCRUB] track change — total=\(self.effectiveDuration, format: .fixed(precision: 2))s (state.duration=\(self.playerState.duration, format: .fixed(precision: 2))s, metadata=\(Double(self.playerState.currentTrack?.duration ?? 0), format: .fixed(precision: 2))s)")
-                    }
                     .font(.cassetteCaption)
                     .foregroundStyle(secondaryContentColor)
                     .monospacedDigit()
