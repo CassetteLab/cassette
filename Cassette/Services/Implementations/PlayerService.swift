@@ -1057,7 +1057,8 @@ actor PlayerService: PlayerServiceProtocol {
             guard let self else { return }
             let current = time.seconds
             MainActor.assumeIsolated {
-                self.state.position = current
+                let dur = self.state.duration
+                self.state.position = dur > 0 ? min(current, dur) : current
             }
             let delta = previousPeriodicTime >= 0 ? current - previousPeriodicTime : 0.0
             Logger.nowPlayingDebug.debug("[TICK] currentTime=\(current, format: .fixed(precision: 3))s prev=\(previousPeriodicTime, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
@@ -1302,12 +1303,13 @@ actor PlayerService: PlayerServiceProtocol {
         }
         Logger.nowPlayingDebug.debug("[PUSH] avPlayer=\(avTime, format: .fixed(precision: 3))s state.position=\(position, format: .fixed(precision: 3))s pre-push-drift=\(prePushDrift, format: .fixed(precision: 3))s rate=\(resolvedRate, format: .fixed(precision: 1)) duration=\(duration, format: .fixed(precision: 3))s playbackState=\(stateLabel, privacy: .public)")
 
+        let clampedPosition = duration > 0 ? min(position, duration) : position
         let snapshot = NowPlayingSnapshot(
             title: track.title,
             artist: track.artist,
             album: track.albumName,
             duration: duration,
-            position: position,
+            position: clampedPosition,
             playbackRate: resolvedRate,
             artworkURL: nil,
             artworkHeaders: [:],
