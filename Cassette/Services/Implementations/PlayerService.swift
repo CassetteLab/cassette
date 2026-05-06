@@ -25,6 +25,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let cacheSettings: CacheSettings
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
     private let toastService: ToastService
+    private let statsService: StatsService
 
     private var player: AVPlayer?
     private var timeObserverToken: Any?
@@ -46,6 +47,11 @@ actor PlayerService: PlayerServiceProtocol {
     private var autoExtendFetchTask: Task<Void, Never>?
     private nonisolated static let autoExtendUserDefaultsKey = "cassette.player.autoExtendEnabled"
 
+    /// Wall-clock time when the current track started playing. Nil before first track.
+    private var trackStartDate: Date?
+    /// Set to true by handleEndOfTrack before a natural completion transition; reset after recording.
+    private var wasTrackCompletedNaturally: Bool = false
+
     init(
         state: PlayerState,
         mediaResolver: any MediaResolverProtocol,
@@ -56,7 +62,8 @@ actor PlayerService: PlayerServiceProtocol {
         cacheService: any CacheServiceProtocol,
         downloadService: any DownloadServiceProtocol,
         cacheSettings: CacheSettings,
-        toastService: ToastService
+        toastService: ToastService,
+        statsService: StatsService
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
@@ -68,6 +75,7 @@ actor PlayerService: PlayerServiceProtocol {
         self.downloadService = downloadService
         self.cacheSettings = cacheSettings
         self.toastService = toastService
+        self.statsService = statsService
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -126,6 +134,11 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func startPlayback(song: DisplayableSong, source: MediaSource, serverId: UUID) async {
+        // Record the previous track before transitioning (state.currentTrack still holds it here).
+        await recordCurrentTrackPlayback()
+        wasTrackCompletedNaturally = false
+        trackStartDate = Date()
+
         // Cancel any pending +30s scrobble and cache download from the previous track.
         cancelPendingScrobble()
         cancelPendingCacheDownload()
@@ -849,14 +862,53 @@ actor PlayerService: PlayerServiceProtocol {
         cacheDownloadTask = nil
     }
 
+    // MARK: - Stats recording
+
+    private func recordCurrentTrackPlayback() async {
+        guard let song = await MainActor.run(body: { state.currentTrack }),
+              let startDate = trackStartDate else { return }
+        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else { return }
+
+        let durationListened = Date().timeIntervalSince(startDate)
+        guard durationListened >= 30 else {
+            Logger.player.debug("[STATS] Skip — durationListened=\(durationListened, format: .fixed(precision: 1))s < 30s for '\(song.title, privacy: .public)'")
+            return
+        }
+
+        let trackDuration = await MainActor.run { state.duration }
+        let dto = PlaybackEventDTO(
+            trackId: song.id,
+            trackTitle: song.title,
+            albumId: song.albumId,
+            albumTitle: song.albumName,
+            artistId: song.artistId,
+            artistName: song.artist ?? "",
+            genre: song.genre,
+            timestamp: startDate,
+            durationListened: durationListened,
+            trackDuration: trackDuration,
+            wasCompleted: wasTrackCompletedNaturally,
+            serverId: serverId.uuidString
+        )
+        await statsService.recordPlayback(dto)
+        Logger.player.debug("[STATS] Recorded playback: trackId=\(song.id, privacy: .public) duration=\(durationListened, format: .fixed(precision: 1))s completed=\(self.wasTrackCompletedNaturally, privacy: .public)")
+    }
+
     // MARK: - End of track
 
     private func handleEndOfTrack() async {
         let repeatMode = await MainActor.run { state.repeatMode }
         if repeatMode == .one {
+            // Record this completed listen, then restart the same track.
+            wasTrackCompletedNaturally = true
+            await recordCurrentTrackPlayback()
+            wasTrackCompletedNaturally = false
+            trackStartDate = Date()
             await seek(to: 0)
             player?.play()
         } else {
+            // Signal natural completion — recordCurrentTrackPlayback() reads this in startPlayback().
+            wasTrackCompletedNaturally = true
             do {
                 try await skipToNext()
             } catch {
@@ -866,6 +918,11 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func rewindToFirstTrackPaused() async {
+        // Last track of the queue ended naturally — record it before rewinding.
+        await recordCurrentTrackPlayback()
+        wasTrackCompletedNaturally = false
+        trackStartDate = nil
+
         let queue = await MainActor.run { state.queue }
         guard let firstTrack = queue.first else {
             await stop()
