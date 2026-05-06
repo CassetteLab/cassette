@@ -47,18 +47,10 @@ struct WrappedView: View {
                     WrappedTopArtistsSection(artists: d.topArtists)
                         .cascadeAppear(order: 1, trigger: appeared)
                     WrappedTopTracksSection(tracks: d.topTracks)
-                        .background(
-                            RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous)
-                                .fill(colorScheme == .dark ? Color.white.opacity(0.03) : Color.cassetteAccent.opacity(0.04))
-                        )
                         .cascadeAppear(order: 2, trigger: appeared)
                     WrappedTopAlbumsSection(albums: d.topAlbums)
                         .cascadeAppear(order: 3, trigger: appeared)
                     WrappedAwardsSection(data: d)
-                        .background(
-                            RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous)
-                                .fill(colorScheme == .dark ? Color.white.opacity(0.03) : Color.cassetteAccent.opacity(0.04))
-                        )
                         .cascadeAppear(order: 4, trigger: appeared)
                     if case .year = selectedPeriod {
                         WrappedYearCard(

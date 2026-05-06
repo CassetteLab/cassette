@@ -77,7 +77,7 @@ struct WrappedAwardsSection: View {
             AwardEntry(
                 id: 1, icon: .sf("flame.fill"),
                 title: "Daily Habit",
-                value: data.streakDays > 0 ? "\(data.streakDays)" : "—",
+                value: "\(data.streakDays)",
                 subline: data.streakDays == 1 ? "day streak" : "days streak"
             ),
             AwardEntry(
