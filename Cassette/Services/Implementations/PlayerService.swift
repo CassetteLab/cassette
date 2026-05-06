@@ -547,9 +547,40 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
         let time = CMTime(seconds: position, preferredTimescale: 1000)
-        await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        Logger.scrubberDebug.debug("[SEEK] requested=\(position, format: .fixed(precision: 3))s")
+
+        // Completion-handler variant used solely for drift instrumentation.
+        // AVPlayer is not captured in the @Sendable handler — continuation bridges back to the actor.
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            guard let p = player else {
+                continuation.resume()
+                return
+            }
+            p.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero) { _ in
+                continuation.resume()
+            }
+        }
+
+        let actualSeconds = player?.currentTime().seconds ?? position
+        let delta = actualSeconds - position
+        Logger.scrubberDebug.debug("[SEEK] actual=\(actualSeconds, format: .fixed(precision: 3))s delta=\(delta, format: .fixed(precision: 3))s")
+
+        // Fire-and-forget: sample currentTime 100 ms after completion to check stability.
+        // [weak self] causes the task to lose actor-isolation inference, so player is
+        // accessed via an explicit actor-isolated helper called with await.
+        Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard let self else { return }
+            let later = await self.currentTimeSecondsForDiagnostics() ?? actualSeconds
+            Logger.scrubberDebug.debug("[SEEK+100ms] currentTime=\(later, format: .fixed(precision: 3))s post-seek-drift=\(later - actualSeconds, format: .fixed(precision: 3))s")
+        }
+
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
+    }
+
+    private func currentTimeSecondsForDiagnostics() -> TimeInterval? {
+        player?.currentTime().seconds
     }
 
     // MARK: - Skip

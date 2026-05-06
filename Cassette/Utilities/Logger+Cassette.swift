@@ -28,4 +28,5 @@ extension Logger {
     nonisolated static let dominantColor = Logger(subsystem: "app.cassette.dominantColor", category: "DominantColorExtractor")
     nonisolated static let stats         = Logger(subsystem: "app.cassette.stats",         category: "StatsService")
     nonisolated static let wrapped       = Logger(subsystem: "app.cassette.wrapped",       category: "WrappedPlaylistService")
+    nonisolated static let scrubberDebug = Logger(subsystem: "app.cassette.scrubber-debug", category: "ScrubberDrift")
 }
