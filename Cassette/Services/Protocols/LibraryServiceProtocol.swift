@@ -10,6 +10,13 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     func artists() async throws -> [ArtistIndex]
     func artist(id: String) async throws -> ArtistID3
     func album(id: String) async throws -> AlbumID3
+
+    /// Fetches every track from every album of the given artist.
+    /// Albums are ordered most-recent first (by year); albums without a year come last (alphabetical).
+    /// Uses a TaskGroup bounded to 5 concurrent album fetches — safe for home-server instances.
+    /// Individual album failures are logged and skipped (best-effort). Throws `CassetteError.artistTracksUnavailable`
+    /// only when every album fetch fails.
+    func fetchAllTracks(forArtistID artistID: String) async throws -> [DisplayableSong]
     func playlists() async throws -> [Playlist]
     func playlist(id: String) async throws -> PlaylistWithSongs
     func search(_ query: String) async throws -> SearchResult3

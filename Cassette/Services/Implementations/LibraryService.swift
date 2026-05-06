@@ -97,6 +97,66 @@ actor LibraryService: LibraryServiceProtocol {
         return nil
     }
 
+    // MARK: - Artist tracks
+
+    func fetchAllTracks(forArtistID artistID: String) async throws -> [DisplayableSong] {
+        let artistDetail = try await artist(id: artistID)
+        let albums = (artistDetail.album ?? []).sorted { lhs, rhs in
+            switch (lhs.year, rhs.year) {
+            case let (y1?, y2?): return y1 > y2
+            case (_?, nil):      return true
+            case (nil, _?):      return false
+            case (nil, nil):     return lhs.name < rhs.name
+            }
+        }
+        guard !albums.isEmpty else { return [] }
+
+        var collected: [(index: Int, songs: [DisplayableSong])] = []
+
+        await withTaskGroup(of: (Int, [DisplayableSong]?).self) { group in
+            var submitted = 0
+
+            while submitted < min(5, albums.count) {
+                let i = submitted
+                let albumId = albums[i].id
+                group.addTask { await self.fetchAlbumTracks(albumId: albumId, index: i) }
+                submitted += 1
+            }
+
+            while let (index, songs) = await group.next() {
+                if let songs { collected.append((index, songs)) }
+                if submitted < albums.count {
+                    let i = submitted
+                    let albumId = albums[i].id
+                    group.addTask { await self.fetchAlbumTracks(albumId: albumId, index: i) }
+                    submitted += 1
+                }
+            }
+        }
+
+        guard !collected.isEmpty else {
+            Logger.library.error("[ARTIST-TRACKS] all fetches failed artistId=\(artistID, privacy: .public)")
+            throw CassetteError.artistTracksUnavailable
+        }
+
+        Logger.library.debug("[ARTIST-TRACKS] fetched \(collected.count)/\(albums.count) albums artistId=\(artistID, privacy: .public)")
+        return collected.sorted { $0.index < $1.index }.flatMap { $0.songs }
+    }
+
+    private func fetchAlbumTracks(albumId: String, index: Int) async -> (Int, [DisplayableSong]?) {
+        do {
+            let detail = try await album(id: albumId)
+            let songs = (detail.song ?? []).map {
+                // TODO(v1.x): resolve isDownloaded via DownloadService before queueing
+                DisplayableSong(from: $0, isDownloaded: false)
+            }
+            return (index, songs)
+        } catch {
+            Logger.library.error("[ARTIST-TRACKS] album \(albumId) fetch failed: \(error, privacy: .public)")
+            return (index, nil)
+        }
+    }
+
     // MARK: - Discover
 
     func scrobble(songId: String, submission: Bool) async {
