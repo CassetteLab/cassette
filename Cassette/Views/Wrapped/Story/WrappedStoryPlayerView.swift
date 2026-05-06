@@ -18,7 +18,11 @@ import OSLog
 /// Each slide auto-advances after `slideDuration` seconds.
 /// The segmented progress bar at the top reflects current position.
 struct WrappedStoryPlayerView: View {
+    let year: Int
+
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appContainer) private var container
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let slides = WrappedStorySlideKind.allCases
     private let slideDuration: Double = 5.0
@@ -29,6 +33,9 @@ struct WrappedStoryPlayerView: View {
     @State private var isPaused = false
     @State private var timerTask: Task<Void, Never>? = nil
     @State private var longPressTask: Task<Void, Never>? = nil
+    @State private var wrappedData: WrappedData? = nil
+
+    private var palette: [Color] { WrappedYearPalette.colors(for: year) }
 
     var body: some View {
         ZStack {
@@ -45,6 +52,17 @@ struct WrappedStoryPlayerView: View {
         .persistentSystemOverlays(.hidden)
         .onAppear { startTimer() }
         .onDisappear { timerTask?.cancel() }
+        .task { await loadWrappedData() }
+    }
+
+    private func loadWrappedData() async {
+        guard let container,
+              let serverId = container.serverState.activeServer?.id.uuidString else { return }
+        wrappedData = await container.statsService.wrappedData(
+            for: .year(year),
+            serverId: serverId,
+            calendar: .current
+        )
     }
 
     // MARK: - Overlay (progress bar + close button)
@@ -122,16 +140,62 @@ struct WrappedStoryPlayerView: View {
         .ignoresSafeArea()
     }
 
-    // MARK: - Slide placeholder content (Phase B — replaced in Phase C)
+    // MARK: - Slide content
 
     @ViewBuilder
     private func slideContent(for kind: WrappedStorySlideKind) -> some View {
+        switch kind {
+        case .intro:
+            WrappedIntroSlide(year: year, palette: palette)
+        case .minutes:
+            if let data = wrappedData {
+                WrappedMinutesSlide(data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        case .topTrack:
+            if let data = wrappedData {
+                WrappedTopTrackSlide(data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        case .topArtist:
+            if let data = wrappedData {
+                WrappedTopArtistSlide(data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        case .topAlbum:
+            if let data = wrappedData {
+                WrappedTopAlbumSlide(data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        case .topGenre:
+            if let data = wrappedData {
+                WrappedTopGenreSlide(data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        case .discoveries:
+            if let data = wrappedData {
+                WrappedDiscoveriesSlide(data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        case .closing:
+            if let data = wrappedData {
+                WrappedClosingSlide(year: year, data: data, palette: palette)
+            } else {
+                loadingSlide
+            }
+        }
+    }
+
+    private var loadingSlide: some View {
         ZStack {
-            Color.black
-            Text(kind.rawValue)
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundStyle(.white)
+            MeshGradientBackground(palette: palette, animated: !reduceMotion)
+            ProgressView().tint(.white)
         }
     }
 

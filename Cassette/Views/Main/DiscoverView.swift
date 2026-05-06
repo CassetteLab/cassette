@@ -48,7 +48,7 @@ struct DiscoverView: View {
             await vm?.load(forceRefresh: true)
         }
         .fullScreenCover(isPresented: $showStoryPlayer) {
-            WrappedStoryPlayerView()
+            WrappedStoryPlayerView(year: Calendar.current.component(.year, from: Date()))
         }
     }
 
