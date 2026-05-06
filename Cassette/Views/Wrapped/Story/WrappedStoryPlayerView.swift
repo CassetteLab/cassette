@@ -145,6 +145,8 @@ struct WrappedStoryPlayerView: View {
             Logger.wrappedStory.debug("[STORY] → slide \(currentIndex, privacy: .public)/\(slides.count, privacy: .public)")
         } else {
             Logger.wrappedStory.debug("[STORY] last slide reached — dismissing")
+            timerTask?.cancel()
+            timerTask = nil
             dismiss()
         }
     }
