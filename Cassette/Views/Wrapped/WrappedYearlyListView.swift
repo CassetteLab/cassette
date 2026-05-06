@@ -18,6 +18,10 @@ struct WrappedYearlyListView: View {
         playlists.contains { $0.year == currentYear }
     }
 
+    private var isCurrentYearAvailable: Bool {
+        WrappedAvailability.isAnnualAvailable(year: currentYear)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CassetteSpacing.l) {
@@ -25,14 +29,14 @@ struct WrappedYearlyListView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.top, CassetteSpacing.xxxxl)
-                } else if playlists.isEmpty && hasCurrentYearPlaylist {
+                } else if playlists.isEmpty && !isCurrentYearAvailable {
                     emptyState
                 } else {
                     LazyVGrid(
                         columns: [GridItem(.adaptive(minimum: 140, maximum: 200), spacing: CassetteSpacing.s)],
                         spacing: CassetteSpacing.s
                     ) {
-                        if !hasCurrentYearPlaylist {
+                        if !hasCurrentYearPlaylist && isCurrentYearAvailable {
                             WrappedRecapMonthCard(period: .year(currentYear))
                         }
                         ForEach(playlists) { playlist in
@@ -89,7 +93,7 @@ struct WrappedYearlyListView: View {
                 .foregroundStyle(Color.cassetteAccent.opacity(0.5))
             Text("No Wrapped playlists yet.")
                 .font(.cassetteCellTitle)
-            Text("Wrapped playlists are generated automatically at the end of the year.")
+            Text("Your Wrapped \(currentYear) will be available on December 28.")
                 .font(.cassetteCaption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
