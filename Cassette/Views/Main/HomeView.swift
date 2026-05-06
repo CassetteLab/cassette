@@ -20,7 +20,6 @@ struct HomeView: View {
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
     @State private var navigateToAllAlbums = false
-    @State private var navigateToWrapped = false
     // Local mutable copy for smooth drag-to-reorder; synced from @Query on count changes.
     @State private var localPinnedItems: [PinnedItem] = []
     @State private var dropTargetId: String?
@@ -153,7 +152,6 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
-        .navigationDestination(isPresented: $navigateToWrapped) { WrappedView() }
         #if os(macOS)
         .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
         #endif
@@ -173,7 +171,6 @@ struct HomeView: View {
     @ViewBuilder
     private var macOSCarousels: some View {
         VStack(alignment: .leading, spacing: 32) {
-            wrappedCard
             if isOnline {
                 smartShuffleCard
             }
@@ -223,33 +220,6 @@ struct HomeView: View {
                 }
             }
         }
-    }
-
-    private var wrappedCard: some View {
-        Button { navigateToWrapped = true } label: {
-            HStack(spacing: CassetteSpacing.s) {
-                Image(systemName: "music.note.list")
-                    .font(.title2)
-                    .foregroundStyle(Color.cassetteAccent)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Wrapped")
-                        .font(.cassetteCellTitle)
-                    Text("Your listening recap — by month and year")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.cassetteAccent)
-            }
-            .padding(CassetteSpacing.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.cassetteAccent.opacity(0.08))
-            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
-            .foregroundStyle(.primary)
-        }
-        .buttonStyle(.plain)
     }
 
     private var smartShuffleCard: some View {
@@ -354,10 +324,6 @@ struct HomeView: View {
                 Divider().padding(.leading, 52)
                 HomeLibraryRow(title: "Downloads", systemImage: "arrow.down.circle.fill") {
                     DownloadedView()
-                }
-                Divider().padding(.leading, 52)
-                HomeLibraryRow(title: "Wrapped", systemImage: "music.note.list") {
-                    WrappedView()
                 }
             }
         }
