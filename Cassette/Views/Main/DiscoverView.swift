@@ -12,6 +12,7 @@ struct DiscoverView: View {
     @Namespace private var recentlyPlayedNS
     @Namespace private var mostPlayedNS
     @State private var yearlyPlaylists: [WrappedYearlyPlaylist] = []
+    @State private var radioStations: [InternetRadioStation] = []
 
     var body: some View {
         ScrollView {
@@ -40,6 +41,7 @@ struct DiscoverView: View {
             await vm?.load()
             guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
             yearlyPlaylists = await container.wrappedPlaylistService.fetchYearlyPlaylists(serverId: serverId)
+            radioStations = (try? await container.radioService.listStations(forceRefresh: false)) ?? []
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
@@ -192,29 +194,55 @@ struct DiscoverView: View {
     }
 
     private var internetRadioSection: some View {
-        section(title: "Internet Radio") {
-            NavigationLink {
-                RadioListView()
-            } label: {
-                HStack(spacing: CassetteSpacing.s) {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.title2)
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            HStack {
+                Text("Internet Radio")
+                    .font(.cassetteSectionTitle)
+                Spacer(minLength: 0)
+                NavigationLink {
+                    RadioListView()
+                } label: {
+                    Text("See all")
+                        .font(.cassetteCaption)
                         .foregroundStyle(Color.cassetteAccent)
-                    Text("Browse Stations")
-                        .font(.cassetteCellTitle)
-                        .foregroundStyle(.primary)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                .padding(CassetteSpacing.m)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.cassetteAccent.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
             .padding(.horizontal, CassetteSpacing.m)
+
+            if radioStations.isEmpty {
+                NavigationLink {
+                    RadioListView()
+                } label: {
+                    HStack(spacing: CassetteSpacing.s) {
+                        Image(systemName: "antenna.radiowaves.left.and.right")
+                            .font(.title2)
+                            .foregroundStyle(Color.cassetteAccent)
+                        Text("Browse Stations")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(.primary)
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(CassetteSpacing.m)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.cassetteAccent.opacity(0.08))
+                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, CassetteSpacing.m)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.s) {
+                        ForEach(radioStations, id: \.id) { station in
+                            RadioCard(station: station)
+                        }
+                    }
+                    .padding(.horizontal, CassetteSpacing.m)
+                }
+            }
         }
     }
 
