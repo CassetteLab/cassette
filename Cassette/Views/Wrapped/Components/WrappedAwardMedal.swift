@@ -16,28 +16,13 @@ struct WrappedAwardMedal: View {
     let palette: [Color]
     let isFocused: Bool
 
-    @State private var ringDegrees: Double = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var spinEnabled: Bool { isFocused && !reduceMotion }
 
     var body: some View {
         ZStack {
-            // Outer holographic ring — rotates when focused
-            Circle()
-                .strokeBorder(holoGradient, lineWidth: 12)
-                .frame(width: 140, height: 140)
-                .rotationEffect(.degrees(ringDegrees))
-                .onChange(of: isFocused, initial: true) { _, focused in
-                    if focused && !reduceMotion {
-                        ringDegrees = 0
-                        withAnimation(.linear(duration: 5).repeatForever(autoreverses: false)) {
-                            ringDegrees = 360
-                        }
-                    } else {
-                        var t = Transaction()
-                        t.disablesAnimations = true
-                        withTransaction(t) { ringDegrees = 0 }
-                    }
-                }
+            outerRing
 
             // Intermediate accent ring
             Circle()
@@ -86,6 +71,29 @@ struct WrappedAwardMedal: View {
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 
+    // MARK: - Outer ring
+
+    @ViewBuilder
+    private var outerRing: some View {
+        if spinEnabled {
+            // TimelineView drives rotation from absolute time — no seam at cycle boundary.
+            TimelineView(.animation(minimumInterval: 1 / 60, paused: false)) { context in
+                let elapsed = context.date.timeIntervalSinceReferenceDate
+                let degrees = (elapsed / 12.0).truncatingRemainder(dividingBy: 1) * 360
+                Circle()
+                    .strokeBorder(holoGradient, lineWidth: 12)
+                    .frame(width: 140, height: 140)
+                    .rotationEffect(.degrees(degrees))
+            }
+        } else {
+            Circle()
+                .strokeBorder(holoGradient, lineWidth: 12)
+                .frame(width: 140, height: 140)
+        }
+    }
+
+    // MARK: - Gradients
+
     private var holoGradient: AngularGradient {
         guard palette.count >= 3 else {
             return AngularGradient(colors: [.gray], center: .center)
@@ -113,6 +121,8 @@ struct WrappedAwardMedal: View {
         )
     }
 
+    // MARK: - Icon
+
     @ViewBuilder
     private var iconView: some View {
         switch icon {
@@ -134,11 +144,11 @@ struct WrappedAwardMedal: View {
     let palette = WrappedYearPalette.colors(for: 2026)
     ScrollView(.horizontal, showsIndicators: false) {
         HStack(spacing: CassetteSpacing.l) {
-            WrappedAwardMedal(icon: .cassette,         value: "45",  palette: palette, isFocused: true)
-            WrappedAwardMedal(icon: .sf("flame.fill"), value: "7",   palette: palette, isFocused: false)
-            WrappedAwardMedal(icon: .sf("music.note"), value: "127", palette: palette, isFocused: false)
-            WrappedAwardMedal(icon: .sf("person.2.fill"), value: "42", palette: palette, isFocused: false)
-            WrappedAwardMedal(icon: .sf("guitars.fill"), value: "Pop", palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .cassette,            value: "45",  palette: palette, isFocused: true)
+            WrappedAwardMedal(icon: .sf("flame.fill"),    value: "7",   palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .sf("music.note"),    value: "127", palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .sf("person.2.fill"), value: "42",  palette: palette, isFocused: false)
+            WrappedAwardMedal(icon: .sf("guitars.fill"),  value: "Pop", palette: palette, isFocused: false)
         }
         .padding(.horizontal, CassetteSpacing.l)
         .padding(.vertical, CassetteSpacing.xl)
