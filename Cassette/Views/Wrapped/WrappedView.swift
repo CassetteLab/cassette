@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import OSLog
 
 struct WrappedView: View {
@@ -14,6 +15,7 @@ struct WrappedView: View {
     @State private var isLoading = true
     @State private var wrappedPlaylistId: String?
     @State private var appeared = false
+    @Query private var allEvents: [PlaybackEvent]
 
     private var availablePeriods: [WrappedPeriod] {
         let calendar = Calendar.current
@@ -77,6 +79,9 @@ struct WrappedView: View {
         .task(id: selectedPeriod) {
             await loadData()
         }
+        .onChange(of: allEvents.count) { _, _ in
+            Task { await refreshData() }
+        }
     }
 
     // MARK: - Empty state
@@ -98,6 +103,13 @@ struct WrappedView: View {
     }
 
     // MARK: - Data loading
+
+    private func refreshData() async {
+        guard let container, let serverId = container.serverState.activeServer?.id.uuidString else { return }
+        let result = await container.statsService.wrappedData(for: selectedPeriod, serverId: serverId, calendar: .current)
+        guard !Task.isCancelled else { return }
+        data = result
+    }
 
     private func loadData() async {
         guard let container, let serverId = container.serverState.activeServer?.id.uuidString else {
