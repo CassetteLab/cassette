@@ -205,7 +205,7 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
-        let item = makePlayerItem(source: source)
+        let item = makePlayerItem(source: source, expectedDuration: song.duration)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
 
@@ -820,7 +820,7 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
-        let item = makePlayerItem(source: source)
+        let item = makePlayerItem(source: source, expectedDuration: track.duration)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
 
@@ -991,7 +991,7 @@ actor PlayerService: PlayerServiceProtocol {
         durationObserver = nil
 
         // Swap in new item without destroying the player or its time observer
-        let newItem = makePlayerItem(source: source)
+        let newItem = makePlayerItem(source: source, expectedDuration: firstTrack.duration)
         player?.replaceCurrentItem(with: newItem)
 
         setupEndOfTrackObserver(for: newItem)
@@ -1023,7 +1023,7 @@ actor PlayerService: PlayerServiceProtocol {
     /// constant — its raw string value is the stable interface (iOS 10+, confirmed in practice).
     /// It is the only way to inject per-request HTTP headers without an AVAssetResourceLoaderDelegate.
     /// ⚠ Monitor Apple AVFoundation release notes — Apple could remove or replace this mechanism.
-    private func makePlayerItem(source: MediaSource) -> AVPlayerItem {
+    private func makePlayerItem(source: MediaSource, expectedDuration: TimeInterval? = nil) -> AVPlayerItem {
         let headers = source.customHeaders
         let item: AVPlayerItem
         if headers.isEmpty {
@@ -1036,14 +1036,12 @@ actor PlayerService: PlayerServiceProtocol {
             // Default buffer is too conservative for high-bitrate FLAC streams; 15s absorbs cellular/wifi jitter.
             item.preferredForwardBufferDuration = 15.0
         }
-        // FLAC files tagged with embedded cover art (attached_pic) expose a MJPEG video stream.
-        // AVPlayer waits for that visual stream to reach its end before firing
-        // AVPlayerItemDidPlayToEndTime, causing currentTime to drift 6-13s past audio duration.
-        // Deselecting the visual group tells AVPlayer to ignore those tracks entirely.
-        Task { [item] in
-            if let visualGroup = try? await item.asset.loadMediaSelectionGroup(for: .visual) {
-                await MainActor.run { item.select(nil, in: visualGroup) }
-            }
+        // Bound the playback timeline to the known audio duration. Tagged FLAC files contain a
+        // MJPEG video stream (embedded cover art / attached_pic). Without this bound, AVPlayer
+        // waits for that visual stream to exhaust its timeline before firing
+        // AVPlayerItemDidPlayToEndTime, causing currentTime to drift 6–13 s past audio duration.
+        if !source.isLiveStream, let duration = expectedDuration, duration > 0 {
+            item.forwardPlaybackEndTime = CMTime(seconds: duration, preferredTimescale: 1000)
         }
         return item
     }
@@ -1113,6 +1111,10 @@ actor PlayerService: PlayerServiceProtocol {
                     Logger.player.debug("[DURATION] Track changed during asset load, discarding")
                     return
                 }
+                // Always refine forwardPlaybackEndTime to the true asset duration, even when
+                // the delta is too small to justify a state.duration update. This keeps the
+                // end-of-track boundary accurate regardless of the Subsonic metadata precision.
+                await self.updateForwardPlaybackEndTime(to: max(seconds, currentDuration))
                 guard abs(seconds - currentDuration) > 0.5 else {
                     Logger.player.debug("[DURATION] asset.load matches header (delta<0.5s): asset=\(seconds, format: .fixed(precision: 4))s state=\(currentDuration, format: .fixed(precision: 4))s")
                     return
@@ -1144,7 +1146,14 @@ actor PlayerService: PlayerServiceProtocol {
         guard abs(newDuration - current) > 0.1 else { return }
         Logger.player.info("[DURATION] \(current, format: .fixed(precision: 2))s → \(newDuration, format: .fixed(precision: 2))s (delta=\(abs(newDuration - current), format: .fixed(precision: 3))s)")
         await MainActor.run { state.duration = newDuration }
+        updateForwardPlaybackEndTime(to: newDuration)
         await pushPositionSnapshot()
+    }
+
+    private func updateForwardPlaybackEndTime(to seconds: TimeInterval) {
+        guard let item = player?.currentItem,
+              item.forwardPlaybackEndTime.isValid else { return }
+        item.forwardPlaybackEndTime = CMTime(seconds: seconds, preferredTimescale: 1000)
     }
 
     private func setupEndOfTrackObserver(for item: AVPlayerItem) {
