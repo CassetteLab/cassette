@@ -65,6 +65,50 @@ struct ArtistDetailView: View {
         }
     }
 
+    // MARK: - Hero
+
+    private func heroSection(vm: ArtistDetailViewModel) -> some View {
+        let albums = vm.artist?.album ?? []
+        let count = albums.count
+        return HStack(alignment: .center, spacing: CassetteSpacing.l) {
+            CoverArtView(
+                id: vm.artist?.coverArt ?? artist.id,
+                size: 240,
+                placeholderSystemImage: "person.fill"
+            )
+            .frame(width: 100, height: 100)
+            .clipShape(Circle())
+            .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
+
+            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                Text("\(count) album\(count == 1 ? "" : "s")")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                HStack(spacing: CassetteSpacing.s) {
+                    Button { } label: {
+                        Label("Play", systemImage: "play.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.cassetteAccent)
+                    .disabled(true) // wired in commit 3b
+
+                    Button { } label: {
+                        Label("Shuffle", systemImage: "shuffle")
+                            .font(.system(size: 14, weight: .semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(true) // wired in commit 3b
+                }
+            }
+            .frame(height: 100)
+        }
+        .padding(.horizontal, CassetteSpacing.l)
+        .padding(.top, CassetteSpacing.m)
+        .padding(.bottom, CassetteSpacing.s)
+    }
+
     private var skeletonGrid: some View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
@@ -95,6 +139,7 @@ struct ArtistDetailView: View {
                 )
             } else {
                 ScrollView {
+                    heroSection(vm: vm)
                     LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                         ForEach(albums) { album in
                             NavigationLink(destination: {
