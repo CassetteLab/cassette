@@ -203,8 +203,7 @@ struct DiscoverView: View {
 
     private var wrappedCardPeriods: [WrappedPeriod] {
         let year = Calendar.current.component(.year, from: Date())
-        guard WrappedAvailability.isAnnualAvailable(year: year) else { return [] }
-        return yearlyPlaylists.contains { $0.year == year } ? [] : [.year(year)]
+return yearlyPlaylists.contains { $0.year == year } ? [] : [.year(year)]
     }
 
     private var internetRadioSection: some View {
