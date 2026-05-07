@@ -65,6 +65,7 @@ struct WrappedTopAlbumSlide: View {
 
                 Spacer()
             }
+            .wrappedSlideEntrance()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

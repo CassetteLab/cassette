@@ -45,6 +45,7 @@ struct WrappedMinutesSlide: View {
                 Spacer()
             }
             .padding(.horizontal, CassetteSpacing.xl)
+            .wrappedSlideEntrance()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { triggerAnimation() }

@@ -50,6 +50,7 @@ struct WrappedTopArtistSlide: View {
                 Spacer()
             }
             .padding(.horizontal, CassetteSpacing.xl)
+            .wrappedSlideEntrance()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

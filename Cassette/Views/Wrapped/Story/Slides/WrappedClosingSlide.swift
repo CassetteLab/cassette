@@ -46,6 +46,7 @@ struct WrappedClosingSlide: View {
 
                 Spacer()
             }
+            .wrappedSlideEntrance()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

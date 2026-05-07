@@ -46,6 +46,7 @@ struct WrappedIntroSlide: View {
                     .padding(.bottom, CassetteSpacing.xxxxl)
             }
             .padding(.horizontal, CassetteSpacing.xl)
+            .wrappedSlideEntrance()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
