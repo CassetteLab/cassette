@@ -43,6 +43,8 @@ struct WrappedStoryPlayerView: View {
 
             slideContent(for: slides[currentIndex])
                 .ignoresSafeArea()
+                .id(currentIndex)
+                .transition(.opacity)
 
             overlayControls
 
@@ -204,8 +206,8 @@ struct WrappedStoryPlayerView: View {
     private func goForward() {
         HapticFeedback.light.trigger()
         if currentIndex < slides.count - 1 {
-            currentIndex += 1
             progress = 0.0
+            withAnimation(.easeInOut(duration: 0.25)) { currentIndex += 1 }
             Logger.wrappedStory.debug("[STORY] → slide \(currentIndex, privacy: .public)/\(slides.count, privacy: .public)")
         } else {
             Logger.wrappedStory.debug("[STORY] last slide reached — dismissing")
@@ -217,8 +219,10 @@ struct WrappedStoryPlayerView: View {
 
     private func goBack() {
         HapticFeedback.light.trigger()
-        if currentIndex > 0 { currentIndex -= 1 }
         progress = 0.0
+        withAnimation(.easeInOut(duration: 0.25)) {
+            if currentIndex > 0 { currentIndex -= 1 }
+        }
         Logger.wrappedStory.debug("[STORY] ← slide \(currentIndex, privacy: .public)/\(slides.count, privacy: .public)")
     }
 
