@@ -547,7 +547,7 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
         let time = CMTime(seconds: position, preferredTimescale: 1000)
-        player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
     }

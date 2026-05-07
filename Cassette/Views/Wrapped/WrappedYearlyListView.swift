@@ -89,7 +89,7 @@ struct WrappedYearlyListView: View {
                 .foregroundStyle(Color.cassetteAccent.opacity(0.5))
             Text("No Wrapped playlists yet.")
                 .font(.cassetteCellTitle)
-            Text("Wrapped playlists are generated automatically at the end of the year.")
+            Text("Your Wrapped \(currentYear) will be available on December 28.")
                 .font(.cassetteCaption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

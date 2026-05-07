@@ -13,6 +13,9 @@ struct DiscoverView: View {
     @Namespace private var mostPlayedNS
     @State private var yearlyPlaylists: [WrappedYearlyPlaylist] = []
     @State private var radioStations: [InternetRadioStation] = []
+    #if DEBUG
+    @State private var showStoryPlayer = false
+    #endif
 
     var body: some View {
         ScrollView {
@@ -46,6 +49,11 @@ struct DiscoverView: View {
         .refreshable {
             await vm?.load(forceRefresh: true)
         }
+        #if DEBUG
+        .fullScreenCover(isPresented: $showStoryPlayer) {
+            WrappedStoryPlayerView(year: Calendar.current.component(.year, from: Date()))
+        }
+        #endif
     }
 
     // MARK: - Sections
@@ -163,6 +171,16 @@ struct DiscoverView: View {
                 Text("Wrapped")
                     .font(.cassetteSectionTitle)
                 Spacer(minLength: 0)
+                #if DEBUG
+                Button {
+                    showStoryPlayer = true
+                } label: {
+                    Text("▶ Story")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(Color.cassetteAccent)
+                }
+                .buttonStyle(.plain)
+                #endif
                 NavigationLink {
                     WrappedYearlyListView()
                 } label: {
@@ -190,7 +208,7 @@ struct DiscoverView: View {
 
     private var wrappedCardPeriods: [WrappedPeriod] {
         let year = Calendar.current.component(.year, from: Date())
-        return yearlyPlaylists.contains { $0.year == year } ? [] : [.year(year)]
+return yearlyPlaylists.contains { $0.year == year } ? [] : [.year(year)]
     }
 
     private var internetRadioSection: some View {
