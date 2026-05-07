@@ -9,17 +9,40 @@ struct WrappedYearlyCard: View {
     let playlist: WrappedYearlyPlaylist
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showStoryPlayer = false
+
+    private var storyAvailable: Bool {
+        WrappedStoryAvailability.isStoryAvailable(forYear: playlist.year)
+    }
 
     var body: some View {
-        NavigationLink {
-            PlaylistDetailView(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArtId)
-        } label: {
-            MeshGradientBackground(palette: WrappedYearPalette.colors(for: playlist.year), animated: !reduceMotion)
-                .frame(width: 140, height: 160)
-                .overlay { cardOverlay }
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+        ZStack(alignment: .bottomTrailing) {
+            NavigationLink {
+                PlaylistDetailView(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArtId)
+            } label: {
+                MeshGradientBackground(palette: WrappedYearPalette.colors(for: playlist.year), animated: !reduceMotion)
+                    .frame(width: 140, height: 160)
+                    .overlay { cardOverlay }
+                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if storyAvailable {
+                Button {
+                    showStoryPlayer = true
+                } label: {
+                    Image(systemName: "play.circle.fill")
+                        .font(.system(size: 30, weight: .medium))
+                        .foregroundStyle(.white)
+                        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+                }
+                .buttonStyle(.plain)
+                .padding(CassetteSpacing.s)
+            }
         }
-        .buttonStyle(.plain)
+        .fullScreenCover(isPresented: $showStoryPlayer) {
+            WrappedStoryPlayerView(year: playlist.year)
+        }
     }
 
     private var cardOverlay: some View {

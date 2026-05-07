@@ -13,7 +13,6 @@ struct DiscoverView: View {
     @Namespace private var mostPlayedNS
     @State private var yearlyPlaylists: [WrappedYearlyPlaylist] = []
     @State private var radioStations: [InternetRadioStation] = []
-    @State private var showStoryPlayer = false
 
     var body: some View {
         ScrollView {
@@ -46,9 +45,6 @@ struct DiscoverView: View {
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
-        }
-        .fullScreenCover(isPresented: $showStoryPlayer) {
-            WrappedStoryPlayerView(year: Calendar.current.component(.year, from: Date()))
         }
     }
 
@@ -167,15 +163,6 @@ struct DiscoverView: View {
                 Text("Wrapped")
                     .font(.cassetteSectionTitle)
                 Spacer(minLength: 0)
-                // TODO: remove before release — dev entry point for story player
-                Button {
-                    showStoryPlayer = true
-                } label: {
-                    Text("▶ Story")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(Color.cassetteAccent)
-                }
-                .buttonStyle(.plain)
                 NavigationLink {
                     WrappedYearlyListView()
                 } label: {
