@@ -5,6 +5,9 @@
 
 import SwiftUI
 import OSLog
+#if os(iOS)
+import UIKit
+#endif
 
 /// Full-screen annual Wrapped story player.
 ///
@@ -17,6 +20,10 @@ import OSLog
 ///
 /// Each slide auto-advances after `slideDuration` seconds.
 /// The segmented progress bar at the top reflects current position.
+///
+/// ZStack z-order (bottom → top):
+///   slideContent → gestureLayer → overlayControls → closingShareOverlay (iOS)
+/// This ensures the X button and share button always sit above the gesture layer.
 struct WrappedStoryPlayerView: View {
     let year: Int
 
@@ -35,6 +42,12 @@ struct WrappedStoryPlayerView: View {
     @State private var longPressTask: Task<Void, Never>? = nil
     @State private var wrappedData: WrappedData? = nil
 
+    #if os(iOS)
+    @State private var renderedImage: UIImage? = nil
+    @State private var showShareSheet = false
+    @State private var isRendering = false
+    #endif
+
     private var palette: [Color] { WrappedYearPalette.colors(for: year) }
 
     var body: some View {
@@ -46,15 +59,26 @@ struct WrappedStoryPlayerView: View {
                 .id(currentIndex)
                 .transition(.opacity)
 
+            gestureLayer
+
             overlayControls
 
-            gestureLayer
+            #if os(iOS)
+            if slides[currentIndex] == .closing, let data = wrappedData {
+                closingShareOverlay(data: data)
+            }
+            #endif
         }
         .statusBarHidden(true)
         .persistentSystemOverlays(.hidden)
         .onAppear { startTimer() }
         .onDisappear { timerTask?.cancel() }
         .task { await loadWrappedData() }
+        #if os(iOS)
+        .sheet(isPresented: $showShareSheet) {
+            if let image = renderedImage { ShareSheet(items: [image]) }
+        }
+        #endif
     }
 
     private func loadWrappedData() async {
@@ -239,4 +263,62 @@ struct WrappedStoryPlayerView: View {
             }
         }
     }
+
+    // MARK: - Share (iOS only)
+
+    #if os(iOS)
+    private func closingShareOverlay(data: WrappedData) -> some View {
+        VStack {
+            Spacer()
+            Button {
+                guard !isRendering else { return }
+                Task { await renderAndShare(data: data) }
+            } label: {
+                HStack(spacing: CassetteSpacing.s) {
+                    if isRendering {
+                        ProgressView()
+                            .tint(.white)
+                            .scaleEffect(0.8)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    Text(isRendering ? "Preparing…" : "Share your Wrapped")
+                }
+                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, CassetteSpacing.m)
+                .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, CassetteSpacing.xl)
+            .padding(.bottom, CassetteSpacing.xl)
+        }
+    }
+
+    @MainActor
+    private func renderAndShare(data: WrappedData) async {
+        isRendering = true
+        let card = WrappedShareCardView(year: year, data: data, palette: palette)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 3.0
+        renderedImage = renderer.uiImage
+        isRendering = false
+        if renderedImage != nil { showShareSheet = true }
+    }
+    #endif
 }
+
+// MARK: - UIActivityViewController wrapper
+
+#if os(iOS)
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+#endif

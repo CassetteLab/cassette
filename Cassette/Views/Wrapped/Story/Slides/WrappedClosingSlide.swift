@@ -4,9 +4,6 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
-#if os(iOS)
-import UIKit
-#endif
 
 struct WrappedClosingSlide: View {
     let year: Int
@@ -14,12 +11,6 @@ struct WrappedClosingSlide: View {
     let palette: [Color]
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    #if os(iOS)
-    @State private var renderedImage: UIImage? = nil
-    @State private var showShareSheet = false
-    @State private var isRendering = false
-    #endif
 
     var body: some View {
         ZStack {
@@ -55,23 +46,14 @@ struct WrappedClosingSlide: View {
 
                 Spacer(minLength: CassetteSpacing.l)
 
-                #if os(iOS)
-                shareButton
-                    .padding(.horizontal, CassetteSpacing.xl)
-                #endif
+                // Space reserved for the share button overlay rendered by WrappedStoryPlayerView
+                Spacer(minLength: CassetteSpacing.xxxxl)
 
                 Spacer()
             }
             .wrappedSlideEntrance()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        #if os(iOS)
-        .sheet(isPresented: $showShareSheet) {
-            if let image = renderedImage {
-                ShareSheet(items: [image])
-            }
-        }
-        #endif
     }
 
     // MARK: - Stat card
@@ -92,57 +74,4 @@ struct WrappedClosingSlide: View {
         .padding(.vertical, CassetteSpacing.m)
         .background(Color.white.opacity(0.15), in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
     }
-
-    // MARK: - Share (iOS only)
-
-    #if os(iOS)
-    private var shareButton: some View {
-        Button {
-            Task { await renderAndShare() }
-        } label: {
-            HStack(spacing: CassetteSpacing.s) {
-                if isRendering {
-                    ProgressView()
-                        .tint(.white)
-                        .scaleEffect(0.8)
-                } else {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                Text(isRendering ? "Preparing…" : "Share your Wrapped")
-            }
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, CassetteSpacing.m)
-            .background(Color.white.opacity(0.2), in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(isRendering)
-    }
-
-    @MainActor
-    private func renderAndShare() async {
-        isRendering = true
-        let card = WrappedShareCardView(year: year, data: data, palette: palette)
-        let renderer = ImageRenderer(content: card)
-        renderer.scale = 3.0  // 360×640 pt × @3x = 1080×1920 px
-        renderedImage = renderer.uiImage
-        isRendering = false
-        if renderedImage != nil { showShareSheet = true }
-    }
-    #endif
 }
-
-// MARK: - UIActivityViewController wrapper
-
-#if os(iOS)
-private struct ShareSheet: UIViewControllerRepresentable {
-    let items: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
-#endif

@@ -6,14 +6,13 @@
 import SwiftUI
 
 /// Entrance animation for Wrapped story slide content.
-/// Fades in with an upward drift on appear; respects Reduce Motion (instant appear, no drift).
+/// Drifts upward on appear; respects Reduce Motion (instant appear, no drift).
 struct WrappedSlideEntrance: ViewModifier {
     @State private var appeared = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
-            .opacity(appeared || reduceMotion ? 1 : 0)
             .offset(y: appeared || reduceMotion ? 0 : 24)
             .onAppear {
                 guard !reduceMotion else { return }
