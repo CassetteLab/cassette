@@ -52,7 +52,8 @@ struct WrappedStoryPlayerView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Gradient base matches all slide backgrounds: no black flash during cross-dissolve.
+            MeshGradientBackground(palette: palette, animated: false).ignoresSafeArea()
 
             slideContent(for: slides[currentIndex])
                 .ignoresSafeArea()
