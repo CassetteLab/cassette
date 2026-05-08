@@ -109,4 +109,68 @@ struct WrappedStoryAvailabilityTests {
             calendar: parisCalendar()
         ), "Should be unlocked at 00:00 CET (already Dec 28 in Paris)")
     }
+
+    // MARK: isWrappedCardVisible — window Dec 3 N to Jan 1 N+1
+
+    @Test func cardVisible_beforeDec3_hidden() {
+        let date = makeDate(year: 2026, month: 12, day: 2, hour: 23, minute: 59)
+        #expect(!WrappedStoryAvailability.isWrappedCardVisible(forYear: 2026, currentDate: date, calendar: utcCalendar()))
+    }
+
+    @Test func cardVisible_atMidnightDec3_visible() {
+        let date = makeDate(year: 2026, month: 12, day: 3, hour: 0, minute: 0, second: 0)
+        #expect(WrappedStoryAvailability.isWrappedCardVisible(forYear: 2026, currentDate: date, calendar: utcCalendar()))
+    }
+
+    @Test func cardVisible_dec27_visible() {
+        let date = makeDate(year: 2026, month: 12, day: 27)
+        #expect(WrappedStoryAvailability.isWrappedCardVisible(forYear: 2026, currentDate: date, calendar: utcCalendar()))
+    }
+
+    @Test func cardVisible_dec28_visible() {
+        let date = makeDate(year: 2026, month: 12, day: 28)
+        #expect(WrappedStoryAvailability.isWrappedCardVisible(forYear: 2026, currentDate: date, calendar: utcCalendar()))
+    }
+
+    @Test func cardVisible_dec31_visible() {
+        let date = makeDate(year: 2026, month: 12, day: 31)
+        #expect(WrappedStoryAvailability.isWrappedCardVisible(forYear: 2026, currentDate: date, calendar: utcCalendar()))
+    }
+
+    @Test func cardVisible_jan1NextYear_hidden() {
+        let date = makeDate(year: 2027, month: 1, day: 1, hour: 0, minute: 0, second: 0)
+        #expect(!WrappedStoryAvailability.isWrappedCardVisible(forYear: 2026, currentDate: date, calendar: utcCalendar()))
+    }
+
+    // MARK: daysUntilStoryUnlock — countdown to Dec 28
+
+    @Test func daysUntilUnlock_dec3_returns25() {
+        let date = makeDate(year: 2026, month: 12, day: 3, hour: 15)
+        #expect(WrappedStoryAvailability.daysUntilStoryUnlock(forYear: 2026, currentDate: date, calendar: utcCalendar()) == 25)
+    }
+
+    @Test func daysUntilUnlock_dec27_returns1() {
+        let date = makeDate(year: 2026, month: 12, day: 27, hour: 9)
+        #expect(WrappedStoryAvailability.daysUntilStoryUnlock(forYear: 2026, currentDate: date, calendar: utcCalendar()) == 1)
+    }
+
+    @Test func daysUntilUnlock_dec28_returns0() {
+        let date = makeDate(year: 2026, month: 12, day: 28, hour: 0)
+        #expect(WrappedStoryAvailability.daysUntilStoryUnlock(forYear: 2026, currentDate: date, calendar: utcCalendar()) == 0)
+    }
+
+    @Test func daysUntilUnlock_dec30_returnsNegative() {
+        let date = makeDate(year: 2026, month: 12, day: 30, hour: 12)
+        #expect(WrappedStoryAvailability.daysUntilStoryUnlock(forYear: 2026, currentDate: date, calendar: utcCalendar()) == -2)
+    }
+
+    @Test func daysUntilUnlock_pastYear_returnsNil() {
+        let date = makeDate(year: 2026, month: 6, day: 1)
+        #expect(WrappedStoryAvailability.daysUntilStoryUnlock(forYear: 2025, currentDate: date, calendar: utcCalendar()) == nil)
+    }
+
+    @Test func daysUntilUnlock_futureYear_returnsNil() {
+        let date = makeDate(year: 2026, month: 12, day: 15)
+        #expect(WrappedStoryAvailability.daysUntilStoryUnlock(forYear: 2027, currentDate: date, calendar: utcCalendar()) == nil)
+    }
 }
