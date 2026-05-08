@@ -182,6 +182,9 @@ struct DiscoverView: View {
                     if let year = currentYearCardYear {
                         WrappedCurrentYearCard(year: year)
                     }
+                    ForEach(currentYearMonths, id: \.month) { item in
+                        WrappedRecapMonthCard(period: .month(year: item.year, month: item.month))
+                    }
                 }
                 .padding(.horizontal, CassetteSpacing.m)
             }
@@ -191,8 +194,15 @@ struct DiscoverView: View {
     private var currentYearCardYear: Int? {
         let year = Calendar.current.component(.year, from: Date())
         guard !yearlyPlaylists.contains(where: { $0.year == year }) else { return nil }
-        guard WrappedStoryAvailability.isWrappedCardVisible(forYear: year) else { return nil }
         return year
+    }
+
+    private var currentYearMonths: [(year: Int, month: Int)] {
+        let cal = Calendar.current
+        let now = Date()
+        let year = cal.component(.year, from: now)
+        let currentMonth = cal.component(.month, from: now)
+        return (1...currentMonth).map { (year, $0) }
     }
 
     private var internetRadioSection: some View {
