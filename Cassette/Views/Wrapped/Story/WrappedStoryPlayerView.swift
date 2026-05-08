@@ -79,6 +79,7 @@ struct WrappedStoryPlayerView: View {
         .sheet(isPresented: $showShareSheet) {
             if let image = renderedImage { ShareSheet(items: [image]) }
         }
+        .onChange(of: showShareSheet) { _, presented in isPaused = presented }
         #endif
     }
 
@@ -259,6 +260,7 @@ struct WrappedStoryPlayerView: View {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(Int(timerInterval * 1000)))
                 guard !Task.isCancelled, !isPaused else { continue }
+                guard currentIndex < slides.count - 1 else { continue }
                 progress += timerInterval / slideDuration
                 if progress >= 1.0 { goForward() }
             }
