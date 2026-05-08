@@ -197,8 +197,8 @@ struct DiscoverView: View {
                     ForEach(yearlyPlaylists) { playlist in
                         WrappedYearlyCard(playlist: playlist)
                     }
-                    ForEach(wrappedCardPeriods, id: \.self) { period in
-                        WrappedRecapMonthCard(period: period)
+                    if let year = currentYearCardYear {
+                        WrappedCurrentYearCard(year: year)
                     }
                 }
                 .padding(.horizontal, CassetteSpacing.m)
@@ -206,9 +206,11 @@ struct DiscoverView: View {
         }
     }
 
-    private var wrappedCardPeriods: [WrappedPeriod] {
+    private var currentYearCardYear: Int? {
         let year = Calendar.current.component(.year, from: Date())
-return yearlyPlaylists.contains { $0.year == year } ? [] : [.year(year)]
+        guard !yearlyPlaylists.contains(where: { $0.year == year }) else { return nil }
+        guard WrappedStoryAvailability.isWrappedCardVisible(forYear: year) else { return nil }
+        return year
     }
 
     private var internetRadioSection: some View {
