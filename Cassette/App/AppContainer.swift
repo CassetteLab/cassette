@@ -38,6 +38,7 @@ final class AppContainer {
     let artworkImageCache: ArtworkImageCache
     let statsService: StatsService
     let wrappedPlaylistService: WrappedPlaylistService
+    let lyricsService: LyricsService
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -54,6 +55,7 @@ final class AppContainer {
 
         let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer, cacheService: cache)
         serverService = server
+        lyricsService = LyricsService(serverService: server, modelContainer: modelContainer)
         wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
         radioService = RadioService(serverService: server)
 
