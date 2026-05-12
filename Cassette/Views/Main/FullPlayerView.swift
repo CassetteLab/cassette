@@ -121,8 +121,9 @@ struct FullPlayerView: View {
             }
             .ignoresSafeArea()
         }
+        // TODO(Phase 6): replace sheet with in-place ZStack toggle and wire LyricsViewModel
         .sheet(isPresented: $showLyrics) {
-            LyricsView(song: playerState.currentTrack)
+            Color.clear
                 .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showQueue) {

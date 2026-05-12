@@ -42,4 +42,9 @@ extension Font {
 
     /// Very small labels (track count badge, etc.). ~11pt. Regular.
     static let cassetteCaption2 = Font.system(.caption2, design: .default, weight: .regular)
+
+    // MARK: Lyrics
+
+    /// Lyric line text in the full-player lyrics view. ~28pt. Rounded, semibold.
+    static let cassetteLyricsLine = Font.system(.title, design: .rounded, weight: .semibold)
 }
