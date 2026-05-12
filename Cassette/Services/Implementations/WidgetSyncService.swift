@@ -56,7 +56,13 @@ actor WidgetSyncService {
 
     func syncPinned() async {}
 
-    func syncDominantColors(forCoverArtIds ids: [String]) async {}
+    func syncDominantColors(forCoverArtIds ids: [String]) async {
+        let allCached = await dominantColorExtractor.cachedColors()
+        let filtered = allCached.filter { ids.contains($0.key) }
+        guard !filtered.isEmpty else { return }
+        SharedStorage.defaults.set(filtered, forKey: SharedStorageKey.dominantColors.rawValue)
+        Logger.widget.debug("syncDominantColors: wrote \(filtered.count) colors to shared defaults")
+    }
 
     func fullSync() async {}
 

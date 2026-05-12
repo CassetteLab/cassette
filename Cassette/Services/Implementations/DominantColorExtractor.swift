@@ -49,6 +49,18 @@ final class DominantColorExtractor {
         return result.color
     }
 
+    /// Returns all persisted packed 0xRRGGBB colors keyed by coverArtId.
+    /// Used by WidgetSyncService to mirror the cache to the App Group shared container.
+    func cachedColors() -> [String: Int] {
+        UserDefaults.standard.dictionary(forKey: Self.userDefaultsKey)?
+            .compactMapValues { $0 as? Int } ?? [:]
+    }
+
+    /// Returns the packed 0xRRGGBB color for a specific coverArtId, or nil if not cached.
+    func packedColor(forCoverArtId id: String) -> Int? {
+        UserDefaults.standard.dictionary(forKey: Self.userDefaultsKey)?[id] as? Int
+    }
+
     func clearCache() {
         cache.removeAll()
         UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)
