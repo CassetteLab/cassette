@@ -15,7 +15,7 @@ struct PinnedWidget: Widget {
         }
         .configurationDisplayName("Éléments épinglés")
         .description("Accédez rapidement à vos éléments épinglés.")
-        .supportedFamilies([.systemMedium])
+        .supportedFamilies([.systemMedium, .systemLarge])
     }
 }
 
@@ -25,6 +25,8 @@ struct PinnedWidgetView: View {
 
     var body: some View {
         switch family {
+        case .systemLarge:
+            PinnedLargeView(entry: entry)
         default:
             PinnedMediumView(entry: entry)
         }
