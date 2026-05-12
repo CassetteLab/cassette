@@ -33,6 +33,7 @@ nonisolated enum SharedStorageKey: String {
     case recentlyPlayedItems
     case pinnedItems
     case dominantColors
+    case nowPlayingState
 }
 
 /// Stable cross-process DTO for a recently played track.
