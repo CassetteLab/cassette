@@ -39,6 +39,7 @@ final class AppContainer {
     let statsService: StatsService
     let wrappedPlaylistService: WrappedPlaylistService
     let lyricsService: LyricsService
+    let widgetSyncService: WidgetSyncService
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -81,14 +82,28 @@ final class AppContainer {
         nowPlayingService = nowPlaying
 
         favoritesService = FavoritesService(libraryService: library, serverState: serverState, modelContainer: modelContainer)
-        pinService = PinService(modelContainer: modelContainer)
+        let pin = PinService(modelContainer: modelContainer)
+        pinService = pin
         let playlist = PlaylistService(serverService: server, modelContainer: modelContainer, downloadService: download)
         playlistService = playlist
+
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let coversDir = docs.appendingPathComponent("app.cassette/coverarts", isDirectory: true)
+        let widgetSync = WidgetSyncService(
+            dominantColorExtractor: dominantColorExtractor,
+            modelContainer: modelContainer,
+            artworkCache: artworkImageCache,
+            coversDirectory: coversDir,
+            serverState: serverState
+        )
+        widgetSyncService = widgetSync
+        pin.setWidgetSyncService(widgetSync)
 
         // Break the circular dependency: PlayerService holds a weak-captured ref to NowPlayingService
         // so it can push explicit snapshots (decision B). Task is fine — both actors are
         // created synchronously above, and setNowPlayingService has no meaningful ordering requirement.
         Task { await player.setNowPlayingService(nowPlaying) }
+        Task { await player.setWidgetSyncService(widgetSync) }
         Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
     }
 }

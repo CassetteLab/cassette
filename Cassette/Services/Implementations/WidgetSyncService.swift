@@ -50,11 +50,89 @@ actor WidgetSyncService {
         self.serverState = serverState
     }
 
-    // MARK: - Public API (implemented in commits 3b / 3c)
+    // MARK: - Recently played
 
-    func onTrackStarted(_ song: DisplayableSong) async {}
+    func onTrackStarted(_ song: DisplayableSong) async {
+        let coverArtId = song.coverArtId ?? song.id
+        let info = SharedTrackInfo(
+            id: song.id,
+            title: song.title,
+            artist: song.artist ?? "",
+            albumID: song.albumId,
+            coverArtFilename: "\(coverArtId).jpg"
+        )
 
-    func syncPinned() async {}
+        var items: [SharedTrackInfo] = []
+        if let data = SharedStorage.defaults.data(forKey: SharedStorageKey.recentlyPlayedItems.rawValue),
+           let decoded = try? JSONDecoder().decode([SharedTrackInfo].self, from: data) {
+            items = decoded
+        }
+        items.insert(info, at: 0)
+        var seen = Set<String>()
+        items = items.filter { seen.insert($0.id).inserted }
+        if items.count > 10 { items = Array(items.prefix(10)) }
+
+        if let encoded = try? JSONEncoder().encode(items) {
+            SharedStorage.defaults.set(encoded, forKey: SharedStorageKey.recentlyPlayedItems.rawValue)
+        }
+
+        try? await bridgeCoverArt(coverArtId: coverArtId)
+        await syncDominantColors(forCoverArtIds: [coverArtId])
+        reloadTimelinesIfNeeded()
+        Logger.widget.debug("onTrackStarted: updated recently played (\(items.count) items)")
+    }
+
+    // MARK: - Pinned items
+
+    func syncPinned() async {
+        let context = ModelContext(modelContainer)
+        let descriptor = FetchDescriptor<PinnedItem>(sortBy: [SortDescriptor(\PinnedItem.sortOrder)])
+        let dbItems = (try? context.fetch(descriptor)) ?? []
+
+        let shared: [SharedPinnedItem] = dbItems.compactMap { item in
+            let kind: SharedPinnedItem.Kind
+            switch item.itemType {
+            case PinnedItemType.album.rawValue: kind = .album
+            case PinnedItemType.playlist.rawValue: kind = .playlist
+            default: return nil
+            }
+            return SharedPinnedItem(
+                id: item.itemId,
+                kind: kind,
+                title: item.displayName,
+                subtitle: item.displaySubtitle,
+                coverArtFilename: item.coverArtId.map { "\($0).jpg" }
+            )
+        }
+
+        if let encoded = try? JSONEncoder().encode(shared) {
+            SharedStorage.defaults.set(encoded, forKey: SharedStorageKey.pinnedItems.rawValue)
+        }
+
+        let coverArtIds = dbItems.compactMap(\.coverArtId)
+        for id in coverArtIds {
+            try? await bridgeCoverArt(coverArtId: id)
+        }
+        await syncDominantColors(forCoverArtIds: coverArtIds)
+        reloadTimelinesIfNeeded()
+        Logger.widget.debug("syncPinned: wrote \(shared.count) pinned items to shared defaults")
+    }
+
+    // MARK: - Full sync (cold start)
+
+    func fullSync() async {
+        await syncPinned()
+
+        if let data = SharedStorage.defaults.data(forKey: SharedStorageKey.recentlyPlayedItems.rawValue),
+           let items = try? JSONDecoder().decode([SharedTrackInfo].self, from: data) {
+            let ids = items.compactMap { $0.coverArtFilename.map { String($0.dropLast(4)) } }
+            await syncDominantColors(forCoverArtIds: ids)
+        }
+
+        Logger.widget.debug("fullSync complete")
+    }
+
+    // MARK: - Dominant color sync
 
     func syncDominantColors(forCoverArtIds ids: [String]) async {
         let allCached = await dominantColorExtractor.cachedColors()
@@ -63,8 +141,6 @@ actor WidgetSyncService {
         SharedStorage.defaults.set(filtered, forKey: SharedStorageKey.dominantColors.rawValue)
         Logger.widget.debug("syncDominantColors: wrote \(filtered.count) colors to shared defaults")
     }
-
-    func fullSync() async {}
 
     // MARK: - Cover art bridge
 

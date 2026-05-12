@@ -24,6 +24,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let downloadService: any DownloadServiceProtocol
     private let cacheSettings: CacheSettings
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
+    private var widgetSyncService: WidgetSyncService?
     private let toastService: ToastService
     private let statsService: StatsService
 
@@ -81,6 +82,10 @@ actor PlayerService: PlayerServiceProtocol {
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
     func setNowPlayingService(_ service: any NowPlayingServiceProtocol) {
         nowPlayingService = service
+    }
+
+    func setWidgetSyncService(_ service: WidgetSyncService) {
+        widgetSyncService = service
     }
 
     // MARK: - Play
@@ -246,6 +251,9 @@ actor PlayerService: PlayerServiceProtocol {
         startPositionSaveTimer()
         preloadNextTrackArtwork()
         await evaluateAutoExtend()
+        if let ws = widgetSyncService {
+            Task { await ws.onTrackStarted(song) }
+        }
     }
 
     // MARK: - Live Stream

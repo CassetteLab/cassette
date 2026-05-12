@@ -11,9 +11,14 @@ import OSLog
 final class PinService: PinServiceProtocol {
     private let modelContext: ModelContext
     private static let maxPinnedItems = 6
+    private var widgetSyncService: WidgetSyncService?
 
     init(modelContainer: ModelContainer) {
         self.modelContext = modelContainer.mainContext
+    }
+
+    func setWidgetSyncService(_ service: WidgetSyncService) {
+        widgetSyncService = service
     }
 
     // MARK: - Query
@@ -64,6 +69,8 @@ final class PinService: PinServiceProtocol {
         modelContext.insert(item)
         try? modelContext.save()
         Logger.pin.info("Pinned \(itemType.rawValue) \(itemId) at position \(count)")
+        let ws = widgetSyncService
+        Task { await ws?.syncPinned() }
     }
 
     // MARK: - Unpin
@@ -88,6 +95,8 @@ final class PinService: PinServiceProtocol {
 
         try? modelContext.save()
         Logger.pin.info("Unpinned \(itemType.rawValue) \(itemId)")
+        let ws = widgetSyncService
+        Task { await ws?.syncPinned() }
     }
 
     // MARK: - Reorder

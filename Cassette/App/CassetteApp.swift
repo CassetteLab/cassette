@@ -96,6 +96,7 @@ struct CassetteApp: App {
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.
                 Task { await runWrappedUpdate(container: newContainer) }
+                Task { await newContainer.widgetSyncService.fullSync() }
                 #if os(iOS)
                 CassetteApp._bgTaskService = newContainer.wrappedPlaylistService
                 CassetteApp._bgTaskServerState = newContainer.serverState
