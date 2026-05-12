@@ -36,6 +36,7 @@
 		DBBC62D52FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = "fr.mathieu-dubart.CassetteWidgetsExtension.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
 		DBBC62D72FB3B9A600010D3F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		DBBC62D92FB3B9A600010D3F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		DBBC62EB2FB3BD0800010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "fr.mathieu-dubart.CassetteWidgetsExtension.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -53,6 +54,13 @@
 			);
 			target = DBBC62D42FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension */;
 		};
+		DBBC62ED2FB3BD3000010D3F /* Exceptions for "Cassette" folder in "fr.mathieu-dubart.CassetteWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/SharedStorage.swift,
+			);
+			target = DBBC62D42FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -60,6 +68,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				DBA4A8F62F9C0A1F008BC5A9 /* Exceptions for "Cassette" folder in "Cassette" target */,
+				DBBC62ED2FB3BD3000010D3F /* Exceptions for "Cassette" folder in "fr.mathieu-dubart.CassetteWidgetsExtension" target */,
 			);
 			path = Cassette;
 			sourceTree = "<group>";
@@ -122,6 +131,7 @@
 		DBA4A7482F9BBFCB008BC5A9 = {
 			isa = PBXGroup;
 			children = (
+				DBBC62EB2FB3BD0800010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.entitlements */,
 				DBA4A7532F9BBFCB008BC5A9 /* Cassette */,
 				DBA4A7612F9BBFCC008BC5A9 /* CassetteTests */,
 				DBA4A76B2F9BBFCC008BC5A9 /* CassetteUITests */,
@@ -711,6 +721,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = "fr.mathieu-dubart.CassetteWidgetsExtension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LK2358MPL8;
@@ -744,6 +755,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = "fr.mathieu-dubart.CassetteWidgetsExtension.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LK2358MPL8;
