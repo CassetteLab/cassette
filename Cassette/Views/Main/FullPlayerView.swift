@@ -19,12 +19,31 @@ struct FullPlayerView: View {
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var showQueue = false
+    @State private var lyricsViewModel: LyricsViewModel?
 
     var body: some View {
         if let playerState = container?.playerState {
             content(playerState)
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
+                }
+                .task(id: playerState.currentTrack?.id) {
+                    guard let track = playerState.currentTrack,
+                          let serverId = container?.serverState.activeServer?.id,
+                          let lyricsService = container?.lyricsService,
+                          let playerService = container?.playerService else {
+                        lyricsViewModel = nil
+                        return
+                    }
+                    let newVM = LyricsViewModel(
+                        songId: track.id,
+                        serverId: serverId,
+                        lyricsService: lyricsService,
+                        playerService: playerService,
+                        playerState: playerState
+                    )
+                    lyricsViewModel = newVM
+                    await newVM.load()
                 }
         }
     }
@@ -42,19 +61,39 @@ struct FullPlayerView: View {
 
             Spacer(minLength: CassetteSpacing.l)
 
-            // Color.clear is the layout anchor — its size is fully determined by the
-            // offered space, so AsyncImage's image intrinsics never affect VStack layout.
-            Color.clear
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: 280)
-                .overlay {
-                    CoverArtView(id: coverArtId, size: 300)
+            ZStack {
+                // Color.clear is the layout anchor — its size is fully determined by the
+                // offered space, so AsyncImage's image intrinsics never affect VStack layout.
+                Color.clear
+                    .aspectRatio(1, contentMode: .fit)
+                    .frame(maxWidth: 280)
+                    .overlay {
+                        CoverArtView(id: coverArtId, size: 300)
+                    }
+                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                    .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                    .scaleEffect(isPlaying ? 1.0 : 0.92)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                    .opacity(showLyrics ? 0 : 1)
+                    .scaleEffect(showLyrics ? 0.95 : 1.0)
+
+                if showLyrics, let lyricsVM = lyricsViewModel {
+                    LyricsView(viewModel: lyricsVM)
+                        .background(
+                            Color.black.opacity(0.001)
+                                .onTapGesture {
+                                    withAnimation(.smooth(duration: 0.3)) { showLyrics = false }
+                                }
+                        )
                 }
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
-                .scaleEffect(isPlaying ? 1.0 : 0.92)
-                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                .padding(.horizontal, CassetteSpacing.xl)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, CassetteSpacing.xl)
+            .animation(.smooth(duration: 0.3), value: showLyrics)
+            .onTapGesture {
+                guard !showLyrics else { return }
+                withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
+            }
 
             Spacer(minLength: CassetteSpacing.xxl)
 
@@ -120,11 +159,6 @@ struct FullPlayerView: View {
                 Color.black.opacity(0.25)
             }
             .ignoresSafeArea()
-        }
-        // TODO(Phase 6): replace sheet with in-place ZStack toggle and wire LyricsViewModel
-        .sheet(isPresented: $showLyrics) {
-            Color.clear
-                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showQueue) {
             QueueView()
@@ -561,10 +595,12 @@ private struct BottomToolbar: View {
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
             if !isLiveStream {
-                Button { showLyrics = true } label: {
+                Button {
+                    withAnimation(.smooth(duration: 0.3)) { showLyrics.toggle() }
+                } label: {
                     Image(systemName: "quote.bubble")
                         .font(.title3)
-                        .foregroundStyle(secondaryContentColor)
+                        .foregroundStyle(showLyrics ? Color.cassetteAccent : secondaryContentColor)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.borderless)
