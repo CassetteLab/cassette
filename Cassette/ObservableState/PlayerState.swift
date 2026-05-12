@@ -41,4 +41,16 @@ final class PlayerState {
     /// smart shuffle batch), and indices `[originalQueueEndIndex...]` are added by auto-extend.
     /// Reset to `nil` on play(tracks:), playRadio(), stop().
     var originalQueueEndIndex: Int?
+
+    // MARK: - Derived UI state
+
+    /// SF Symbol name and active-mode flag for the queue button, in priority order:
+    /// Loop One > Loop All > Shuffle > Smart Shuffle > default queue list.
+    var queueIcon: (symbolName: String, isActiveMode: Bool) {
+        if repeatMode == .one    { return ("repeat.1", true) }
+        if repeatMode == .all    { return ("repeat",   true) }
+        if isShuffled            { return ("shuffle",  true) }
+        if isSmartShuffleActive  { return ("sparkles", true) }
+        return ("list.bullet", false)
+    }
 }

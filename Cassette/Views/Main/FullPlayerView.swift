@@ -144,7 +144,8 @@ struct FullPlayerView: View {
                 showLyrics: $showLyrics,
                 showQueue: $showQueue,
                 isLiveStream: playerState.isLiveStream,
-                secondaryContentColor: vm.secondaryContentColor
+                secondaryContentColor: vm.secondaryContentColor,
+                playerState: playerState
             )
             .padding(.top, CassetteSpacing.l)
 
@@ -599,6 +600,7 @@ private struct BottomToolbar: View {
     @Binding var showQueue: Bool
     let isLiveStream: Bool
     let secondaryContentColor: Color
+    let playerState: PlayerState
 
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
@@ -619,11 +621,14 @@ private struct BottomToolbar: View {
                 .frame(width: 44, height: 44)
 
             if !isLiveStream {
+                let (symbol, isActive) = playerState.queueIcon
                 Button { showQueue = true } label: {
-                    Image(systemName: "list.bullet")
+                    Image(systemName: symbol)
                         .font(.title3)
-                        .foregroundStyle(secondaryContentColor)
+                        .foregroundStyle(isActive ? Color.cassetteAccent : secondaryContentColor)
                         .frame(width: 44, height: 44)
+                        .animation(.smooth(duration: 0.2), value: symbol)
+                        .animation(.smooth(duration: 0.2), value: isActive)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Queue")
