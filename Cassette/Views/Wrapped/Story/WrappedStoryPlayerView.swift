@@ -70,7 +70,9 @@ struct WrappedStoryPlayerView: View {
             }
             #endif
         }
+        #if os(iOS)
         .statusBarHidden(true)
+        #endif
         .persistentSystemOverlays(.hidden)
         .onAppear { startTimer() }
         .onDisappear { timerTask?.cancel() }

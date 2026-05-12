@@ -112,7 +112,7 @@ struct ArtistDetailMacOS: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .tint(Color.cassetteAccent)
-                .disabled(vm?.isPlayLoading ?? false || vm?.artist?.album?.isEmpty ?? true)
+                .disabled(vm.isPlayLoading || vm.artist?.album?.isEmpty ?? true)
 
                 Button {
                     Task { await playAll(shuffle: true) }
@@ -122,7 +122,7 @@ struct ArtistDetailMacOS: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(vm?.isPlayLoading ?? false || vm?.artist?.album?.isEmpty ?? true)
+                .disabled(vm.isPlayLoading || vm.artist?.album?.isEmpty ?? true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

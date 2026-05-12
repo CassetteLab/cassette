@@ -75,11 +75,10 @@ struct WrappedView: View {
             .padding(.top, CassetteSpacing.l)
             .padding(.bottom, CassetteSpacing.xl)
         }
-        .background(colorScheme == .dark ? Color.black : Color(.systemBackground))
+        .background(colorScheme == .dark ? Color.black : Color.cassetteSystemBackground)
         .cassetteContentWidth()
         .navigationTitle("Wrapped")
-        .toolbarBackground(colorScheme == .dark ? Color.black : Color(.systemBackground), for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .navigationBarBackground(colorScheme == .dark ? Color.black : Color.cassetteSystemBackground)
         .task(id: selectedPeriod) {
             await loadData()
         }
@@ -136,6 +135,20 @@ struct WrappedView: View {
         isLoading = false
         appeared = true
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch done totalPlays=\(result.totalTracksPlayed, privacy: .public)")
+    }
+}
+
+// MARK: - Navigation bar background modifier
+
+private extension View {
+    func navigationBarBackground(_ color: Color) -> some View {
+        #if os(iOS)
+        self
+            .toolbarBackground(color, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+        #else
+        self
+        #endif
     }
 }
 

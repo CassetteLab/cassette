@@ -26,7 +26,7 @@ actor LyricsService {
     /// Returns lyrics for a song. Checks cache first; falls back to network on miss.
     /// On network error, returns cached data if available (offline mode).
     func fetchLyrics(forSongId songId: String, serverId: UUID) async throws -> LyricsList {
-        if let cached = cachedLyrics(songId: songId, serverId: serverId) {
+        if let cached = await cachedLyrics(songId: songId, serverId: serverId) {
             Logger.lyrics.debug("Cache hit — songId=\(songId, privacy: .public)")
             return cached
         }
@@ -42,12 +42,12 @@ actor LyricsService {
             guard !list.structuredLyrics.isEmpty else {
                 throw LyricsError.notFound
             }
-            persistLyrics(list, songId: songId, serverId: serverId)
+            await persistLyrics(list, songId: songId, serverId: serverId)
             return list
         } catch let error as LyricsError {
             throw error
         } catch {
-            if let cached = cachedLyrics(songId: songId, serverId: serverId) {
+            if let cached = await cachedLyrics(songId: songId, serverId: serverId) {
                 Logger.lyrics.info("Network error, returning cached lyrics — songId=\(songId, privacy: .public)")
                 return cached
             }
@@ -98,7 +98,7 @@ actor LyricsService {
 
     // MARK: - Private cache
 
-    private func cachedLyrics(songId: String, serverId: UUID) -> LyricsList? {
+    private func cachedLyrics(songId: String, serverId: UUID) async -> LyricsList? {
         let key = "\(serverId.uuidString):\(songId)"
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<CachedLyrics>(
@@ -106,15 +106,17 @@ actor LyricsService {
         )
         guard let entry = (try? context.fetch(descriptor))?.first else { return nil }
         do {
-            return try JSONDecoder().decode(LyricsList.self, from: entry.jsonPayload)
+            let payload = entry.jsonPayload
+            return try await MainActor.run { try JSONDecoder().decode(LyricsList.self, from: payload) }
         } catch {
             Logger.lyrics.error("Cache corrupted — key=\(key, privacy: .public): \(error, privacy: .public)")
             return nil
         }
     }
 
-    private func persistLyrics(_ list: LyricsList, songId: String, serverId: UUID) {
-        guard let data = try? JSONEncoder().encode(list) else { return }
+    private func persistLyrics(_ list: LyricsList, songId: String, serverId: UUID) async {
+        let data = try? await MainActor.run { try JSONEncoder().encode(list) }
+        guard let data else { return }
         let key = "\(serverId.uuidString):\(songId)"
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<CachedLyrics>(

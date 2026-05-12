@@ -38,7 +38,7 @@ struct WrappedCurrentYearCard: View {
             .buttonStyle(.plain)
             .padding(CassetteSpacing.s)
         }
-        .fullScreenCover(isPresented: $showStoryPlayer) {
+        .cassetteFullScreenCover(isPresented: $showStoryPlayer) {
             WrappedStoryPlayerView(year: year)
         }
     }

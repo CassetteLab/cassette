@@ -140,6 +140,14 @@ struct WrappedAwardMedal: View {
     }
 }
 
+private var previewBackground: Color {
+    #if canImport(UIKit)
+    Color(UIColor.systemBackground)
+    #else
+    Color(NSColor.windowBackgroundColor)
+    #endif
+}
+
 #Preview {
     let palette = WrappedYearPalette.colors(for: 2026)
     ScrollView(.horizontal, showsIndicators: false) {
@@ -153,5 +161,5 @@ struct WrappedAwardMedal: View {
         .padding(.horizontal, CassetteSpacing.l)
         .padding(.vertical, CassetteSpacing.xl)
     }
-    .background(Color(.systemBackground))
+    .background(previewBackground)
 }

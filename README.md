@@ -14,13 +14,11 @@
 |------|-------|--------|
 | ![](docs/screenshots/home.jpeg) | ![](docs/screenshots/album.jpeg) | ![](docs/screenshots/player.jpeg) |
 
-*Screenshots coming before v1.0 release.*
-
 ---
 
 ## What is Cassette?
 
-Cassette is a native Swift / SwiftUI music client for iOS and macOS, designed for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, which means it works with Navidrome, Gonic, Airsonic Advanced, and any other compliant server. It is iOS-first — macOS support is minimal in v1.0 and will improve in v1.x.
+Cassette is a native Swift / SwiftUI music client for iOS and macOS, designed for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, which means it works with Navidrome, Gonic, Airsonic Advanced, and any other compliant server. It is iOS-first — macOS support is minimal in v1.0 and will improve around v1.9
 
 No accounts, no subscriptions, no tracking. Your music stays between your device and your server.
 
@@ -141,12 +139,8 @@ For developers curious about the internals:
 
 Cassette is built incrementally, one theme per release.
 
-- **v1.0** — Listen (iPhone-first, macOS minimal)
-- **v1.1** — Organize (playlist creation, queue reordering)
-- **v1.2** — Discover (recently played, smart shuffle, advanced search)
-- **v1.3** — macOS (sidebar, multi-window, menu bar widget)
-- **v1.4** — Social (multi-server, Last.fm scrobbling)
-- **v2.0** — Everywhere (CarPlay, watchOS, visionOS, iPad)
+- **v1.8** — Widgets
+- **v2.0** — Carplay
 
 For the full roadmap and discussion, see [GitHub Discussions](https://github.com/MathieuDubart/Cassette/discussions).
 
