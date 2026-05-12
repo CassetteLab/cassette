@@ -421,6 +421,16 @@ struct FullPlayerExpandedView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                if let ps = playerState {
+                    let (symbol, isActive) = ps.queueIcon
+                    if isActive {
+                        Image(systemName: symbol)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.cassetteAccent)
+                            .animation(.smooth(duration: 0.2), value: symbol)
+                            .accessibilityHidden(true)
+                    }
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 14)
