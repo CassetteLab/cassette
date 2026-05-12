@@ -254,6 +254,9 @@ actor PlayerService: PlayerServiceProtocol {
         if let ws = widgetSyncService {
             Task { await ws.onTrackStarted(song) }
         }
+        if let ws = widgetSyncService {
+            Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: song) }
+        }
     }
 
     // MARK: - Live Stream
@@ -513,6 +516,10 @@ actor PlayerService: PlayerServiceProtocol {
         await pushPositionSnapshot(rate: 0.0)
         stopPositionSaveTimer()
         await sessionService.save(playerState: state)
+        let pauseTrack = await MainActor.run { state.currentTrack }
+        if let ws = widgetSyncService {
+            Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
+        }
     }
 
     func resume() async {
@@ -527,6 +534,15 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
         startPositionSaveTimer()
+        let resumeTrack = await MainActor.run { state.currentTrack }
+        if let ws = widgetSyncService {
+            Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
+        }
+    }
+
+    func togglePlayPause() async {
+        let isPlaying = await MainActor.run { state.playbackState == .playing }
+        if isPlaying { await pause() } else { await resume() }
     }
 
     // MARK: - Stop

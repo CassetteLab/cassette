@@ -93,6 +93,8 @@
 		DBBC62ED2FB3BD3000010D3F /* Exceptions for "Cassette" folder in "fr.mathieu-dubart.CassetteWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Shared/NowPlayingBridge.swift,
+				Shared/PlayPauseIntent.swift,
 				Shared/SharedNowPlayingState.swift,
 				Shared/SharedStorage.swift,
 			);

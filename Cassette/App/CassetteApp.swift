@@ -87,6 +87,7 @@ struct CassetteApp: App {
                 // are available from the very first play, even on cold start.
                 await newContainer.nowPlayingService.start()
                 container = newContainer
+                AppContainer.shared = newContainer
                 // loadPersistedState must complete before restoreSession so the active
                 // server is known when prepareCurrentTrackForRestoration resolves the URL.
                 await newContainer.serverService.loadPersistedState()

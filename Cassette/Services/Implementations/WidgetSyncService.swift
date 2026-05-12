@@ -82,6 +82,32 @@ actor WidgetSyncService {
         Logger.widget.debug("onTrackStarted: updated recently played (\(items.count) items)")
     }
 
+    // MARK: - Now playing state
+
+    func onPlayStateChanged(isPlaying: Bool, currentSong: DisplayableSong?) async {
+        let track: SharedTrackInfo? = currentSong.map { song in
+            let coverArtId = song.coverArtId ?? song.id
+            return SharedTrackInfo(
+                id: song.id,
+                title: song.title,
+                artist: song.artist ?? "",
+                albumID: song.albumId,
+                coverArtFilename: "\(coverArtId).jpg"
+            )
+        }
+        let nowPlaying = SharedNowPlayingState(track: track, isPlaying: isPlaying, lastUpdated: Date())
+        if let encoded = try? JSONEncoder().encode(nowPlaying) {
+            SharedStorage.defaults.set(encoded, forKey: SharedStorageKey.nowPlayingState.rawValue)
+        }
+        if let song = currentSong {
+            let coverArtId = song.coverArtId ?? song.id
+            try? await bridgeCoverArt(coverArtId: coverArtId)
+            await syncDominantColors(forCoverArtIds: [coverArtId])
+        }
+        reloadTimelinesIfNeeded()
+        Logger.widget.debug("onPlayStateChanged: isPlaying=\(isPlaying)")
+    }
+
     // MARK: - Pinned items
 
     func syncPinned() async {

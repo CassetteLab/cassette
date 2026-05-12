@@ -12,6 +12,7 @@ import SwiftData
 /// All stored service references are protocol existentials — fully mockable in tests.
 @MainActor
 final class AppContainer {
+    nonisolated(unsafe) static var shared: AppContainer?
     // Observable state objects — created here so they exist on the MainActor
     // before actors are initialized (actors receive them via init injection).
     let playerState = PlayerState()
@@ -104,6 +105,7 @@ final class AppContainer {
         // created synchronously above, and setNowPlayingService has no meaningful ordering requirement.
         Task { await player.setNowPlayingService(nowPlaying) }
         Task { await player.setWidgetSyncService(widgetSync) }
+        NowPlayingBridge.performTogglePlayPause = { [weak player] in await player?.togglePlayPause() }
         Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
     }
 }

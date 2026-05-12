@@ -41,4 +41,5 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func setAutoExtendEnabled(_ enabled: Bool) async
     /// Applies the given volume (0.0–1.0) to AVPlayer and persists it to UserDefaults.
     func setVolume(_ volume: Float) async
+    func togglePlayPause() async
 }
