@@ -6,31 +6,29 @@
 import WidgetKit
 import SwiftUI
 
-struct RecentlyPlayedWidget: Widget {
-    let kind = "RecentlyPlayedWidget"
+struct NowPlayingWidget: Widget {
+    let kind = "NowPlayingWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: RecentlyPlayedProvider()) { entry in
-            RecentlyPlayedWidgetView(entry: entry)
+        StaticConfiguration(kind: kind, provider: NowPlayingProvider()) { entry in
+            NowPlayingWidgetView(entry: entry)
         }
-        .configurationDisplayName("Écoutés récemment")
-        .description("Affiche le dernier morceau écouté.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .configurationDisplayName("À l'écoute")
+        .description("Affiche le morceau en cours de lecture.")
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
-struct RecentlyPlayedWidgetView: View {
-    let entry: RecentlyPlayedEntry
+struct NowPlayingWidgetView: View {
+    let entry: NowPlayingEntry
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
         switch family {
         case .systemMedium:
-            RecentlyPlayedMediumView(entry: entry)
-        case .systemLarge:
-            RecentlyPlayedLargeView(entry: entry)
+            NowPlayingMediumView(entry: entry)
         default:
-            RecentlyPlayedSmallView(entry: entry)
+            NowPlayingSmallView(entry: entry)
         }
     }
 }

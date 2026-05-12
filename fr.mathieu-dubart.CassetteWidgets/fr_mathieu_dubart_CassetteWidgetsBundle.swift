@@ -9,7 +9,7 @@ import SwiftUI
 @main
 struct CassetteWidgetsBundle: WidgetBundle {
     var body: some Widget {
-        RecentlyPlayedWidget()
+        NowPlayingWidget()
         PinnedWidget()
     }
 }
