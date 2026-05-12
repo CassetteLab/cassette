@@ -10,20 +10,11 @@ struct RecentlyPlayedMediumView: View {
     let entry: RecentlyPlayedEntry
 
     var body: some View {
-        HStack(spacing: 14) {
-            WidgetCoverArtView(image: entry.coverImage, cornerRadius: 10)
+        HStack(alignment:.center,spacing: 14) {
+            WidgetCoverArtView(image: entry.mainCoverImage, cornerRadius: 10)
                 .frame(width: 128, height: 128)
 
             VStack(alignment: .leading, spacing: 0) {
-                
-                VStack(alignment: .trailing, spacing: 0)
-                {
-                    Image(systemName: "music.note")
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.9))
-                        .padding(.top, 2)
-                }
-                .frame(width: .greatestFiniteMagnitude)
                 
                 
                 Spacer()
@@ -34,7 +25,7 @@ struct RecentlyPlayedMediumView: View {
                     .tracking(0.5)
                     .padding(.bottom, 4)
 
-                if let track = entry.track {
+                if let track = entry.mainTrack {
                     Text(track.title)
                         .font(.system(.title3, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)

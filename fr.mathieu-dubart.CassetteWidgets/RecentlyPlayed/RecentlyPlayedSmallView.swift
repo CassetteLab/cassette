@@ -12,20 +12,14 @@ struct RecentlyPlayedSmallView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
-                WidgetCoverArtView(image: entry.coverImage)
+                WidgetCoverArtView(image: entry.mainCoverImage)
                     .frame(width: 65, height: 65)
-
-                Spacer()
-
-                Image(systemName: "music.note")
-                    .font(.title3)
-                    .foregroundStyle(.white.opacity(0.9))
             }
 
             Spacer(minLength: 0)
 
             VStack(alignment: .leading, spacing: 2) {
-                if let track = entry.track {
+                if let track = entry.mainTrack {
                     Text(track.title)
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)

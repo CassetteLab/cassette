@@ -15,7 +15,7 @@ struct RecentlyPlayedWidget: Widget {
         }
         .configurationDisplayName("Écoutés récemment")
         .description("Affiche le dernier morceau écouté.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
 
@@ -27,6 +27,8 @@ struct RecentlyPlayedWidgetView: View {
         switch family {
         case .systemMedium:
             RecentlyPlayedMediumView(entry: entry)
+        case .systemLarge:
+            RecentlyPlayedLargeView(entry: entry)
         default:
             RecentlyPlayedSmallView(entry: entry)
         }
