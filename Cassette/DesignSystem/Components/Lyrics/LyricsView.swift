@@ -38,22 +38,37 @@ struct LyricsView: View {
 
     @ViewBuilder
     private func loadedContent(_ structured: StructuredLyrics) -> some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
-                ForEach(Array(structured.line.enumerated()), id: \.offset) { index, line in
-                    LyricsLineView(
-                        value: line.value,
-                        index: index,
-                        currentIndex: viewModel.currentLineIndex,
-                        isSynced: structured.synced,
-                        isTappable: structured.synced && line.start != nil,
-                        onTap: { viewModel.userTapped(lineIndex: index) }
-                    )
-                    .id(index)
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 24) {
+                    ForEach(Array(structured.line.enumerated()), id: \.offset) { index, line in
+                        LyricsLineView(
+                            value: line.value,
+                            index: index,
+                            currentIndex: viewModel.currentLineIndex,
+                            isSynced: structured.synced,
+                            isTappable: structured.synced && line.start != nil,
+                            onTap: { viewModel.userTapped(lineIndex: index) }
+                        )
+                        .id(index)
+                    }
+                }
+                .padding(.horizontal, 32)
+                .padding(.vertical, 200)
+            }
+            .onChange(of: viewModel.currentLineIndex) { _, newIndex in
+                guard viewModel.autoScrollEnabled,
+                      !viewModel.isUserScrolling,
+                      let newIndex else { return }
+                withAnimation(.smooth(duration: 0.4)) {
+                    proxy.scrollTo(newIndex, anchor: .center)
                 }
             }
-            .padding(.horizontal, 32)
-            .padding(.vertical, 200)
+            .onScrollPhaseChange { _, newPhase in
+                if newPhase == .interacting {
+                    viewModel.userStartedScrolling()
+                }
+            }
         }
     }
 
