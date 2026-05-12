@@ -47,7 +47,7 @@ nonisolated struct YearMonth: Comparable, Hashable, Sendable, CustomStringConver
 /// All keys are namespaced under "cassette.wrapped." and scoped per-server.
 /// Thread-safe: UserDefaults is documented thread-safe for get/set operations.
 nonisolated struct WrappedPreferences: Sendable {
-    private let userDefaults: UserDefaults
+    private nonisolated(unsafe) let userDefaults: UserDefaults
 
     init(userDefaults: UserDefaults = .standard) {
         self.userDefaults = userDefaults
