@@ -14,7 +14,7 @@ struct RecentlyPlayedMediumView: View {
             WidgetCoverArtView(image: entry.coverImage, cornerRadius: 10)
                 .frame(width: 100, height: 100)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text("ÉCOUTÉS RÉCEMMENT")
                     .font(.system(.caption2, design: .rounded, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
@@ -33,6 +33,7 @@ struct RecentlyPlayedMediumView: View {
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1)
                         .truncationMode(.tail)
+                        .padding(.top, 2)
                 } else {
                     Text("Ouvre Cassette pour commencer")
                         .font(.system(.subheadline, design: .rounded))

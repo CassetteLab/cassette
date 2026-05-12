@@ -13,7 +13,7 @@ struct RecentlyPlayedSmallView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 WidgetCoverArtView(image: entry.coverImage)
-                    .frame(width: 70, height: 70)
+                    .frame(width: 60, height: 60)
 
                 Spacer()
 
@@ -22,10 +22,12 @@ struct RecentlyPlayedSmallView: View {
                     .foregroundStyle(.white.opacity(0.9))
             }
 
+            Spacer(minLength: 0)
+
             VStack(alignment: .leading, spacing: 2) {
                 if let track = entry.track {
                     Text(track.title)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -37,15 +39,14 @@ struct RecentlyPlayedSmallView: View {
                         .truncationMode(.tail)
                 } else {
                     Text("Ouvre Cassette")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
+                        .lineLimit(1)
                 }
+
+                WidgetPlayButton()
+                    .padding(.top, 6)
             }
-            .padding(.top, 8)
-
-            Spacer(minLength: 0)
-
-            WidgetPlayButton()
         }
         .containerBackground(for: .widget) {
             entry.dominantColor
