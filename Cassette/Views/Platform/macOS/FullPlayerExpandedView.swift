@@ -153,69 +153,75 @@ struct FullPlayerExpandedView: View {
 
     private var playerColumn: some View {
         VStack(spacing: 0) {
-            artworkView
-                .padding(.bottom, 28)
+            ZStack {
+                // Artwork mode: all controls, hidden while lyrics are showing.
+                VStack(spacing: 0) {
+                    artworkView
+                        .padding(.bottom, 28)
 
-            trackInfo
-                .padding(.bottom, 24)
+                    trackInfo
+                        .padding(.bottom, 24)
 
-            if isLiveStream {
-                liveBadge
-                    .padding(.bottom, 24)
-            } else {
-                scrubber
-                    .padding(.bottom, 24)
+                    if isLiveStream {
+                        liveBadge
+                            .padding(.bottom, 24)
+                    } else {
+                        scrubber
+                            .padding(.bottom, 24)
+                    }
+
+                    playbackControls
+                        .padding(.bottom, 20)
+                }
+                .frame(maxWidth: 380)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(maxHeight: .infinity, alignment: .center)
+                .opacity(showLyrics ? 0 : 1)
+                .allowsHitTesting(!showLyrics)
+
+                // Lyrics mode: full immersive, tap background to dismiss.
+                if showLyrics, let lyricsVM = lyricsViewModel {
+                    LyricsView(viewModel: lyricsVM)
+                        .background(
+                            Color.black.opacity(0.001)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.smooth(duration: 0.3)) { showLyrics = false }
+                                }
+                        )
+                        .transition(.opacity)
+                }
             }
-
-            playbackControls
-                .padding(.bottom, 20)
+            .animation(.smooth(duration: 0.3), value: showLyrics)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             secondaryControls
         }
-        .frame(maxWidth: 380)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .frame(maxHeight: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
     private var artworkView: some View {
         let shadowColor = dominantColor == .clear ? Color.black : dominantColor
         ZStack {
-            ZStack {
-                if let track = currentTrack {
-                    CoverArtView(id: track.coverArtId ?? track.id, size: 300)
-                        .frame(width: 300, height: 300)
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                } else {
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.secondary.opacity(0.15))
-                        .frame(width: 300, height: 300)
-                        .overlay {
-                            Image(systemName: "music.note")
-                                .font(.system(size: 72))
-                                .foregroundStyle(.secondary)
-                        }
-                }
-            }
-            .shadow(color: shadowColor.opacity(0.4), radius: 32, y: 12)
-            .opacity(showLyrics ? 0 : 1)
-            .scaleEffect(showLyrics ? 0.95 : 1.0)
-
-            if showLyrics, let lyricsVM = lyricsViewModel {
-                LyricsView(viewModel: lyricsVM)
+            if let track = currentTrack {
+                CoverArtView(id: track.coverArtId ?? track.id, size: 300)
                     .frame(width: 300, height: 300)
-                    .background(
-                        Color.black.opacity(0.001)
-                            .onTapGesture {
-                                withAnimation(.smooth(duration: 0.3)) { showLyrics = false }
-                            }
-                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            } else {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(width: 300, height: 300)
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 72))
+                            .foregroundStyle(.secondary)
+                    }
             }
         }
-        .frame(width: 300, height: 300)
-        .animation(.smooth(duration: 0.3), value: showLyrics)
+        .shadow(color: shadowColor.opacity(0.4), radius: 32, y: 12)
+        .contentShape(Rectangle())
         .onTapGesture {
-            guard !showLyrics else { return }
             withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
         }
     }
