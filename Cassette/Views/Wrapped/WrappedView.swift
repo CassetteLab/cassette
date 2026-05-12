@@ -26,7 +26,7 @@ struct WrappedView: View {
         let now = Date()
         let year = calendar.component(.year, from: now)
         let month = calendar.component(.month, from: now)
-        var periods: [WrappedPeriod] = (1...month).map { .month(year: year, month: $0) }
+        var periods: [WrappedPeriod] = (1...month).reversed().map { .month(year: year, month: $0) }
         periods.append(.year(year))
         return periods
     }
