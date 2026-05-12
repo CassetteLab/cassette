@@ -4,12 +4,13 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import WidgetKit
 
 struct RecentlyPlayedSmallView: View {
     let entry: RecentlyPlayedEntry
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 WidgetCoverArtView(image: entry.coverImage)
                     .frame(width: 70, height: 70)
@@ -21,23 +22,28 @@ struct RecentlyPlayedSmallView: View {
                     .foregroundStyle(.white.opacity(0.9))
             }
 
-            Spacer(minLength: 4)
+            VStack(alignment: .leading, spacing: 2) {
+                if let track = entry.track {
+                    Text(track.title)
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
-            if let track = entry.track {
-                Text(track.title)
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                Text(track.artist)
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
-            } else {
-                Text("Ouvre Cassette")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white)
+                    Text(track.artist)
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                } else {
+                    Text("Ouvre Cassette")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
             }
+            .padding(.top, 8)
+
+            Spacer(minLength: 0)
 
             WidgetPlayButton()
         }

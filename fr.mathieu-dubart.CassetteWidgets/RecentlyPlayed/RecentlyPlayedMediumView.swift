@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import WidgetKit
 
 struct RecentlyPlayedMediumView: View {
     let entry: RecentlyPlayedEntry
@@ -13,26 +14,31 @@ struct RecentlyPlayedMediumView: View {
             WidgetCoverArtView(image: entry.coverImage, cornerRadius: 10)
                 .frame(width: 100, height: 100)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text("ÉCOUTÉS RÉCEMMENT")
                     .font(.system(.caption2, design: .rounded, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
                     .tracking(0.5)
+                    .padding(.bottom, 4)
 
                 if let track = entry.track {
                     Text(track.title)
                         .font(.system(.title3, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
-                        .lineLimit(2)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     Text(track.artist)
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 } else {
                     Text("Ouvre Cassette pour commencer")
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
 
                 Spacer(minLength: 4)
