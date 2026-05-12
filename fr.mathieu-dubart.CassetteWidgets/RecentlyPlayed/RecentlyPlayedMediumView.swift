@@ -12,9 +12,22 @@ struct RecentlyPlayedMediumView: View {
     var body: some View {
         HStack(spacing: 14) {
             WidgetCoverArtView(image: entry.coverImage, cornerRadius: 10)
-                .frame(width: 100, height: 100)
+                .frame(width: 128, height: 128)
 
             VStack(alignment: .leading, spacing: 0) {
+                
+                VStack(alignment: .trailing, spacing: 0)
+                {
+                    Image(systemName: "music.note")
+                        .font(.title3)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .padding(.top, 2)
+                }
+                .frame(width: .greatestFiniteMagnitude)
+                
+                
+                Spacer()
+                
                 Text("ÉCOUTÉS RÉCEMMENT")
                     .font(.system(.caption2, design: .rounded, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
@@ -46,13 +59,6 @@ struct RecentlyPlayedMediumView: View {
 
                 WidgetPlayButton()
             }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "music.note")
-                .font(.title3)
-                .foregroundStyle(.white.opacity(0.9))
-                .padding(.top, 2)
         }
         .containerBackground(for: .widget) {
             entry.dominantColor

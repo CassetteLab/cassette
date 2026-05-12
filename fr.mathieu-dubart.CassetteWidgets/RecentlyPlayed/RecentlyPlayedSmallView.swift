@@ -13,7 +13,7 @@ struct RecentlyPlayedSmallView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top) {
                 WidgetCoverArtView(image: entry.coverImage)
-                    .frame(width: 60, height: 60)
+                    .frame(width: 65, height: 65)
 
                 Spacer()
 

@@ -34,7 +34,7 @@ struct WidgetPlayButton: View {
             Image(systemName: "play.fill")
                 .font(.caption)
             Text("Lecture")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .font(.system(.caption, design: .rounded, weight: .bold))
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 10)

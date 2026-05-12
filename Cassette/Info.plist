@@ -2,6 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>app.cassette.wrapped.monthly-update</string>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>fr.mathieu-dubart.Cassette.url-scheme</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>cassette</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>processing</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
@@ -11,16 +35,5 @@
 		<key>UIImageRespectsSafeAreaInsets</key>
 		<true/>
 	</dict>
-	<key>NSAppTransportSecurity</key>
-	<dict/>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-		<string>processing</string>
-	</array>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>app.cassette.wrapped.monthly-update</string>
-	</array>
 </dict>
 </plist>

@@ -7,12 +7,34 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DB04DC0F2FB3CA280077CCD3 /* fr.mathieu-dubart.CassetteWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DBBC62D52FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DBA4A77D2F9BE3C8008BC5A9 /* SwiftSonic in Frameworks */ = {isa = PBXBuildFile; productRef = DBA4A77C2F9BE3C8008BC5A9 /* SwiftSonic */; };
 		DBBC62D82FB3B9A600010D3F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBBC62D72FB3B9A600010D3F /* WidgetKit.framework */; };
 		DBBC62DA2FB3B9A600010D3F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBBC62D92FB3B9A600010D3F /* SwiftUI.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		DB04DC082FB3C9950077CCD3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DBA4A7492F9BBFCB008BC5A9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DBBC62D42FB3B9A600010D3F;
+			remoteInfo = "fr.mathieu-dubart.CassetteWidgetsExtension";
+		};
+		DB04DC0C2FB3C9EE0077CCD3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DBA4A7492F9BBFCB008BC5A9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DBBC62D42FB3B9A600010D3F;
+			remoteInfo = "fr.mathieu-dubart.CassetteWidgetsExtension";
+		};
+		DB04DC102FB3CA280077CCD3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DBA4A7492F9BBFCB008BC5A9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DBBC62D42FB3B9A600010D3F;
+			remoteInfo = "fr.mathieu-dubart.CassetteWidgetsExtension";
+		};
 		DBA4A75F2F9BBFCC008BC5A9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = DBA4A7492F9BBFCB008BC5A9 /* Project object */;
@@ -28,6 +50,20 @@
 			remoteInfo = Cassette;
 		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		DB04DC122FB3CA280077CCD3 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				DB04DC0F2FB3CA280077CCD3 /* fr.mathieu-dubart.CassetteWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		DBA4A7512F9BBFCB008BC5A9 /* Cassette.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Cassette.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -171,10 +207,14 @@
 				DBA4A74D2F9BBFCB008BC5A9 /* Sources */,
 				DBA4A74E2F9BBFCB008BC5A9 /* Frameworks */,
 				DBA4A74F2F9BBFCB008BC5A9 /* Resources */,
+				DB04DC122FB3CA280077CCD3 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				DB04DC092FB3C9950077CCD3 /* PBXTargetDependency */,
+				DB04DC0D2FB3C9EE0077CCD3 /* PBXTargetDependency */,
+				DB04DC112FB3CA280077CCD3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				DBA4A7532F9BBFCB008BC5A9 /* Cassette */,
@@ -369,6 +409,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		DB04DC092FB3C9950077CCD3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DBBC62D42FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension */;
+			targetProxy = DB04DC082FB3C9950077CCD3 /* PBXContainerItemProxy */;
+		};
+		DB04DC0D2FB3C9EE0077CCD3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DBBC62D42FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension */;
+			targetProxy = DB04DC0C2FB3C9EE0077CCD3 /* PBXContainerItemProxy */;
+		};
+		DB04DC112FB3CA280077CCD3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DBBC62D42FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension */;
+			targetProxy = DB04DC102FB3CA280077CCD3 /* PBXContainerItemProxy */;
+		};
 		DBA4A7602F9BBFCC008BC5A9 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = DBA4A7502F9BBFCB008BC5A9 /* Cassette */;
@@ -538,7 +593,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.3;
+				MARKETING_VERSION = 1.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "fr.mathieu-dubart.Cassette";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -596,7 +651,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.3;
+				MARKETING_VERSION = 1.7;
 				PRODUCT_BUNDLE_IDENTIFIER = "fr.mathieu-dubart.Cassette";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -725,27 +780,34 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LK2358MPL8;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "fr.mathieu-dubart.CassetteWidgets/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "fr.mathieu-dubart.CassetteWidgets";
+				INFOPLIST_KEY_CFBundleDisplayName = widgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "fr.mathieu-dubart.fr-mathieu-dubart-CassetteWidgets";
+				MARKETING_VERSION = 1.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "fr.mathieu-dubart.Cassette.widgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
+				TARGETED_DEVICE_FAMILY = 1;
 				WATCHOS_DEPLOYMENT_TARGET = 26.4;
 			};
 			name = Debug;
@@ -759,27 +821,34 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = LK2358MPL8;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "fr.mathieu-dubart.CassetteWidgets/Info.plist";
-				INFOPLIST_KEY_CFBundleDisplayName = "fr.mathieu-dubart.CassetteWidgets";
+				INFOPLIST_KEY_CFBundleDisplayName = widgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 					"@executable_path/../../../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "fr.mathieu-dubart.fr-mathieu-dubart-CassetteWidgets";
+				MARKETING_VERSION = 1.7;
+				PRODUCT_BUNDLE_IDENTIFIER = "fr.mathieu-dubart.Cassette.widgets";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
+				TARGETED_DEVICE_FAMILY = 1;
 				VALIDATE_PRODUCT = YES;
 				WATCHOS_DEPLOYMENT_TARGET = 26.4;
 			};
