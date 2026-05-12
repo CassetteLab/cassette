@@ -202,7 +202,7 @@ struct DiscoverView: View {
         let now = Date()
         let year = cal.component(.year, from: now)
         let currentMonth = cal.component(.month, from: now)
-        return (1...currentMonth).map { (year, $0) }
+        return (1...currentMonth).reversed().map { (year, $0) }
     }
 
     private var internetRadioSection: some View {
