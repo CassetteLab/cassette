@@ -10,5 +10,6 @@ import SwiftUI
 struct CassetteWidgetsBundle: WidgetBundle {
     var body: some Widget {
         RecentlyPlayedWidget()
+        PinnedWidget()
     }
 }
