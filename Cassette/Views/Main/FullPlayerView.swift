@@ -19,12 +19,31 @@ struct FullPlayerView: View {
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var showQueue = false
+    @State private var lyricsViewModel: LyricsViewModel?
 
     var body: some View {
         if let playerState = container?.playerState {
             content(playerState)
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
+                }
+                .task(id: playerState.currentTrack?.id) {
+                    guard let track = playerState.currentTrack,
+                          let serverId = container?.serverState.activeServer?.id,
+                          let lyricsService = container?.lyricsService,
+                          let playerService = container?.playerService else {
+                        lyricsViewModel = nil
+                        return
+                    }
+                    let newVM = LyricsViewModel(
+                        songId: track.id,
+                        serverId: serverId,
+                        lyricsService: lyricsService,
+                        playerService: playerService,
+                        playerState: playerState
+                    )
+                    lyricsViewModel = newVM
+                    await newVM.load()
                 }
         }
     }
@@ -40,58 +59,86 @@ struct FullPlayerView: View {
             topBar
                 .padding(.top, CassetteSpacing.s)
 
-            Spacer(minLength: CassetteSpacing.l)
+            ZStack {
+                // Artwork mode: all controls, hidden while lyrics are showing.
+                VStack(spacing: 0) {
+                    Spacer(minLength: CassetteSpacing.l)
 
-            // Color.clear is the layout anchor — its size is fully determined by the
-            // offered space, so AsyncImage's image intrinsics never affect VStack layout.
-            Color.clear
-                .aspectRatio(1, contentMode: .fit)
-                .frame(maxWidth: 280)
-                .overlay {
-                    CoverArtView(id: coverArtId, size: 300)
+                    // Color.clear is the layout anchor — its size is fully determined by the
+                    // offered space, so AsyncImage's image intrinsics never affect VStack layout.
+                    Color.clear
+                        .aspectRatio(1, contentMode: .fit)
+                        .frame(maxWidth: 280)
+                        .overlay {
+                            CoverArtView(id: coverArtId, size: 300)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                        .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                        .scaleEffect(isPlaying ? 1.0 : 0.92)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                        .padding(.horizontal, CassetteSpacing.xl)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
+                        }
+
+                    Spacer(minLength: CassetteSpacing.xxl)
+
+                    TrackInfoSection(
+                        playerState: playerState,
+                        container: container,
+                        contentColor: vm.contentColor,
+                        secondaryContentColor: vm.secondaryContentColor,
+                        glassTint: vm.glassTint
+                    )
+                    .padding(.horizontal, CassetteSpacing.l)
+
+                    if !playerState.isLiveStream {
+                        ScrubberView(
+                            playerState: playerState,
+                            playerService: container?.playerService,
+                            contentColor: vm.contentColor,
+                            secondaryContentColor: vm.secondaryContentColor
+                        )
+                        .padding(.horizontal, CassetteSpacing.l)
+                        .padding(.top, CassetteSpacing.m)
+                        .disabled(!playerState.isPlaybackAvailable)
+                        .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+                    }
+
+                    PlaybackControlsView(
+                        playerState: playerState,
+                        playerService: container?.playerService,
+                        isPlaybackAvailable: playerState.isPlaybackAvailable,
+                        contentColor: vm.contentColor,
+                        secondaryContentColor: vm.secondaryContentColor
+                    )
+                    .padding(.top, CassetteSpacing.l)
+
+                    VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
+                        .padding(.horizontal, CassetteSpacing.l)
+                        .padding(.top, CassetteSpacing.l)
+
+                    Spacer(minLength: CassetteSpacing.l)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
-                .scaleEffect(isPlaying ? 1.0 : 0.92)
-                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                .padding(.horizontal, CassetteSpacing.xl)
+                .opacity(showLyrics ? 0 : 1)
+                .allowsHitTesting(!showLyrics)
 
-            Spacer(minLength: CassetteSpacing.xxl)
-
-            TrackInfoSection(
-                playerState: playerState,
-                container: container,
-                contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor,
-                glassTint: vm.glassTint
-            )
-            .padding(.horizontal, CassetteSpacing.l)
-
-            if !playerState.isLiveStream {
-                ScrubberView(
-                    playerState: playerState,
-                    playerService: container?.playerService,
-                    contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor
-                )
-                .padding(.horizontal, CassetteSpacing.l)
-                .padding(.top, CassetteSpacing.m)
-                .disabled(!playerState.isPlaybackAvailable)
-                .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+                // Lyrics mode: full immersive, tap background to dismiss.
+                if showLyrics, let lyricsVM = lyricsViewModel {
+                    LyricsView(viewModel: lyricsVM)
+                        .background(
+                            Color.black.opacity(0.001)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.smooth(duration: 0.3)) { showLyrics = false }
+                                }
+                        )
+                        .transition(.opacity)
+                }
             }
-
-            PlaybackControlsView(
-                playerState: playerState,
-                playerService: container?.playerService,
-                isPlaybackAvailable: playerState.isPlaybackAvailable,
-                contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor
-            )
-            .padding(.top, CassetteSpacing.l)
-
-            VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
-                .padding(.horizontal, CassetteSpacing.l)
-                .padding(.top, CassetteSpacing.l)
+            .animation(.smooth(duration: 0.3), value: showLyrics)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             BottomToolbar(
                 showLyrics: $showLyrics,
@@ -120,10 +167,6 @@ struct FullPlayerView: View {
                 Color.black.opacity(0.25)
             }
             .ignoresSafeArea()
-        }
-        .sheet(isPresented: $showLyrics) {
-            LyricsView(song: playerState.currentTrack)
-                .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showQueue) {
             QueueView()
@@ -560,10 +603,12 @@ private struct BottomToolbar: View {
     var body: some View {
         HStack(spacing: CassetteSpacing.xxxxl) {
             if !isLiveStream {
-                Button { showLyrics = true } label: {
+                Button {
+                    withAnimation(.smooth(duration: 0.3)) { showLyrics.toggle() }
+                } label: {
                     Image(systemName: "quote.bubble")
                         .font(.title3)
-                        .foregroundStyle(secondaryContentColor)
+                        .foregroundStyle(showLyrics ? Color.cassetteAccent : secondaryContentColor)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.borderless)

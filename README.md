@@ -12,7 +12,7 @@
 
 | Home | Album | Player |
 |------|-------|--------|
-| ![](docs/screenshots/home.png) | ![](docs/screenshots/album.png) | ![](docs/screenshots/player.png) |
+| ![](docs/screenshots/home.jpeg) | ![](docs/screenshots/album.jpeg) | ![](docs/screenshots/player.jpeg) |
 
 *Screenshots coming before v1.0 release.*
 

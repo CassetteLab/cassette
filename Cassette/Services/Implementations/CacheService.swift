@@ -173,6 +173,12 @@ actor CacheService: CacheServiceProtocol {
             tracks.forEach { context.delete($0) }
             try? context.save()
         }
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let lyrics = (try? context.fetch(FetchDescriptor<CachedLyrics>())) ?? []
+            lyrics.forEach { context.delete($0) }
+            try? context.save()
+        }
         Logger.cache.info("Cleared all cache entries")
     }
 
@@ -190,6 +196,12 @@ actor CacheService: CacheServiceProtocol {
             let context = ModelContext(modelContainer)
             let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
             tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
+            try? context.save()
+        }
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let lyrics = (try? context.fetch(FetchDescriptor<CachedLyrics>())) ?? []
+            lyrics.filter { $0.serverId == serverId }.forEach { context.delete($0) }
             try? context.save()
         }
         Logger.cache.info("Cleared cache for server \(serverId.uuidString)")

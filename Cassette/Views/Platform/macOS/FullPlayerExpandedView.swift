@@ -18,6 +18,8 @@ struct FullPlayerExpandedView: View {
     @State private var localScrubPosition: Double = 0
     @State private var artworkImage: PlatformImage? = nil
     @State private var isFavorite = false
+    @State private var showLyrics = false
+    @State private var lyricsViewModel: LyricsViewModel?
 
     private var playerState: PlayerState? { container?.playerState }
     private var currentTrack: DisplayableSong? { playerState?.currentTrack }
@@ -66,6 +68,25 @@ struct FullPlayerExpandedView: View {
         .task(id: currentTrack?.id) {
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
             await refreshFavorite()
+        }
+        .task(id: currentTrack?.id) {
+            guard let track = currentTrack,
+                  let serverId = container?.serverState.activeServer?.id,
+                  let lyricsService = container?.lyricsService,
+                  let pService = container?.playerService,
+                  let pState = playerState else {
+                lyricsViewModel = nil
+                return
+            }
+            let newVM = LyricsViewModel(
+                songId: track.id,
+                serverId: serverId,
+                lyricsService: lyricsService,
+                playerService: pService,
+                playerState: pState
+            )
+            lyricsViewModel = newVM
+            await newVM.load()
         }
         .environment(\.colorScheme, .dark)
     }
@@ -132,28 +153,51 @@ struct FullPlayerExpandedView: View {
 
     private var playerColumn: some View {
         VStack(spacing: 0) {
-            artworkView
-                .padding(.bottom, 28)
+            ZStack {
+                // Artwork mode: all controls, hidden while lyrics are showing.
+                VStack(spacing: 0) {
+                    artworkView
+                        .padding(.bottom, 28)
 
-            trackInfo
-                .padding(.bottom, 24)
+                    trackInfo
+                        .padding(.bottom, 24)
 
-            if isLiveStream {
-                liveBadge
-                    .padding(.bottom, 24)
-            } else {
-                scrubber
-                    .padding(.bottom, 24)
+                    if isLiveStream {
+                        liveBadge
+                            .padding(.bottom, 24)
+                    } else {
+                        scrubber
+                            .padding(.bottom, 24)
+                    }
+
+                    playbackControls
+                        .padding(.bottom, 20)
+                }
+                .frame(maxWidth: 380)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .frame(maxHeight: .infinity, alignment: .center)
+                .opacity(showLyrics ? 0 : 1)
+                .allowsHitTesting(!showLyrics)
+
+                // Lyrics mode: full immersive, tap background to dismiss.
+                if showLyrics, let lyricsVM = lyricsViewModel {
+                    LyricsView(viewModel: lyricsVM)
+                        .background(
+                            Color.black.opacity(0.001)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.smooth(duration: 0.3)) { showLyrics = false }
+                                }
+                        )
+                        .transition(.opacity)
+                }
             }
-
-            playbackControls
-                .padding(.bottom, 20)
+            .animation(.smooth(duration: 0.3), value: showLyrics)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             secondaryControls
         }
-        .frame(maxWidth: 380)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .frame(maxHeight: .infinity, alignment: .center)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -176,6 +220,10 @@ struct FullPlayerExpandedView: View {
             }
         }
         .shadow(color: shadowColor.opacity(0.4), radius: 32, y: 12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
+        }
     }
 
     private var trackInfo: some View {
@@ -341,6 +389,15 @@ struct FullPlayerExpandedView: View {
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
+
+            Button {
+                withAnimation(.smooth(duration: 0.3)) { showLyrics.toggle() }
+            } label: {
+                Image(systemName: "quote.bubble")
+                    .foregroundStyle(showLyrics ? Color.cassetteAccent : .secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(noTrack || isLiveStream)
 
             Button { } label: {
                 Image(systemName: "airplayaudio")

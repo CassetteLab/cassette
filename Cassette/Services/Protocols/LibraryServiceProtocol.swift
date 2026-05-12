@@ -28,7 +28,6 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     func getStarred2() async throws -> Starred2
     func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3]
     func allAlbums() async throws -> [AlbumID3]
-    func lyrics(artist: String?, title: String?) async throws -> Lyrics?
 
     // MARK: - Discover
 
