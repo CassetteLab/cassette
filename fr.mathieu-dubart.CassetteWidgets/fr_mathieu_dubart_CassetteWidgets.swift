@@ -10,30 +10,25 @@ struct RecentlyPlayedWidget: Widget {
     let kind = "RecentlyPlayedWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: RecentlyPlayedProvider()) { _ in
-            Text("Recently Played")
-                .containerBackground(.fill.tertiary, for: .widget)
+        StaticConfiguration(kind: kind, provider: RecentlyPlayedProvider()) { entry in
+            RecentlyPlayedWidgetView(entry: entry)
         }
         .configurationDisplayName("Écoutés récemment")
-        .description("Affiche le dernier morceau que vous avez écouté.")
+        .description("Affiche le dernier morceau écouté.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
-nonisolated struct RecentlyPlayedEntry: TimelineEntry {
-    let date: Date
+struct RecentlyPlayedWidgetView: View {
+    let entry: RecentlyPlayedEntry
+    @Environment(\.widgetFamily) private var family
 
-    static var placeholder: RecentlyPlayedEntry { RecentlyPlayedEntry(date: Date()) }
-}
-
-struct RecentlyPlayedProvider: TimelineProvider {
-    func placeholder(in context: Context) -> RecentlyPlayedEntry { .placeholder }
-
-    func getSnapshot(in context: Context, completion: @escaping (RecentlyPlayedEntry) -> Void) {
-        completion(.placeholder)
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<RecentlyPlayedEntry>) -> Void) {
-        completion(Timeline(entries: [.placeholder], policy: .never))
+    var body: some View {
+        switch family {
+        case .systemMedium:
+            RecentlyPlayedMediumView(entry: entry)
+        default:
+            RecentlyPlayedSmallView(entry: entry)
+        }
     }
 }
