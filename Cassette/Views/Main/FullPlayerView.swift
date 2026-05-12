@@ -621,14 +621,24 @@ private struct BottomToolbar: View {
                 .frame(width: 44, height: 44)
 
             if !isLiveStream {
-                let (symbol, isActive) = playerState.queueIcon
                 Button { showQueue = true } label: {
-                    Image(systemName: symbol)
+                    Image(systemName: "list.bullet")
                         .font(.title3)
-                        .foregroundStyle(isActive ? Color.cassetteAccent : secondaryContentColor)
+                        .foregroundStyle(secondaryContentColor)
+                        .overlay(alignment: .topTrailing) {
+                            if let badge = playerState.queueModeBadge {
+                                Image(systemName: badge)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(Color.cassetteAccent)
+                                    .padding(2)
+                                    .background(.background, in: Circle())
+                                    .overlay(Circle().stroke(.background.opacity(0.5), lineWidth: 0.5))
+                                    .offset(x: 6, y: -6)
+                                    .transition(.scale.combined(with: .opacity))
+                            }
+                        }
+                        .animation(.smooth(duration: 0.2), value: playerState.queueModeBadge)
                         .frame(width: 44, height: 44)
-                        .animation(.smooth(duration: 0.2), value: symbol)
-                        .animation(.smooth(duration: 0.2), value: isActive)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel("Queue")
