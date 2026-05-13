@@ -71,7 +71,7 @@ struct CoverArtView: View {
     private var placeholder: some View {
         ZStack {
             LinearGradient(
-                colors: [Color.cassetteAccentSecondary.opacity(0.3), Color.cassetteAccent.opacity(0.15)],
+                colors: [CassetteColors.accent.opacity(0.25), CassetteColors.accent.opacity(0.08)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )

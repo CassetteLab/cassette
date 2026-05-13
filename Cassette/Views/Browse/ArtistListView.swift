@@ -182,7 +182,7 @@ private struct OfflineBrowseContent: View {
                                     .font(.title2)
                                     .foregroundStyle(.secondary)
                                     .frame(width: 44, height: 44)
-                                    .background(Color.cassetteAccentSecondary.opacity(0.15))
+                                    .background(CassetteColors.accentBackground)
                                     .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.s))
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(artist.name)

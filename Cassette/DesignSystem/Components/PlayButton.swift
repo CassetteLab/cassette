@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// Primary action button — orange capsule with play icon. Used in album and playlist headers.
+/// Primary action button — accent capsule with play icon. Used in album and playlist headers.
 struct PlayButton: View {
     let action: () -> Void
     var label: String = "Play"

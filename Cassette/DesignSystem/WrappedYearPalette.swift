@@ -23,11 +23,11 @@ nonisolated enum WrappedYearPalette {
                 Color(red: 0.925, green: 0.251, blue: 0.478), // #EC407A hot pink
                 Color(red: 0.157, green: 0.208, blue: 0.576), // #283593 deep indigo
             ]
-        case 2: // 2026 — Cassette identity
+        case 2: // 2026 — Cassette identity (Electric Violet rebrand)
             return [
-                Color(red: 1.000, green: 0.498, blue: 0.247), // #FF7F3F cassetteAccent
-                Color(red: 0.824, green: 0.184, blue: 0.184), // #D22F2F vermillion
-                Color(red: 1.000, green: 0.420, blue: 0.616), // #FF6B9D warm pink
+                Color(red: 0.424, green: 0.278, blue: 0.961), // #6C47F5 Electric Violet
+                Color(red: 0.247, green: 0.122, blue: 0.686), // #3F1FAF deep violet
+                Color(red: 0.624, green: 0.525, blue: 0.980), // #9F86FA violet v300
             ]
         case 3: // 2027 — oceanic
             return [
@@ -61,9 +61,9 @@ nonisolated enum WrappedYearPalette {
             ]
         default:
             return [
-                Color(red: 1.000, green: 0.498, blue: 0.247),
-                Color(red: 0.824, green: 0.184, blue: 0.184),
-                Color(red: 1.000, green: 0.420, blue: 0.616),
+                Color(red: 0.424, green: 0.278, blue: 0.961),
+                Color(red: 0.247, green: 0.122, blue: 0.686),
+                Color(red: 0.624, green: 0.525, blue: 0.980),
             ]
         }
     }
