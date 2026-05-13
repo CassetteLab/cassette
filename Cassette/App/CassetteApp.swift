@@ -80,6 +80,7 @@ struct CassetteApp: App {
                     ProgressView()
                 }
             }
+            .tint(CassetteColors.accent)
             .task {
                 guard container == nil else { return }
                 guard let newContainer = try? AppContainer() else { return }
