@@ -22,7 +22,6 @@ struct CassetteApp: App {
     #if os(iOS)
     nonisolated(unsafe) private static var _bgTaskService: WrappedPlaylistService?
     nonisolated(unsafe) private static var _bgTaskServerState: ServerState?
-    nonisolated(unsafe) private static var _themePlaylistService: ThemePlaylistService?
     #endif
 
     init() {
@@ -54,37 +53,6 @@ struct CassetteApp: App {
                 CassetteApp.scheduleWrappedUpdate()
             }
         }
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: "fr.mathieu-dubart.cassette.theme-playlists-refresh",
-            using: nil
-        ) { task in
-            guard let processingTask = task as? BGProcessingTask,
-                  let service = CassetteApp._themePlaylistService,
-                  let serverState = CassetteApp._bgTaskServerState else {
-                task.setTaskCompleted(success: false)
-                return
-            }
-            let workTask = Task {
-                let serverId = await MainActor.run { serverState.activeServer?.id.uuidString }
-                guard let serverId else {
-                    processingTask.setTaskCompleted(success: false)
-                    return
-                }
-                do {
-                    try await service.sync(serverId: serverId)
-                    processingTask.setTaskCompleted(success: true)
-                } catch {
-                    Logger.themePlaylist.error("BGTask sync failed: \(error, privacy: .public)")
-                    processingTask.setTaskCompleted(success: false)
-                }
-                CassetteApp.scheduleThemePlaylistsRefresh()
-            }
-            processingTask.expirationHandler = {
-                workTask.cancel()
-                Logger.themePlaylist.warning("BGTask expired — rescheduling")
-                CassetteApp.scheduleThemePlaylistsRefresh()
-            }
-        }
         #endif
     }
 
@@ -94,23 +62,6 @@ struct CassetteApp: App {
         request.requiresNetworkConnectivity = true
         request.earliestBeginDate = Date().addingTimeInterval(24 * 3600)
         try? BGTaskScheduler.shared.submit(request)
-    }
-
-    static func scheduleThemePlaylistsRefresh() {
-        let request = BGProcessingTaskRequest(identifier: "fr.mathieu-dubart.cassette.theme-playlists-refresh")
-        request.requiresNetworkConnectivity = true
-        request.earliestBeginDate = nextMonday(at: 7)
-        try? BGTaskScheduler.shared.submit(request)
-    }
-
-    private static func nextMonday(at hour: Int) -> Date {
-        var comps = DateComponents()
-        comps.weekday = 2 // Monday
-        comps.hour = hour
-        comps.minute = 0
-        comps.second = 0
-        return Calendar.current.nextDate(after: Date(), matching: comps, matchingPolicy: .nextTime)
-            ?? Date().addingTimeInterval(7 * 24 * 3600)
     }
     #endif
 
@@ -147,14 +98,11 @@ struct CassetteApp: App {
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.
                 Task { await runWrappedUpdate(container: newContainer) }
-                Task { await runThemePlaylistSync(container: newContainer) }
                 Task { await newContainer.widgetSyncService.fullSync() }
                 #if os(iOS)
                 CassetteApp._bgTaskService = newContainer.wrappedPlaylistService
                 CassetteApp._bgTaskServerState = newContainer.serverState
                 CassetteApp.scheduleWrappedUpdate()
-                CassetteApp._themePlaylistService = newContainer.themePlaylistService
-                CassetteApp.scheduleThemePlaylistsRefresh()
                 #endif
             }
             .task(id: container?.serverState.isOnline) {
@@ -222,18 +170,5 @@ struct CassetteApp: App {
         await container.wrappedPlaylistService.handleYearTransitionIfNeeded(serverId: serverId, calendar: .current)
         let result = await container.wrappedPlaylistService.runYearlyPlaylistSyncIfNeeded(serverId: serverId, calendar: .current)
         Logger.wrapped.info("Cold start result: \(String(describing: result), privacy: .public)")
-    }
-
-    // MARK: - Theme playlist sync
-
-    @MainActor
-    private func runThemePlaylistSync(container: AppContainer) async {
-        guard container.serverState.isOnline,
-              let serverId = container.serverState.activeServer?.id.uuidString else { return }
-        do {
-            try await container.themePlaylistService.sync(serverId: serverId)
-        } catch {
-            Logger.themePlaylist.error("Cold start theme sync failed: \(error, privacy: .public)")
-        }
     }
 }

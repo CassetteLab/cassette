@@ -56,12 +56,6 @@ struct MainTabView: View {
                 }
             }
 
-            Tab("Playlists", systemImage: "music.note.list") {
-                NavigationStack {
-                    ThemePlaylistsView()
-                }
-            }
-
             Tab(role: .search) {
                 NavigationStack {
                     SearchView(searchQuery: $searchText)
