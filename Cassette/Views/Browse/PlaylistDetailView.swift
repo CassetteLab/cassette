@@ -168,7 +168,7 @@ struct PlaylistDetailView: View {
                     showEditSheet = true
                 } label: {
                     Image(systemName: "pencil")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(CassetteColors.accent)
                 }
                 .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
             }
