@@ -294,7 +294,7 @@ struct DiscoverView: View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             HStack(spacing: CassetteSpacing.s) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.yellow) // warning state — not brand accent
                 Text("Unable to load Discover")
                     .font(.cassetteCellTitle)
             }
@@ -319,7 +319,7 @@ struct DiscoverView: View {
         }
         .padding(CassetteSpacing.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.08))
+        .background(Color.yellow.opacity(0.12)) // warning state — not brand accent
         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
         .padding(.horizontal, CassetteSpacing.m)
     }
