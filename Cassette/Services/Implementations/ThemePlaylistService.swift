@@ -68,6 +68,55 @@ actor ThemePlaylistService {
             upsert(serverId: serverId, type: type, playlistId: pid,
                    title: Self.namePrefix + type.displayName, trackIds: trackIds)
             Logger.themePlaylist.info("[THEME-SYNC] synced type=\(type.rawValue, privacy: .public) tracks=\(trackIds.count, privacy: .public) pid=\(pid, privacy: .public)")
+            await uploadArtworkIfPossible(for: type, playlistId: pid)
+        }
+    }
+
+    // MARK: - Artwork generation & upload
+
+    private func uploadArtworkIfPossible(for type: ThemePlaylistType, playlistId: String) async {
+        do {
+            let pngData = await MainActor.run {
+                ThemePlaylistArtworkGenerator().pngData(for: type)
+            }
+            guard let pngData else {
+                Logger.themePlaylist.warning("[THEME-ARTWORK] PNG generation failed for \(type.rawValue, privacy: .public)")
+                return
+            }
+
+            let snapshot = await MainActor.run { serverService.state.activeServer }
+            guard let snapshot, let baseURL = URL(string: snapshot.baseURL) else { return }
+
+            let creds = try await serverService.activeCredentials()
+            let navidrome = NavidromeNativeAPI()
+            let token = try await navidrome.authenticate(
+                baseURL: baseURL,
+                username: snapshot.username,
+                password: creds.password
+            )
+            try await navidrome.uploadPlaylistCover(
+                baseURL: baseURL,
+                token: token,
+                playlistId: playlistId,
+                imageData: pngData,
+                mimeType: "image/png"
+            )
+
+            saveCoverLocally(pngData: pngData, for: type)
+            Logger.themePlaylist.info("[THEME-ARTWORK] uploaded cover for \(type.rawValue, privacy: .public)")
+        } catch {
+            Logger.themePlaylist.warning("[THEME-ARTWORK] cover upload skipped: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func saveCoverLocally(pngData: Data, for type: ThemePlaylistType) {
+        let fileURL = ThemePlaylistArtworkGenerator.localCoverURL(for: type)
+        let dir = fileURL.deletingLastPathComponent()
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try pngData.write(to: fileURL, options: .atomic)
+        } catch {
+            Logger.themePlaylist.warning("[THEME-ARTWORK] local save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
