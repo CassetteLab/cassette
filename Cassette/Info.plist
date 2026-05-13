@@ -5,6 +5,7 @@
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>app.cassette.wrapped.monthly-update</string>
+		<string>fr.mathieu-dubart.cassette.theme-playlists-refresh</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
