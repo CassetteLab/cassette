@@ -147,6 +147,7 @@ struct CassetteApp: App {
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.
                 Task { await runWrappedUpdate(container: newContainer) }
+                Task { await runThemePlaylistSync(container: newContainer) }
                 Task { await newContainer.widgetSyncService.fullSync() }
                 #if os(iOS)
                 CassetteApp._bgTaskService = newContainer.wrappedPlaylistService
@@ -221,5 +222,18 @@ struct CassetteApp: App {
         await container.wrappedPlaylistService.handleYearTransitionIfNeeded(serverId: serverId, calendar: .current)
         let result = await container.wrappedPlaylistService.runYearlyPlaylistSyncIfNeeded(serverId: serverId, calendar: .current)
         Logger.wrapped.info("Cold start result: \(String(describing: result), privacy: .public)")
+    }
+
+    // MARK: - Theme playlist sync
+
+    @MainActor
+    private func runThemePlaylistSync(container: AppContainer) async {
+        guard container.serverState.isOnline,
+              let serverId = container.serverState.activeServer?.id.uuidString else { return }
+        do {
+            try await container.themePlaylistService.sync(serverId: serverId)
+        } catch {
+            Logger.themePlaylist.error("Cold start theme sync failed: \(error, privacy: .public)")
+        }
     }
 }
