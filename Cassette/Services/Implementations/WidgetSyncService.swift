@@ -104,8 +104,10 @@ actor WidgetSyncService {
             try? await bridgeCoverArt(coverArtId: coverArtId)
             await syncDominantColors(forCoverArtIds: [coverArtId])
         }
-        reloadTimelinesIfNeeded()
-        Logger.widget.debug("onPlayStateChanged: isPlaying=\(isPlaying)")
+        #if os(iOS)
+        WidgetCenter.shared.reloadTimelines(ofKind: WidgetKind.nowPlaying)
+        #endif
+        Logger.widget.debug("onPlayStateChanged: isPlaying=\(isPlaying), reload NowPlayingWidget (bypass throttle)")
     }
 
     // MARK: - Pinned items
