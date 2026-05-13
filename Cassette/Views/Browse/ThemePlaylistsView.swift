@@ -167,10 +167,9 @@ private struct ThemePlaylistCard: View {
     let dto: ThemePlaylistDTO?
     let namespace: Namespace.ID
 
+    @State private var localArtwork: PlatformImage?
+
     private static let cardSize: CGFloat = 140
-    // 2px gap between cells: (140 - 2) / 2 = 69
-    private static let cellSize: CGFloat = 69
-    private static let gap: CGFloat = 2
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
@@ -200,22 +199,20 @@ private struct ThemePlaylistCard: View {
         }
         .frame(width: Self.cardSize)
         .opacity(dto == nil ? 0.5 : 1)
+        .task(id: type) {
+            let url = ThemePlaylistArtworkGenerator.localCoverURL(for: type)
+            guard let data = try? Data(contentsOf: url),
+                  let image = PlatformImage(data: data) else { return }
+            localArtwork = image
+        }
     }
 
     @ViewBuilder
     private var artworkView: some View {
-        let ids = Array((dto?.trackIds ?? []).prefix(4))
-        if ids.count >= 4 {
-            VStack(spacing: Self.gap) {
-                HStack(spacing: Self.gap) {
-                    quadCell(id: ids[0])
-                    quadCell(id: ids[1])
-                }
-                HStack(spacing: Self.gap) {
-                    quadCell(id: ids[2])
-                    quadCell(id: ids[3])
-                }
-            }
+        if let image = localArtwork {
+            Image(platformImage: image)
+                .resizable()
+                .scaledToFill()
         } else {
             ZStack {
                 CassetteColors.accentBackground
@@ -224,12 +221,6 @@ private struct ThemePlaylistCard: View {
                     .foregroundStyle(CassetteColors.accent)
             }
         }
-    }
-
-    private func quadCell(id: String) -> some View {
-        CoverArtView(id: id, size: Int(Self.cellSize * 2), cornerRadius: 0)
-            .frame(width: Self.cellSize, height: Self.cellSize)
-            .clipped()
     }
 }
 

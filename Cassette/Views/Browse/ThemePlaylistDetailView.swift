@@ -13,6 +13,7 @@ struct ThemePlaylistDetailView: View {
     @State private var songs: [DisplayableSong] = []
     @State private var isLoading = false
     @State private var error: Error?
+    @State private var localArtwork: PlatformImage?
 
     var body: some View {
         Group {
@@ -49,19 +50,34 @@ struct ThemePlaylistDetailView: View {
         .task(id: dto.playlistId) {
             await loadSongs()
         }
+        .task(id: dto.type) {
+            let url = ThemePlaylistArtworkGenerator.localCoverURL(for: dto.type)
+            guard let data = try? Data(contentsOf: url),
+                  let image = PlatformImage(data: data) else { return }
+            localArtwork = image
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.m) {
             HStack(alignment: .top, spacing: CassetteSpacing.m) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous)
-                        .fill(CassetteColors.accentBackground)
-                        .frame(width: 80, height: 80)
-                    Image(systemName: dto.type.systemImage)
-                        .font(.largeTitle)
-                        .foregroundStyle(CassetteColors.accent)
+                Group {
+                    if let image = localArtwork {
+                        Image(platformImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous)
+                                .fill(CassetteColors.accentBackground)
+                            Image(systemName: dto.type.systemImage)
+                                .font(.largeTitle)
+                                .foregroundStyle(CassetteColors.accent)
+                        }
+                    }
                 }
+                .frame(width: 80, height: 80)
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(dto.title)
