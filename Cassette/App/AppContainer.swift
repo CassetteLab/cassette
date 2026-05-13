@@ -128,7 +128,8 @@ extension ModelContainer {
             PinnedItem.self,
             PlaybackSession.self,
             PlaybackEvent.self,
-            CachedLyrics.self
+            CachedLyrics.self,
+            ThemePlaylistRecord.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)
