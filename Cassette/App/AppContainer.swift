@@ -41,6 +41,7 @@ final class AppContainer {
     let wrappedPlaylistService: WrappedPlaylistService
     let lyricsService: LyricsService
     let widgetSyncService: WidgetSyncService
+    let themePlaylistService: ThemePlaylistService
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -59,6 +60,7 @@ final class AppContainer {
         serverService = server
         lyricsService = LyricsService(serverService: server, modelContainer: modelContainer)
         wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
+        themePlaylistService = ThemePlaylistService(modelContainer: modelContainer, serverService: server, statsService: stats)
         radioService = RadioService(serverService: server)
 
         let library = LibraryService(serverService: server, modelContainer: modelContainer)
