@@ -7,7 +7,7 @@ import WidgetKit
 import SwiftUI
 
 struct PinnedWidget: Widget {
-    let kind = "PinnedWidget"
+    let kind = WidgetKind.pinned
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: PinnedProvider()) { entry in

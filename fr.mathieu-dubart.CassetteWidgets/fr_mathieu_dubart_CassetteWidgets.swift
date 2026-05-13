@@ -7,7 +7,7 @@ import WidgetKit
 import SwiftUI
 
 struct NowPlayingWidget: Widget {
-    let kind = "NowPlayingWidget"
+    let kind = WidgetKind.nowPlaying
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: NowPlayingProvider()) { entry in

@@ -97,6 +97,7 @@
 				Shared/PlayPauseIntent.swift,
 				Shared/SharedNowPlayingState.swift,
 				Shared/SharedStorage.swift,
+				Shared/WidgetKind.swift,
 			);
 			target = DBBC62D42FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension */;
 		};
