@@ -204,6 +204,11 @@ actor WidgetSyncService {
         guard let jpgData = image.resized(maxDimension: 600).jpgData(quality: 0.8) else { return }
         try jpgData.write(to: sharedURL, options: .atomic)
         Logger.widget.debug("bridgeCoverArt: bridged \(coverArtId, privacy: .public) (\(jpgData.count) bytes)")
+
+        // Trigger extraction while the image is in hand so syncDominantColors
+        // finds a cached color even on the very first play of a track.
+        await MainActor.run { _ = dominantColorExtractor.dominantColor(for: coverArtId, image: image) }
+        Logger.widget.debug("bridgeCoverArt: dominant color extracted for \(coverArtId, privacy: .public)")
     }
 
     // MARK: - Throttled timeline reload
