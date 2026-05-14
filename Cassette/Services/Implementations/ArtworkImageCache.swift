@@ -81,6 +81,11 @@ final class ArtworkImageCache {
         return image
     }
 
+    func invalidate(for coverArtId: String) {
+        cache.removeValue(forKey: coverArtId)
+        accessOrder.removeAll { $0 == coverArtId }
+    }
+
     func clearCache() {
         cache.removeAll()
         accessOrder.removeAll()

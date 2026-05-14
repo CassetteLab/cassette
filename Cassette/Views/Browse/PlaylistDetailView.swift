@@ -6,6 +6,11 @@
 import SwiftUI
 import SwiftSonic
 import SwiftData
+import OSLog
+#if os(iOS)
+import PhotosUI
+import UniformTypeIdentifiers
+#endif
 
 struct PlaylistDetailView: View {
     private let playlistId: String
@@ -60,8 +65,21 @@ struct PlaylistDetailView: View {
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
-    @State private var showEditSheet = false
-    @State private var editSheetDeletedPlaylist = false
+
+    // Inline edit mode
+    @State private var isEditing = false
+    @State private var editName: String = ""
+    @State private var editDescription: String = ""
+    @State private var isSaving = false
+
+    #if os(iOS)
+    @State private var pendingImage: UIImage?
+    @State private var showImageOptions = false
+    @State private var showPhotoPicker = false
+    @State private var showCamera = false
+    @State private var showFilePicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    #endif
 
     private var headerTextColor: Color {
         dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
@@ -119,12 +137,12 @@ struct PlaylistDetailView: View {
                         onRemoveDownload: { songId in
                             Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
                         },
-                        onRemove: vm.isOffline ? nil : { index in
+                        onRemove: (isEditing && !vm.isOffline) ? { index in
                             Task { await vm.removeTrack(at: index) }
-                        },
-                        onReorder: vm.isOffline ? nil : { source, destination in
+                        } : nil,
+                        onReorder: (isEditing && !vm.isOffline) ? { source, destination in
                             Task { await vm.moveTracks(from: source, to: destination) }
-                        }
+                        } : nil
                     )
                 }
             }
@@ -150,29 +168,44 @@ struct PlaylistDetailView: View {
             .ignoresSafeArea()
         )
         .cassetteContentWidth()
-        .navigationTitle(viewModel?.name ?? initialName)
+        .navigationTitle(isEditing ? "" : (viewModel?.name ?? initialName))
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
-                }
+        .toolbar { toolbarContent }
+        #if os(iOS)
+        .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
+            Button("Choose from Library") { showPhotoPicker = true }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take a Photo") { showCamera = true }
             }
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showEditSheet = true
-                } label: {
-                    Image(systemName: "pencil")
-                        .foregroundStyle(CassetteColors.accent)
-                }
-                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            Button("Browse Files") { showFilePicker = true }
+            Button("Cancel", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraImagePicker(image: $pendingImage)
+                .ignoresSafeArea()
+        }
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.jpeg, .png, .heic, .webP],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url) {
+                pendingImage = UIImage(data: data)
             }
         }
+        .task(id: selectedPhotoItem) {
+            guard let item = selectedPhotoItem else { return }
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                pendingImage = UIImage(data: data)
+            }
+            selectedPhotoItem = nil
+        }
+        #endif
         .task {
             guard let c = container else { return }
             if viewModel == nil {
@@ -199,22 +232,134 @@ struct PlaylistDetailView: View {
 
             await loadDominantColor(coverArtId: artId)
         }
-        .sheet(isPresented: $showEditSheet, onDismiss: {
-            if editSheetDeletedPlaylist {
-                dismiss()
-            } else {
-                Task { await viewModel?.load() }
-            }
-        }) {
-            if let detail = viewModel?.playlistDetail {
-                EditPlaylistSheet(
-                    playlist: detail,
-                    onDeleted: { editSheetDeletedPlaylist = true }
-                )
-            }
-        }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigation) {
+            if isEditing {
+                Button("Cancel") { cancelEdit() }
+                    .disabled(isSaving)
+            } else {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+        ToolbarItem(placement: .primaryAction) {
+            if isSaving {
+                ProgressView().controlSize(.small)
+            } else if isEditing {
+                Button("Done") {
+                    Task { await saveInlineEdit() }
+                }
+                .fontWeight(.semibold)
+            } else {
+                Button {
+                    enterEditMode()
+                } label: {
+                    Image(systemName: "pencil")
+                        .foregroundStyle(CassetteColors.accent)
+                }
+                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            }
+        }
+    }
+
+    // MARK: - Edit mode
+
+    private func enterEditMode() {
+        editName = viewModel?.name ?? initialName
+        editDescription = viewModel?.playlistDetail?.comment ?? ""
+        #if os(iOS)
+        pendingImage = nil
+        #endif
+        isEditing = true
+    }
+
+    private func cancelEdit() {
+        editName = ""
+        editDescription = ""
+        #if os(iOS)
+        pendingImage = nil
+        #endif
+        isEditing = false
+    }
+
+    private func saveInlineEdit() async {
+        guard let vm = viewModel, let c = container else { return }
+        isSaving = true
+        defer { isSaving = false }
+
+        let trimmedName = editName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDesc = editDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let originalDesc = (vm.playlistDetail?.comment ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !trimmedName.isEmpty && trimmedName != vm.name {
+            do {
+                try await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
+                vm.name = trimmedName
+            } catch {
+                Logger.playlist.warning("PlaylistDetailView: rename failed: \(error)")
+                c.toastService.showError("Failed to rename playlist")
+            }
+        }
+
+        if trimmedDesc != originalDesc {
+            do {
+                try await c.playlistService.updateDescription(id: playlistId, description: trimmedDesc)
+            } catch {
+                Logger.playlist.warning("PlaylistDetailView: description update failed: \(error)")
+                c.toastService.showError("Failed to update description")
+            }
+        }
+
+        #if os(iOS)
+        if let image = pendingImage {
+            await uploadCoverImage(image, container: c)
+        }
+        #endif
+
+        isEditing = false
+        Task { await vm.load() }
+    }
+
+    #if os(iOS)
+    private func uploadCoverImage(_ image: UIImage, container: AppContainer) async {
+        guard let jpegData = image.jpegData(compressionQuality: 0.85),
+              let snapshot = container.serverState.activeServer,
+              let baseURL = URL(string: snapshot.baseURL) else { return }
+        do {
+            let creds = try await container.serverService.activeCredentials()
+            let api = NavidromeNativeAPI()
+            let token = try await api.authenticate(
+                baseURL: baseURL,
+                username: snapshot.username,
+                password: creds.password
+            )
+            try await api.uploadPlaylistCover(
+                baseURL: baseURL,
+                token: token,
+                playlistId: playlistId,
+                imageData: jpegData,
+                mimeType: "image/jpeg"
+            )
+            if let artId = viewModel?.coverArtId {
+                container.artworkImageCache.invalidate(for: artId)
+            }
+            pendingImage = nil
+        } catch {
+            Logger.playlist.warning("PlaylistDetailView: cover image upload failed: \(error)")
+        }
+    }
+    #endif
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
 
@@ -257,7 +402,7 @@ struct PlaylistDetailView: View {
         }
     }
 
-    // MARK: - Download state
+    // MARK: - Download state helpers
 
     private func downloadedPlaylistTracksCount(in songs: [DisplayableSong]) -> Int {
         let downloadedIds = Set(allDownloadedTracks.map(\.songId))
@@ -277,148 +422,197 @@ struct PlaylistDetailView: View {
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
         VStack(spacing: CassetteSpacing.l) {
+            // Cover art
             Group {
-                if initialCoverImage == nil && vm?.coverArtId == nil && coverArtId == nil {
-                    SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
+                #if os(iOS)
+                if isEditing {
+                    ZStack {
+                        if let pending = pendingImage {
+                            Image(uiImage: pending)
+                                .resizable()
+                                .aspectRatio(1, contentMode: .fill)
+                                .frame(width: 220, height: 220)
+                                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                        } else {
+                            coverArtContent(vm: vm)
+                        }
+                        RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
+                            .fill(Color.black.opacity(0.4))
+                        Image(systemName: "camera.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 220, height: 220)
+                    .onTapGesture { showImageOptions = true }
                 } else {
-                    CoverArtCard(
-                        id: vm?.coverArtId ?? coverArtId ?? playlistId,
-                        size: 220,
-                        cornerRadius: CassetteCornerRadius.large,
-                        initialImage: initialCoverImage
-                    )
+                    coverArtContent(vm: vm)
                 }
+                #else
+                coverArtContent(vm: vm)
+                #endif
             }
             .padding(.top, CassetteSpacing.xxl)
 
             VStack(spacing: CassetteSpacing.s) {
-                Text(vm?.name ?? initialName)
-                    .font(.cassetteDetailTitle)
-                    .foregroundStyle(headerTextColor)
-                    .multilineTextAlignment(.center)
-                if vm == nil {
-                    SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
-                } else if let owner = vm?.owner {
-                    Text("by \(owner)")
+                if isEditing {
+                    TextField("Playlist name", text: $editName)
+                        .font(.cassetteDetailTitle)
+                        .foregroundStyle(headerTextColor)
+                        .multilineTextAlignment(.center)
+                        .textFieldStyle(.plain)
+                        .padding(.horizontal, CassetteSpacing.l)
+                    TextField("Add a description...", text: $editDescription, axis: .vertical)
                         .font(.cassetteCellSubtitle)
                         .foregroundStyle(headerSecondaryColor)
-                }
-                if vm == nil {
-                    SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
-                } else if let vm {
-                    Text("\(vm.songs.count) track\(vm.songs.count == 1 ? "" : "s")")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(headerSecondaryColor.opacity(0.8))
+                        .multilineTextAlignment(.center)
+                        .textFieldStyle(.plain)
+                        .lineLimit(1...4)
+                        .padding(.horizontal, CassetteSpacing.l)
+                } else {
+                    Text(vm?.name ?? initialName)
+                        .font(.cassetteDetailTitle)
+                        .foregroundStyle(headerTextColor)
+                        .multilineTextAlignment(.center)
+                    if vm == nil {
+                        SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
+                    } else if let owner = vm?.owner {
+                        Text("by \(owner)")
+                            .font(.cassetteCellSubtitle)
+                            .foregroundStyle(headerSecondaryColor)
+                    }
+                    if vm == nil {
+                        SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
+                    } else if let vm {
+                        Text("\(vm.songs.count) track\(vm.songs.count == 1 ? "" : "s")")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(headerSecondaryColor.opacity(0.8))
+                    }
                 }
             }
             .padding(.horizontal, CassetteSpacing.l)
 
-            HStack(spacing: CassetteSpacing.m) {
-                Button {
-                    HapticFeedback.medium.trigger()
-                    Task {
-                        let shuffled = vm?.songs.shuffled() ?? []
-                        guard !shuffled.isEmpty else { return }
-                        try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
+            if !isEditing {
+                HStack(spacing: CassetteSpacing.m) {
+                    Button {
+                        HapticFeedback.medium.trigger()
+                        Task {
+                            let shuffled = vm?.songs.shuffled() ?? []
+                            guard !shuffled.isEmpty else { return }
+                            try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
+                        }
+                    } label: {
+                        Image(systemName: "shuffle")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(Color.cassetteAccent)
+                            .cassetteGlassButton(size: 44)
                     }
-                } label: {
-                    Image(systemName: "shuffle")
-                        .font(.cassetteCellTitle)
-                        .foregroundStyle(Color.cassetteAccent)
-                        .cassetteGlassButton(size: 44)
-                }
-                .disabled(vm?.songs.isEmpty != false)
-                .opacity(vm == nil ? 0.4 : 1)
+                    .disabled(vm?.songs.isEmpty != false)
+                    .opacity(vm == nil ? 0.4 : 1)
 
-                PlayButton(action: {
-                    Task {
-                        guard let songs = vm?.songs, !songs.isEmpty else { return }
-                        try? await container?.playerService.play(tracks: songs, startIndex: 0)
-                    }
-                }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true))
-                .frame(maxWidth: 400)
+                    PlayButton(action: {
+                        Task {
+                            guard let songs = vm?.songs, !songs.isEmpty else { return }
+                            try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                        }
+                    }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true))
+                    .frame(maxWidth: 400)
 
-                if vm?.isOffline != true {
-                    if let vm {
-                        if vm.isDownloadingPlaylist {
-                            Button { Task { await vm.cancelPlaylistDownload() } } label: {
-                                Image(systemName: "xmark")
+                    if vm?.isOffline != true {
+                        if let vm {
+                            if vm.isDownloadingPlaylist {
+                                Button { Task { await vm.cancelPlaylistDownload() } } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.cassetteCellTitle)
+                                        .foregroundStyle(Color.cassetteAccent)
+                                        .cassetteGlassButton(size: 44)
+                                }
+                            } else {
+                                switch downloadState(for: vm) {
+                                case .notDownloaded:
+                                    Button { Task { await vm.downloadPlaylist() } } label: {
+                                        Image(systemName: "arrow.down.circle")
+                                            .font(.cassetteCellTitle)
+                                            .foregroundStyle(Color.cassetteAccent)
+                                            .cassetteGlassButton(size: 44)
+                                    }
+                                    .disabled(vm.songs.isEmpty)
+                                case .partiallyDownloaded:
+                                    Button { Task { await vm.downloadMissingTracks() } } label: {
+                                        Image(systemName: "arrow.down.circle.dotted")
+                                            .font(.cassetteCellTitle)
+                                            .foregroundStyle(Color.cassetteAccent)
+                                            .cassetteGlassButton(size: 44)
+                                    }
+                                case .fullyDownloaded:
+                                    Button {
+                                        HapticFeedback.heavy.trigger()
+                                        showDeleteAlert = true
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.cassetteCellTitle)
+                                            .foregroundStyle(Color.cassetteAccent)
+                                            .cassetteGlassButton(size: 44)
+                                    }
+                                }
+                            }
+                        } else {
+                            Button { } label: {
+                                Image(systemName: "arrow.down.circle")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(Color.cassetteAccent)
                                     .cassetteGlassButton(size: 44)
                             }
-                        } else {
-                            switch downloadState(for: vm) {
-                            case .notDownloaded:
-                                Button { Task { await vm.downloadPlaylist() } } label: {
-                                    Image(systemName: "arrow.down.circle")
-                                        .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
-                                        .cassetteGlassButton(size: 44)
-                                }
-                                .disabled(vm.songs.isEmpty)
-                            case .partiallyDownloaded:
-                                Button { Task { await vm.downloadMissingTracks() } } label: {
-                                    Image(systemName: "arrow.down.circle.dotted")
-                                        .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
-                                        .cassetteGlassButton(size: 44)
-                                }
-                            case .fullyDownloaded:
-                                Button {
-                                    HapticFeedback.heavy.trigger()
-                                    showDeleteAlert = true
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
-                                        .cassetteGlassButton(size: 44)
-                                }
-                            }
+                            .disabled(true)
+                            .opacity(0.4)
                         }
-                    } else {
-                        Button { } label: {
-                            Image(systemName: "arrow.down.circle")
-                                .font(.cassetteCellTitle)
-                                .foregroundStyle(Color.cassetteAccent)
-                                .cassetteGlassButton(size: 44)
-                        }
-                        .disabled(true)
-                        .opacity(0.4)
                     }
                 }
-            }
-            .buttonStyle(.borderless)
-            .padding(.horizontal, CassetteSpacing.xxxl)
+                .buttonStyle(.borderless)
+                .padding(.horizontal, CassetteSpacing.xxxl)
 
-            if let vm {
-                if vm.isDownloadingPlaylist {
-                    let total = vm.songs.count
-                    let downloaded = downloadedPlaylistTracksCount(in: vm.songs)
-                    VStack(spacing: CassetteSpacing.xs) {
-                        if downloaded == 0 {
-                            HStack(spacing: CassetteSpacing.s) {
-                                ProgressView().scaleEffect(0.8)
-                                Text("Starting download…")
+                if let vm {
+                    if vm.isDownloadingPlaylist {
+                        let total = vm.songs.count
+                        let downloaded = downloadedPlaylistTracksCount(in: vm.songs)
+                        VStack(spacing: CassetteSpacing.xs) {
+                            if downloaded == 0 {
+                                HStack(spacing: CassetteSpacing.s) {
+                                    ProgressView().scaleEffect(0.8)
+                                    Text("Starting download…")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(headerSecondaryColor)
+                                }
+                            } else {
+                                ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
+                                    .progressViewStyle(.linear)
+                                    .tint(Color.cassetteAccent)
+                                    .frame(maxWidth: 280)
+                                Text("Downloading \(downloaded)/\(total) tracks")
                                     .font(.cassetteCaption)
                                     .foregroundStyle(headerSecondaryColor)
                             }
-                        } else {
-                            ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
-                                .progressViewStyle(.linear)
-                                .tint(Color.cassetteAccent)
-                                .frame(maxWidth: 280)
-                            Text("Downloading \(downloaded)/\(total) tracks")
-                                .font(.cassetteCaption)
-                                .foregroundStyle(headerSecondaryColor)
                         }
+                        .frame(minHeight: 44)
                     }
-                    .frame(minHeight: 44)
                 }
             }
         }
         .padding(.bottom, CassetteSpacing.xxl)
         .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private func coverArtContent(vm: PlaylistDetailViewModel?) -> some View {
+        if initialCoverImage == nil && vm?.coverArtId == nil && coverArtId == nil {
+            SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
+        } else {
+            CoverArtCard(
+                id: vm?.coverArtId ?? coverArtId ?? playlistId,
+                size: 220,
+                cornerRadius: CassetteCornerRadius.large,
+                initialImage: initialCoverImage
+            )
+        }
     }
 }
 
@@ -429,6 +623,41 @@ private nonisolated enum PlaylistDownloadState {
     case partiallyDownloaded(downloaded: Int, total: Int)
     case fullyDownloaded
 }
+
+// MARK: - Camera picker (iOS only)
+
+#if os(iOS)
+private struct CameraImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: CameraImagePicker
+
+        init(_ parent: CameraImagePicker) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            parent.image = info[.originalImage] as? UIImage
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+#endif
 
 // MARK: - Live download indicator rows
 
@@ -521,4 +750,3 @@ struct PlaylistSongRows: View {
         #endif
     }
 }
-

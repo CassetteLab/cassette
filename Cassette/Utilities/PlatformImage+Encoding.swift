@@ -13,7 +13,7 @@ import AppKit
 extension PlatformImage {
     /// Returns a copy scaled down so neither dimension exceeds maxDimension.
     /// Returns self unchanged if already within bounds.
-    func resized(maxDimension: CGFloat) -> PlatformImage {
+    nonisolated func resized(maxDimension: CGFloat) -> PlatformImage {
         let maxSide = max(size.width, size.height)
         guard maxSide > maxDimension else { return self }
         let scale = maxDimension / maxSide
@@ -34,7 +34,7 @@ extension PlatformImage {
     }
 
     /// JPEG-encodes the receiver at the given quality (0.0–1.0).
-    func jpgData(quality: CGFloat) -> Data? {
+    nonisolated func jpgData(quality: CGFloat) -> Data? {
         #if canImport(UIKit)
         return jpegData(compressionQuality: quality)
         #elseif canImport(AppKit)
