@@ -115,7 +115,7 @@ final class AppContainer {
         let lbClient = ListenBrainzClient(transport: URLSessionListenBrainzTransport())
         listenBrainzService = ListenBrainzService(client: lbClient, keychain: keychain)
 
-        let subsonicProvider = SubsonicRecommendationProvider(serverService: server)
+        let subsonicProvider = SubsonicRecommendationProvider(libraryService: library)
         let lbProvider = ListenBrainzRecommendationProvider(client: lbClient, service: listenBrainzService, libraryService: library)
         recommendationService = RecommendationService(providers: [lbProvider, subsonicProvider])
 
