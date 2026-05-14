@@ -5,6 +5,7 @@
 
 import Testing
 import Foundation
+import SwiftSonic
 @testable import Cassette
 
 // MARK: - Integration mock infrastructure
@@ -73,7 +74,33 @@ private let integrationJSON = Data("""
 }
 """.utf8)
 
-private let artistStubInt = SimilarArtistRecommendation(id: "sub-a1", name: "Subsonic Artist", coverArt: nil, inLibrary: true)
+private let artistStubInt = SimilarArtistRecommendation(id: "sub-a1", name: "Subsonic Artist", coverArt: nil, inLibrary: true, mbid: nil)
+
+private actor RSILibraryNullStub: LibraryServiceProtocol {
+    func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
+    func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
+    func album(id: String) async throws -> AlbumID3 { throw URLError(.unknown) }
+    func fetchAllTracks(forArtistID artistID: String) async throws -> [DisplayableSong] { throw URLError(.unknown) }
+    func playlists() async throws -> [Playlist] { throw URLError(.unknown) }
+    func playlist(id: String) async throws -> PlaylistWithSongs { throw URLError(.unknown) }
+    func search(_ query: String) async throws -> SearchResult3 { throw URLError(.unknown) }
+    func coverArtURL(id: String, size: Int?) async -> URL? { nil }
+    func streamURL(songId: String) async -> URL? { nil }
+    func star(songIds: [String], albumIds: [String], artistIds: [String]) async throws {}
+    func unstar(songIds: [String], albumIds: [String], artistIds: [String]) async throws {}
+    func getStarred2() async throws -> Starred2 { throw URLError(.unknown) }
+    func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func allAlbums() async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func scrobble(songId: String, submission: Bool) async {}
+    func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func mostPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func randomSongs(size: Int) async throws -> [Song] { throw URLError(.unknown) }
+    func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong] { throw URLError(.unknown) }
+    func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {}
+    func getPlayQueue() async throws -> SavedPlayQueue? { nil }
+    func getArtistMBID(forArtistID artistID: String) async throws -> String? { nil }
+    func findArtist(byName name: String) async -> ArtistID3? { nil }
+}
 
 private func makeLBComponents(serviceTransport: any ListenBrainzTransport, providerTransport: any ListenBrainzTransport) -> (ListenBrainzRecommendationProvider, ListenBrainzService) {
     let keychain = RSIKeychain()
@@ -81,7 +108,7 @@ private func makeLBComponents(serviceTransport: any ListenBrainzTransport, provi
     let serviceClient = ListenBrainzClient(transport: serviceTransport)
     let service = ListenBrainzService(client: serviceClient, keychain: keychain, userDefaults: defaults)
     let providerClient = ListenBrainzClient(transport: providerTransport)
-    let provider = ListenBrainzRecommendationProvider(client: providerClient, service: service)
+    let provider = ListenBrainzRecommendationProvider(client: providerClient, service: service, libraryService: RSILibraryNullStub())
     return (provider, service)
 }
 

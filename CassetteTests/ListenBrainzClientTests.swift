@@ -44,11 +44,34 @@ private func response(status: Int, headers: [String: String]? = nil) -> HTTPURLR
 @Suite("ListenBrainzClient — validateUsername")
 struct ListenBrainzClientTests {
 
-    @Test("valid username and 200 returns true")
-    func happyPath() async throws {
-        let client = makeClient { _ in (Data(), response(status: 200)) }
+    @Test("valid username, 200 + count > 0 returns true")
+    func happyPathWithCount() async throws {
+        let body = Data(#"{"payload":{"count":1234}}"#.utf8)
+        let client = makeClient { _ in (body, response(status: 200)) }
         let result = try await client.validateUsername("testuser")
         #expect(result == true)
+    }
+
+    @Test("valid username, 200 + count = 0 still returns true (user exists, never listened)")
+    func happyPathZeroCount() async throws {
+        let body = Data(#"{"payload":{"count":0}}"#.utf8)
+        let client = makeClient { _ in (body, response(status: 200)) }
+        let result = try await client.validateUsername("newuser")
+        #expect(result == true)
+    }
+
+    @Test("200 with non-JSON body throws .decoding (guards against HTML redirect responses)")
+    func twoHundredNonJSONBodyThrowsDecoding() async throws {
+        let htmlBody = Data("<html><body>Not JSON</body></html>".utf8)
+        let client = makeClient { _ in (htmlBody, response(status: 200)) }
+        do {
+            _ = try await client.validateUsername("testuser")
+            Issue.record("Expected throw")
+        } catch ListenBrainzError.decoding {
+            // correct
+        } catch {
+            Issue.record("Expected .decoding, got \(error)")
+        }
     }
 
     @Test("404 throws userNotFound")

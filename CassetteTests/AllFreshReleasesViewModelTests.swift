@@ -26,6 +26,7 @@ private struct AFRMockProvider: RecommendationProvider {
 
 // MARK: - Helpers
 
+@MainActor
 private func makeVM(releases: [AlbumRecommendation] = [], shouldThrow: Bool = false) -> AllFreshReleasesViewModel {
     let provider = AFRMockProvider(releases: releases, shouldThrow: shouldThrow)
     let service = RecommendationService(providers: [provider])

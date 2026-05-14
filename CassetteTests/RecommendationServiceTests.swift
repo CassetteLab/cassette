@@ -39,8 +39,8 @@ private struct MockRecommendationProvider: RecommendationProvider {
 
 // MARK: - Fixtures
 
-private let artistStub = SimilarArtistRecommendation(id: "a1", name: "Artist One", coverArt: nil, inLibrary: true)
-private let artistStub2 = SimilarArtistRecommendation(id: "a2", name: "Artist Two", coverArt: nil, inLibrary: true)
+private let artistStub = SimilarArtistRecommendation(id: "a1", name: "Artist One", coverArt: nil, inLibrary: true, mbid: nil)
+private let artistStub2 = SimilarArtistRecommendation(id: "a2", name: "Artist Two", coverArt: nil, inLibrary: true, mbid: nil)
 private let albumStub = AlbumRecommendation(id: "al1", title: "Album One", artistName: "Artist One", releaseDate: nil, coverArtURL: nil, inLibrary: true)
 
 // MARK: - RecommendationService — similarArtists

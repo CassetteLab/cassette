@@ -29,7 +29,7 @@ private actor CountingFetcher: ExternalArtworkFetcher {
 
     nonisolated func fetchData(from url: URL) async throws -> Data {
         await increment()
-        switch await result {
+        switch result {
         case .success(let data): return data
         case .failure(let error): throw error
         }

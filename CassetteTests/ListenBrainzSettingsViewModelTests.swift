@@ -45,6 +45,7 @@ private actor VMKeychain: KeychainServiceProtocol {
     }
 }
 
+@MainActor
 private func makeComponents() -> (ListenBrainzSettingsViewModel, VMTransport, UserDefaults) {
     let transport = VMTransport()
     let keychain = VMKeychain()
