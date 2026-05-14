@@ -12,6 +12,7 @@ struct ArtistDetailView: View {
 
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistDetailViewModel?
+    @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
 
     init(artist: ArtistID3) {
@@ -59,9 +60,18 @@ struct ArtistDetailView: View {
             }
         }
         .task {
-            guard let svc = container?.libraryService else { return }
-            if viewModel == nil { viewModel = ArtistDetailViewModel(artistId: artist.id, libraryService: svc) }
+            guard let c = container else { return }
+            if viewModel == nil {
+                viewModel = ArtistDetailViewModel(
+                    artistId: artist.id,
+                    libraryService: c.libraryService,
+                    recommendationService: c.recommendationService
+                )
+            }
             await viewModel?.load()
+        }
+        .sheet(item: $selectedOutOfLibraryArtist) { rec in
+            OutOfLibraryArtistSheet(artist: rec)
         }
     }
 
@@ -174,12 +184,59 @@ struct ArtistDetailView: View {
                         }
                     }
                     .padding(CassetteSpacing.l)
+
+                    if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
+                        similarArtistsSection(vm: vm)
+                            .padding(.bottom, CassetteSpacing.l)
+                    }
                 }
                 .refreshable { await vm.load() }
             }
         }
     }
+
+    // MARK: - Similar Artists Section
+
+    @ViewBuilder
+    private func similarArtistsSection(vm: ArtistDetailViewModel) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            Text("Similar Artists")
+                .font(.cassetteSectionTitle)
+                .padding(.horizontal, CassetteSpacing.m)
+
+            if vm.isLoadingSimilarArtists {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.m) {
+                        ForEach(0..<8, id: \.self) { _ in
+                            VStack(spacing: CassetteSpacing.xs) {
+                                SkeletonBlock(width: 64, height: 64, cornerRadius: 32)
+                                SkeletonBlock(width: 72, height: 10)
+                            }
+                            .frame(width: 80)
+                        }
+                    }
+                    .padding(.horizontal, CassetteSpacing.m)
+                }
+                .allowsHitTesting(false)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.m) {
+                        ForEach(vm.similarArtists) { rec in
+                            SimilarArtistCell(
+                                recommendation: rec,
+                                onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
+                            )
+                            .frame(width: 80)
+                        }
+                    }
+                    .padding(.horizontal, CassetteSpacing.m)
+                }
+            }
+        }
+    }
 }
+
+// MARK: - Album grid cell
 
 private struct AlbumGridCell: View {
     let album: AlbumID3
@@ -217,5 +274,120 @@ private struct AlbumGridCell: View {
             coverImage: coverImage,
             favoriteType: .album
         )
+    }
+}
+
+// MARK: - Similar artist cell
+
+private struct SimilarArtistCell: View {
+    let recommendation: SimilarArtistRecommendation
+    let onOutOfLibraryTap: () -> Void
+
+    var body: some View {
+        if recommendation.inLibrary {
+            NavigationLink(destination: {
+                ArtistDetailView(artist: ArtistID3(id: recommendation.id, name: recommendation.name))
+            }) {
+                cellContent
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button(action: onOutOfLibraryTap) {
+                cellContent
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var cellContent: some View {
+        VStack(spacing: CassetteSpacing.xs) {
+            if recommendation.inLibrary, let coverArt = recommendation.coverArt {
+                CoverArtView(id: coverArt, size: 128, placeholderSystemImage: "person.fill")
+                    .frame(width: 64, height: 64)
+                    .clipShape(Circle())
+            } else {
+                Circle()
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(width: 64, height: 64)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .foregroundStyle(.secondary)
+                    }
+            }
+
+            Text(recommendation.name)
+                .font(.cassetteCaption)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+// MARK: - Out-of-library artist sheet
+
+struct OutOfLibraryArtistSheet: View {
+    let artist: SimilarArtistRecommendation
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: CassetteSpacing.l) {
+                    Circle()
+                        .fill(Color.secondary.opacity(0.12))
+                        .frame(width: 120, height: 120)
+                        .overlay {
+                            Image(systemName: "person.fill")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.top, CassetteSpacing.l)
+
+                    VStack(spacing: CassetteSpacing.xs) {
+                        Text(artist.name)
+                            .font(.title2.bold())
+                            .multilineTextAlignment(.center)
+
+                        Text("Not in your library")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let mbid = artist.mbid,
+                       let url = URL(string: "https://listenbrainz.org/artist/\(mbid)/") {
+                        Button {
+                            openURL(url)
+                        } label: {
+                            HStack {
+                                Text("View on ListenBrainz")
+                                Spacer(minLength: 0)
+                                Image(systemName: "arrow.up.right")
+                            }
+                            .font(.cassetteCellTitle)
+                            .padding(CassetteSpacing.m)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.cassetteAccent.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+                            .foregroundStyle(Color.cassetteAccent)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, CassetteSpacing.l)
+                    }
+                }
+                .padding(CassetteSpacing.l)
+            }
+            .navigationTitle(artist.name)
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
     }
 }

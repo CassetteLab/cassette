@@ -11,6 +11,7 @@ import OSLog
 @MainActor
 final class DiscoverViewModel {
     private let libraryService: any LibraryServiceProtocol
+    private let recommendationService: RecommendationService
 
     // MARK: - State
 
@@ -18,9 +19,12 @@ final class DiscoverViewModel {
     private(set) var mostPlayed: [AlbumID3] = []
     private(set) var isLoading: Bool = false
     private(set) var loadError: Error?
+    private(set) var freshReleases: [AlbumRecommendation] = []
+    private(set) var isLoadingFreshReleases: Bool = false
 
-    init(libraryService: any LibraryServiceProtocol) {
+    init(libraryService: any LibraryServiceProtocol, recommendationService: RecommendationService) {
         self.libraryService = libraryService
+        self.recommendationService = recommendationService
     }
 
     // MARK: - Derived state
@@ -55,6 +59,16 @@ final class DiscoverViewModel {
         } catch {
             self.loadError = error
             Logger.discover.error("Failed to load Discover sections: \(error, privacy: .public)")
+        }
+    }
+
+    func loadFreshReleases() async {
+        isLoadingFreshReleases = true
+        defer { isLoadingFreshReleases = false }
+        do {
+            freshReleases = try await recommendationService.freshReleases(limit: 20)
+        } catch {
+            Logger.discover.error("Failed to load fresh releases: \(error, privacy: .public)")
         }
     }
 }
