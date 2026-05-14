@@ -27,6 +27,8 @@ nonisolated enum CassetteError: Error, Sendable {
     case smartShuffleEmpty
     /// All album fetches failed while building the artist's full track list.
     case artistTracksUnavailable
+    /// An operation exceeded its allowed time budget and was cancelled.
+    case timeout
 }
 
 extension CassetteError: LocalizedError {
@@ -64,6 +66,8 @@ extension CassetteError: LocalizedError {
             return "Your library is too small for Smart Shuffle. Try downloading more music or playing some tracks first."
         case .artistTracksUnavailable:
             return "Unable to load tracks for this artist. Please check your connection and try again."
+        case .timeout:
+            return "The operation timed out. Please check your connection and try again."
         }
     }
 }

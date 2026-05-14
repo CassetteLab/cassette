@@ -69,8 +69,14 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
 
     // MARK: - Similar artists support
 
-    /// Returns the MusicBrainz ID for the given Subsonic artist ID by calling `getArtistInfo2`.
-    /// Returns `nil` when the server does not supply MBID data (e.g. non-OpenSubsonic servers).
+    /// Returns raw `ArtistInfo` for the given Subsonic artist ID.
+    /// Results are cached in-memory for the lifetime of the active server connection.
+    /// A 15-second timeout guards against slow external lookups (Last.fm/MusicBrainz)
+    /// that some Subsonic server implementations trigger on `getArtistInfo`.
+    func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo
+
+    /// Returns the MusicBrainz ID for the given Subsonic artist ID.
+    /// Delegates to `getArtistInfo(forArtistID:count:)` and extracts `musicBrainzId`.
     func getArtistMBID(forArtistID artistID: String) async throws -> String?
 
     /// Returns the first library artist whose name matches case-insensitively.

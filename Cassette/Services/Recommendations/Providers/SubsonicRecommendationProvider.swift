@@ -4,34 +4,32 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
-import SwiftSonic
 import OSLog
 
 actor SubsonicRecommendationProvider: RecommendationProvider {
-    private let serverService: any ServerServiceProtocol
-    private var cachedClient: SwiftSonicClient?
-    private var cachedServerId: UUID?
+    private let libraryService: any LibraryServiceProtocol
 
-    init(serverService: any ServerServiceProtocol) {
-        self.serverService = serverService
-    }
-
-    private func client() async throws -> SwiftSonicClient {
-        let activeId = await MainActor.run { serverService.state.activeServer?.id }
-        if let cached = cachedClient, cachedServerId == activeId, activeId != nil {
-            return cached
-        }
-        let fresh = try await serverService.makeSwiftSonicClient()
-        cachedClient = fresh
-        cachedServerId = activeId
-        return fresh
+    init(libraryService: any LibraryServiceProtocol) {
+        self.libraryService = libraryService
     }
 
     func similarArtists(toArtistID: String, limit: Int) async throws -> [SimilarArtistRecommendation] {
-        let info = try await client().getArtistInfo2(id: toArtistID, count: limit)
-        return (info.similarArtist ?? []).prefix(limit).map {
-            SimilarArtistRecommendation(id: $0.id, name: $0.name, coverArt: $0.coverArt, inLibrary: true, mbid: $0.musicBrainzId)
+        let info = try await libraryService.getArtistInfo(forArtistID: toArtistID, count: limit)
+        let similar = (info.similarArtist ?? []).prefix(limit)
+        var results: [SimilarArtistRecommendation] = []
+        results.reserveCapacity(similar.count)
+        for s in similar {
+            let inLibrary = await libraryService.findArtist(byName: s.name) != nil
+            results.append(SimilarArtistRecommendation(
+                id: s.id,
+                name: s.name,
+                coverArt: s.coverArt,
+                inLibrary: inLibrary,
+                mbid: s.musicBrainzId
+            ))
         }
+        Logger.recommendations.debug("[SUBSONIC] similarArtists: \(results.count, privacy: .public) results (\(results.filter { $0.inLibrary }.count, privacy: .public) in library) for artistId=\(toArtistID, privacy: .public)")
+        return results
     }
 
     func freshReleases(limit: Int, daysWindow: Int) async throws -> [AlbumRecommendation] {

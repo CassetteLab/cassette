@@ -14,6 +14,7 @@ actor LibraryService: LibraryServiceProtocol {
     private var cachedClient: SwiftSonicClient?
     private var cachedServerId: UUID?
     private var artistNameIndex: [String: ArtistID3]?
+    private var artistInfoCache: [String: ArtistInfo] = [:]
 
     init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer) {
         self.serverService = serverService
@@ -28,6 +29,8 @@ actor LibraryService: LibraryServiceProtocol {
         let fresh = try await serverService.makeSwiftSonicClient()
         cachedClient = fresh
         cachedServerId = activeId
+        artistInfoCache = [:]
+        artistNameIndex = nil
         return fresh
     }
 
@@ -222,9 +225,30 @@ actor LibraryService: LibraryServiceProtocol {
 
     // MARK: - Similar artists support
 
+    func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo {
+        if let cached = artistInfoCache[artistID] {
+            Logger.library.debug("[ARTIST-INFO] cache hit artistId=\(artistID, privacy: .public)")
+            return cached
+        }
+        let started = Date()
+        let info = try await withThrowingTaskGroup(of: ArtistInfo.self) { group in
+            group.addTask { try await self.client().getArtistInfo2(id: artistID, count: count) }
+            group.addTask {
+                try await Task.sleep(for: .seconds(15))
+                throw CassetteError.timeout
+            }
+            let result = try await group.next()!
+            group.cancelAll()
+            return result
+        }
+        let elapsed = Date().timeIntervalSince(started)
+        Logger.library.debug("[ARTIST-INFO] fetched artistId=\(artistID, privacy: .public) in \(String(format: "%.2f", elapsed), privacy: .public)s")
+        artistInfoCache[artistID] = info
+        return info
+    }
+
     func getArtistMBID(forArtistID artistID: String) async throws -> String? {
-        let info = try await client().getArtistInfo2(id: artistID, count: 0)
-        return info.musicBrainzId
+        try await getArtistInfo(forArtistID: artistID, count: 20).musicBrainzId
     }
 
     func findArtist(byName name: String) async -> ArtistID3? {
