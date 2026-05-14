@@ -26,13 +26,8 @@ struct FreshReleaseDetailSheet: View {
                 Color.clear
                     .aspectRatio(1, contentMode: .fit)
                     .overlay {
-                        AsyncImage(url: release.coverArtURL) { phase in
-                            switch phase {
-                            case .success(let image):
-                                image.resizable().scaledToFill()
-                            default:
-                                Color.secondary.opacity(0.2)
-                            }
+                        ExternalCoverView(url: release.coverArtURL) {
+                            Color.secondary.opacity(0.2)
                         }
                     }
                     .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.large)

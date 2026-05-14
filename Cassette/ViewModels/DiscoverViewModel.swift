@@ -66,7 +66,10 @@ final class DiscoverViewModel {
         isLoadingFreshReleases = true
         defer { isLoadingFreshReleases = false }
         do {
-            freshReleases = try await recommendationService.freshReleases(limit: 20)
+            let fetched = try await recommendationService.freshReleases(limit: 10, daysWindow: 7)
+            freshReleases = fetched.sorted {
+                ($0.releaseDate ?? .distantPast) > ($1.releaseDate ?? .distantPast)
+            }
         } catch {
             Logger.discover.error("Failed to load fresh releases: \(error, privacy: .public)")
         }

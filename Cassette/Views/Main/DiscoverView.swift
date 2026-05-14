@@ -13,6 +13,9 @@ struct DiscoverView: View {
     @Namespace private var mostPlayedNS
     @State private var yearlyPlaylists: [WrappedYearlyPlaylist] = []
     @State private var radioStations: [InternetRadioStation] = []
+    @State private var selectedRelease: AlbumRecommendation?
+    @State private var showAllFreshReleases = false
+    @State private var allReleasesVM: AllFreshReleasesViewModel?
 
     var body: some View {
         ScrollView {
@@ -21,6 +24,7 @@ struct DiscoverView: View {
                     if vm.isErrorState {
                         errorBanner(vm: vm)
                     } else {
+                        freshReleasesSection(vm: vm)
                         recentlyPlayedSection(vm: vm)
                         mostPlayedSection(vm: vm)
                     }
@@ -36,19 +40,51 @@ struct DiscoverView: View {
         .task {
             guard let container else { return }
             if vm == nil {
-                vm = DiscoverViewModel(libraryService: container.libraryService)
+                vm = DiscoverViewModel(
+                    libraryService: container.libraryService,
+                    recommendationService: container.recommendationService
+                )
+            }
+            if allReleasesVM == nil {
+                allReleasesVM = AllFreshReleasesViewModel(recommendationService: container.recommendationService)
             }
             await vm?.load()
+            await vm?.loadFreshReleases()
             guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
             yearlyPlaylists = await container.wrappedPlaylistService.fetchYearlyPlaylists(serverId: serverId)
             radioStations = (try? await container.radioService.listStations(forceRefresh: false)) ?? []
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
+            await vm?.loadFreshReleases()
+        }
+        .sheet(isPresented: Binding(
+            get: { selectedRelease != nil },
+            set: { if !$0 { selectedRelease = nil } }
+        )) {
+            if let release = selectedRelease {
+                NavigationStack {
+                    FreshReleaseDetailSheet(release: release, providers: container?.externalProvidersStore.load() ?? [])
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showAllFreshReleases) {
+            if let vm = allReleasesVM {
+                AllFreshReleasesView(vm: vm)
+            }
         }
     }
 
     // MARK: - Sections
+
+    private func freshReleasesSection(vm: DiscoverViewModel) -> some View {
+        FreshReleasesCard(
+            releases: vm.freshReleases,
+            isLoading: vm.isLoadingFreshReleases,
+            onTap: { release in selectedRelease = release },
+            onSeeAll: { showAllFreshReleases = true }
+        )
+    }
 
     private func recentlyPlayedSection(vm: DiscoverViewModel) -> some View {
         #if os(macOS)
