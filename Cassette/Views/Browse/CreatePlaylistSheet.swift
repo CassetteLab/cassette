@@ -5,6 +5,11 @@
 
 import SwiftUI
 import SwiftSonic
+import OSLog
+#if os(iOS)
+import PhotosUI
+import UniformTypeIdentifiers
+#endif
 
 struct CreatePlaylistSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -13,6 +18,15 @@ struct CreatePlaylistSheet: View {
     @FocusState private var nameFieldFocused: Bool
 
     var onCreated: ((PlaylistWithSongs) -> Void)? = nil
+
+    #if os(iOS)
+    @State private var pendingImage: UIImage?
+    @State private var showImageOptions = false
+    @State private var showPhotoPicker = false
+    @State private var showCamera = false
+    @State private var showFilePicker = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -32,9 +46,14 @@ struct CreatePlaylistSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
-                        guard let vm = viewModel else { return }
+                        guard let vm = viewModel, let c = container else { return }
                         Task {
                             if let created = await vm.create() {
+                                #if os(iOS)
+                                if let image = pendingImage {
+                                    await uploadCoverImage(image, playlistId: created.id, container: c)
+                                }
+                                #endif
                                 onCreated?(created)
                                 dismiss()
                             }
@@ -52,6 +71,43 @@ struct CreatePlaylistSheet: View {
                 }
             }
         }
+        #if os(iOS)
+        .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
+            Button("Choose from Library") { showPhotoPicker = true }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take a Photo") { showCamera = true }
+            }
+            Button("Browse Files") { showFilePicker = true }
+            if pendingImage != nil {
+                Button("Remove Image", role: .destructive) { pendingImage = nil }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraImagePickerSheet(image: $pendingImage)
+                .ignoresSafeArea()
+        }
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.jpeg, .png, .heic, .webP],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url) {
+                pendingImage = UIImage(data: data)
+            }
+        }
+        .task(id: selectedPhotoItem) {
+            guard let item = selectedPhotoItem else { return }
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                pendingImage = UIImage(data: data)
+            }
+            selectedPhotoItem = nil
+        }
+        #endif
         .task {
             guard let c = container else { return }
             if viewModel == nil {
@@ -67,6 +123,12 @@ struct CreatePlaylistSheet: View {
     @ViewBuilder
     private func content(_ vm: CreatePlaylistViewModel) -> some View {
         Form {
+            #if os(iOS)
+            Section {
+                coverPickerButton
+            }
+            #endif
+
             Section("Name") {
                 TextField("My Awesome Playlist", text: Bindable(vm).name)
                     .focused($nameFieldFocused)
@@ -83,4 +145,95 @@ struct CreatePlaylistSheet: View {
         }
         .scrollDismissesKeyboard(.interactively)
     }
+
+    #if os(iOS)
+    @ViewBuilder
+    private var coverPickerButton: some View {
+        Button {
+            showImageOptions = true
+        } label: {
+            HStack(spacing: CassetteSpacing.m) {
+                ZStack {
+                    if let pending = pendingImage {
+                        Image(uiImage: pending)
+                            .resizable()
+                            .aspectRatio(1, contentMode: .fill)
+                            .frame(width: 56, height: 56)
+                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
+                    } else {
+                        RoundedRectangle(cornerRadius: CassetteCornerRadius.standard)
+                            .fill(Color.secondary.opacity(0.15))
+                            .frame(width: 56, height: 56)
+                        Image(systemName: "photo")
+                            .font(.title3)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Text(pendingImage == nil ? "Add Cover Art" : "Change Cover Art")
+                    .foregroundStyle(Color.cassetteAccent)
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func uploadCoverImage(_ image: UIImage, playlistId: String, container: AppContainer) async {
+        guard let jpegData = image.jpegData(compressionQuality: 0.85),
+              let snapshot = container.serverState.activeServer,
+              let baseURL = URL(string: snapshot.baseURL) else { return }
+        do {
+            let creds = try await container.serverService.activeCredentials()
+            let api = NavidromeNativeAPI()
+            let token = try await api.authenticate(
+                baseURL: baseURL,
+                username: snapshot.username,
+                password: creds.password
+            )
+            try await api.uploadPlaylistCover(
+                baseURL: baseURL,
+                token: token,
+                playlistId: playlistId,
+                imageData: jpegData,
+                mimeType: "image/jpeg"
+            )
+        } catch {
+            Logger.playlist.warning("CreatePlaylistSheet: cover image upload failed: \(error)")
+        }
+    }
+    #endif
 }
+
+// MARK: - Camera picker for sheet context (iOS only)
+
+#if os(iOS)
+private struct CameraImagePickerSheet: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let parent: CameraImagePickerSheet
+
+        init(_ parent: CameraImagePickerSheet) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            parent.image = info[.originalImage] as? UIImage
+            parent.dismiss()
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            parent.dismiss()
+        }
+    }
+}
+#endif
