@@ -233,24 +233,11 @@ actor LibraryService: LibraryServiceProtocol {
         Logger.library.notice("[ARTIST-INFO] cache miss — network call artistId=\(artistID, privacy: .public) count=\(count, privacy: .public)")
         let started = Date()
         do {
-            let info = try await withThrowingTaskGroup(of: ArtistInfo.self) { group in
-                group.addTask { try await self.client().getArtistInfo2(id: artistID, count: count) }
-                group.addTask {
-                    try await Task.sleep(for: .seconds(15))
-                    throw CassetteError.timeout
-                }
-                let result = try await group.next()!
-                group.cancelAll()
-                return result
-            }
+            let info = try await client().getArtistInfo2(id: artistID, count: count)
             let elapsed = Date().timeIntervalSince(started)
             Logger.library.notice("[ARTIST-INFO] success artistId=\(artistID, privacy: .public) \(String(format: "%.2f", elapsed), privacy: .public)s similarCount=\(info.similarArtist?.count ?? 0, privacy: .public)")
             artistInfoCache[artistID] = info
             return info
-        } catch CassetteError.timeout {
-            let elapsed = Date().timeIntervalSince(started)
-            Logger.library.notice("[ARTIST-INFO] TIMEOUT after \(String(format: "%.2f", elapsed), privacy: .public)s artistId=\(artistID, privacy: .public)")
-            throw CassetteError.timeout
         } catch {
             let elapsed = Date().timeIntervalSince(started)
             Logger.library.notice("[ARTIST-INFO] FAILED after \(String(format: "%.2f", elapsed), privacy: .public)s artistId=\(artistID, privacy: .public): \(error, privacy: .public)")
