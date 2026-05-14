@@ -5,18 +5,28 @@
 
 import Foundation
 
-struct LBFreshReleasesResponse: Decodable, Sendable {
+/// Response DTO for GET /1/user/{username}/listen-count.
+/// Used by `ListenBrainzClient.validateUsername(_:)` to confirm a user exists via a real JSON API
+/// endpoint. The previous `/1/user/{name}` route was an HTML web route that returned a 308 redirect.
+nonisolated struct LBListenCountResponse: Decodable, Sendable {
+    nonisolated struct Payload: Decodable, Sendable {
+        let count: Int64
+    }
+    let payload: Payload
+}
+
+nonisolated struct LBFreshReleasesResponse: Decodable, Sendable {
     let payload: LBFreshReleasesPayload
 }
 
-struct LBFreshReleasesPayload: Decodable, Sendable {
+nonisolated struct LBFreshReleasesPayload: Decodable, Sendable {
     let releases: [LBFreshReleaseDTO]
 }
 
 /// Internal DTO for a single release from the ListenBrainz fresh_releases endpoint.
 /// Date parsing is intentionally deferred to the mapping layer (ListenBrainzRecommendationProvider)
 /// so a malformed release_date string on one entry does not fail the entire response.
-struct LBFreshReleaseDTO: Decodable, Sendable {
+nonisolated struct LBFreshReleaseDTO: Decodable, Sendable {
     let artistCreditName: String
     let releaseName: String
     /// Raw "YYYY-MM-DD" string. `nil` when absent in the response.
