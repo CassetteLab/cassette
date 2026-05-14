@@ -30,7 +30,7 @@ actor SubsonicRecommendationProvider: RecommendationProvider {
     func similarArtists(toArtistID: String, limit: Int) async throws -> [SimilarArtistRecommendation] {
         let info = try await client().getArtistInfo2(id: toArtistID, count: limit)
         return (info.similarArtist ?? []).prefix(limit).map {
-            SimilarArtistRecommendation(id: $0.id, name: $0.name, coverArt: $0.coverArt, inLibrary: true)
+            SimilarArtistRecommendation(id: $0.id, name: $0.name, coverArt: $0.coverArt, inLibrary: true, mbid: $0.musicBrainzId)
         }
     }
 

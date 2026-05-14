@@ -21,7 +21,7 @@ protocol ExternalArtworkFetcher: Sendable {
 struct URLSessionExternalFetcher: ExternalArtworkFetcher {
     private let session: URLSession
 
-    init() {
+    nonisolated init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
         session = URLSession(configuration: config)

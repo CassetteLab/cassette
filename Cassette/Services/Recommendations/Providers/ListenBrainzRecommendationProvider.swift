@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import SwiftSonic
 import OSLog
 
 actor ListenBrainzRecommendationProvider: RecommendationProvider {
