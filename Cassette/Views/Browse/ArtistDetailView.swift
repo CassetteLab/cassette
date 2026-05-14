@@ -71,7 +71,10 @@ struct ArtistDetailView: View {
             await viewModel?.load()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
-            OutOfLibraryArtistSheet(artist: rec)
+            OutOfLibraryArtistSheet(
+                artist: rec,
+                providers: container?.externalProvidersStore.load() ?? []
+            )
         }
     }
 
@@ -328,6 +331,7 @@ private struct SimilarArtistCell: View {
 
 struct OutOfLibraryArtistSheet: View {
     let artist: SimilarArtistRecommendation
+    let providers: [ExternalReleaseProvider]
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -356,26 +360,7 @@ struct OutOfLibraryArtistSheet: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if let mbid = artist.mbid,
-                       let url = URL(string: "https://listenbrainz.org/artist/\(mbid)/") {
-                        Button {
-                            openURL(url)
-                        } label: {
-                            HStack {
-                                Text("View on ListenBrainz")
-                                Spacer(minLength: 0)
-                                Image(systemName: "arrow.up.right")
-                            }
-                            .font(.cassetteCellTitle)
-                            .padding(CassetteSpacing.m)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.cassetteAccent.opacity(0.1))
-                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
-                            .foregroundStyle(Color.cassetteAccent)
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, CassetteSpacing.l)
-                    }
+                    externalLinksSection
                 }
                 .padding(CassetteSpacing.l)
             }
@@ -389,5 +374,57 @@ struct OutOfLibraryArtistSheet: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var externalLinksSection: some View {
+        VStack(spacing: CassetteSpacing.s) {
+            if !providers.isEmpty {
+                ForEach(providers) { provider in
+                    if let url = provider.buildURL(artistName: artist.name, albumTitle: "") {
+                        externalLinkButton(title: "View on \(provider.name)", url: url, secondary: false)
+                    }
+                }
+            }
+
+            if let mbid = artist.mbid {
+                if let lbURL = URL(string: "https://listenbrainz.org/artist/\(mbid)/") {
+                    externalLinkButton(
+                        title: "View on ListenBrainz",
+                        url: lbURL,
+                        secondary: !providers.isEmpty
+                    )
+                }
+                if let mbURL = URL(string: "https://musicbrainz.org/artist/\(mbid)") {
+                    externalLinkButton(
+                        title: "View on MusicBrainz",
+                        url: mbURL,
+                        secondary: !providers.isEmpty
+                    )
+                }
+            }
+        }
+        .padding(.horizontal, CassetteSpacing.l)
+    }
+
+    private func externalLinkButton(title: String, url: URL, secondary: Bool) -> some View {
+        Button {
+            openURL(url)
+        } label: {
+            HStack {
+                Text(title)
+                Spacer(minLength: 0)
+                Image(systemName: "arrow.up.right")
+            }
+            .font(.cassetteCellTitle)
+            .padding(CassetteSpacing.m)
+            .frame(maxWidth: .infinity)
+            .background(secondary
+                ? Color.secondary.opacity(0.08)
+                : Color.cassetteAccent.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+            .foregroundStyle(secondary ? Color.secondary : Color.cassetteAccent)
+        }
+        .buttonStyle(.plain)
     }
 }

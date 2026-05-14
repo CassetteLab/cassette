@@ -38,8 +38,8 @@ struct ArtistDetailMacOS: View {
         .toolbar { artistToolbar }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .task {
-            guard let svc = container?.libraryService else { return }
-            if vm == nil { vm = ArtistDetailViewModel(artistId: artistId, libraryService: svc) }
+            guard let svc = container?.libraryService, let rs = container?.recommendationService else { return }
+            if vm == nil { vm = ArtistDetailViewModel(artistId: artistId, libraryService: svc, recommendationService: rs) }
             await vm?.load()
         }
     }
