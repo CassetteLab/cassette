@@ -13,10 +13,21 @@ protocol ListenBrainzTransport: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
 }
 
-/// Default implementation backed by URLSession.shared.
+/// Default implementation backed by a dedicated URLSession with 30-second timeouts.
+/// Uses a private session rather than `.shared` so timeout configuration is isolated
+/// from other in-process networking.
 nonisolated struct URLSessionListenBrainzTransport: ListenBrainzTransport {
+    private let session: URLSession
+
+    init() {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 30
+        session = URLSession(configuration: config)
+    }
+
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw URLError(.badServerResponse)
         }

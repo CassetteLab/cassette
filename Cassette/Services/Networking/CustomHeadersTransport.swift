@@ -16,11 +16,26 @@ import SwiftSonic
 /// - Headers are validated (no \\r / \\n) before storage; this transport trusts the caller.
 /// - This transport only covers SwiftSonic requests. AVPlayer and URLSessionDownloadTask
 ///   require separate header injection at their respective call sites.
+///
+/// Timeout policy: the default initializer creates a dedicated URLSession with
+/// `timeoutIntervalForRequest = 30` and `timeoutIntervalForResource = 30`.
+/// The resource timeout (default 7 days in URLSession) is the critical guard
+/// against hung Subsonic responses when the server triggers slow external lookups.
 struct CustomHeadersTransport: HTTPTransport, Sendable {
     private let base: any HTTPTransport
     private let headers: [String: String]
 
-    init(base: any HTTPTransport = URLSessionTransport(), headers: [String: String]) {
+    /// Normal use case. Creates a dedicated URLSession with 30-second timeouts.
+    init(headers: [String: String]) {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 30
+        self.base = URLSessionTransport(configuration: config)
+        self.headers = headers
+    }
+
+    /// Testability / advanced use. Inject a pre-configured transport as the base.
+    init(base: any HTTPTransport, headers: [String: String]) {
         self.base = base
         self.headers = headers
     }
