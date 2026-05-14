@@ -66,4 +66,14 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
     func getPlayQueue() async throws -> SavedPlayQueue?
+
+    // MARK: - Similar artists support
+
+    /// Returns the MusicBrainz ID for the given Subsonic artist ID by calling `getArtistInfo2`.
+    /// Returns `nil` when the server does not supply MBID data (e.g. non-OpenSubsonic servers).
+    func getArtistMBID(forArtistID artistID: String) async throws -> String?
+
+    /// Returns the first library artist whose name matches case-insensitively.
+    /// Uses a lazy in-memory index built on first call; subsequent lookups are O(1).
+    func findArtist(byName name: String) async -> ArtistID3?
 }

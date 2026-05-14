@@ -13,6 +13,7 @@ actor LibraryService: LibraryServiceProtocol {
     private let modelContainer: ModelContainer
     private var cachedClient: SwiftSonicClient?
     private var cachedServerId: UUID?
+    private var artistNameIndex: [String: ArtistID3]?
 
     init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer) {
         self.serverService = serverService
@@ -217,6 +218,37 @@ actor LibraryService: LibraryServiceProtocol {
         }
         Logger.library.debug("Smart shuffle online: pool fully recent, falling back to oldest-played first (\(sorted.count) tracks)")
         return Array(sorted.prefix(targetSize)).map { DisplayableSong(from: $0) }
+    }
+
+    // MARK: - Similar artists support
+
+    func getArtistMBID(forArtistID artistID: String) async throws -> String? {
+        let info = try await client().getArtistInfo2(id: artistID, count: 0)
+        return info.musicBrainzId
+    }
+
+    func findArtist(byName name: String) async -> ArtistID3? {
+        if artistNameIndex == nil { await buildArtistNameIndex() }
+        return artistNameIndex?[Self.normalizeArtistName(name)]
+    }
+
+    private func buildArtistNameIndex() async {
+        guard let indices = try? await artists() else { return }
+        let all = indices.flatMap { $0.artist }
+        artistNameIndex = Dictionary(
+            all.map { (Self.normalizeArtistName($0.name), $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        Logger.library.debug("Artist name index built: \(all.count, privacy: .public) entries")
+    }
+
+    /// Applies diacritics-insensitive folding, lowercasing, and whitespace trimming.
+    /// `internal` so it is accessible from the test target via `@testable import`.
+    nonisolated static func normalizeArtistName(_ name: String) -> String {
+        name
+            .folding(options: .diacriticInsensitive, locale: .current)
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func offlineSmartShuffle(targetSize: Int) async -> [DisplayableSong] {
