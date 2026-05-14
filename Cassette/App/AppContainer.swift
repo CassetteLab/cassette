@@ -41,6 +41,10 @@ final class AppContainer {
     let wrappedPlaylistService: WrappedPlaylistService
     let lyricsService: LyricsService
     let widgetSyncService: WidgetSyncService
+    let recommendationService: RecommendationService
+    let listenBrainzService: ListenBrainzService
+    let externalProvidersStore = ExternalProvidersStore()
+    let externalArtworkCache = ExternalArtworkCache()
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -107,6 +111,16 @@ final class AppContainer {
         Task { await player.setWidgetSyncService(widgetSync) }
         NowPlayingBridge.performTogglePlayPause = { [weak player] in await player?.togglePlayPause() }
         Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
+
+        let lbClient = ListenBrainzClient(transport: URLSessionListenBrainzTransport())
+        listenBrainzService = ListenBrainzService(client: lbClient, keychain: keychain)
+
+        let subsonicProvider = SubsonicRecommendationProvider(serverService: server)
+        let lbProvider = ListenBrainzRecommendationProvider(client: lbClient, service: listenBrainzService, libraryService: library)
+        recommendationService = RecommendationService(providers: [lbProvider, subsonicProvider])
+
+        Task { await listenBrainzService.loadPersistedState() }
+        Task { await externalArtworkCache.runGarbageCollection() }
     }
 }
 
