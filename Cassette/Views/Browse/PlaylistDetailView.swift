@@ -736,17 +736,21 @@ struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
+        HStack(spacing: 0) {
+            SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+                .contentShape(Rectangle())
+                .onTapGesture { onTap(index) }
+            if onReorder != nil {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 16))
+                    .foregroundStyle(CassetteColors.textTertiary)
+                    .padding(.leading, CassetteSpacing.s)
+                    .padding(.trailing, CassetteSpacing.m)
+            }
+        }
+        .listRowBackground(Color.clear)
         #if os(macOS)
-        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
-            .contentShape(Rectangle())
-            .onTapGesture { onTap(index) }
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-        #else
-        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
-            .contentShape(Rectangle())
-            .onTapGesture { onTap(index) }
-            .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
         #endif
     }
 }
