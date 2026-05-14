@@ -227,24 +227,35 @@ actor LibraryService: LibraryServiceProtocol {
 
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo {
         if let cached = artistInfoCache[artistID] {
-            Logger.library.debug("[ARTIST-INFO] cache hit artistId=\(artistID, privacy: .public)")
+            Logger.library.notice("[ARTIST-INFO] cache hit artistId=\(artistID, privacy: .public) similarCount=\(cached.similarArtist?.count ?? 0, privacy: .public)")
             return cached
         }
+        Logger.library.notice("[ARTIST-INFO] cache miss — network call artistId=\(artistID, privacy: .public) count=\(count, privacy: .public)")
         let started = Date()
-        let info = try await withThrowingTaskGroup(of: ArtistInfo.self) { group in
-            group.addTask { try await self.client().getArtistInfo2(id: artistID, count: count) }
-            group.addTask {
-                try await Task.sleep(for: .seconds(15))
-                throw CassetteError.timeout
+        do {
+            let info = try await withThrowingTaskGroup(of: ArtistInfo.self) { group in
+                group.addTask { try await self.client().getArtistInfo2(id: artistID, count: count) }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(15))
+                    throw CassetteError.timeout
+                }
+                let result = try await group.next()!
+                group.cancelAll()
+                return result
             }
-            let result = try await group.next()!
-            group.cancelAll()
-            return result
+            let elapsed = Date().timeIntervalSince(started)
+            Logger.library.notice("[ARTIST-INFO] success artistId=\(artistID, privacy: .public) \(String(format: "%.2f", elapsed), privacy: .public)s similarCount=\(info.similarArtist?.count ?? 0, privacy: .public)")
+            artistInfoCache[artistID] = info
+            return info
+        } catch CassetteError.timeout {
+            let elapsed = Date().timeIntervalSince(started)
+            Logger.library.notice("[ARTIST-INFO] TIMEOUT after \(String(format: "%.2f", elapsed), privacy: .public)s artistId=\(artistID, privacy: .public)")
+            throw CassetteError.timeout
+        } catch {
+            let elapsed = Date().timeIntervalSince(started)
+            Logger.library.notice("[ARTIST-INFO] FAILED after \(String(format: "%.2f", elapsed), privacy: .public)s artistId=\(artistID, privacy: .public): \(error, privacy: .public)")
+            throw error
         }
-        let elapsed = Date().timeIntervalSince(started)
-        Logger.library.debug("[ARTIST-INFO] fetched artistId=\(artistID, privacy: .public) in \(String(format: "%.2f", elapsed), privacy: .public)s")
-        artistInfoCache[artistID] = info
-        return info
     }
 
     func getArtistMBID(forArtistID artistID: String) async throws -> String? {
@@ -252,8 +263,21 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func findArtist(byName name: String) async -> ArtistID3? {
-        if artistNameIndex == nil { await buildArtistNameIndex() }
-        return artistNameIndex?[Self.normalizeArtistName(name)]
+        if artistNameIndex == nil {
+            Logger.library.notice("[FIND-ARTIST] index not built — triggering build name=\(name, privacy: .public)")
+            let t0 = Date()
+            await buildArtistNameIndex()
+            Logger.library.notice("[FIND-ARTIST] index built in \(String(format: "%.2f", Date().timeIntervalSince(t0)), privacy: .public)s entries=\(self.artistNameIndex?.count ?? 0, privacy: .public)")
+        } else {
+            Logger.library.notice("[FIND-ARTIST] index ready entries=\(self.artistNameIndex?.count ?? 0, privacy: .public) name=\(name, privacy: .public)")
+        }
+        let normalized = Self.normalizeArtistName(name)
+        if let found = artistNameIndex?[normalized] {
+            Logger.library.notice("[FIND-ARTIST] FOUND '\(name, privacy: .public)' → id=\(found.id, privacy: .public)")
+            return found
+        }
+        Logger.library.notice("[FIND-ARTIST] NOT FOUND '\(name, privacy: .public)'")
+        return nil
     }
 
     private func buildArtistNameIndex() async {
@@ -263,7 +287,7 @@ actor LibraryService: LibraryServiceProtocol {
             all.map { (Self.normalizeArtistName($0.name), $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        Logger.library.debug("Artist name index built: \(all.count, privacy: .public) entries")
+        Logger.library.notice("[FIND-ARTIST] index built: \(all.count, privacy: .public) entries")
     }
 
     /// Applies diacritics-insensitive folding, lowercasing, and whitespace trimming.

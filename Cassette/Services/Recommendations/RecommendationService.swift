@@ -14,14 +14,19 @@ actor RecommendationService {
     }
 
     func similarArtists(to artistID: String, limit: Int = 20) async throws -> [SimilarArtistRecommendation] {
+        Logger.recommendations.notice("[RS] similarArtists start artistID=\(artistID, privacy: .public) limit=\(limit, privacy: .public) providers=\(self.providers.count, privacy: .public)")
         for provider in providers {
+            let providerName = String(describing: type(of: provider))
+            let t0 = Date()
+            Logger.recommendations.notice("[RS] → \(providerName, privacy: .public).similarArtists")
             let results = try await provider.similarArtists(toArtistID: artistID, limit: limit)
+            let elapsed = Date().timeIntervalSince(t0)
+            Logger.recommendations.notice("[RS] ← \(providerName, privacy: .public) returned \(results.count, privacy: .public) result(s) in \(String(format: "%.2f", elapsed), privacy: .public)s")
             if !results.isEmpty {
-                Logger.recommendations.debug("similarArtists: \(results.count) result(s) from \(String(describing: type(of: provider)), privacy: .public)")
                 return results
             }
         }
-        Logger.recommendations.debug("similarArtists: all providers returned empty for artistID=\(artistID, privacy: .public)")
+        Logger.recommendations.notice("[RS] similarArtists: all providers empty artistID=\(artistID, privacy: .public)")
         return []
     }
 

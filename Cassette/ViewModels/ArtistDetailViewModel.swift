@@ -28,25 +28,35 @@ final class ArtistDetailViewModel {
     }
 
     func load() async {
+        let traceID = String(UUID().uuidString.prefix(8))
+        Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] load() start artistId=\(self.artistId, privacy: .public)")
         isLoading = true
         error = nil
+        let t0 = Date()
         do {
+            Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] → libraryService.artist(id:)")
             artist = try await libraryService.artist(id: artistId)
+            Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] ← libraryService.artist done \(String(format: "%.2f", Date().timeIntervalSince(t0)), privacy: .public)s")
         } catch {
+            Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] ← libraryService.artist FAILED \(String(format: "%.2f", Date().timeIntervalSince(t0)), privacy: .public)s: \(error, privacy: .public)")
             self.error = UserFacingError.from(error)
         }
         isLoading = false
-        await loadSimilarArtists()
+        await loadSimilarArtists(traceID: traceID)
+        Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] load() done total=\(String(format: "%.2f", Date().timeIntervalSince(t0)), privacy: .public)s")
     }
 
-    private func loadSimilarArtists() async {
+    private func loadSimilarArtists(traceID: String) async {
+        let t0 = Date()
+        Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] → recommendationService.similarArtists(artistId=\(self.artistId, privacy: .public))")
         isLoadingSimilarArtists = true
         similarArtists = []
         defer { isLoadingSimilarArtists = false }
         do {
             similarArtists = try await recommendationService.similarArtists(to: artistId)
+            Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] ← similarArtists done \(String(format: "%.2f", Date().timeIntervalSince(t0)), privacy: .public)s count=\(self.similarArtists.count, privacy: .public)")
         } catch {
-            Logger.recommendations.debug("similarArtists load failed for artistId=\(self.artistId, privacy: .public): \(error, privacy: .public)")
+            Logger.recommendations.notice("[TRACE \(traceID, privacy: .public)] ← similarArtists FAILED \(String(format: "%.2f", Date().timeIntervalSince(t0)), privacy: .public)s: \(error, privacy: .public)")
         }
     }
 }

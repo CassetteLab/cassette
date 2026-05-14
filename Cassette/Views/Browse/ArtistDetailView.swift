@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftSonic
 import SwiftData
+import OSLog
 
 struct ArtistDetailView: View {
     let artist: ArtistID3
@@ -294,8 +295,14 @@ private struct SimilarArtistCell: View {
                 cellContent
             }
             .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture().onEnded {
+                Logger.recommendations.notice("[TAP→similar] name=\(recommendation.name, privacy: .public) inLibrary=true id=\(recommendation.id, privacy: .public)")
+            })
         } else {
-            Button(action: onOutOfLibraryTap) {
+            Button(action: {
+                Logger.recommendations.notice("[TAP→similar] name=\(recommendation.name, privacy: .public) inLibrary=false mbid=\(recommendation.mbid ?? "nil", privacy: .public)")
+                onOutOfLibraryTap()
+            }) {
                 cellContent
             }
             .buttonStyle(.plain)
