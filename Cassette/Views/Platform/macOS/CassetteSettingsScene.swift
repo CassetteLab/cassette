@@ -42,6 +42,9 @@ struct MacOSSettingsView: View {
             CacheSettingsTab()
                 .tabItem { Label("Cache", systemImage: "externaldrive") }
 
+            IntegrationsSettingsTab()
+                .tabItem { Label("Integrations", systemImage: "link.circle") }
+
             AboutSettingsTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
@@ -130,6 +133,32 @@ private struct CacheSettingsTab: View {
             }
             await downloadsVM?.loadData()
         }
+    }
+}
+
+// MARK: - Integrations tab
+
+private struct IntegrationsSettingsTab: View {
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    NavigationLink {
+                        ListenBrainzSettingsView()
+                    } label: {
+                        Label("ListenBrainz", systemImage: "link.circle")
+                    }
+                    NavigationLink {
+                        ExternalProvidersSettingsView()
+                    } label: {
+                        Label("Open Releases In", systemImage: "arrow.up.right.square")
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Integrations")
+        }
+        .frame(maxWidth: 480)
     }
 }
 

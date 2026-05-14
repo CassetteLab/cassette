@@ -40,6 +40,7 @@ struct SettingsView: View {
             DownloadsSectionView(vm: downloadsVM)
             CacheSectionView()
             serverSection()
+            integrationsSection()
             aboutSection()
             #if DEBUG
             debugSection()
@@ -277,6 +278,29 @@ struct SettingsView: View {
         Logger.stats.info("\(tag, privacy: .public) lastTrack=\(data.lastTrackOfPeriod?.title ?? "nil", privacy: .public)")
     }
     #endif
+
+    private func integrationsSection() -> some View {
+        Section("Integrations") {
+            NavigationLink {
+                ListenBrainzSettingsView()
+            } label: {
+                Label {
+                    Text("ListenBrainz")
+                } icon: {
+                    SettingsIcon(systemImage: "link.circle", color: .indigo)
+                }
+            }
+            NavigationLink {
+                ExternalProvidersSettingsView()
+            } label: {
+                Label {
+                    Text("Open Releases In")
+                } icon: {
+                    SettingsIcon(systemImage: "arrow.up.right.square", color: .orange)
+                }
+            }
+        }
+    }
 
     private func aboutSection() -> some View {
         Section("About") {

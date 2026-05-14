@@ -51,6 +51,29 @@ struct ExternalProvidersSettingsView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showingAdd = true } label: {
+                    Image(systemName: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingAdd) {
+            if let vm {
+                NavigationStack {
+                    ExternalProviderEditView(mode: .new) { vm.save($0) }
+                }
+            }
+        }
+        .sheet(item: $editingProvider) { provider in
+            if let vm {
+                NavigationStack {
+                    ExternalProviderEditView(mode: .edit(provider), onSave: { vm.save($0) }) {
+                        vm.delete(provider)
+                    }
+                }
+            }
+        }
         .onAppear {
             if vm == nil, let store = container?.externalProvidersStore {
                 vm = ExternalProvidersSettingsViewModel(store: store)
@@ -60,13 +83,18 @@ struct ExternalProvidersSettingsView: View {
 
     @ViewBuilder
     private func content(vm: ExternalProvidersSettingsViewModel) -> some View {
-        List {
-            Section {
-                if vm.providers.isEmpty {
-                    Text("No providers configured. Releases will fall back to ListenBrainz.")
-                        .foregroundStyle(.secondary)
-                        .font(.footnote)
-                } else {
+        if vm.providers.isEmpty {
+            ContentUnavailableView {
+                Label("No Providers Configured", systemImage: "arrow.up.right.square")
+            } description: {
+                Text("Add a custom search provider to open releases in your service of choice. Without a provider, releases fall back to ListenBrainz.")
+            } actions: {
+                Button("Add Provider") { showingAdd = true }
+                    .buttonStyle(.borderedProminent)
+            }
+        } else {
+            List {
+                Section {
                     ForEach(vm.providers) { provider in
                         Button {
                             editingProvider = provider
@@ -89,24 +117,12 @@ struct ExternalProvidersSettingsView: View {
                     .onDelete { indexSet in
                         for i in indexSet { vm.delete(vm.providers[i]) }
                     }
+                } footer: {
+                    Text("URL template must contain %s — replaced by \"Artist Album\" when opening a release.")
                 }
-            } footer: {
-                Text("URL template must contain %s — replaced by \"Artist Album\" when opening a release.")
-            }
 
-            Section {
-                Button("Add Provider") { showingAdd = true }
-            }
-        }
-        .sheet(isPresented: $showingAdd) {
-            NavigationStack {
-                ExternalProviderEditView(mode: .new) { vm.save($0) }
-            }
-        }
-        .sheet(item: $editingProvider) { provider in
-            NavigationStack {
-                ExternalProviderEditView(mode: .edit(provider), onSave: { vm.save($0) }) {
-                    vm.delete(provider)
+                Section {
+                    Button("Add Provider") { showingAdd = true }
                 }
             }
         }
