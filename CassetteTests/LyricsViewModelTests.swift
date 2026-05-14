@@ -38,6 +38,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     func playSmartShuffle() async throws {}
     func setAutoExtendEnabled(_ enabled: Bool) async {}
     func setVolume(_ volume: Float) async {}
+    func togglePlayPause() async {}
 }
 
 // MARK: - Helpers

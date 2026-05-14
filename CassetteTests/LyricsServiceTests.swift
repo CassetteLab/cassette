@@ -27,6 +27,7 @@ final class MockLyricsServerService: ServerServiceProtocol {
 
 // MARK: - Helpers
 
+@MainActor
 private func makeService() throws -> (LyricsService, ModelContainer) {
     let container = try ModelContainer(
         for: Schema([CachedLyrics.self]),
@@ -47,6 +48,7 @@ private func sampleList() -> LyricsList {
 // MARK: - selectBestLanguage
 
 @Suite("LyricsService — selectBestLanguage")
+@MainActor
 struct LyricsSelectBestLanguageTests {
 
     @Test func emptyList_returnsNil() {
@@ -112,6 +114,7 @@ struct LyricsSelectBestLanguageTests {
 // MARK: - Cache hit
 
 @Suite("LyricsService — cache")
+@MainActor
 struct LyricsCacheTests {
 
     @Test func cacheHit_returnsWithoutNetwork() async throws {
