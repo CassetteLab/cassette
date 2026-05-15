@@ -99,7 +99,8 @@ struct ArtistDetailView: View {
                 viewModel = ArtistDetailViewModel(
                     artistId: artist.id,
                     libraryService: c.libraryService,
-                    recommendationService: c.recommendationService
+                    recommendationService: c.recommendationService,
+                    imageResolver: c.externalArtistImageResolver
                 )
             }
             await viewModel?.load()
@@ -108,6 +109,7 @@ struct ArtistDetailView: View {
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
                 artist: rec,
+                imageURL: viewModel?.outOfLibraryArtistImages[rec.id] ?? nil,
                 providers: container?.externalProvidersStore.load() ?? []
             )
         }
@@ -188,54 +190,6 @@ struct ArtistDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func content(_ vm: ArtistDetailViewModel) -> some View {
-        if vm.isLoading && vm.artist == nil {
-            skeletonGrid
-        } else if let error = vm.error, vm.artist == nil {
-            EmptyStateView(
-                systemImage: "exclamationmark.triangle",
-                title: "Unable to Load Artist",
-                subtitle: error.displayMessage,
-                action: .init(label: "Retry") { Task { await vm.load() } }
-            )
-        } else {
-            let albums = vm.artist?.album ?? []
-            if albums.isEmpty {
-                EmptyStateView(
-                    systemImage: "square.stack",
-                    title: "No Albums",
-                    subtitle: "This artist has no albums in the library."
-                )
-            } else {
-                ScrollView {
-                    heroSection(vm: vm)
-                    LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
-                        ForEach(albums) { album in
-                            NavigationLink(destination: {
-                                #if os(macOS)
-                                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                                #else
-                                AlbumDetailView(album: album)
-                                #endif
-                            }) {
-                                AlbumGridCell(album: album)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(CassetteSpacing.l)
-
-                    if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
-                        similarArtistsSection(vm: vm)
-                            .padding(.bottom, CassetteSpacing.l)
-                    }
-                }
-                .refreshable { await vm.load() }
-            }
-        }
-    }
-
     // MARK: - Similar Artists Section
 
     @ViewBuilder
@@ -265,6 +219,7 @@ struct ArtistDetailView: View {
                         ForEach(vm.similarArtists) { rec in
                             SimilarArtistCell(
                                 recommendation: rec,
+                                externalImageURL: vm.outOfLibraryArtistImages[rec.id] ?? nil,
                                 onInLibraryTap: { inLibraryArtistTarget = rec },
                                 onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
                             )
@@ -323,6 +278,7 @@ private struct AlbumGridCell: View {
 
 private struct SimilarArtistCell: View {
     let recommendation: SimilarArtistRecommendation
+    let externalImageURL: URL?
     let onInLibraryTap: () -> Void
     let onOutOfLibraryTap: () -> Void
 
@@ -340,13 +296,11 @@ private struct SimilarArtistCell: View {
                     .frame(width: 64, height: 64)
                     .clipShape(Circle())
             } else {
-                Circle()
-                    .fill(Color.secondary.opacity(0.15))
-                    .frame(width: 64, height: 64)
-                    .overlay {
-                        Image(systemName: "person.fill")
-                            .foregroundStyle(.secondary)
-                    }
+                ExternalCoverView(url: externalImageURL) {
+                    ArtistPlaceholderView(name: recommendation.name, size: 64)
+                }
+                .frame(width: 64, height: 64)
+                .clipShape(Circle())
             }
 
             Text(recommendation.name)
@@ -362,6 +316,7 @@ private struct SimilarArtistCell: View {
 
 struct OutOfLibraryArtistSheet: View {
     let artist: SimilarArtistRecommendation
+    let imageURL: URL?
     let providers: [ExternalReleaseProvider]
 
     @Environment(\.dismiss) private var dismiss
@@ -371,15 +326,12 @@ struct OutOfLibraryArtistSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: CassetteSpacing.l) {
-                    Circle()
-                        .fill(Color.secondary.opacity(0.12))
-                        .frame(width: 120, height: 120)
-                        .overlay {
-                            Image(systemName: "person.fill")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.top, CassetteSpacing.l)
+                    ExternalCoverView(url: imageURL) {
+                        ArtistPlaceholderView(name: artist.name, size: 120)
+                    }
+                    .frame(width: 120, height: 120)
+                    .clipShape(Circle())
+                    .padding(.top, CassetteSpacing.l)
 
                     VStack(spacing: CassetteSpacing.xs) {
                         Text(artist.name)
@@ -459,4 +411,3 @@ struct OutOfLibraryArtistSheet: View {
         .buttonStyle(.plain)
     }
 }
-

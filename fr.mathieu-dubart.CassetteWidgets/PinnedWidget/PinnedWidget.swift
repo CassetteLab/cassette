@@ -6,6 +6,7 @@
 import WidgetKit
 import SwiftUI
 
+#if os(iOS)
 struct PinnedWidget: Widget {
     let kind = WidgetKind.pinned
 
@@ -32,3 +33,4 @@ struct PinnedWidgetView: View {
         }
     }
 }
+#endif

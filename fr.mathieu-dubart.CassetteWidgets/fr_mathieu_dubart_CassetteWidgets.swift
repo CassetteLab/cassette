@@ -6,6 +6,7 @@
 import WidgetKit
 import SwiftUI
 
+#if os(iOS)
 struct NowPlayingWidget: Widget {
     let kind = WidgetKind.nowPlaying
 
@@ -32,3 +33,4 @@ struct NowPlayingWidgetView: View {
         }
     }
 }
+#endif

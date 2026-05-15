@@ -45,6 +45,7 @@ final class AppContainer {
     let listenBrainzService: ListenBrainzService
     let externalProvidersStore = ExternalProvidersStore()
     let externalArtworkCache = ExternalArtworkCache()
+    let externalArtistImageResolver = ExternalArtistImageResolver()
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)

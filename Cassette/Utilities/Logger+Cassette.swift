@@ -35,4 +35,5 @@ extension Logger {
     nonisolated static let listenBrainz     = Logger(subsystem: "app.cassette.listenbrainz",     category: "ListenBrainz")
     nonisolated static let integrations       = Logger(subsystem: "app.cassette.integrations",       category: "Integrations")
     nonisolated static let externalArtwork    = Logger(subsystem: "app.cassette.externalartwork",    category: "ExternalArtworkCache")
+    nonisolated static let artistArtwork      = Logger(subsystem: "app.cassette.artistartwork",      category: "ExternalArtistImageResolver")
 }

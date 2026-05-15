@@ -3,6 +3,7 @@
 // Licensed under the GNU General Public License v3.0 or later.
 // See LICENSE file in the project root for full license information.
 
+#if os(iOS)
 import SwiftUI
 import UIKit
 import WidgetKit
@@ -62,3 +63,4 @@ struct PinnedProvider: TimelineProvider {
         return PinnedEntry(date: Date(), items: items, coverImages: coverImages)
     }
 }
+#endif
