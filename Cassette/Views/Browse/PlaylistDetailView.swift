@@ -338,12 +338,15 @@ struct PlaylistDetailView: View {
               let baseURL = URL(string: snapshot.baseURL) else { return }
         do {
             let creds = try await container.serverService.activeCredentials()
-            let api = NavidromeNativeAPI()
+            let api = NavidromeNativeAPI(transport: CustomHeadersTransport(headers: creds.customHeaders))
+            Logger.playlist.debug("Navidrome auth: requesting JWT for user=\(snapshot.username, privacy: .private)")
             let token = try await api.authenticate(
                 baseURL: baseURL,
                 username: snapshot.username,
                 password: creds.password
             )
+            Logger.playlist.debug("Navidrome auth: JWT obtained")
+            Logger.playlist.debug("Upload playlist cover: POST /api/playlist/\(playlistId, privacy: .public)/image, cf_headers=\(!creds.customHeaders.isEmpty)")
             try await api.uploadPlaylistCover(
                 baseURL: baseURL,
                 token: token,
@@ -351,6 +354,7 @@ struct PlaylistDetailView: View {
                 imageData: jpegData,
                 mimeType: "image/jpeg"
             )
+            Logger.playlist.debug("Upload playlist cover: success")
             if let artId = viewModel?.coverArtId {
                 container.artworkImageCache.invalidate(for: artId)
             }
