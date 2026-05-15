@@ -14,6 +14,7 @@ struct ArtistDetailView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
+    @State private var inLibraryArtistTarget: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
 
     init(artist: ArtistID3) {
@@ -32,7 +33,39 @@ struct ArtistDetailView: View {
     var body: some View {
         Group {
             if let vm = viewModel {
-                content(vm)
+                let albums = vm.artist?.album ?? []
+                if albums.isEmpty {
+                    EmptyStateView(
+                        systemImage: "square.stack",
+                        title: "No Albums",
+                        subtitle: "This artist has no albums in the library."
+                    )
+                } else {
+                    ScrollView {
+                        heroSection(vm: vm)
+                        LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                            ForEach(albums) { album in
+                                NavigationLink(destination: {
+                                    #if os(macOS)
+                                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                                    #else
+                                    AlbumDetailView(album: album)
+                                    #endif
+                                }) {
+                                    AlbumGridCell(album: album)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(CassetteSpacing.l)
+
+                        if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
+                            similarArtistsSection(vm: vm)
+                                .padding(.bottom, CassetteSpacing.l)
+                        }
+                    }
+                    .refreshable { await vm.load() }
+                }
             } else {
                 skeletonGrid
             }
@@ -70,12 +103,16 @@ struct ArtistDetailView: View {
                 )
             }
             await viewModel?.load()
+            await viewModel?.loadSimilarArtists()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
                 artist: rec,
                 providers: container?.externalProvidersStore.load() ?? []
             )
+        }
+        .navigationDestination(item: $inLibraryArtistTarget) { rec in
+            ArtistDetailView(artist: ArtistID3(id: rec.id, name: rec.name))
         }
     }
 
@@ -228,6 +265,7 @@ struct ArtistDetailView: View {
                         ForEach(vm.similarArtists) { rec in
                             SimilarArtistCell(
                                 recommendation: rec,
+                                onInLibraryTap: { inLibraryArtistTarget = rec },
                                 onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
                             )
                             .frame(width: 80)
@@ -285,28 +323,14 @@ private struct AlbumGridCell: View {
 
 private struct SimilarArtistCell: View {
     let recommendation: SimilarArtistRecommendation
+    let onInLibraryTap: () -> Void
     let onOutOfLibraryTap: () -> Void
 
     var body: some View {
-        if recommendation.inLibrary {
-            NavigationLink(destination: {
-                ArtistDetailView(artist: ArtistID3(id: recommendation.id, name: recommendation.name))
-            }) {
-                cellContent
-            }
-            .buttonStyle(.plain)
-            .simultaneousGesture(TapGesture().onEnded {
-                Logger.recommendations.notice("[TAP→similar] name=\(recommendation.name, privacy: .public) inLibrary=true id=\(recommendation.id, privacy: .public)")
-            })
-        } else {
-            Button(action: {
-                Logger.recommendations.notice("[TAP→similar] name=\(recommendation.name, privacy: .public) inLibrary=false mbid=\(recommendation.mbid ?? "nil", privacy: .public)")
-                onOutOfLibraryTap()
-            }) {
-                cellContent
-            }
-            .buttonStyle(.plain)
+        Button(action: recommendation.inLibrary ? onInLibraryTap : onOutOfLibraryTap) {
+            cellContent
         }
+        .buttonStyle(.plain)
     }
 
     private var cellContent: some View {
@@ -435,3 +459,4 @@ struct OutOfLibraryArtistSheet: View {
         .buttonStyle(.plain)
     }
 }
+

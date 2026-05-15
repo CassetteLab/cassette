@@ -5,7 +5,7 @@
 
 import Foundation
 
-nonisolated struct SimilarArtistRecommendation: Sendable, Identifiable, Equatable {
+nonisolated struct SimilarArtistRecommendation: Sendable, Identifiable, Equatable, Hashable {
     let id: String
     let name: String
     let coverArt: String?

@@ -65,7 +65,7 @@ struct MainTabView: View {
             }
         }
         .accentColor(.cassetteAccent)
-        
+
         .task(id: container?.serverState.isOnline) {
             guard container?.serverState.isOnline == true else { return }
             try? await container?.favoritesService.syncFromServer()
