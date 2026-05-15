@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import OSLog
 import SwiftSonic
 
 /// Wraps a base HTTPTransport to inject custom HTTP headers on every outbound request.
@@ -42,9 +43,12 @@ struct CustomHeadersTransport: HTTPTransport, Sendable {
 
     func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
         var enriched = request
+        let hadAuthorization = enriched.value(forHTTPHeaderField: "Authorization") != nil
+        let authCollision = headers.keys.contains { $0.caseInsensitiveCompare("Authorization") == .orderedSame }
         for (key, value) in headers {
             enriched.setValue(value, forHTTPHeaderField: key)
         }
+        Logger.httpTransport.debug("CustomHeadersTransport: injected_keys=\(Array(headers.keys).sorted(), privacy: .public) had_auth=\(hadAuthorization, privacy: .public) auth_collision=\(authCollision, privacy: .public)")
         return try await base.data(for: enriched)
     }
 }
