@@ -132,7 +132,7 @@ struct ServerFormView: View {
 
 // MARK: - CustomHeaderRowView
 
-private struct CustomHeaderRowView: View {
+struct CustomHeaderRowView: View {
     @Binding var key: String
     @Binding var value: String
     let onRemove: () -> Void
