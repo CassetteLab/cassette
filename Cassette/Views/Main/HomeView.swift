@@ -401,6 +401,7 @@ private struct HomePinnedCard: View {
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var coverImage: PlatformImage?
+    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     @ViewBuilder
     private var destination: some View {
@@ -451,6 +452,7 @@ private struct HomePinnedCard: View {
                     CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
                         .frame(width: geo.size.width, height: geo.size.width)
                         .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                        .id("\(item.coverArtId ?? item.itemId)_\(coverArtUploadVersion)")
                 }
                 .aspectRatio(1, contentMode: .fit)
                 .modifier(ConditionalMatchedTransitionSource(id: item.id, namespace: namespace))
@@ -469,8 +471,8 @@ private struct HomePinnedCard: View {
             }
         }
         .buttonStyle(.plain)
-        .task(id: item.id) {
-            coverImage = await artworkImageCache.load(coverArtId: item.coverArtId ?? item.itemId)
+        .onAppear {
+            Task { coverImage = await artworkImageCache.load(coverArtId: item.coverArtId ?? item.itemId) }
         }
         .lazyCollectionContextMenu(
             itemType: PinnedItemType(rawValue: item.itemType) ?? .album,
@@ -563,6 +565,7 @@ private struct HomeDownloadedItemCard: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var coverImage: PlatformImage?
+    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     @ViewBuilder
     private var destination: some View {
@@ -589,6 +592,7 @@ private struct HomeDownloadedItemCard: View {
                     CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
                         .frame(width: geo.size.width, height: geo.size.width)
                         .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                        .id("\(item.coverArtId ?? item.itemId)_\(coverArtUploadVersion)")
                 }
                 .aspectRatio(1, contentMode: .fit)
                 Text(item.name)
@@ -606,8 +610,8 @@ private struct HomeDownloadedItemCard: View {
             }
         }
         .buttonStyle(.plain)
-        .task(id: item.id) {
-            coverImage = await artworkImageCache.load(coverArtId: item.coverArtId ?? item.itemId)
+        .onAppear {
+            Task { coverImage = await artworkImageCache.load(coverArtId: item.coverArtId ?? item.itemId) }
         }
         .lazyCollectionContextMenu(
             itemType: item.type == .album ? .album : .playlist,
