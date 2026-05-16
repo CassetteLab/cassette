@@ -251,18 +251,11 @@ struct PlaylistDetailView: View {
                     }
                 }
                 .padding(.horizontal, CassetteSpacing.l)
-
-                Button("Cancel") { showImageOptions = false }
-                    .font(.system(.body, design: .rounded, weight: .medium))
-                    .foregroundStyle(CassetteColors.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(CassetteSpacing.m)
-                    .padding(.top, CassetteSpacing.s)
+                .padding(.bottom, CassetteSpacing.m)
             }
             .frame(maxWidth: .infinity)
-            .presentationDetents([.height(300)])
+            .presentationDetents([.height(220)])
             .presentationDragIndicator(.hidden)
-            .presentationBackground(CassetteColors.backgroundSecondary)
         }
         #endif
     }
