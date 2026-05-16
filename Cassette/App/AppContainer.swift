@@ -38,6 +38,7 @@ final class AppContainer {
     let dominantColorExtractor = DominantColorExtractor()
     let artworkImageCache: ArtworkImageCache
     let statsService: StatsService
+    private let _player: PlayerService
     let wrappedPlaylistService: WrappedPlaylistService
     let lyricsService: LyricsService
     let widgetSyncService: WidgetSyncService
@@ -82,6 +83,7 @@ final class AppContainer {
         mediaResolver = resolver
 
         let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, toastService: toastService, statsService: stats)
+        _player = player
         playerService = player
 
         let nowPlaying = NowPlayingService(playerService: player, artworkImageCache: artworkImageCache)
@@ -105,11 +107,6 @@ final class AppContainer {
         widgetSyncService = widgetSync
         pin.setWidgetSyncService(widgetSync)
 
-        // Break the circular dependency: PlayerService holds a weak-captured ref to NowPlayingService
-        // so it can push explicit snapshots (decision B). Task is fine — both actors are
-        // created synchronously above, and setNowPlayingService has no meaningful ordering requirement.
-        Task { await player.setNowPlayingService(nowPlaying) }
-        Task { await player.setWidgetSyncService(widgetSync) }
         NowPlayingBridge.performTogglePlayPause = { [weak player] in await player?.togglePlayPause() }
         Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
 
@@ -122,6 +119,14 @@ final class AppContainer {
 
         Task { await listenBrainzService.loadPersistedState() }
         Task { await externalArtworkCache.runGarbageCollection() }
+    }
+
+    /// Awaited by CassetteApp's `.task` before the UI appears, ensuring
+    /// PlayerService→NowPlayingService and PlayerService→WidgetSyncService
+    /// wiring is complete before any user interaction is possible.
+    func setup() async {
+        await _player.setNowPlayingService(nowPlayingService)
+        await _player.setWidgetSyncService(widgetSyncService)
     }
 }
 

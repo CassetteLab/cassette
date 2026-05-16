@@ -240,7 +240,13 @@ actor PlayerService: PlayerServiceProtocol {
 
         let artworkURL = await resolveArtworkURL(for: song)
         Logger.player.debug("[TRANSITION] attempting credentials fetch for NowPlaying headers")
-        let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
+        let artworkHeaders: [String: String]
+        do {
+            artworkHeaders = try await serverService.activeCredentials().customHeaders
+        } catch {
+            Logger.player.warning("[CREDENTIALS] activeCredentials failed, using empty headers: \(error, privacy: .public)")
+            artworkHeaders = [:]
+        }
         let snapshot = NowPlayingSnapshot(
             title: song.title,
             artist: song.artist,
@@ -318,7 +324,13 @@ actor PlayerService: PlayerServiceProtocol {
             state.isPlaybackAvailable = true
         }
 
-        let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
+        let artworkHeaders: [String: String]
+        do {
+            artworkHeaders = try await serverService.activeCredentials().customHeaders
+        } catch {
+            Logger.player.warning("[CREDENTIALS] activeCredentials failed, using empty headers: \(error, privacy: .public)")
+            artworkHeaders = [:]
+        }
         await nowPlayingService?.update(with: NowPlayingSnapshot(
             title: station.name,
             artist: "Live Radio",
@@ -840,7 +852,13 @@ actor PlayerService: PlayerServiceProtocol {
         // position-only update which would start from an empty dict otherwise.
         let duration = await MainActor.run { state.duration }
         let artworkURL = await resolveArtworkURL(for: track)
-        let artworkHeaders = (try? await serverService.activeCredentials().customHeaders) ?? [:]
+        let artworkHeaders: [String: String]
+        do {
+            artworkHeaders = try await serverService.activeCredentials().customHeaders
+        } catch {
+            Logger.player.warning("[CREDENTIALS] activeCredentials failed, using empty headers: \(error, privacy: .public)")
+            artworkHeaders = [:]
+        }
         await nowPlayingService?.update(with: NowPlayingSnapshot(
             title: track.title,
             artist: track.artist,

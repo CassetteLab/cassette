@@ -84,6 +84,7 @@ struct CassetteApp: App {
             .task {
                 guard container == nil else { return }
                 guard let newContainer = try? AppContainer() else { return }
+                await newContainer.setup()
                 // Register remote commands before UI appears so lock screen controls
                 // are available from the very first play, even on cold start.
                 await newContainer.nowPlayingService.start()
