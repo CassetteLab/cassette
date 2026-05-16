@@ -59,6 +59,10 @@ struct OnboardingListenBrainzStepView: View {
                 vm = ListenBrainzSettingsViewModel(service: container.listenBrainzService)
             }
             await vm?.refreshSnapshot()
+            // Pre-fill the field with the stored username if not actively connected
+            if let username = vm?.snapshot.username, vm?.snapshot.isEnabled == false {
+                vm?.usernameInput = username
+            }
         }
     }
 
@@ -113,11 +117,8 @@ struct OnboardingListenBrainzStepView: View {
 
     @ViewBuilder
     private func connectionContent(vm: ListenBrainzSettingsViewModel) -> some View {
-        let snap = vm.snapshot
-        if snap.isEnabled, let username = snap.username {
+        if vm.snapshot.isEnabled, let username = vm.snapshot.username {
             connectedCard(vm: vm, username: username)
-        } else if let username = snap.username {
-            previouslyConnectedCard(vm: vm, username: username)
         } else {
             notConnectedCard(vm: vm)
         }
@@ -159,7 +160,7 @@ struct OnboardingListenBrainzStepView: View {
             } label: {
                 HStack(spacing: CassetteSpacing.s) {
                     if vm.isProcessing { ProgressView().scaleEffect(0.8) }
-                    Text("Connect to ListenBrainz")
+                    Text("Connect")
                         .font(.system(.callout, design: .rounded, weight: .semibold))
                 }
                 .frame(maxWidth: .infinity)
@@ -213,43 +214,6 @@ struct OnboardingListenBrainzStepView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
-            .controlSize(.large)
-            .disabled(vm.isProcessing)
-        }
-    }
-
-    private func previouslyConnectedCard(vm: ListenBrainzSettingsViewModel, username: String) -> some View {
-        VStack(spacing: CassetteSpacing.m) {
-            HStack {
-                VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                    Text("Previously connected as")
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundStyle(CassetteColors.textSecondary)
-                    Text(username)
-                        .font(.system(.callout, design: .rounded, weight: .semibold))
-                        .foregroundStyle(CassetteColors.textPrimary)
-                }
-                Spacer()
-            }
-            .padding(CassetteSpacing.l)
-            .background(
-                RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
-                    .fill(CassetteColors.backgroundSecondary)
-            )
-
-            Button {
-                vm.usernameInput = username
-                Task { await vm.connect() }
-            } label: {
-                HStack(spacing: CassetteSpacing.s) {
-                    if vm.isProcessing { ProgressView().scaleEffect(0.8) }
-                    Text("Reconnect")
-                        .font(.system(.callout, design: .rounded, weight: .semibold))
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(CassetteColors.accent)
             .controlSize(.large)
             .disabled(vm.isProcessing)
         }
