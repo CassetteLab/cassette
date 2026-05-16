@@ -138,6 +138,8 @@ struct CustomHeaderRowView: View {
     let onRemove: () -> Void
 
     @State private var isRevealed: Bool = false
+    @State private var justCopied: Bool = false
+    @State private var copyFeedbackTask: Task<Void, Never>?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -164,13 +166,15 @@ struct CustomHeaderRowView: View {
                         .buttonStyle(.plain)
 
                         Button {
-                            copyValue()
+                            copyValueToClipboard()
                         } label: {
-                            Image(systemName: "doc.on.doc")
+                            Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
                                 .foregroundStyle(.secondary)
+                                .contentTransition(.symbolEffect(.replace))
                         }
                         .buttonStyle(.plain)
                         .disabled(value.isEmpty)
+                        .animation(.easeInOut(duration: 0.15), value: justCopied)
                     }
                 }
 
@@ -197,6 +201,7 @@ struct CustomHeaderRowView: View {
         .padding(.vertical, 2)
         .onDisappear {
             isRevealed = false
+            copyFeedbackTask?.cancel()
         }
     }
 
@@ -212,12 +217,20 @@ struct CustomHeaderRowView: View {
         }
     }
 
-    private func copyValue() {
+    private func copyValueToClipboard() {
         #if os(iOS)
         UIPasteboard.general.string = value
         #elseif os(macOS)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(value, forType: .string)
         #endif
+
+        copyFeedbackTask?.cancel()
+        justCopied = true
+        copyFeedbackTask = Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            justCopied = false
+        }
     }
 }
