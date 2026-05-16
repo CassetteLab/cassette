@@ -107,7 +107,7 @@ final class LyricsViewModel {
         isUserScrolling = true
         resumeTask?.cancel()
         resumeTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
             await MainActor.run { self?.isUserScrolling = false }
         }

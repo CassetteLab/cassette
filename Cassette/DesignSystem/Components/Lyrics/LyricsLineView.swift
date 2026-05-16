@@ -45,9 +45,13 @@ struct LyricsLineView: View {
         return distance == 0 ? 1.0 : 0.94
     }
 
+    private var lineFont: Font {
+        .system(.title, design: .rounded, weight: .bold)
+    }
+
     var body: some View {
         Text(value)
-            .font(.cassetteLyricsLine)
+            .font(lineFont)
             .multilineTextAlignment(.leading)
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(.white.opacity(opacity))

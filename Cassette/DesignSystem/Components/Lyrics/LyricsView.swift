@@ -40,7 +40,7 @@ struct LyricsView: View {
     private func loadedContent(_ structured: StructuredLyrics) -> some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 24) {
+                LazyVStack(alignment: .leading, spacing: 32) {
                     ForEach(Array(structured.line.enumerated()), id: \.offset) { index, line in
                         LyricsLineView(
                             value: line.value,
@@ -53,9 +53,10 @@ struct LyricsView: View {
                         .id(index)
                     }
                 }
-                .padding(.horizontal, 32)
+                .padding(.horizontal, 8)
                 .padding(.vertical, 200)
             }
+            .scrollIndicators(.hidden)
             .onChange(of: viewModel.currentLineIndex) { _, newIndex in
                 guard viewModel.autoScrollEnabled,
                       !viewModel.isUserScrolling,
@@ -65,8 +66,14 @@ struct LyricsView: View {
                 }
             }
             .onScrollPhaseChange { _, newPhase in
-                if newPhase == .interacting {
+                switch newPhase {
+                case .interacting:
                     viewModel.userStartedScrolling()
+                case .decelerating, .idle:
+                    guard viewModel.isUserScrolling else { return }
+                    viewModel.userStoppedScrolling()
+                default:
+                    break
                 }
             }
             .safeAreaInset(edge: .top, spacing: 0) {

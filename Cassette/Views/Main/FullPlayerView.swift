@@ -59,85 +59,86 @@ struct FullPlayerView: View {
             topBar
                 .padding(.top, CassetteSpacing.s)
 
-            ZStack {
-                // Artwork mode: all controls, hidden while lyrics are showing.
-                VStack(spacing: 0) {
-                    Spacer(minLength: CassetteSpacing.l)
+            VStack(spacing: 0) {
+                Spacer(minLength: CassetteSpacing.l)
 
-                    // Color.clear is the layout anchor — its size is fully determined by the
-                    // offered space, so AsyncImage's image intrinsics never affect VStack layout.
-                    Color.clear
-                        .aspectRatio(1, contentMode: .fit)
-                        .frame(maxWidth: 280)
-                        .overlay {
-                            CoverArtView(id: coverArtId, size: 300)
-                        }
-                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                        .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
-                        .scaleEffect(isPlaying ? 1.0 : 0.92)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                        .padding(.horizontal, CassetteSpacing.xl)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
-                        }
-
-                    Spacer(minLength: CassetteSpacing.xxl)
-
-                    TrackInfoSection(
-                        playerState: playerState,
-                        container: container,
-                        contentColor: vm.contentColor,
-                        secondaryContentColor: vm.secondaryContentColor,
-                        glassTint: vm.glassTint
-                    )
-                    .padding(.horizontal, CassetteSpacing.l)
-
-                    if !playerState.isLiveStream {
-                        ScrubberView(
-                            playerState: playerState,
-                            playerService: container?.playerService,
-                            contentColor: vm.contentColor,
-                            secondaryContentColor: vm.secondaryContentColor
-                        )
-                        .padding(.horizontal, CassetteSpacing.l)
-                        .padding(.top, CassetteSpacing.m)
-                        .disabled(!playerState.isPlaybackAvailable)
-                        .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+                ZStack {
+                    if showLyrics, let lyricsVM = lyricsViewModel {
+                        LyricsView(viewModel: lyricsVM)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 20)
+                            .mask(
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .clear, location: 0),
+                                        .init(color: .black, location: 0.1),
+                                        .init(color: .black, location: 0.8),
+                                        .init(color: .clear, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .transition(.opacity)
+                    } else {
+                        Color.clear
+                            .aspectRatio(1, contentMode: .fit)
+                            .frame(maxWidth: 280)
+                            .overlay {
+                                CoverArtView(id: coverArtId, size: 300)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                            .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                            .scaleEffect(isPlaying ? 1.0 : 0.92)
+                            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                            .onTapGesture {
+                                withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
+                            }
+                            .transition(.opacity)
                     }
+                }
+                .frame(maxWidth: .infinity)
+                .animation(.smooth(duration: 0.3), value: showLyrics)
 
-                    PlaybackControlsView(
+                Spacer(minLength: CassetteSpacing.m)
+
+                TrackInfoSection(
+                    playerState: playerState,
+                    container: container,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor,
+                    glassTint: vm.glassTint
+                )
+                .padding(.horizontal, CassetteSpacing.l)
+
+                if !playerState.isLiveStream {
+                    ScrubberView(
                         playerState: playerState,
                         playerService: container?.playerService,
-                        isPlaybackAvailable: playerState.isPlaybackAvailable,
                         contentColor: vm.contentColor,
                         secondaryContentColor: vm.secondaryContentColor
                     )
-                    .padding(.top, CassetteSpacing.l)
-
-                    VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
-                        .padding(.horizontal, CassetteSpacing.l)
-                        .padding(.top, CassetteSpacing.l)
-
-                    Spacer(minLength: CassetteSpacing.l)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.m)
+                    .disabled(!playerState.isPlaybackAvailable)
+                    .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
                 }
-                .opacity(showLyrics ? 0 : 1)
-                .allowsHitTesting(!showLyrics)
 
-                // Lyrics mode: full immersive, tap background to dismiss.
-                if showLyrics, let lyricsVM = lyricsViewModel {
-                    LyricsView(viewModel: lyricsVM)
-                        .background(
-                            Color.black.opacity(0.001)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    withAnimation(.smooth(duration: 0.3)) { showLyrics = false }
-                                }
-                        )
-                        .transition(.opacity)
-                }
+                PlaybackControlsView(
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    isPlaybackAvailable: playerState.isPlaybackAvailable,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor
+                )
+                .padding(.top, CassetteSpacing.s)
+
+                VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.s)
+
+                Spacer(minLength: CassetteSpacing.xs)
             }
-            .animation(.smooth(duration: 0.3), value: showLyrics)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             BottomToolbar(
@@ -147,7 +148,7 @@ struct FullPlayerView: View {
                 secondaryContentColor: vm.secondaryContentColor,
                 playerState: playerState
             )
-            .padding(.top, CassetteSpacing.l)
+            .padding(.top, CassetteSpacing.s)
 
             Spacer(minLength: CassetteSpacing.l)
         }
@@ -250,7 +251,7 @@ private struct TrackInfoSection: View {
                             } label: {
                                 Text(artist)
                                     .font(.subheadline)
-                                    .foregroundStyle(Color.cassetteAccent)
+                                    .foregroundStyle(secondaryContentColor)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
                             }
