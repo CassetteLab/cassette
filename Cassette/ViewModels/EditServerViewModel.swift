@@ -121,6 +121,10 @@ final class EditServerViewModel {
 
     // MARK: - Private
 
+    var redactedDescription: String {
+        "EditServerViewModel(username: \(username), password: [REDACTED], customHeaders: [REDACTED])"
+    }
+
     private func headersDict() -> [String: String] {
         var dict: [String: String] = [:]
         for pair in customHeaders where !pair.key.isEmpty {

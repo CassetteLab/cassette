@@ -48,7 +48,7 @@ struct CustomHeadersTransport: HTTPTransport, Sendable {
         for (key, value) in headers {
             enriched.setValue(value, forHTTPHeaderField: key)
         }
-        Logger.httpTransport.debug("CustomHeadersTransport: injected_keys=\(Array(headers.keys).sorted(), privacy: .public) had_auth=\(hadAuthorization, privacy: .public) auth_collision=\(authCollision, privacy: .public)")
+        Logger.httpTransport.debug("CustomHeadersTransport: injected_keys=\(Array(headers.keys).sorted(), privacy: .private) had_auth=\(hadAuthorization, privacy: .public) auth_collision=\(authCollision, privacy: .public)")
         return try await base.data(for: enriched)
     }
 }

@@ -16,3 +16,11 @@ nonisolated struct ServerCredentials: Codable, Sendable {
         "cassette.server.\(serverId.uuidString)"
     }
 }
+
+extension ServerCredentials: CustomStringConvertible {
+    var description: String { "ServerCredentials(password: [REDACTED], customHeaders: [REDACTED])" }
+}
+
+extension ServerCredentials: CustomDebugStringConvertible {
+    var debugDescription: String { "ServerCredentials(password: [REDACTED], customHeaders: [REDACTED])" }
+}
