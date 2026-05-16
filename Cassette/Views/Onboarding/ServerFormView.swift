@@ -142,16 +142,16 @@ struct CustomHeaderRowView: View {
     @State private var copyFeedbackTask: Task<Void, Never>?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+            HStack(spacing: CassetteSpacing.m) {
+                VStack(alignment: .leading, spacing: CassetteSpacing.s) {
                     TextField("Name", text: $key)
                         .autocorrectionDisabled()
                         #if os(iOS)
                         .textInputAutocapitalization(.never)
                         #endif
 
-                    HStack(spacing: 8) {
+                    HStack(spacing: 0) {
                         valueField
                             .autocorrectionDisabled()
                             .foregroundStyle(.secondary)
@@ -161,16 +161,20 @@ struct CustomHeaderRowView: View {
                             isRevealed.toggle()
                         } label: {
                             Image(systemName: isRevealed ? "eye.slash" : "eye")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(isRevealed ? CassetteColors.accent : CassetteColors.textTertiary)
+                                .contentTransition(.symbolEffect(.replace))
+                                .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
+                        .animation(.easeInOut(duration: 0.15), value: isRevealed)
 
                         Button {
                             copyValueToClipboard()
                         } label: {
                             Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(value.isEmpty ? CassetteColors.textTertiary : CassetteColors.accent)
                                 .contentTransition(.symbolEffect(.replace))
+                                .frame(width: 44, height: 44)
                         }
                         .buttonStyle(.plain)
                         .disabled(value.isEmpty)
@@ -183,6 +187,7 @@ struct CustomHeaderRowView: View {
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .foregroundStyle(.red)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
             }
@@ -198,7 +203,7 @@ struct CustomHeaderRowView: View {
                     .foregroundStyle(.red)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, CassetteSpacing.xs)
         .onDisappear {
             isRevealed = false
             copyFeedbackTask?.cancel()
