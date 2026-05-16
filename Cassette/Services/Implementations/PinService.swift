@@ -1,6 +1,6 @@
 // Cassette — Music client for Subsonic/OpenSubsonic servers
 // Copyright (C) 2026 Mathieu Dubart
-// Licensed under the GNU General Public License v3.0 or later.
+// Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
 import Foundation
@@ -97,6 +97,20 @@ final class PinService: PinServiceProtocol {
         Logger.pin.info("Unpinned \(itemType.rawValue) \(itemId)")
         let ws = widgetSyncService
         Task { await ws?.syncPinned() }
+    }
+
+    // MARK: - Update
+
+    func updateCoverArtId(itemType: PinnedItemType, itemId: String, newCoverArtId: String?) {
+        let compositeId = "\(itemType.rawValue):\(itemId)"
+        var descriptor = FetchDescriptor<PinnedItem>(
+            predicate: #Predicate<PinnedItem> { $0.id == compositeId }
+        )
+        descriptor.fetchLimit = 1
+        guard let item = try? modelContext.fetch(descriptor).first else { return }
+        item.coverArtId = newCoverArtId
+        try? modelContext.save()
+        Logger.pin.debug("Updated coverArtId for \(itemType.rawValue, privacy: .public) \(itemId, privacy: .public) → \(newCoverArtId ?? "<nil>", privacy: .public)")
     }
 
     // MARK: - Reorder

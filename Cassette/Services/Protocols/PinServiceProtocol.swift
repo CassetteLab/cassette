@@ -1,6 +1,6 @@
 // Cassette — Music client for Subsonic/OpenSubsonic servers
 // Copyright (C) 2026 Mathieu Dubart
-// Licensed under the GNU General Public License v3.0 or later.
+// Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
 import Foundation
@@ -29,4 +29,6 @@ protocol PinServiceProtocol: AnyObject {
     func isPinned(itemType: PinnedItemType, itemId: String) -> Bool
     func reorder(items: [PinnedItem])
     func currentPinnedCount() -> Int
+    /// Updates the stored cover art ID for a pinned item. No-op if not pinned.
+    func updateCoverArtId(itemType: PinnedItemType, itemId: String, newCoverArtId: String?)
 }

@@ -364,6 +364,7 @@ struct PlaylistDetailView: View {
             }
             if let vm = viewModel {
                 await vm.load()
+                container.pinService.updateCoverArtId(itemType: .playlist, itemId: playlistId, newCoverArtId: vm.coverArtId)
             }
             coverRefreshID = UUID()
             coverArtUploadVersion += 1
