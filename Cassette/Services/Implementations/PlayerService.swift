@@ -35,6 +35,9 @@ actor PlayerService: PlayerServiceProtocol {
     private var liveStreamFailureObserver: NSKeyValueObservation?
     private var liveStreamStallTask: Task<Void, Never>?
     private var audioSessionConfigured = false
+    #if os(iOS)
+    private var interruptionObserver: NSObjectProtocol?
+    #endif
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -1170,6 +1173,12 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamFailureObserver = nil
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
+        #if os(iOS)
+        if let observer = interruptionObserver {
+            NotificationCenter.default.removeObserver(observer)
+            interruptionObserver = nil
+        }
+        #endif
         player?.pause()
         player = nil
     }
@@ -1190,6 +1199,49 @@ actor PlayerService: PlayerServiceProtocol {
             try session.setActive(true)
         } catch {
             Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
+        }
+        if interruptionObserver == nil {
+            interruptionObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: AVAudioSession.sharedInstance(),
+                queue: .main
+            ) { [weak self] notification in
+                guard let self else { return }
+                Task { await self.handleAudioSessionInterruption(notification) }
+            }
+        }
+    }
+
+    private func handleAudioSessionInterruption(_ notification: Notification) async {
+        guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        switch type {
+        case .began:
+            let isPlaying = await MainActor.run { state.playbackState == .playing }
+            guard isPlaying else { return }
+            await MainActor.run { state.playbackState = .paused }
+            stopPositionSaveTimer()
+            await sessionService.save(playerState: state)
+            let pauseTrack = await MainActor.run { state.currentTrack }
+            if let ws = widgetSyncService {
+                Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
+            }
+            Logger.player.info("[INTERRUPTION] began — playbackState set to paused")
+
+        case .ended:
+            let shouldResume = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
+                .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0 as! UInt) }
+                .map { $0.contains(.shouldResume) } ?? false
+            if shouldResume {
+                await resume()
+                Logger.player.info("[INTERRUPTION] ended — resumed playback")
+            } else {
+                Logger.player.info("[INTERRUPTION] ended — shouldResume false, staying paused")
+            }
+
+        @unknown default:
+            break
         }
     }
     #endif
