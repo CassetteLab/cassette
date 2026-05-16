@@ -15,7 +15,6 @@ struct OnboardingWelcomeView: View {
     @State private var viewModel: OnboardingViewModel?
     @State private var showingServerForm = false
     @State private var appeared = false
-    @State private var shimmerOffset: CGFloat = -300
 
     var body: some View {
         ZStack {
@@ -66,11 +65,6 @@ struct OnboardingWelcomeView: View {
             guard viewModel == nil, let container else { return }
             viewModel = OnboardingViewModel(serverService: container.serverService)
             appeared = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                withAnimation(.linear(duration: 1.8).repeatForever(autoreverses: false)) {
-                    shimmerOffset = 300
-                }
-            }
         }
         .onChange(of: container?.serverState.activeServer != nil) { _, connected in
             if connected { showingServerForm = false }
@@ -93,30 +87,13 @@ struct OnboardingWelcomeView: View {
             triggerHaptic()
             showingServerForm = true
         } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(CassetteColors.accent)
-
-                Text("Get Started")
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-
-                Rectangle()
-                    .fill(
-                        LinearGradient(
-                            colors: [.clear, .white.opacity(0.22), .clear],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .frame(width: 80)
-                    .offset(x: shimmerOffset)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 14))
+            Text("Get Started")
+                .font(.system(.body, design: .rounded, weight: .semibold))
+                .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .tint(CassetteColors.accent)
         .disabled(viewModel == nil)
     }
 

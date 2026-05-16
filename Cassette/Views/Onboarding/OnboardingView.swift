@@ -6,7 +6,7 @@
 import SwiftUI
 
 private enum OnboardingStep {
-    case welcome, cache, listenBrainz, externalProviders
+    case welcome, cache, listenBrainz, externalProviders, complete
 }
 
 struct OnboardingView: View {
@@ -43,13 +43,19 @@ struct OnboardingView: View {
                 ))
             case .externalProviders:
                 OnboardingExternalProvidersStepView(
-                    onSkip: { onboardingComplete = true },
-                    onContinue: { onboardingComplete = true }
+                    onSkip: { step = .complete },
+                    onContinue: { step = .complete }
                 )
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing),
                     removal: .move(edge: .leading)
                 ))
+            case .complete:
+                OnboardingCompleteView(onComplete: { onboardingComplete = true })
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
             }
         }
         .preferredColorScheme(.dark)
