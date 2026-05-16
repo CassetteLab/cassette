@@ -45,6 +45,9 @@ struct ExternalProvidersSettingsView: View {
         Group {
             if let vm {
                 content(vm: vm)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .navigationTitle("Open Releases In")
