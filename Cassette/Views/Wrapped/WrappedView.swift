@@ -14,6 +14,7 @@ struct WrappedView: View {
     @State private var isLoading = true
     @State private var wrappedPlaylistId: String?
     @State private var appeared = false
+    @State private var loadFailed = false
     @Query private var allEvents: [PlaybackEvent]
 
     init(initialPeriod: WrappedPeriod = .currentMonth()) {
@@ -46,6 +47,13 @@ struct WrappedView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity)
                         .padding(.top, CassetteSpacing.xxxxl)
+                } else if loadFailed {
+                    EmptyStateView(
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load Recap",
+                        subtitle: "Something went wrong. Pull to refresh.",
+                        action: .init(label: "Retry") { Task { await loadData() } }
+                    )
                 } else if let d = data, d.totalTracksPlayed > 0 {
                     WrappedStatHero(data: d)
                         .cascadeAppear(order: 0, trigger: appeared)
@@ -74,6 +82,7 @@ struct WrappedView: View {
             .padding(.top, CassetteSpacing.l)
             .padding(.bottom, CassetteSpacing.xl)
         }
+        .refreshable { await loadData() }
         .cassetteContentWidth()
         .navigationTitle("")
         .task(id: selectedPeriod) {
@@ -112,8 +121,10 @@ struct WrappedView: View {
     }
 
     private func loadData() async {
+        loadFailed = false
         guard let container, let serverId = container.serverState.activeServer?.id.uuidString else {
             isLoading = false
+            loadFailed = true
             return
         }
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch start period=\(selectedPeriod.displayName, privacy: .public)")

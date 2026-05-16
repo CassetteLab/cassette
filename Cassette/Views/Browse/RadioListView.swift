@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftSonic
+import OSLog
 
 struct RadioListView: View {
     @Environment(\.appContainer) private var container
@@ -68,7 +69,8 @@ struct RadioListView: View {
         do {
             try await playerService.playRadio(station)
         } catch {
-            // Playback errors surface via the existing error infrastructure in a later commit.
+            container?.toastService.showError("Unable to play this radio station.")
+            Logger.player.error("[RADIO] play failed: \(error, privacy: .public)")
         }
     }
 }

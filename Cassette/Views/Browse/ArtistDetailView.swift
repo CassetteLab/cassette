@@ -33,38 +33,47 @@ struct ArtistDetailView: View {
     var body: some View {
         Group {
             if let vm = viewModel {
-                let albums = vm.artist?.album ?? []
-                if albums.isEmpty {
+                if let error = vm.error, vm.artist == nil {
                     EmptyStateView(
-                        systemImage: "square.stack",
-                        title: "No Albums",
-                        subtitle: "This artist has no albums in the library."
+                        systemImage: "exclamationmark.triangle",
+                        title: "Unable to Load Artist",
+                        subtitle: error.displayMessage,
+                        action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                 } else {
-                    ScrollView {
-                        heroSection(vm: vm)
-                        LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
-                            ForEach(albums) { album in
-                                NavigationLink(destination: {
-                                    #if os(macOS)
-                                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                                    #else
-                                    AlbumDetailView(album: album)
-                                    #endif
-                                }) {
-                                    AlbumGridCell(album: album)
+                    let albums = vm.artist?.album ?? []
+                    if albums.isEmpty {
+                        EmptyStateView(
+                            systemImage: "square.stack",
+                            title: "No Albums",
+                            subtitle: "This artist has no albums in the library."
+                        )
+                    } else {
+                        ScrollView {
+                            heroSection(vm: vm)
+                            LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                                ForEach(albums) { album in
+                                    NavigationLink(destination: {
+                                        #if os(macOS)
+                                        AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                                        #else
+                                        AlbumDetailView(album: album)
+                                        #endif
+                                    }) {
+                                        AlbumGridCell(album: album)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
+                            }
+                            .padding(CassetteSpacing.l)
+
+                            if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
+                                similarArtistsSection(vm: vm)
+                                    .padding(.bottom, CassetteSpacing.l)
                             }
                         }
-                        .padding(CassetteSpacing.l)
-
-                        if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
-                            similarArtistsSection(vm: vm)
-                                .padding(.bottom, CassetteSpacing.l)
-                        }
+                        .refreshable { await vm.load() }
                     }
-                    .refreshable { await vm.load() }
                 }
             } else {
                 skeletonGrid

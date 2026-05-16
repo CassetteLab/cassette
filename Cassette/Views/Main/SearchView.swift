@@ -111,10 +111,13 @@ struct SearchView: View {
             .listRowSeparator(.hidden)
             .padding(.vertical, CassetteSpacing.xl)
         } else if let error = vm.searchError {
-            Text(error.localizedDescription)
-                .font(.cassetteBody)
-                .foregroundStyle(.secondary)
-                .listRowSeparator(.hidden)
+            EmptyStateView(
+                systemImage: "exclamationmark.triangle",
+                title: "Search Unavailable",
+                subtitle: error.localizedDescription,
+                action: .init(label: "Retry") { Task { await vm.search(query: searchQuery) } }
+            )
+            .listRowSeparator(.hidden)
         } else if let results = vm.searchResults, hasAnyResults(results) {
             artistResultsSection(results.artist ?? [])
             albumResultsSection(results.album ?? [])
