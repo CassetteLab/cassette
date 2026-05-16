@@ -16,6 +16,7 @@ struct WrappedAwardMedal: View {
     let palette: [Color]
     let isFocused: Bool
 
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spinEnabled: Bool { isFocused && !reduceMotion }
@@ -49,7 +50,7 @@ struct WrappedAwardMedal: View {
             Circle()
                 .fill(
                     LinearGradient(
-                        colors: [.clear, .black.opacity(0.10)],
+                        colors: [.clear, .black.opacity(colorScheme == .dark ? 0.10 : 0.25)],
                         startPoint: .center,
                         endPoint: .bottom
                     )
@@ -110,10 +111,14 @@ struct WrappedAwardMedal: View {
     }
 
     private var centralGradient: RadialGradient {
-        RadialGradient(
+        let baseOpacity: Double = colorScheme == .dark ? 0.30 : 0.55
+        let outerColor = colorScheme == .dark
+            ? (palette.last ?? palette[0]).opacity(0.10)
+            : (palette.last ?? palette[0]).opacity(0.50)
+        return RadialGradient(
             colors: [
-                .white.opacity(0.30),
-                (palette.last ?? palette[0]).opacity(0.10),
+                .black.opacity(baseOpacity),
+                outerColor,
             ],
             center: .center,
             startRadius: 0,
