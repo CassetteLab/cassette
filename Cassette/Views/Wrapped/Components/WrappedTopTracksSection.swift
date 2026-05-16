@@ -55,11 +55,11 @@ struct WrappedTopTracksSection: View {
             HStack(spacing: CassetteSpacing.m) {
                 ZStack {
                     Circle()
-                        .fill(Color.cassetteAccent.opacity(0.15))
+                        .fill(track.rank <= 3 ? medalColor(for: track.rank) : Color.cassetteAccent.opacity(0.15))
                         .frame(width: 28, height: 28)
                     Text("\(track.rank)")
                         .font(.system(.caption, design: .rounded, weight: .heavy))
-                        .foregroundStyle(Color.cassetteAccent)
+                        .foregroundStyle(track.rank <= 3 ? Color.black : Color.cassetteAccent)
                 }
                 .frame(width: 28)
                 CoverArtCard(id: track.trackId, size: 44)
@@ -81,6 +81,15 @@ struct WrappedTopTracksSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private func medalColor(for rank: Int) -> Color {
+        switch rank {
+        case 1: return Color(red: 1.0,  green: 0.84, blue: 0.0)
+        case 2: return Color(red: 0.75, green: 0.75, blue: 0.75)
+        case 3: return Color(red: 0.80, green: 0.50, blue: 0.20)
+        default: return CassetteColors.accent
+        }
     }
 
     private func emptyLabel(_ text: String) -> some View {

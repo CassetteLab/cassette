@@ -57,14 +57,30 @@ struct WrappedTopAlbumsSection: View {
         }
     }
 
+    private func medalColor(for rank: Int) -> Color {
+        switch rank {
+        case 1: return Color(red: 1.0,  green: 0.84, blue: 0.0)
+        case 2: return Color(red: 0.75, green: 0.75, blue: 0.75)
+        case 3: return Color(red: 0.80, green: 0.50, blue: 0.20)
+        default: return CassetteColors.accent
+        }
+    }
+
     private func rankBadge(_ rank: Int) -> some View {
-        Text("#\(rank)")
+        let isMedal = rank <= 3
+        return Text("#\(rank)")
             .font(.cassetteCaption2)
             .fontWeight(.bold)
+            .foregroundStyle(isMedal ? Color.black : Color.primary)
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
-            .background(.ultraThinMaterial)
-            .clipShape(Capsule())
+            .background {
+                if isMedal {
+                    Capsule().fill(medalColor(for: rank))
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                }
+            }
     }
 
     private func emptyLabel(_ text: String) -> some View {

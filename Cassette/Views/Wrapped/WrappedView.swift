@@ -9,7 +9,6 @@ import OSLog
 
 struct WrappedView: View {
     @Environment(\.appContainer) private var container
-    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPeriod: WrappedPeriod = .currentMonth()
     @State private var data: WrappedData?
     @State private var isLoading = true
@@ -75,10 +74,8 @@ struct WrappedView: View {
             .padding(.top, CassetteSpacing.l)
             .padding(.bottom, CassetteSpacing.xl)
         }
-        .background(colorScheme == .dark ? Color.black : Color.cassetteSystemBackground)
         .cassetteContentWidth()
-        .navigationTitle("Wrapped")
-        .navigationBarBackground(colorScheme == .dark ? Color.black : Color.cassetteSystemBackground)
+        .navigationTitle("")
         .task(id: selectedPeriod) {
             await loadData()
         }
@@ -135,20 +132,6 @@ struct WrappedView: View {
         isLoading = false
         appeared = true
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch done totalPlays=\(result.totalTracksPlayed, privacy: .public)")
-    }
-}
-
-// MARK: - Navigation bar background modifier
-
-private extension View {
-    func navigationBarBackground(_ color: Color) -> some View {
-        #if os(iOS)
-        self
-            .toolbarBackground(color, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-        #else
-        self
-        #endif
     }
 }
 
