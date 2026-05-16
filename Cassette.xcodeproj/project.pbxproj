@@ -927,8 +927,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MathieuDubart/swiftsonic";
 			requirement = {
-				branch = "debug/cover-upload-401";
-				kind = branch;
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.8.1;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

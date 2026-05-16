@@ -6,6 +6,8 @@
 	<array>
 		<string>app.cassette.wrapped.monthly-update</string>
 	</array>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
