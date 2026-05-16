@@ -143,44 +143,40 @@ struct CustomHeaderRowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-            HStack(spacing: CassetteSpacing.m) {
-                VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-                    TextField("Name", text: $key)
-                        .autocorrectionDisabled()
-                        #if os(iOS)
-                        .textInputAutocapitalization(.never)
-                        #endif
+            TextField("Name", text: $key)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
 
-                    HStack(spacing: 0) {
-                        valueField
-                            .autocorrectionDisabled()
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 0) {
+                valueField
+                    .autocorrectionDisabled()
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Button {
-                            isRevealed.toggle()
-                        } label: {
-                            Image(systemName: isRevealed ? "eye.slash" : "eye")
-                                .foregroundStyle(isRevealed ? CassetteColors.accent : CassetteColors.textTertiary)
-                                .contentTransition(.symbolEffect(.replace))
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .animation(.easeInOut(duration: 0.15), value: isRevealed)
-
-                        Button {
-                            copyValueToClipboard()
-                        } label: {
-                            Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
-                                .foregroundStyle(value.isEmpty ? CassetteColors.textTertiary : CassetteColors.accent)
-                                .contentTransition(.symbolEffect(.replace))
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(value.isEmpty)
-                        .animation(.easeInOut(duration: 0.15), value: justCopied)
-                    }
+                Button {
+                    isRevealed.toggle()
+                } label: {
+                    Image(systemName: isRevealed ? "eye.slash" : "eye")
+                        .foregroundStyle(isRevealed ? CassetteColors.accent : CassetteColors.textTertiary)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 44, height: 44)
                 }
+                .buttonStyle(.plain)
+                .animation(.easeInOut(duration: 0.15), value: isRevealed)
+
+                Button {
+                    copyValueToClipboard()
+                } label: {
+                    Image(systemName: justCopied ? "checkmark" : "doc.on.doc")
+                        .foregroundStyle(value.isEmpty ? CassetteColors.textTertiary : CassetteColors.accent)
+                        .contentTransition(.symbolEffect(.replace))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .disabled(value.isEmpty)
+                .animation(.easeInOut(duration: 0.15), value: justCopied)
 
                 Button(role: .destructive) {
                     onRemove()
