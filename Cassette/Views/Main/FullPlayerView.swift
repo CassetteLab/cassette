@@ -85,7 +85,7 @@ struct FullPlayerView: View {
                             .aspectRatio(1, contentMode: .fit)
                             .frame(maxWidth: 280)
                             .overlay {
-                                CoverArtView(id: coverArtId, size: 300)
+                                CoverArtView(id: coverArtId, size: 600)
                             }
                             .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
                             .shadow(color: .black.opacity(0.3), radius: 30, y: 10)

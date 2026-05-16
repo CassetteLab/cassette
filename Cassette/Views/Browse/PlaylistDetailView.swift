@@ -639,7 +639,7 @@ struct PlaylistDetailView: View {
         } else {
             CoverArtCard(
                 id: vm?.coverArtId ?? coverArtId ?? playlistId,
-                size: 220,
+                size: 300,
                 cornerRadius: CassetteCornerRadius.large,
                 initialImage: initialCoverImage
             )
