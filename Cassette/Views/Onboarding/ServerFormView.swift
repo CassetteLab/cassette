@@ -101,7 +101,17 @@ struct ServerFormView: View {
         Section {
             DisclosureGroup("Custom Headers") {
                 ForEach(viewModel.customHeaders.indices, id: \.self) { index in
-                    headerRow(at: index)
+                    CustomHeaderRowView(
+                        key: Binding(
+                            get: { viewModel.customHeaders[index].key },
+                            set: { viewModel.customHeaders[index].key = $0 }
+                        ),
+                        value: Binding(
+                            get: { viewModel.customHeaders[index].value },
+                            set: { viewModel.customHeaders[index].value = $0 }
+                        ),
+                        onRemove: { viewModel.removeCustomHeader(at: index) }
+                    )
                 }
                 Button(action: viewModel.addCustomHeader) {
                     Label("Add Header", systemImage: "plus")
@@ -113,32 +123,59 @@ struct ServerFormView: View {
         }
     }
 
-    private func headerRow(at index: Int) -> some View {
-        let key = viewModel.customHeaders[index].key
-        let value = viewModel.customHeaders[index].value
+    private func inlineError(_ message: String) -> some View {
+        Text(message)
+            .font(.footnote)
+            .foregroundStyle(.red)
+    }
+}
 
-        return VStack(alignment: .leading, spacing: 4) {
+// MARK: - CustomHeaderRowView
+
+private struct CustomHeaderRowView: View {
+    @Binding var key: String
+    @Binding var value: String
+    let onRemove: () -> Void
+
+    @State private var isRevealed: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
-                    TextField("Name", text: Binding(
-                        get: { viewModel.customHeaders[index].key },
-                        set: { viewModel.customHeaders[index].key = $0 }
-                    ))
-                    .autocorrectionDisabled()
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never)
-                    #endif
+                    TextField("Name", text: $key)
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
 
-                    TextField("Value", text: Binding(
-                        get: { viewModel.customHeaders[index].value },
-                        set: { viewModel.customHeaders[index].value = $0 }
-                    ))
-                    .autocorrectionDisabled()
-                    .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        valueField
+                            .autocorrectionDisabled()
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Button {
+                            isRevealed.toggle()
+                        } label: {
+                            Image(systemName: isRevealed ? "eye.slash" : "eye")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            copyValue()
+                        } label: {
+                            Image(systemName: "doc.on.doc")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(value.isEmpty)
+                    }
                 }
 
                 Button(role: .destructive) {
-                    viewModel.removeCustomHeader(at: index)
+                    onRemove()
                 } label: {
                     Image(systemName: "minus.circle.fill")
                         .foregroundStyle(.red)
@@ -147,18 +184,40 @@ struct ServerFormView: View {
             }
 
             if !key.isEmpty && !HeaderValidator.isValidName(key) {
-                inlineError("Name '\(key)' contains characters not allowed by RFC 7230.")
+                Text("Name '\(key)' contains characters not allowed by RFC 7230.")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
             }
             if !value.isEmpty && !HeaderValidator.isValidValue(value) {
-                inlineError("Value contains CR, LF, or NUL — not allowed in HTTP headers.")
+                Text("Value contains CR, LF, or NUL — not allowed in HTTP headers.")
+                    .font(.footnote)
+                    .foregroundStyle(.red)
             }
         }
         .padding(.vertical, 2)
+        .onDisappear {
+            isRevealed = false
+        }
     }
 
-    private func inlineError(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
+    @ViewBuilder
+    private var valueField: some View {
+        if isRevealed {
+            TextField("Value", text: $value)
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                #endif
+        } else {
+            SecureField("Value", text: $value)
+        }
+    }
+
+    private func copyValue() {
+        #if os(iOS)
+        UIPasteboard.general.string = value
+        #elseif os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+        #endif
     }
 }
