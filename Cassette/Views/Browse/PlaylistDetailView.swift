@@ -223,48 +223,46 @@ struct PlaylistDetailView: View {
         #if os(iOS)
         .sheet(isPresented: $showImageOptions) {
             VStack(spacing: 0) {
+                Capsule()
+                    .fill(CassetteColors.textTertiary.opacity(0.4))
+                    .frame(width: 36, height: 5)
+                    .padding(.top, CassetteSpacing.m)
+                    .padding(.bottom, CassetteSpacing.l)
+
                 Text("Change Cover Art")
-                    .font(.headline)
-                    .padding(.top, CassetteSpacing.l)
-                    .padding(.bottom, CassetteSpacing.m)
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(CassetteColors.textSecondary)
+                    .padding(.bottom, CassetteSpacing.l)
 
-                Divider()
-
-                Button("Choose from Library") {
-                    showImageOptions = false
-                    coverPickerSource = .library
-                }
-                .frame(maxWidth: .infinity)
-                .padding(CassetteSpacing.m)
-
-                Divider()
-
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button("Take a Photo") {
+                VStack(spacing: CassetteSpacing.s) {
+                    coverPickerOption(icon: "photo.on.rectangle", label: "Choose from Library") {
                         showImageOptions = false
-                        coverPickerSource = .camera
+                        coverPickerSource = .library
                     }
+                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                        coverPickerOption(icon: "camera.fill", label: "Take a Photo") {
+                            showImageOptions = false
+                            coverPickerSource = .camera
+                        }
+                    }
+                    coverPickerOption(icon: "folder.fill", label: "Browse Files") {
+                        showImageOptions = false
+                        coverPickerSource = .files
+                    }
+                }
+                .padding(.horizontal, CassetteSpacing.l)
+
+                Button("Cancel") { showImageOptions = false }
+                    .font(.system(.body, design: .rounded, weight: .medium))
+                    .foregroundStyle(CassetteColors.textSecondary)
                     .frame(maxWidth: .infinity)
                     .padding(CassetteSpacing.m)
-                    Divider()
-                }
-
-                Button("Browse Files") {
-                    showImageOptions = false
-                    coverPickerSource = .files
-                }
-                .frame(maxWidth: .infinity)
-                .padding(CassetteSpacing.m)
-
-                Divider()
-
-                Button("Cancel", role: .cancel) { showImageOptions = false }
-                    .frame(maxWidth: .infinity)
-                    .padding(CassetteSpacing.m)
-                    .foregroundStyle(.secondary)
+                    .padding(.top, CassetteSpacing.s)
             }
-            .presentationDetents([.height(280)])
-            .presentationDragIndicator(.visible)
+            .frame(maxWidth: .infinity)
+            .presentationDetents([.height(300)])
+            .presentationDragIndicator(.hidden)
+            .presentationBackground(CassetteColors.backgroundSecondary)
         }
         #endif
     }
@@ -404,6 +402,30 @@ struct PlaylistDetailView: View {
         } catch {
             Logger.playlist.warning("PlaylistDetailView: cover image upload failed: \(error)")
         }
+    }
+
+    @ViewBuilder
+    private func coverPickerOption(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: CassetteSpacing.m) {
+                Image(systemName: icon)
+                    .font(.body)
+                    .foregroundStyle(CassetteColors.accent)
+                    .frame(width: 32, height: 32)
+                    .background(CassetteColors.accentBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                Text(label)
+                    .font(.system(.body, design: .rounded, weight: .medium))
+                    .foregroundStyle(CassetteColors.textPrimary)
+
+                Spacer()
+            }
+            .padding(CassetteSpacing.m)
+            .background(CassetteColors.backgroundTertiary)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
     }
     #endif
 
