@@ -589,7 +589,8 @@
 				INFOPLIST_FILE = Cassette/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Cassette;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"Cassette needs to access your library to upload pictures for playlists\"";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cassette needs to access your camera to take pictures for playlist artworks";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cassette needs to access your library to upload pictures for playlists";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -649,7 +650,8 @@
 				INFOPLIST_FILE = Cassette/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Cassette;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "\"Cassette needs to access your library to upload pictures for playlists\"";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Cassette needs to access your camera to take pictures for playlist artworks";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Cassette needs to access your library to upload pictures for playlists";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
