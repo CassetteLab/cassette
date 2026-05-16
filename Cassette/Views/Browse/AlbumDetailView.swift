@@ -198,7 +198,7 @@ struct AlbumDetailView: View {
             .ignoresSafeArea()
         )
         .cassetteContentWidth()
-        .navigationTitle(viewModel?.albumName ?? initialName)
+        .navigationTitle("")
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
         #if os(iOS)
