@@ -95,8 +95,8 @@ struct PlaylistDetailView: View {
     }
 
     var body: some View {
-        // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove) and .onMove (drag-to-reorder).
-        // ScrollView + LazyVStack refactor is deferred until those interactions are re-implemented outside List.
+        // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove).
+        // ScrollView + LazyVStack refactor is deferred until that interaction is re-implemented outside List.
         List {
             playlistHeader(vm: viewModel)
                 .listRowInsets(EdgeInsets())
@@ -142,16 +142,12 @@ struct PlaylistDetailView: View {
                         },
                         onRemove: (isEditing && !vm.isOffline) ? { index in
                             Task { await vm.removeTrack(at: index) }
-                        } : nil,
-                        onReorder: (isEditing && !vm.isOffline) ? { source, destination in
-                            Task { await vm.moveTracks(from: source, to: destination) }
                         } : nil
                     )
                 }
             }
         }
         .listStyle(.plain)
-        .environment(\.editMode, .constant(isEditing ? .active : .inactive))
         .scrollContentBackground(.hidden)
         .refreshable { await viewModel?.load() }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
@@ -727,11 +723,10 @@ struct PlaylistSongRows: View {
     let onDownload: ((String) -> Void)?
     let onRemoveDownload: ((String) -> Void)?
     let onRemove: ((Int) -> Void)?
-    let onReorder: ((IndexSet, Int) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
@@ -740,7 +735,6 @@ struct PlaylistSongRows: View {
         self.onDownload = onDownload
         self.onRemoveDownload = onRemoveDownload
         self.onRemove = onRemove
-        self.onReorder = onReorder
         let sid = serverId
         _downloadedTracks = Query(
             filter: #Predicate<DownloadedTrack> { track in
@@ -760,9 +754,6 @@ struct PlaylistSongRows: View {
             }
             .onDelete { indexSet in
                 for index in indexSet.sorted(by: >) { removeAction(index) }
-            }
-            .onMove { source, destination in
-                onReorder?(source, destination)
             }
         } else {
             ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
@@ -791,19 +782,10 @@ struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
-        HStack(spacing: 0) {
-            SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
-                .contentShape(Rectangle())
-                .onTapGesture { onTap(index) }
-            if onReorder != nil {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 16))
-                    .foregroundStyle(CassetteColors.textTertiary)
-                    .padding(.leading, CassetteSpacing.s)
-                    .padding(.trailing, CassetteSpacing.m)
-            }
-        }
-        .listRowBackground(Color.clear)
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
+            .listRowBackground(Color.clear)
         #if os(macOS)
         .listRowSeparator(.hidden)
         #endif
