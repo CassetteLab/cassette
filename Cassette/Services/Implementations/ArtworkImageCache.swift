@@ -30,10 +30,15 @@ final class ArtworkImageCache {
 
     private let downloadService: any DownloadServiceProtocol
     private let libraryService: any LibraryServiceProtocol
+    private let session: URLSession
 
     init(downloadService: any DownloadServiceProtocol, libraryService: any LibraryServiceProtocol) {
         self.downloadService = downloadService
         self.libraryService = libraryService
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 30
+        self.session = URLSession(configuration: config)
     }
 
     // MARK: - Public API
@@ -70,7 +75,7 @@ final class ArtworkImageCache {
 
         // 3. Server fetch → RAM + disk persist.
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 300) else { return nil }
-        guard let (data, _) = try? await URLSession.shared.data(from: serverURL),
+        guard let (data, _) = try? await session.data(from: serverURL),
               let image = PlatformImage(data: data) else {
             Logger.player.warning("ArtworkImageCache: failed to fetch \(coverArtId) from server")
             return nil

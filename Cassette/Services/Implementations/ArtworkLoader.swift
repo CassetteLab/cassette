@@ -21,6 +21,7 @@ actor ArtworkLoader {
     init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 30
         session = URLSession(configuration: config)
     }
 

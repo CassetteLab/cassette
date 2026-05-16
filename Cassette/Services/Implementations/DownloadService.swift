@@ -21,6 +21,7 @@ actor DownloadService: DownloadServiceProtocol {
     private var activeAlbumDownloads: Set<String> = []
     private var activePlaylistDownloads: Set<String> = []
     private let toastService: ToastService
+    private let downloadSession: URLSession
 
     nonisolated let progressStream: AsyncStream<[DownloadProgress]>
 
@@ -28,6 +29,11 @@ actor DownloadService: DownloadServiceProtocol {
         self.serverService = serverService
         self.modelContainer = modelContainer
         self.toastService = toastService
+
+        let sessionConfig = URLSessionConfiguration.default
+        sessionConfig.timeoutIntervalForRequest = 30
+        sessionConfig.timeoutIntervalForResource = 30
+        self.downloadSession = URLSession(configuration: sessionConfig)
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let base = docs.appendingPathComponent("app.cassette", isDirectory: true)
@@ -189,7 +195,7 @@ actor DownloadService: DownloadServiceProtocol {
 
         emit(progress: DownloadProgress(songId: song.id, serverId: serverId, progress: 0, totalBytes: nil, receivedBytes: 0))
 
-        let (tempURL, response) = try await URLSession.shared.download(for: request)
+        let (tempURL, response) = try await downloadSession.download(for: request)
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
@@ -558,7 +564,7 @@ actor DownloadService: DownloadServiceProtocol {
         var request = URLRequest(url: artURL)
         for (k, v) in creds.customHeaders { request.setValue(v, forHTTPHeaderField: k) }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await downloadSession.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             struct HTTPError: Error & Sendable { let statusCode: Int }

@@ -24,6 +24,7 @@ struct URLSessionExternalFetcher: ExternalArtworkFetcher {
     nonisolated init() {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 30
         session = URLSession(configuration: config)
     }
 

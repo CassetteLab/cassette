@@ -45,6 +45,7 @@ actor PlayerService: PlayerServiceProtocol {
     /// Task scheduled to download and cache the current track at +30s of playback.
     /// Cancelled when track changes via cancelPendingCacheDownload().
     private var cacheDownloadTask: Task<Void, Never>?
+    private let cacheSession: URLSession
     // Saved before a shuffle activation; nil when shuffle is off.
     private var originalQueueOrder: [DisplayableSong]?
     /// Single-slot guard preventing concurrent auto-extend fetches.
@@ -80,6 +81,10 @@ actor PlayerService: PlayerServiceProtocol {
         self.cacheSettings = cacheSettings
         self.toastService = toastService
         self.statsService = statsService
+        let cacheConfig = URLSessionConfiguration.default
+        cacheConfig.timeoutIntervalForRequest = 30
+        cacheConfig.timeoutIntervalForResource = 30
+        self.cacheSession = URLSession(configuration: cacheConfig)
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -1280,7 +1285,7 @@ actor PlayerService: PlayerServiceProtocol {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        let (tempURL, response) = try await URLSession.shared.download(for: request)
+        let (tempURL, response) = try await cacheSession.download(for: request)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
