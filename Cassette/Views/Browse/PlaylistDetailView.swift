@@ -71,6 +71,8 @@ struct PlaylistDetailView: View {
     @State private var editName: String = ""
     @State private var editDescription: String = ""
     @State private var isSaving = false
+    @State private var coverRefreshID = UUID()
+    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     #if os(iOS)
     @State private var pendingImage: UIImage?
@@ -356,7 +358,10 @@ struct PlaylistDetailView: View {
             )
             Logger.playlist.debug("Upload playlist cover: success")
             if let artId = viewModel?.coverArtId {
-                container.artworkImageCache.invalidate(for: artId)
+                await container.artworkImageCache.invalidate(for: artId)
+                await container.downloadService.persistCover(jpegData, forId: artId)
+                coverRefreshID = UUID()
+                coverArtUploadVersion += 1
             }
             pendingImage = nil
         } catch {
@@ -616,6 +621,7 @@ struct PlaylistDetailView: View {
                 cornerRadius: CassetteCornerRadius.large,
                 initialImage: initialCoverImage
             )
+            .id(coverRefreshID)
         }
     }
 }
