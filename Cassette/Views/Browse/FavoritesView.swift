@@ -64,7 +64,7 @@ struct FavoritesView: View {
         if !songs.isEmpty {
             Section("Songs") {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true)
+                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: true)
                         .contentShape(Rectangle())
                         .onTapGesture {
                             Task {

@@ -295,17 +295,7 @@ struct AlbumDetailView: View {
     // MARK: - Color loading
 
     private func loadDominantColor(coverArtId: String) async {
-        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
-            await extractAndSetColor(coverArtId: coverArtId, from: localURL)
-            return
-        }
-        guard let url = await container?.libraryService.coverArtURL(id: coverArtId, size: 100) else { return }
-        await extractAndSetColor(coverArtId: coverArtId, from: url)
-    }
-
-    private func extractAndSetColor(coverArtId: String, from url: URL) async {
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let image = PlatformImage(data: data) else { return }
+        guard let image = await container?.artworkImageCache.load(coverArtId: coverArtId) else { return }
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
@@ -533,6 +523,11 @@ struct AlbumSongRows: View {
     let onRemoveDownload: ((String) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
+    @Query private var allFavorites: [FavoriteRecord]
+
+    private var favoriteSongIds: Set<String> {
+        Set(allFavorites.map(\.id))
+    }
 
     init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil) {
         self.songs = songs
@@ -576,14 +571,14 @@ struct AlbumSongRows: View {
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
             let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
             #if os(macOS)
-            SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+            SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
                 .padding(.horizontal, CassetteSpacing.l)
                 .onTapGesture { onTap(index) }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             #else
             VStack(spacing: 0) {
-                SongRow(song: liveSong, index: index + 1, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+                SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
                     .padding(.horizontal, CassetteSpacing.l)
                     .onTapGesture { onTap(index) }
                 if index < songs.count - 1 {

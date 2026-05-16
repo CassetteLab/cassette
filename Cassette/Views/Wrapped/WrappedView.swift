@@ -15,7 +15,6 @@ struct WrappedView: View {
     @State private var wrappedPlaylistId: String?
     @State private var appeared = false
     @State private var loadFailed = false
-    @Query private var allEvents: [PlaybackEvent]
 
     init(initialPeriod: WrappedPeriod = .currentMonth()) {
         _selectedPeriod = State(initialValue: initialPeriod)
@@ -88,8 +87,12 @@ struct WrappedView: View {
         .task(id: selectedPeriod) {
             await loadData()
         }
-        .onChange(of: allEvents.count) { _, _ in
-            Task { await refreshData() }
+        .background {
+            if let serverId = container?.serverState.activeServer?.id.uuidString {
+                PlaybackEventWatcher(serverId: serverId) {
+                    Task { await refreshData() }
+                }
+            }
         }
     }
 
@@ -157,5 +160,23 @@ private extension View {
                 .spring(response: 0.45, dampingFraction: 0.82).delay(Double(order) * 0.07),
                 value: trigger
             )
+    }
+}
+
+// MARK: - Server-scoped playback event watcher
+
+private struct PlaybackEventWatcher: View {
+    let onCountChange: () -> Void
+    @Query private var events: [PlaybackEvent]
+
+    init(serverId: String, onCountChange: @escaping () -> Void) {
+        self.onCountChange = onCountChange
+        let sid = serverId
+        _events = Query(filter: #Predicate<PlaybackEvent> { $0.serverId == sid })
+    }
+
+    var body: some View {
+        Color.clear
+            .onChange(of: events.count) { _, _ in onCountChange() }
     }
 }

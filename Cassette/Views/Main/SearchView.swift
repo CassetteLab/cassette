@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftSonic
+import SwiftData
 import OSLog
 
 struct SearchView: View {
@@ -12,6 +13,11 @@ struct SearchView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: SearchViewModel?
     @AppStorage("cassette.recentSearches") private var recentSearchesData = "[]"
+    @Query private var allFavorites: [FavoriteRecord]
+
+    private var favoriteSongIds: Set<String> {
+        Set(allFavorites.map(\.id))
+    }
 
     private var recentSearches: [String] {
         (try? JSONDecoder().decode([String].self, from: Data(recentSearchesData.utf8))) ?? []
@@ -166,7 +172,7 @@ struct SearchView: View {
         if !songs.isEmpty {
             Section("Songs") {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true)
+                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"))
                         .contentShape(Rectangle())
                         .onTapGesture {
                             Task {

@@ -59,7 +59,6 @@ struct PlaylistDetailView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
-    @Query private var allDownloadedTracks: [DownloadedTrack]
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
@@ -447,17 +446,7 @@ struct PlaylistDetailView: View {
     // MARK: - Color loading
 
     private func loadDominantColor(coverArtId: String) async {
-        if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
-            await extractAndSetColor(coverArtId: coverArtId, from: localURL)
-            return
-        }
-        guard let url = await container?.libraryService.coverArtURL(id: coverArtId, size: 100) else { return }
-        await extractAndSetColor(coverArtId: coverArtId, from: url)
-    }
-
-    private func extractAndSetColor(coverArtId: String, from url: URL) async {
-        guard let (data, _) = try? await URLSession.shared.data(from: url),
-              let image = PlatformImage(data: data) else { return }
+        guard let image = await container?.artworkImageCache.load(coverArtId: coverArtId) else { return }
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
@@ -466,11 +455,6 @@ struct PlaylistDetailView: View {
     }
 
     // MARK: - Download state helpers
-
-    private func downloadedPlaylistTracksCount(in songs: [DisplayableSong]) -> Int {
-        let downloadedIds = Set(allDownloadedTracks.map(\.songId))
-        return songs.filter { downloadedIds.contains($0.id) }.count
-    }
 
     private func downloadState(for vm: PlaylistDetailViewModel) -> PlaylistDownloadState {
         let total = vm.songs.count
@@ -633,30 +617,14 @@ struct PlaylistDetailView: View {
                 .buttonStyle(.borderless)
                 .padding(.horizontal, CassetteSpacing.xxxl)
 
-                if let vm {
-                    if vm.isDownloadingPlaylist {
-                        let total = vm.songs.count
-                        let downloaded = downloadedPlaylistTracksCount(in: vm.songs)
-                        VStack(spacing: CassetteSpacing.xs) {
-                            if downloaded == 0 {
-                                HStack(spacing: CassetteSpacing.s) {
-                                    ProgressView().scaleEffect(0.8)
-                                    Text("Starting download…")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(headerSecondaryColor)
-                                }
-                            } else {
-                                ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
-                                    .progressViewStyle(.linear)
-                                    .tint(Color.cassetteAccent)
-                                    .frame(maxWidth: 280)
-                                Text("Downloading \(downloaded)/\(total) tracks")
-                                    .font(.cassetteCaption)
-                                    .foregroundStyle(headerSecondaryColor)
-                            }
-                        }
-                        .frame(minHeight: 44)
-                    }
+                if let vm, vm.isDownloadingPlaylist {
+                    let serverId = container?.serverState.activeServer?.id ?? UUID()
+                    PlaylistDownloadProgressView(
+                        songs: vm.songs,
+                        total: vm.songs.count,
+                        serverId: serverId,
+                        secondaryColor: headerSecondaryColor
+                    )
                 }
             }
         }
@@ -686,6 +654,51 @@ private nonisolated enum PlaylistDownloadState {
     case notDownloaded
     case partiallyDownloaded(downloaded: Int, total: Int)
     case fullyDownloaded
+}
+
+// MARK: - Download progress sub-view
+
+private struct PlaylistDownloadProgressView: View {
+    let songs: [DisplayableSong]
+    let total: Int
+    let secondaryColor: Color
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(songs: [DisplayableSong], total: Int, serverId: UUID, secondaryColor: Color) {
+        self.songs = songs
+        self.total = total
+        self.secondaryColor = secondaryColor
+        let sid = serverId
+        _downloadedTracks = Query(filter: #Predicate<DownloadedTrack> { $0.serverId == sid })
+    }
+
+    private var downloaded: Int {
+        let downloadedIds = Set(downloadedTracks.map(\.songId))
+        return songs.filter { downloadedIds.contains($0.id) }.count
+    }
+
+    var body: some View {
+        VStack(spacing: CassetteSpacing.xs) {
+            if downloaded == 0 {
+                HStack(spacing: CassetteSpacing.s) {
+                    ProgressView().scaleEffect(0.8)
+                    Text("Starting download…")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(secondaryColor)
+                }
+            } else {
+                ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
+                    .progressViewStyle(.linear)
+                    .tint(Color.cassetteAccent)
+                    .frame(maxWidth: 280)
+                Text("Downloading \(downloaded)/\(total) tracks")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(secondaryColor)
+            }
+        }
+        .frame(minHeight: 44)
+    }
 }
 
 // MARK: - Camera picker (iOS only)
@@ -740,6 +753,11 @@ struct PlaylistSongRows: View {
     let onContextRemove: ((Int) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
+    @Query private var allFavorites: [FavoriteRecord]
+
+    private var favoriteSongIds: Set<String> {
+        Set(allFavorites.map(\.id))
+    }
 
     init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil, onContextRemove: ((Int) -> Void)? = nil) {
         self.songs = songs
@@ -802,7 +820,7 @@ struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
-        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onRemoveFromPlaylist: onContextRemove.map { remove in { remove(index) } })
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onRemoveFromPlaylist: onContextRemove.map { remove in { remove(index) } })
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
             .listRowBackground(Color.clear)

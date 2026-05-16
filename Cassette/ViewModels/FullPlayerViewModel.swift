@@ -12,6 +12,12 @@ final class FullPlayerViewModel {
     var dominantColor: Color = .black
     var isLightBackground: Bool = false
 
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForResource = 30
+        return URLSession(configuration: config)
+    }()
+
     var contentColor: Color { isLightBackground ? .black : .white }
     var secondaryContentColor: Color { isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7) }
     var tertiaryContentColor: Color { isLightBackground ? Color.black.opacity(0.5) : Color.white.opacity(0.5) }
@@ -33,7 +39,7 @@ final class FullPlayerViewModel {
             url = await container?.libraryService.coverArtURL(id: coverArtId, size: 300)
         }
         guard let url,
-              let (data, _) = try? await URLSession.shared.data(from: url),
+              let (data, _) = try? await session.data(from: url),
               let image = PlatformImage(data: data) else { return }
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
         withAnimation(.easeInOut(duration: 0.4)) {

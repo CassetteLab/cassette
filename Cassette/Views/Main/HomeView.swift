@@ -11,8 +11,22 @@ struct HomeView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \PinnedItem.sortOrder) private var allPinnedItems: [PinnedItem]
-    @Query(sort: \DownloadedAlbum.downloadedAt, order: .reverse) private var recentDownloadedAlbums: [DownloadedAlbum]
-    @Query(sort: \DownloadedPlaylist.downloadedAt, order: .reverse) private var recentDownloadedPlaylists: [DownloadedPlaylist]
+    @Query private var recentDownloadedAlbums: [DownloadedAlbum]
+    @Query private var recentDownloadedPlaylists: [DownloadedPlaylist]
+    init() {
+        var albumDescriptor = FetchDescriptor<DownloadedAlbum>(
+            sortBy: [SortDescriptor(\DownloadedAlbum.downloadedAt, order: .reverse)]
+        )
+        albumDescriptor.fetchLimit = 24
+        _recentDownloadedAlbums = Query(albumDescriptor)
+
+        var playlistDescriptor = FetchDescriptor<DownloadedPlaylist>(
+            sortBy: [SortDescriptor(\DownloadedPlaylist.downloadedAt, order: .reverse)]
+        )
+        playlistDescriptor.fetchLimit = 24
+        _recentDownloadedPlaylists = Query(playlistDescriptor)
+    }
+
     @Namespace private var pinnedZoomNamespace
     @Namespace private var recentlyAddedZoomNamespace
     @Environment(DominantColorExtractor.self) private var colorExtractor

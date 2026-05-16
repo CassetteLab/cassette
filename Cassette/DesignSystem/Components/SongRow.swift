@@ -4,7 +4,6 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
-import SwiftData
 import OSLog
 
 /// Standard track cell for album and playlist detail screens.
@@ -17,6 +16,7 @@ struct SongRow: View {
     let index: Int
     var showCoverArt: Bool = false
     var isCurrentTrack: Bool = false
+    var isFavorite: Bool = false
     var titleColor: Color = .primary
     var secondaryColor: Color = .secondary
     let onDownload: (() -> Void)?
@@ -26,29 +26,26 @@ struct SongRow: View {
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
-    @Query private var favoriteMatches: [FavoriteRecord]
     @State private var coverImage: PlatformImage?
     @State private var showAddToPlaylist = false
     #if os(macOS)
     @State private var isHovered = false
     #endif
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
         self.isCurrentTrack = isCurrentTrack
+        self.isFavorite = isFavorite
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
         self.onDownload = onDownload
         self.onRemoveDownload = onRemoveDownload
         self.isDownloading = isDownloading
         self.onRemoveFromPlaylist = onRemoveFromPlaylist
-        let compositeId = "song:\(song.id)"
-        _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == compositeId })
     }
 
-    private var isFavorite: Bool { !favoriteMatches.isEmpty }
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
     var body: some View {
