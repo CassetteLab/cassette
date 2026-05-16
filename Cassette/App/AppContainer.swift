@@ -67,11 +67,12 @@ final class AppContainer {
         wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
         radioService = RadioService(serverService: server)
 
-        let library = LibraryService(serverService: server, modelContainer: modelContainer)
-        libraryService = library
-
         let download = DownloadService(serverService: server, modelContainer: modelContainer, toastService: toastService)
         downloadService = download
+
+        let library = LibraryService(serverService: server, modelContainer: modelContainer, downloadService: download)
+        libraryService = library
+
         artworkImageCache = ArtworkImageCache(downloadService: download, libraryService: library)
 
         let resolver = MediaResolver(

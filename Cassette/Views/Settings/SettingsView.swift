@@ -104,14 +104,16 @@ struct SettingsView: View {
                     SettingsIcon(systemImage: "info.circle.fill", color: .blue)
                 }
             }
-            Link(destination: URL(string: "https://github.com/MathieuDubart/cassette")!) {
-                Label {
-                    Text("GitHub Repository")
-                } icon: {
-                    SettingsIcon(systemImage: "chevron.left.forwardslash.chevron.right", color: .gray)
-                }
+            LabeledContent("Version") {
+                Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
             }
-            // TODO(v1.0): display Bundle version, add MPL-2.0 license note, SwiftSonic MIT attribution
+            LabeledContent("License") {
+                Text("Mozilla Public License 2.0")
+            }
+            LabeledContent("SwiftSonic") {
+                Text("MIT License — MathieuDubart")
+            }
+            Link("View on GitHub", destination: URL(string: "https://github.com/MathieuDubart/cassette")!)
         }
     }
 }
