@@ -177,11 +177,17 @@ struct PlaylistDetailView: View {
         .toolbar { toolbarContent }
         #if os(iOS)
         .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
-            Button("Choose from Library") { showImagePicker = true }
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button("Take a Photo") { showCamera = true }
+            Button("Choose from Library") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showImagePicker = true }
             }
-            Button("Browse Files") { showFilePicker = true }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take a Photo") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showCamera = true }
+                }
+            }
+            Button("Browse Files") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showFilePicker = true }
+            }
             Button("Cancel", role: .cancel) {}
         }
         .fullScreenCover(isPresented: $showImagePicker) {
