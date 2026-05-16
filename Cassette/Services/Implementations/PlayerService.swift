@@ -1022,10 +1022,9 @@ actor PlayerService: PlayerServiceProtocol {
     /// Builds an AVPlayerItem from a MediaSource.
     ///
     /// For `.stream`, custom headers are injected via the `"AVURLAssetHTTPHeaderFields"` key.
-    /// This key exists in AVFoundation/AVURLAsset.h but is not publicly exported as a Swift
-    /// constant — its raw string value is the stable interface (iOS 10+, confirmed in practice).
-    /// It is the only way to inject per-request HTTP headers without an AVAssetResourceLoaderDelegate.
-    /// ⚠ Monitor Apple AVFoundation release notes — Apple could remove or replace this mechanism.
+    /// Private AVFoundation key (iOS 10+, stable in practice). No public Swift constant exists.
+    /// Monitor AVFoundation release notes.
+    /// Fallback if removed: AVAssetResourceLoaderDelegate (planned v1.x).
     private func makePlayerItem(source: MediaSource, expectedDuration: TimeInterval? = nil) -> AVPlayerItem {
         let headers = source.customHeaders
         let item: AVPlayerItem
