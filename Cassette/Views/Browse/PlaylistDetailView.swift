@@ -74,11 +74,14 @@ struct PlaylistDetailView: View {
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     #if os(iOS)
+    private enum CoverPickerSource: Identifiable {
+        case library, camera, files
+        var id: Self { self }
+    }
+
     @State private var pendingImage: UIImage?
     @State private var showImageOptions = false
-    @State private var showImagePicker = false
-    @State private var showCamera = false
-    @State private var showFilePicker = false
+    @State private var coverPickerSource: CoverPickerSource?
     #endif
 
     private var headerTextColor: Color {
@@ -92,6 +95,7 @@ struct PlaylistDetailView: View {
     }
 
     var body: some View {
+        ZStack {
         // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove) and .onMove (drag-to-reorder).
         // ScrollView + LazyVStack refactor is deferred until those interactions are re-implemented outside List.
         List {
@@ -176,38 +180,17 @@ struct PlaylistDetailView: View {
         #endif
         .toolbar { toolbarContent }
         #if os(iOS)
-        .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
-            Button("Choose from Library") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showImagePicker = true }
-            }
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button("Take a Photo") {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showCamera = true }
-                }
-            }
-            Button("Browse Files") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showFilePicker = true }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .fullScreenCover(isPresented: $showImagePicker) {
-            ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
-                .ignoresSafeArea()
-        }
-        .fullScreenCover(isPresented: $showCamera) {
-            ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
-                .ignoresSafeArea()
-        }
-        .fileImporter(
-            isPresented: $showFilePicker,
-            allowedContentTypes: [.jpeg, .png, .heic, .webP],
-            allowsMultipleSelection: false
-        ) { result in
-            guard case .success(let urls) = result, let url = urls.first else { return }
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            if let data = try? Data(contentsOf: url) {
-                pendingImage = UIImage(data: data)
+        .fullScreenCover(item: $coverPickerSource) { source in
+            switch source {
+            case .library:
+                ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
+                    .ignoresSafeArea()
+            case .camera:
+                ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
+                    .ignoresSafeArea()
+            case .files:
+                DocumentImagePicker(onPick: { pendingImage = $0 })
+                    .ignoresSafeArea()
             }
         }
         #endif
@@ -238,6 +221,20 @@ struct PlaylistDetailView: View {
             await loadDominantColor(coverArtId: artId)
         }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
+
+        #if os(iOS)
+        Color.clear
+            .frame(width: 0, height: 0)
+            .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
+                Button("Choose from Library") { coverPickerSource = .library }
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button("Take a Photo") { coverPickerSource = .camera }
+                }
+                Button("Browse Files") { coverPickerSource = .files }
+                Button("Cancel", role: .cancel) {}
+            }
+        #endif
+        }
     }
 
     // MARK: - Toolbar
