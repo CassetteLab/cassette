@@ -5,12 +5,41 @@
 
 import SwiftUI
 
+private enum OnboardingStep {
+    case welcome, cache, listenBrainz, externalProviders
+}
+
 struct OnboardingView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: OnboardingViewModel?
     @State private var showingServerForm = false
+    @State private var step: OnboardingStep = .welcome
+    @AppStorage("onboardingComplete") private var onboardingComplete = false
 
     var body: some View {
+        Group {
+            switch step {
+            case .welcome:
+                welcomeView
+            case .cache:
+                cacheStep
+            case .listenBrainz:
+                listenBrainzStep
+            case .externalProviders:
+                externalProvidersStep
+            }
+        }
+        .task {
+            // Existing users upgrading: server already set, skip all onboarding steps.
+            if container?.serverState.activeServer != nil {
+                onboardingComplete = true
+            }
+        }
+    }
+
+    // MARK: - Welcome
+
+    private var welcomeView: some View {
         VStack(spacing: 24) {
             Spacer()
 
@@ -43,12 +72,71 @@ struct OnboardingView: View {
             guard viewModel == nil, let container else { return }
             viewModel = OnboardingViewModel(serverService: container.serverService)
         }
-        .sheet(isPresented: $showingServerForm) {
+        .onChange(of: container?.serverState.activeServer != nil) { _, serverConnected in
+            if serverConnected { showingServerForm = false }
+        }
+        .sheet(isPresented: $showingServerForm, onDismiss: {
+            if container?.serverState.activeServer != nil {
+                step = .cache
+            }
+        }) {
             if let viewModel {
                 NavigationStack {
                     ServerFormView(viewModel: viewModel)
                 }
             }
+        }
+    }
+
+    // MARK: - Cache
+
+    private var cacheStep: some View {
+        NavigationStack {
+            Form {
+                CacheSectionView()
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Cache")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Skip") { step = .listenBrainz }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Continue") { step = .listenBrainz }
+                }
+            }
+        }
+    }
+
+    // MARK: - ListenBrainz
+
+    private var listenBrainzStep: some View {
+        NavigationStack {
+            ListenBrainzSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Skip") { step = .externalProviders }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Continue") { step = .externalProviders }
+                    }
+                }
+        }
+    }
+
+    // MARK: - External Providers
+
+    private var externalProvidersStep: some View {
+        NavigationStack {
+            ExternalProvidersSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Skip") { onboardingComplete = true }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { onboardingComplete = true }
+                    }
+                }
         }
     }
 }
