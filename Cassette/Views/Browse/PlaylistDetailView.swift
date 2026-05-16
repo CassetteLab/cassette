@@ -145,6 +145,9 @@ struct PlaylistDetailView: View {
                         } : nil,
                         onReorder: (isEditing && !vm.isOffline) ? { source, destination in
                             Task { await vm.moveTracks(from: source, to: destination) }
+                        } : nil,
+                        onContextRemove: !vm.isOffline ? { index in
+                            Task { await vm.removeTrack(at: index) }
                         } : nil
                     )
                 }
@@ -172,7 +175,7 @@ struct PlaylistDetailView: View {
             .ignoresSafeArea()
         )
         .cassetteContentWidth()
-        .navigationTitle(isEditing ? "" : (viewModel?.name ?? initialName))
+        .navigationTitle("")
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
         #if os(iOS)
@@ -728,10 +731,11 @@ struct PlaylistSongRows: View {
     let onRemoveDownload: ((String) -> Void)?
     let onRemove: ((Int) -> Void)?
     let onReorder: ((IndexSet, Int) -> Void)?
+    let onContextRemove: ((Int) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil, onContextRemove: ((Int) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
@@ -741,6 +745,7 @@ struct PlaylistSongRows: View {
         self.onRemoveDownload = onRemoveDownload
         self.onRemove = onRemove
         self.onReorder = onReorder
+        self.onContextRemove = onContextRemove
         let sid = serverId
         _downloadedTracks = Query(
             filter: #Predicate<DownloadedTrack> { track in
@@ -791,7 +796,7 @@ struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
-        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onRemoveFromPlaylist: onContextRemove.map { remove in { remove(index) } })
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
             .listRowBackground(Color.clear)
