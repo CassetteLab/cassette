@@ -2,7 +2,7 @@
 
 > A native iOS and macOS client for Subsonic, OpenSubsonic, and Navidrome servers. Built for people who self-host their music.
 
-[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0--or--later-green.svg)](LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-brightgreen.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-iOS%2026%2B%20%7C%20macOS%2014%2B-blue.svg)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-6.0%2B-orange.svg)](https://swift.org)
 
@@ -22,7 +22,7 @@ Cassette is a native Swift / SwiftUI music client for iOS and macOS, designed fo
 
 No accounts, no subscriptions, no tracking. Your music stays between your device and your server.
 
-Licensed under GPL-3.0.
+Licensed under MPL-2.0.
 
 ---
 
@@ -162,13 +162,15 @@ For ideas and feedback: [Discussions](https://github.com/MathieuDubart/Cassette/
 
 ## License
 
-Cassette is licensed under [GPL-3.0-or-later](LICENSE).
+Cassette is licensed under [MPL-2.0](LICENSE).
 
 - You can use, study, modify, and redistribute the source code
-- If you distribute modified versions, they must also be GPL-3.0-or-later
+- Modified files must remain under MPL-2.0; you may combine them with proprietary code in a Larger Work
 - The App Store version is the same code, signed and distributed for convenience
 
-The underlying [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic) library is MIT-licensed, which is compatible with GPL-3.0.
+The underlying [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic) library is MIT-licensed, which is compatible with MPL-2.0.
+
+> Code prior to commit 21f9227 was licensed under GPL-3.0-or-later.
 
 ---
 

@@ -190,7 +190,7 @@ SectionHeader("Recent Albums")
 
 ## Adding a new component
 
-1. Create `DesignSystem/Components/MyComponent.swift` with the GPL header.
+1. Create `DesignSystem/Components/MyComponent.swift` with the MPL-2.0 header.
 2. Use only design system tokens (no magic numbers, no hardcoded colors).
 3. Add a `#Preview` block.
 4. Document it in this file under **Components**.

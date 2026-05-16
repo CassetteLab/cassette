@@ -188,15 +188,15 @@ warning: AppIcon.appiconset/cassette-wow-loop-1024 N.png is 1024x1024 but should
 
 ## Licensing
 
-By contributing code to this repository, you agree that your contributions will be licensed under the GNU General Public License v3.0 or later, the same license that covers the project.
+By contributing code to this repository, you agree that your contributions will be licensed under the Mozilla Public License 2.0, the same license that covers the project.
 
-All new Swift files must include the GPL header at the top of the file:
+All new Swift files must include the MPL-2.0 header at the top of the file:
 
 ```swift
 // Cassette — Music client for Subsonic/OpenSubsonic servers
 // Copyright (C) 2026 Mathieu Dubart
-// Licensed under the GNU General Public License v3.0 or later.
+// Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 ```
 
-Dependencies added to the project must use GPL-compatible licenses (MIT, Apache 2.0, BSD, LGPL, or GPL itself). Non-compatible licenses (proprietary, CC-BY-NC, AGPL for certain use cases) must be discussed and approved before inclusion.
+Dependencies added to the project must use MPL-2.0-compatible licenses (MIT, Apache 2.0, BSD, LGPL, or MPL itself). Non-compatible licenses (proprietary, CC-BY-NC) must be discussed and approved before inclusion.

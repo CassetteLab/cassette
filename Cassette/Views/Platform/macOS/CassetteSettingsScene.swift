@@ -1,6 +1,6 @@
 // Cassette — Music client for Subsonic/OpenSubsonic servers
 // Copyright (C) 2026 Mathieu Dubart
-// Licensed under the GNU General Public License v3.0 or later.
+// Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
 #if os(macOS)
@@ -179,7 +179,7 @@ private struct AboutSettingsTab: View {
                         .monospacedDigit()
                 }
                 LabeledContent("License") {
-                    Text("GPL-3.0-or-later")
+                    Text("MPL-2.0")
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("Copyright") {

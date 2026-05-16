@@ -1,6 +1,6 @@
 // Cassette — Music client for Subsonic/OpenSubsonic servers
 // Copyright (C) 2026 Mathieu Dubart
-// Licensed under the GNU General Public License v3.0 or later.
+// Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
@@ -303,7 +303,7 @@ struct SettingsView: View {
                     SettingsIcon(systemImage: "chevron.left.forwardslash.chevron.right", color: .gray)
                 }
             }
-            // TODO(v1.0): display Bundle version, add GPL license note, SwiftSonic MIT attribution
+            // TODO(v1.0): display Bundle version, add MPL-2.0 license note, SwiftSonic MIT attribution
         }
     }
 }
