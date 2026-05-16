@@ -95,7 +95,6 @@ struct PlaylistDetailView: View {
     }
 
     var body: some View {
-        ZStack {
         // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove) and .onMove (drag-to-reorder).
         // ScrollView + LazyVStack refactor is deferred until those interactions are re-implemented outside List.
         List {
@@ -221,20 +220,53 @@ struct PlaylistDetailView: View {
             await loadDominantColor(coverArtId: artId)
         }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
-
         #if os(iOS)
-        Color.clear
-            .frame(width: 0, height: 0)
-            .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
-                Button("Choose from Library") { coverPickerSource = .library }
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    Button("Take a Photo") { coverPickerSource = .camera }
+        .sheet(isPresented: $showImageOptions) {
+            VStack(spacing: 0) {
+                Text("Change Cover Art")
+                    .font(.headline)
+                    .padding(.top, CassetteSpacing.l)
+                    .padding(.bottom, CassetteSpacing.m)
+
+                Divider()
+
+                Button("Choose from Library") {
+                    showImageOptions = false
+                    coverPickerSource = .library
                 }
-                Button("Browse Files") { coverPickerSource = .files }
-                Button("Cancel", role: .cancel) {}
+                .frame(maxWidth: .infinity)
+                .padding(CassetteSpacing.m)
+
+                Divider()
+
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    Button("Take a Photo") {
+                        showImageOptions = false
+                        coverPickerSource = .camera
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(CassetteSpacing.m)
+                    Divider()
+                }
+
+                Button("Browse Files") {
+                    showImageOptions = false
+                    coverPickerSource = .files
+                }
+                .frame(maxWidth: .infinity)
+                .padding(CassetteSpacing.m)
+
+                Divider()
+
+                Button("Cancel", role: .cancel) { showImageOptions = false }
+                    .frame(maxWidth: .infinity)
+                    .padding(CassetteSpacing.m)
+                    .foregroundStyle(.secondary)
             }
-        #endif
+            .presentationDetents([.height(280)])
+            .presentationDragIndicator(.visible)
         }
+        #endif
     }
 
     // MARK: - Toolbar
