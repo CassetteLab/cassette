@@ -223,39 +223,36 @@ struct PlaylistDetailView: View {
         #if os(iOS)
         .sheet(isPresented: $showImageOptions) {
             VStack(spacing: 0) {
-                Capsule()
-                    .fill(CassetteColors.textTertiary.opacity(0.4))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, CassetteSpacing.m)
-                    .padding(.bottom, CassetteSpacing.l)
-
                 Text("Change Cover Art")
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(CassetteColors.textSecondary)
-                    .padding(.bottom, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.l)
+                    .padding(.bottom, CassetteSpacing.m)
 
-                VStack(spacing: CassetteSpacing.s) {
-                    coverPickerOption(icon: "photo.on.rectangle", label: "Choose from Library") {
-                        showImageOptions = false
-                        coverPickerSource = .library
-                    }
-                    if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                        coverPickerOption(icon: "camera.fill", label: "Take a Photo") {
-                            showImageOptions = false
-                            coverPickerSource = .camera
-                        }
-                    }
-                    coverPickerOption(icon: "folder.fill", label: "Browse Files") {
-                        showImageOptions = false
-                        coverPickerSource = .files
-                    }
+                Divider()
+
+                coverPickerRow(icon: "photo.on.rectangle", label: "Choose from Library") {
+                    showImageOptions = false
+                    coverPickerSource = .library
                 }
-                .padding(.horizontal, CassetteSpacing.l)
-                .padding(.bottom, CassetteSpacing.m)
+
+                Divider().padding(.leading, 56)
+
+                if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                    coverPickerRow(icon: "camera.fill", label: "Take a Photo") {
+                        showImageOptions = false
+                        coverPickerSource = .camera
+                    }
+                    Divider().padding(.leading, 56)
+                }
+
+                coverPickerRow(icon: "folder.fill", label: "Browse Files") {
+                    showImageOptions = false
+                    coverPickerSource = .files
+                }
             }
-            .frame(maxWidth: .infinity)
-            .presentationDetents([.height(220)])
-            .presentationDragIndicator(.hidden)
+            .presentationDetents([.height(200)])
+            .presentationDragIndicator(.visible)
         }
         #endif
     }
@@ -397,26 +394,21 @@ struct PlaylistDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func coverPickerOption(icon: String, label: String, action: @escaping () -> Void) -> some View {
+    private func coverPickerRow(icon: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: CassetteSpacing.m) {
                 Image(systemName: icon)
                     .font(.body)
                     .foregroundStyle(CassetteColors.accent)
-                    .frame(width: 32, height: 32)
-                    .background(CassetteColors.accentBackground)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
+                    .frame(width: 28)
+                    .padding(.leading, CassetteSpacing.l)
                 Text(label)
-                    .font(.system(.body, design: .rounded, weight: .medium))
+                    .font(.system(.body, design: .rounded))
                     .foregroundStyle(CassetteColors.textPrimary)
-
                 Spacer()
             }
-            .padding(CassetteSpacing.m)
-            .background(CassetteColors.backgroundTertiary)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .frame(height: 52)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
