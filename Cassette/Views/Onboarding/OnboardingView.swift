@@ -21,14 +21,31 @@ struct OnboardingView: View {
             switch step {
             case .welcome:
                 welcomeView
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
             case .cache:
                 cacheStep
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
             case .listenBrainz:
                 listenBrainzStep
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
             case .externalProviders:
                 externalProvidersStep
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .trailing),
+                        removal: .move(edge: .leading)
+                    ))
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: step)
         .task {
             // Existing users upgrading: server already set, skip all onboarding steps.
             if container?.serverState.activeServer != nil {
@@ -40,34 +57,65 @@ struct OnboardingView: View {
     // MARK: - Welcome
 
     private var welcomeView: some View {
-        VStack(spacing: 24) {
-            Spacer()
+        ZStack {
+            CassetteColors.backgroundPrimary
+                .ignoresSafeArea()
 
-            Image(systemName: "hifispeaker.2")
-                .font(.system(size: 72))
-                .foregroundStyle(.secondary)
+            VStack(spacing: 0) {
+                Spacer()
 
-            VStack(spacing: 8) {
-                Text("Welcome to Cassette")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                // Hero: cassette icon with ambient glow
+                ZStack {
+                    Circle()
+                        .fill(CassetteColors.accent.opacity(0.12))
+                        .frame(width: 180, height: 180)
+                        .blur(radius: 50)
 
-                Text("Connect to your Subsonic-compatible music server to get started.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                    ZStack {
+                        Circle()
+                            .fill(CassetteColors.accentBackground)
+                            .frame(width: 96, height: 96)
+
+                        CassetteTapeIcon()
+                            .fill(CassetteColors.accent, style: FillStyle(eoFill: true))
+                            .frame(width: 52, height: 34)
+                    }
+                }
+
+                Spacer().frame(height: CassetteSpacing.xxxxl)
+
+                VStack(spacing: CassetteSpacing.m) {
+                    Text("Your music.\nYour server.")
+                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .foregroundStyle(CassetteColors.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+
+                    Text("Stream your Navidrome library on iPhone and Mac.\nNo subscriptions, no big tech.")
+                        .font(.body)
+                        .foregroundStyle(CassetteColors.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                }
+                .padding(.horizontal, CassetteSpacing.xxxl)
+
+                Spacer()
+
+                Button {
+                    showingServerForm = true
+                } label: {
+                    Text("Add Server")
+                        .font(.system(.body, design: .default, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .tint(CassetteColors.accent)
+                .disabled(viewModel == nil)
+                .padding(.horizontal, CassetteSpacing.xxxl)
+                .padding(.bottom, CassetteSpacing.xxxl)
             }
-
-            Spacer()
-
-            Button("Add Server") {
-                showingServerForm = true
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(viewModel == nil)
         }
-        .padding(32)
         .onAppear {
             guard viewModel == nil, let container else { return }
             viewModel = OnboardingViewModel(serverService: container.serverService)
@@ -91,52 +139,49 @@ struct OnboardingView: View {
     // MARK: - Cache
 
     private var cacheStep: some View {
-        NavigationStack {
-            Form {
-                CacheSectionView()
-            }
-            .formStyle(.grouped)
-            .navigationTitle("Cache")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Skip") { step = .listenBrainz }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Continue") { step = .listenBrainz }
-                }
-            }
+        OnboardingStepView(
+            icon: "externaldrive.fill",
+            title: "Speed things up",
+            subtitle: "Keep your recent tracks ready to play instantly, even on a slow connection.",
+            stepIndex: 0,
+            totalSteps: 3,
+            onSkip: { step = .listenBrainz },
+            onContinue: { step = .listenBrainz }
+        ) {
+            Form { CacheSectionView() }
+                .formStyle(.grouped)
         }
     }
 
     // MARK: - ListenBrainz
 
     private var listenBrainzStep: some View {
-        NavigationStack {
+        OnboardingStepView(
+            icon: "link.circle.fill",
+            title: "Track what you listen to",
+            subtitle: "Connect your ListenBrainz account to log your plays and discover stats.",
+            stepIndex: 1,
+            totalSteps: 3,
+            onSkip: { step = .externalProviders },
+            onContinue: { step = .externalProviders }
+        ) {
             ListenBrainzSettingsView()
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Skip") { step = .externalProviders }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Continue") { step = .externalProviders }
-                    }
-                }
         }
     }
 
     // MARK: - External Providers
 
     private var externalProvidersStep: some View {
-        NavigationStack {
+        OnboardingStepView(
+            icon: "arrow.up.right.square.fill",
+            title: "Open releases your way",
+            subtitle: "Add a custom search provider to look up albums on Discogs, MusicBrainz, or anywhere else.",
+            stepIndex: 2,
+            totalSteps: 3,
+            onSkip: { onboardingComplete = true },
+            onContinue: { onboardingComplete = true }
+        ) {
             ExternalProvidersSettingsView()
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Skip") { onboardingComplete = true }
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { onboardingComplete = true }
-                    }
-                }
         }
     }
 }
