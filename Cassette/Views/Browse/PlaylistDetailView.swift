@@ -171,6 +171,9 @@ struct PlaylistDetailView: View {
         .navigationTitle(isEditing ? "" : (viewModel?.name ?? initialName))
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
+        #if os(iOS)
+        .enableSwipeBack()
+        #endif
         .toolbar { toolbarContent }
         #if os(iOS)
         .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {

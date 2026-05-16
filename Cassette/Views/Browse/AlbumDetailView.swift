@@ -201,6 +201,9 @@ struct AlbumDetailView: View {
         .navigationTitle(viewModel?.albumName ?? initialName)
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
+        #if os(iOS)
+        .enableSwipeBack()
+        #endif
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
