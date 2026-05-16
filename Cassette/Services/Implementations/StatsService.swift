@@ -229,7 +229,9 @@ actor StatsService {
                 groups[e.trackId] = (e.durationListened, 1, e.trackTitle, e.artistName, e.albumTitle)
             }
         }
+        // Primary: playCount — reflects actual listening intent; loop time is tiebreaker.
         let sorted = groups.sorted {
+            if $0.value.count != $1.value.count { return $0.value.count > $1.value.count }
             if $0.value.duration != $1.value.duration { return $0.value.duration > $1.value.duration }
             return $0.key < $1.key
         }
@@ -259,7 +261,9 @@ actor StatsService {
                 groups[albumId] = (e.durationListened, 1, [e.trackId], e.albumTitle ?? "", e.artistName)
             }
         }
+        // Primary: playCount; tiebreaker: totalSecondsListened.
         let sorted = groups.sorted {
+            if $0.value.count != $1.value.count { return $0.value.count > $1.value.count }
             if $0.value.duration != $1.value.duration { return $0.value.duration > $1.value.duration }
             return $0.key < $1.key
         }
@@ -289,7 +293,9 @@ actor StatsService {
                 groups[artistId] = (e.durationListened, 1, [e.trackId], e.artistName)
             }
         }
+        // Primary: playCount; tiebreaker: totalSecondsListened.
         let sorted = groups.sorted {
+            if $0.value.count != $1.value.count { return $0.value.count > $1.value.count }
             if $0.value.duration != $1.value.duration { return $0.value.duration > $1.value.duration }
             return $0.key < $1.key
         }

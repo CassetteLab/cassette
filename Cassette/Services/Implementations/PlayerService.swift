@@ -932,6 +932,13 @@ actor PlayerService: PlayerServiceProtocol {
             await recordCurrentTrackPlayback()
             wasTrackCompletedNaturally = false
             trackStartDate = Date()
+            // Re-attach the observer so AVPlayerItemDidPlayToEndTime fires on the next
+            // iteration. The same AVPlayerItem is reused; explicit teardown+setup guards
+            // against any platform edge case where the notification silently stops firing.
+            if let item = player?.currentItem {
+                if let old = endOfTrackObserver { NotificationCenter.default.removeObserver(old) }
+                setupEndOfTrackObserver(for: item)
+            }
             await seek(to: 0)
             player?.play()
         } else {
