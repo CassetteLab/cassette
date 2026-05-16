@@ -8,7 +8,6 @@ import SwiftSonic
 import SwiftData
 import OSLog
 #if os(iOS)
-import PhotosUI
 import UniformTypeIdentifiers
 #endif
 
@@ -77,10 +76,9 @@ struct PlaylistDetailView: View {
     #if os(iOS)
     @State private var pendingImage: UIImage?
     @State private var showImageOptions = false
-    @State private var showPhotoPicker = false
+    @State private var showImagePicker = false
     @State private var showCamera = false
     @State private var showFilePicker = false
-    @State private var selectedPhotoItem: PhotosPickerItem?
     #endif
 
     private var headerTextColor: Color {
@@ -176,16 +174,19 @@ struct PlaylistDetailView: View {
         .toolbar { toolbarContent }
         #if os(iOS)
         .confirmationDialog("Change Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
-            Button("Choose from Library") { showPhotoPicker = true }
+            Button("Choose from Library") { showImagePicker = true }
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Take a Photo") { showCamera = true }
             }
             Button("Browse Files") { showFilePicker = true }
             Button("Cancel", role: .cancel) {}
         }
-        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+        .fullScreenCover(isPresented: $showImagePicker) {
+            ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
+                .ignoresSafeArea()
+        }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraImagePicker(image: $pendingImage)
+            ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
                 .ignoresSafeArea()
         }
         .fileImporter(
@@ -199,13 +200,6 @@ struct PlaylistDetailView: View {
             if let data = try? Data(contentsOf: url) {
                 pendingImage = UIImage(data: data)
             }
-        }
-        .task(id: selectedPhotoItem) {
-            guard let item = selectedPhotoItem else { return }
-            if let data = try? await item.loadTransferable(type: Data.self) {
-                pendingImage = UIImage(data: data)
-            }
-            selectedPhotoItem = nil
         }
         #endif
         .task {

@@ -7,7 +7,6 @@ import SwiftUI
 import SwiftSonic
 import OSLog
 #if os(iOS)
-import PhotosUI
 import UniformTypeIdentifiers
 #endif
 
@@ -22,10 +21,9 @@ struct CreatePlaylistSheet: View {
     #if os(iOS)
     @State private var pendingImage: UIImage?
     @State private var showImageOptions = false
-    @State private var showPhotoPicker = false
+    @State private var showImagePicker = false
     @State private var showCamera = false
     @State private var showFilePicker = false
-    @State private var selectedPhotoItem: PhotosPickerItem?
     #endif
 
     var body: some View {
@@ -73,7 +71,7 @@ struct CreatePlaylistSheet: View {
         }
         #if os(iOS)
         .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
-            Button("Choose from Library") { showPhotoPicker = true }
+            Button("Choose from Library") { showImagePicker = true }
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Take a Photo") { showCamera = true }
             }
@@ -83,9 +81,12 @@ struct CreatePlaylistSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
+        .fullScreenCover(isPresented: $showImagePicker) {
+            ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
+                .ignoresSafeArea()
+        }
         .fullScreenCover(isPresented: $showCamera) {
-            CameraImagePickerSheet(image: $pendingImage)
+            ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
                 .ignoresSafeArea()
         }
         .fileImporter(
@@ -99,13 +100,6 @@ struct CreatePlaylistSheet: View {
             if let data = try? Data(contentsOf: url) {
                 pendingImage = UIImage(data: data)
             }
-        }
-        .task(id: selectedPhotoItem) {
-            guard let item = selectedPhotoItem else { return }
-            if let data = try? await item.loadTransferable(type: Data.self) {
-                pendingImage = UIImage(data: data)
-            }
-            selectedPhotoItem = nil
         }
         #endif
         .task {
@@ -206,38 +200,3 @@ struct CreatePlaylistSheet: View {
     }
     #endif
 }
-
-// MARK: - Camera picker for sheet context (iOS only)
-
-#if os(iOS)
-private struct CameraImagePickerSheet: UIViewControllerRepresentable {
-    @Binding var image: UIImage?
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
-        let parent: CameraImagePickerSheet
-
-        init(_ parent: CameraImagePickerSheet) { self.parent = parent }
-
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            parent.image = info[.originalImage] as? UIImage
-            parent.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
-        }
-    }
-}
-#endif

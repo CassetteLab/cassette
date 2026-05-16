@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "cassette-launch-violet-1170x2532.png",
+      "filename" : "cassette-launch-violet.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "cassette-launch-violet-1170x2532 1.png",
+      "filename" : "cassette-launch-violet 1.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "cassette-launch-violet-1170x2532 2.png",
+      "filename" : "cassette-launch-violet 2.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
