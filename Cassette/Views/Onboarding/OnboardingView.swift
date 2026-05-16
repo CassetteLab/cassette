@@ -26,23 +26,32 @@ struct OnboardingView: View {
                         removal: .move(edge: .leading)
                     ))
             case .cache:
-                cacheStep
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing),
-                        removal: .move(edge: .leading)
-                    ))
+                OnboardingCacheStepView(
+                    onSkip: { step = .listenBrainz },
+                    onContinue: { step = .listenBrainz }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing),
+                    removal: .move(edge: .leading)
+                ))
             case .listenBrainz:
-                listenBrainzStep
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing),
-                        removal: .move(edge: .leading)
-                    ))
+                OnboardingListenBrainzStepView(
+                    onSkip: { step = .externalProviders },
+                    onContinue: { step = .externalProviders }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing),
+                    removal: .move(edge: .leading)
+                ))
             case .externalProviders:
-                externalProvidersStep
-                    .transition(.asymmetric(
-                        insertion: .move(edge: .trailing),
-                        removal: .move(edge: .leading)
-                    ))
+                OnboardingExternalProvidersStepView(
+                    onSkip: { onboardingComplete = true },
+                    onContinue: { onboardingComplete = true }
+                )
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing),
+                    removal: .move(edge: .leading)
+                ))
             }
         }
         .animation(.easeInOut(duration: 0.3), value: step)
@@ -64,7 +73,6 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 Spacer()
 
-                // Hero: cassette icon with ambient glow
                 ZStack {
                     Circle()
                         .fill(CassetteColors.accent.opacity(0.12))
@@ -133,55 +141,6 @@ struct OnboardingView: View {
                     ServerFormView(viewModel: viewModel)
                 }
             }
-        }
-    }
-
-    // MARK: - Cache
-
-    private var cacheStep: some View {
-        OnboardingStepView(
-            icon: "externaldrive.fill",
-            title: "Speed things up",
-            subtitle: "Keep your recent tracks ready to play instantly, even on a slow connection.",
-            stepIndex: 0,
-            totalSteps: 3,
-            onSkip: { step = .listenBrainz },
-            onContinue: { step = .listenBrainz }
-        ) {
-            Form { CacheSectionView() }
-                .formStyle(.grouped)
-        }
-    }
-
-    // MARK: - ListenBrainz
-
-    private var listenBrainzStep: some View {
-        OnboardingStepView(
-            icon: "link.circle.fill",
-            title: "Track what you listen to",
-            subtitle: "Connect your ListenBrainz account to log your plays and discover stats.",
-            stepIndex: 1,
-            totalSteps: 3,
-            onSkip: { step = .externalProviders },
-            onContinue: { step = .externalProviders }
-        ) {
-            ListenBrainzSettingsView()
-        }
-    }
-
-    // MARK: - External Providers
-
-    private var externalProvidersStep: some View {
-        OnboardingStepView(
-            icon: "arrow.up.right.square.fill",
-            title: "Open releases your way",
-            subtitle: "Add a custom search provider to look up albums on Discogs, MusicBrainz, or anywhere else.",
-            stepIndex: 2,
-            totalSteps: 3,
-            onSkip: { onboardingComplete = true },
-            onContinue: { onboardingComplete = true }
-        ) {
-            ExternalProvidersSettingsView()
         }
     }
 }
