@@ -4,6 +4,8 @@
 // See LICENSE file in the project root for full license information.
 
 #if os(macOS)
+import OSLog
+import SwiftSonic
 import SwiftUI
 
 struct PlaylistDetailMacOS: View {
@@ -23,6 +25,7 @@ struct PlaylistDetailMacOS: View {
     @Environment(\.dismiss) private var dismiss
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
+    @State private var showEditSheet = false
 
     var body: some View {
         Group {
@@ -40,6 +43,15 @@ struct PlaylistDetailMacOS: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("The audio files will be deleted from this device.")
+        }
+        .sheet(isPresented: $showEditSheet) {
+            PlaylistEditSheet(
+                initialName: vm?.name ?? name,
+                initialDescription: vm?.playlistDetail?.comment ?? "",
+                onSave: { newName, newDesc in
+                    Task { await saveEdit(name: newName, description: newDesc) }
+                }
+            )
         }
         .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
@@ -125,6 +137,34 @@ struct PlaylistDetailMacOS: View {
         }
     }
 
+    private func saveEdit(name newName: String, description: String) async {
+        guard let c = container else { return }
+        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDesc = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let originalDesc = (vm?.playlistDetail?.comment ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !trimmedName.isEmpty && trimmedName != (vm?.name ?? name) {
+            do {
+                try await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
+                vm?.name = trimmedName
+            } catch {
+                Logger.playlist.warning("PlaylistDetailMacOS: rename failed: \(error)")
+                c.toastService.showError("Failed to rename playlist")
+            }
+        }
+
+        if trimmedDesc != originalDesc {
+            do {
+                try await c.playlistService.updateDescription(id: playlistId, description: trimmedDesc)
+            } catch {
+                Logger.playlist.warning("PlaylistDetailMacOS: description update failed: \(error)")
+                c.toastService.showError("Failed to update description")
+            }
+        }
+
+        await vm?.load()
+    }
+
     @ToolbarContentBuilder
     private var playlistToolbar: some ToolbarContent {
         if showBackButton {
@@ -141,6 +181,21 @@ struct PlaylistDetailMacOS: View {
             }
             .sharedBackgroundVisibility(.hidden)
         }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                showEditSheet = true
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .cassetteGlassButton(size: 28)
+            }
+            .buttonStyle(.borderless)
+            .disabled(vm?.isOffline == true || container?.serverState.isOnline != true || vm?.playlistDetail == nil)
+            .help("Edit Playlist")
+        }
+        .sharedBackgroundVisibility(.hidden)
 
         ToolbarItem(placement: .primaryAction) {
             if vm?.isDownloadingPlaylist == true {
@@ -184,6 +239,49 @@ struct PlaylistDetailMacOS: View {
             .help("Remove Download")
         }
         .sharedBackgroundVisibility(.hidden)
+    }
+}
+
+private struct PlaylistEditSheet: View {
+    let initialName: String
+    let initialDescription: String
+    let onSave: (String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var editName: String = ""
+    @State private var editDescription: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Edit Playlist")
+                .font(.title3.weight(.semibold))
+
+            Form {
+                TextField("Name", text: $editName)
+                TextField("Description", text: $editDescription, axis: .vertical)
+                    .lineLimit(3...6)
+            }
+            .formStyle(.grouped)
+
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.escape, modifiers: [])
+                Button("Save") {
+                    onSave(editName, editDescription)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(24)
+        .frame(minWidth: 340)
+        .onAppear {
+            editName = initialName
+            editDescription = initialDescription
+        }
     }
 }
 #endif
