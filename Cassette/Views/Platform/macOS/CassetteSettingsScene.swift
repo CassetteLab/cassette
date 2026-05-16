@@ -79,30 +79,28 @@ private struct ServerSettingsTab: View {
     @Environment(\.appContainer) private var container
 
     var body: some View {
-        Form {
-            Section("Server") {
-                if let server = container?.serverState.activeServer {
-                    LabeledContent("Connected to") {
-                        Text(server.displayName)
-                    }
-                    LabeledContent("Address") {
-                        Text(server.baseURL)
-                    }
-                    LabeledContent("Username") {
-                        Text(server.username)
-                    }
-                    if let version = server.serverVersion {
-                        LabeledContent("Server version") {
-                            Text(version)
+        NavigationStack {
+            Form {
+                Section("Server") {
+                    if let server = container?.serverState.activeServer,
+                       let serverService = container?.serverService {
+                        NavigationLink {
+                            EditServerDestinationView(server: server, serverService: serverService)
+                        } label: {
+                            LabeledContent("Server Configuration") {
+                                Text(server.displayName)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
+                    } else {
+                        Text("No server configured.")
+                            .foregroundStyle(.secondary)
                     }
-                } else {
-                    Text("No server configured.")
-                        .foregroundStyle(.secondary)
                 }
             }
+            .formStyle(.grouped)
+            .navigationTitle("Server")
         }
-        .formStyle(.grouped)
         .frame(maxWidth: 480)
     }
 }

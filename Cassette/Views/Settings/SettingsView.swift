@@ -56,32 +56,15 @@ struct SettingsView: View {
 
     private func serverSection() -> some View {
         Section("Server") {
-            if let server = container?.serverState.activeServer {
-                LabeledContent {
-                    Text(server.displayName)
+            if let server = container?.serverState.activeServer,
+               let serverService = container?.serverService {
+                NavigationLink {
+                    EditServerDestinationView(server: server, serverService: serverService)
                 } label: {
                     Label {
-                        Text("Connected to")
+                        Text("Server Configuration")
                     } icon: {
                         SettingsIcon(systemImage: "server.rack", color: Color.cassetteAccent)
-                    }
-                }
-                LabeledContent {
-                    Text(server.baseURL)
-                } label: {
-                    Label {
-                        Text("Address")
-                    } icon: {
-                        SettingsIcon(systemImage: "link", color: .blue)
-                    }
-                }
-                LabeledContent {
-                    Text(server.username)
-                } label: {
-                    Label {
-                        Text("Username")
-                    } icon: {
-                        SettingsIcon(systemImage: "person.fill", color: .purple)
                     }
                 }
             } else {
