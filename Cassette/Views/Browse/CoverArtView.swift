@@ -3,6 +3,7 @@
 // Licensed under the GNU General Public License v3.0 or later.
 // See LICENSE file in the project root for full license information.
 
+import OSLog
 import SwiftUI
 
 /// Async cover art loader. Resolves the URL via LibraryService, then hands it to AsyncImage.
@@ -58,12 +59,15 @@ struct CoverArtView: View {
         }
         .task(id: id) {
             asyncImageLoaded = false
+            Logger.ui.debug("[DBG] CoverArtView.task id='\(id, privacy: .public)'")
             // Local file first — avoids redundant network requests and works offline.
             if let localURL = await container?.downloadService.localCoverArtURL(forId: id) {
+                Logger.ui.debug("[DBG] CoverArtView.task local hit url='\(localURL.absoluteString, privacy: .public)'")
                 url = localURL
                 return
             }
             // Fall back to server URL (nil if offline or no server configured).
+            Logger.ui.debug("[DBG] CoverArtView.task no local file — falling back to server for id='\(id, privacy: .public)'")
             url = await container?.libraryService.coverArtURL(id: id, size: size)
         }
     }

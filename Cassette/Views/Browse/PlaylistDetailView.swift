@@ -357,11 +357,15 @@ struct PlaylistDetailView: View {
                 mimeType: "image/jpeg"
             )
             Logger.playlist.debug("Upload playlist cover: success")
+            Logger.playlist.debug("[DBG] uploadCover: viewModel?.coverArtId='\(self.viewModel?.coverArtId ?? "<nil>", privacy: .public)'")
             if let artId = viewModel?.coverArtId {
+                Logger.playlist.debug("[DBG] uploadCover: invalidating + persisting artId='\(artId, privacy: .public)'")
                 await container.artworkImageCache.invalidate(for: artId)
                 await container.downloadService.persistCover(jpegData, forId: artId)
                 coverRefreshID = UUID()
                 coverArtUploadVersion += 1
+            } else {
+                Logger.playlist.warning("[DBG] uploadCover: coverArtId is nil — no cache refresh triggered")
             }
             pendingImage = nil
         } catch {
