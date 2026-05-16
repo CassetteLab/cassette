@@ -26,6 +26,17 @@ protocol ServerServiceProtocol: AnyObject, Sendable {
 
     func updateCustomHeaders(_ headers: [String: String], forServer id: UUID) async throws
 
+    /// Updates all editable fields of a persisted server in SwiftData and Keychain.
+    /// Tests connectivity before writing; throws `ConnectionTestError` on failure.
+    func updateServer(
+        id: UUID,
+        displayName: String,
+        baseURL: String,
+        username: String,
+        password: String,
+        customHeaders: [String: String]
+    ) async throws
+
     /// Pings the active server via SwiftSonic. Throws if no active server or ping fails.
     func testConnection() async throws
 

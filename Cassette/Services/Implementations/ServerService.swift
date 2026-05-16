@@ -117,7 +117,52 @@ actor ServerService: ServerServiceProtocol {
 
     func updateCustomHeaders(_ headers: [String: String], forServer id: UUID) async throws {
         try validateHeaders(headers)
-        // TODO: implement in Settings (Étape 7)
+        let credKey = ServerCredentials.keychainKey(for: id)
+        guard let existing = try await keychain.retrieve(ServerCredentials.self, forKey: credKey) else {
+            throw CassetteError.serverNotFound(id: id)
+        }
+        let updated = ServerCredentials(password: existing.password, customHeaders: headers)
+        try await keychain.store(updated, forKey: credKey)
+    }
+
+    func updateServer(
+        id: UUID,
+        displayName: String,
+        baseURL: String,
+        username: String,
+        password: String,
+        customHeaders: [String: String]
+    ) async throws {
+        try validateHeaders(customHeaders)
+
+        let credKey = ServerCredentials.keychainKey(for: id)
+        let creds = ServerCredentials(password: password, customHeaders: customHeaders)
+
+        // Keychain first — mirrors addServer rollback strategy.
+        try await keychain.store(creds, forKey: credKey)
+
+        do {
+            try await MainActor.run {
+                let context = ModelContext(modelContainer)
+                let descriptor = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == id })
+                guard let config = try context.fetch(descriptor).first else {
+                    throw CassetteError.serverNotFound(id: id)
+                }
+                config.displayName = displayName
+                config.baseURL = baseURL
+                config.username = username
+                try context.save()
+                let snapshot = ServerSnapshot(from: config)
+                if let idx = state.servers.firstIndex(where: { $0.id == id }) {
+                    state.servers[idx] = snapshot
+                }
+                if state.activeServer?.id == id {
+                    state.activeServer = snapshot
+                }
+            }
+        } catch {
+            throw error
+        }
     }
 
     func loadPersistedState() async {
