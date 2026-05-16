@@ -44,6 +44,9 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
     /// Persists cover image data to the shared cover art directory (best-effort, errors are logged).
     func persistCover(_ data: Data, forId coverArtId: String) async
 
+    /// Removes the cached cover art file for the given ID. No-op if not on disk.
+    func removeCover(forId coverArtId: String) async
+
     /// Deletes orphaned cover files whose name is not in `referencedIds`. Returns count deleted.
     @discardableResult
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int

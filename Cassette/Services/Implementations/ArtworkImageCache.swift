@@ -81,9 +81,11 @@ final class ArtworkImageCache {
         return image
     }
 
-    func invalidate(for coverArtId: String) {
+    func invalidate(for coverArtId: String) async {
         cache.removeValue(forKey: coverArtId)
         accessOrder.removeAll { $0 == coverArtId }
+        await downloadService.removeCover(forId: coverArtId)
+        Logger.player.debug("ArtworkImageCache: invalidated \(coverArtId, privacy: .public) (RAM + disk)")
     }
 
     func clearCache() {

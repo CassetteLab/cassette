@@ -85,6 +85,16 @@ actor DownloadService: DownloadServiceProtocol {
         }
     }
 
+    func removeCover(forId coverArtId: String) async {
+        let url = coverArtsDirectory.appendingPathComponent(coverArtId)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            Logger.download.debug("Failed to remove cover '\(coverArtId, privacy: .public)': \(error, privacy: .public)")
+        }
+    }
+
     @discardableResult
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int {
         let fm = FileManager.default
