@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 // MARK: - Context menu preview views
 // Internal (not private) so SongRow can reference SongContextPreview directly.
@@ -120,7 +121,13 @@ struct SongContextMenuModifier: ViewModifier {
     func body(content: Content) -> some View {
         content.contextMenu {
             Button {
-                Task { try? await container?.playerService.play(tracks: [song], startIndex: 0) }
+                Task {
+                    do {
+                        try await container?.playerService.play(tracks: [song], startIndex: 0)
+                    } catch {
+                        Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                    }
+                }
             } label: {
                 Label("Play", systemImage: "play.fill")
             }
@@ -195,14 +202,26 @@ struct CollectionContextMenuModifier: ViewModifier {
             .contextMenu {
                 if !songs.isEmpty {
                     Button {
-                        Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
+                        Task {
+                            do {
+                                try await container?.playerService.play(tracks: songs, startIndex: 0)
+                            } catch {
+                                Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                            }
+                        }
                     } label: {
                         Label("Play", systemImage: "play.fill")
                     }
 
                     Button {
                         let shuffled = songs.shuffled()
-                        Task { try? await container?.playerService.play(tracks: shuffled, startIndex: 0) }
+                        Task {
+                            do {
+                                try await container?.playerService.play(tracks: shuffled, startIndex: 0)
+                            } catch {
+                                Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                            }
+                        }
                     } label: {
                         Label("Shuffle", systemImage: "shuffle")
                     }
@@ -328,7 +347,11 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                 Button {
                     Task {
                         guard let songs = try? await songLoader(), !songs.isEmpty else { return }
-                        try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                        do {
+                            try await container?.playerService.play(tracks: songs, startIndex: 0)
+                        } catch {
+                            Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                        }
                     }
                 } label: {
                     Label("Play", systemImage: "play.fill")
@@ -337,7 +360,11 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                 Button {
                     Task {
                         guard let songs = try? await songLoader(), !songs.isEmpty else { return }
-                        try? await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0)
+                        do {
+                            try await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0)
+                        } catch {
+                            Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                        }
                     }
                 } label: {
                     Label("Shuffle", systemImage: "shuffle")

@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 struct WrappedTopTracksSection: View {
     let tracks: [TopTrackEntry]
@@ -49,7 +50,11 @@ struct WrappedTopTracksSection: View {
                     coverArtId: track.trackId,
                     audioFormat: nil
                 )
-                try? await container.playerService.play(tracks: [song], startIndex: 0)
+                do {
+                    try await container.playerService.play(tracks: [song], startIndex: 0)
+                } catch {
+                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                }
             }
         } label: {
             HStack(spacing: CassetteSpacing.m) {

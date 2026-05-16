@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftSonic
 import SwiftData
+import OSLog
 
 // MARK: - Mode
 
@@ -166,7 +167,13 @@ struct AlbumDetailView: View {
                             titleColor: headerTextColor,
                             secondaryColor: headerSecondaryColor,
                             onTap: { index in
-                                Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                                Task {
+                                    do {
+                                        try await container?.playerService.play(tracks: songs, startIndex: index)
+                                    } catch {
+                                        Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                                    }
+                                }
                             },
                             onDownload: (mode == .downloadedOnly || vm.isOffline || vm.isDownloadingAlbum) ? nil : { songId in
                                 Task { await vm.downloadSong(id: songId) }

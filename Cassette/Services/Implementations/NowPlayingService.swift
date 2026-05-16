@@ -5,6 +5,7 @@
 
 import Foundation
 import MediaPlayer
+import OSLog
 
 /// Manages MPNowPlayingInfoCenter + MPRemoteCommandCenter.
 /// Active from v1 (lockscreen, Control Center, AirPods, Apple Watch).
@@ -51,13 +52,25 @@ actor NowPlayingService: NowPlayingServiceProtocol {
 
         center.nextTrackCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
-            Task { try? await self.playerService.skipToNext() }
+            Task {
+                do {
+                    try await self.playerService.skipToNext()
+                } catch {
+                    Logger.nowPlaying.error("[PLAYBACK] skipToNext failed: \(error, privacy: .public)")
+                }
+            }
             return .success
         }
 
         center.previousTrackCommand.addTarget { [weak self] _ in
             guard let self else { return .commandFailed }
-            Task { try? await self.playerService.skipToPrevious() }
+            Task {
+                do {
+                    try await self.playerService.skipToPrevious()
+                } catch {
+                    Logger.nowPlaying.error("[PLAYBACK] skipToPrevious failed: \(error, privacy: .public)")
+                }
+            }
             return .success
         }
 

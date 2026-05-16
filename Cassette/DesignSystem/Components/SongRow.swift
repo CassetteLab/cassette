@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftData
+import OSLog
 
 /// Standard track cell for album and playlist detail screens.
 ///
@@ -146,7 +147,13 @@ struct SongRow: View {
         }
         .contextMenu {
             Button {
-                Task { try? await container?.playerService.play(tracks: [song], startIndex: 0) }
+                Task {
+                    do {
+                        try await container?.playerService.play(tracks: [song], startIndex: 0)
+                    } catch {
+                        Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                    }
+                }
             } label: {
                 Label("Play", systemImage: "play.fill")
             }

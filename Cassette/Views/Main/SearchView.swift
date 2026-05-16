@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftSonic
+import OSLog
 
 struct SearchView: View {
     @Binding var searchQuery: String
@@ -165,7 +166,13 @@ struct SearchView: View {
                     SongRow(song: song, index: index + 1, showCoverArt: true)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                            Task {
+                                do {
+                                    try await container?.playerService.play(tracks: songs, startIndex: index)
+                                } catch {
+                                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                                }
+                            }
                         }
                 }
             }

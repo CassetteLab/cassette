@@ -132,7 +132,13 @@ struct PlaylistDetailView: View {
                         titleColor: headerTextColor,
                         secondaryColor: headerSecondaryColor,
                         onTap: { index in
-                            Task { try? await container?.playerService.play(tracks: vm.songs, startIndex: index) }
+                            Task {
+                                do {
+                                    try await container?.playerService.play(tracks: vm.songs, startIndex: index)
+                                } catch {
+                                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                                }
+                            }
                         },
                         onDownload: (vm.isOffline || vm.isDownloadingPlaylist) ? nil : { songId in
                             Task { await vm.downloadSong(id: songId) }
