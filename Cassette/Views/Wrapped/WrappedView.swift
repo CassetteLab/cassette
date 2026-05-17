@@ -5,7 +5,6 @@
 
 import SwiftUI
 import SwiftData
-import SwiftSonic
 import OSLog
 
 struct WrappedView: View {
@@ -89,33 +88,6 @@ struct WrappedView: View {
         .refreshable { await loadData() }
         .cassetteContentWidth()
         .navigationTitle("")
-        .toolbar {
-            #if DEBUG
-            ToolbarItem(placement: .automatic) {
-                Menu {
-                    Button("Fake Month Data") {
-                        overrideWithFakeData = true
-                        Task { await injectFakeData(period: selectedPeriod) }
-                    }
-                    Button("Fake Year Data") {
-                        overrideWithFakeData = true
-                        selectedPeriod = .year(2026)
-                        Task { await injectFakeData(period: .year(2026)) }
-                    }
-                    Divider()
-                    Button("Reset to Real Data") {
-                        overrideWithFakeData = false
-                        persistedFakeDataJSON = ""
-                        Task { await loadData() }
-                    }
-                    .disabled(!overrideWithFakeData)
-                } label: {
-                    Image(systemName: "flask")
-                        .foregroundStyle(overrideWithFakeData ? Color.cassetteAccent : Color.primary)
-                }
-            }
-            #endif
-        }
         .task(id: selectedPeriod) {
             await loadData()
         }
@@ -160,8 +132,17 @@ struct WrappedView: View {
 
     private func loadData() async {
         #if DEBUG
-        guard !overrideWithFakeData else {
-            restorePersistedFakeDataIfNeeded()
+        if overrideWithFakeData {
+            guard isLoading,
+                  !persistedFakeDataJSON.isEmpty,
+                  let jsonData = persistedFakeDataJSON.data(using: .utf8),
+                  let restored = try? JSONDecoder().decode(WrappedData.self, from: jsonData) else { return }
+            selectedPeriod = restored.period
+            data = restored
+            isLoading = false
+            loadFailed = false
+            if case .year = restored.period { wrappedPlaylistId = "debug-playlist" }
+            appeared = true
             return
         }
         #endif
@@ -189,115 +170,6 @@ struct WrappedView: View {
         Logger.wrapped.debug("[WRAPPED-VIEW] fetch done totalPlays=\(result.totalTracksPlayed, privacy: .public)")
     }
 }
-
-// MARK: - Debug fake data
-
-#if DEBUG
-extension WrappedView {
-    private func injectFakeData(period: WrappedPeriod) async {
-        guard let container else { return }
-        isLoading = true
-
-        async let songsTask = try? container.libraryService.randomSongs(size: 20)
-        async let albumsTask = try? container.libraryService.recentlyAddedAlbums(size: 10)
-        let (songs, albums) = await (songsTask, albumsTask)
-
-        guard let songs, !songs.isEmpty else {
-            isLoading = false
-            container.toastService.showError("Debug: no tracks — connect to your server first.")
-            return
-        }
-
-        let topTracks: [TopTrackEntry] = songs.prefix(5).enumerated().map { i, song in
-            TopTrackEntry(
-                rank: i + 1,
-                trackId: song.id,
-                title: song.title,
-                artistName: song.artist ?? "Unknown Artist",
-                albumTitle: song.album,
-                totalSecondsListened: TimeInterval((5 - i) * 480),
-                playCount: 20 - i * 3
-            )
-        }
-
-        let topAlbums: [TopAlbumEntry] = (albums ?? []).prefix(5).enumerated().map { i, album in
-            TopAlbumEntry(
-                rank: i + 1,
-                albumId: album.id,
-                title: album.name,
-                artistName: album.artist ?? "Unknown Artist",
-                totalSecondsListened: TimeInterval((5 - i) * 1_200),
-                playCount: 30 - i * 4,
-                uniqueTracks: 10 - i
-            )
-        }
-
-        var seenArtistIds = Set<String>()
-        var topArtists: [TopArtistEntry] = []
-        for song in songs where topArtists.count < 5 {
-            guard let artistId = song.artistId, let artistName = song.artist,
-                  !seenArtistIds.contains(artistId) else { continue }
-            seenArtistIds.insert(artistId)
-            let rank = topArtists.count + 1
-            topArtists.append(TopArtistEntry(
-                rank: rank,
-                artistId: artistId,
-                name: artistName,
-                totalSecondsListened: TimeInterval((5 - rank + 1) * 2_400),
-                playCount: 50 - rank * 8,
-                uniqueTracks: 15 - rank * 2
-            ))
-        }
-
-        let makeFirstLast = { (t: TopTrackEntry) in
-            TopTrackEntry(rank: 0, trackId: t.trackId, title: t.title,
-                          artistName: t.artistName, albumTitle: t.albumTitle,
-                          totalSecondsListened: 0, playCount: 1)
-        }
-
-        let fake = WrappedData(
-            period: period,
-            serverId: container.serverState.activeServer?.id.uuidString ?? "debug",
-            generatedAt: Date(),
-            totalSecondsListened: 25_920,
-            totalTracksPlayed: 148,
-            totalUniqueTracks: 63,
-            totalUniqueArtists: topArtists.count,
-            totalUniqueAlbums: topAlbums.count,
-            topTracks: topTracks,
-            topAlbums: topAlbums,
-            topArtists: topArtists,
-            dominantGenre: songs.compactMap(\.genre).first ?? "Unknown",
-            streakDays: 21,
-            firstTrackOfPeriod: topTracks.first.map(makeFirstLast),
-            lastTrackOfPeriod: topTracks.last.map(makeFirstLast)
-        )
-
-        if let encoded = try? JSONEncoder().encode(fake),
-           let json = String(data: encoded, encoding: .utf8) {
-            persistedFakeDataJSON = json
-        }
-        data = fake
-        isLoading = false
-        loadFailed = false
-        if case .year = period { wrappedPlaylistId = "debug-playlist" }
-        appeared = true
-    }
-
-    private func restorePersistedFakeDataIfNeeded() {
-        guard isLoading,
-              !persistedFakeDataJSON.isEmpty,
-              let jsonData = persistedFakeDataJSON.data(using: .utf8),
-              let restored = try? JSONDecoder().decode(WrappedData.self, from: jsonData) else { return }
-        selectedPeriod = restored.period
-        data = restored
-        isLoading = false
-        loadFailed = false
-        if case .year = restored.period { wrappedPlaylistId = "debug-playlist" }
-        appeared = true
-    }
-}
-#endif
 
 // MARK: - Cascade appear modifier
 
