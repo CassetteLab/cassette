@@ -17,7 +17,8 @@ struct WrappedView: View {
     @State private var appeared = false
     @State private var loadFailed = false
     #if DEBUG
-    @State private var overrideWithFakeData = false
+    @AppStorage("debug.wrappedFakeDataActive") private var overrideWithFakeData = false
+    @AppStorage("debug.wrappedFakeDataJSON") private var persistedFakeDataJSON = ""
     #endif
 
     init(initialPeriod: WrappedPeriod = .currentMonth()) {
@@ -104,6 +105,7 @@ struct WrappedView: View {
                     Divider()
                     Button("Reset to Real Data") {
                         overrideWithFakeData = false
+                        persistedFakeDataJSON = ""
                         Task { await loadData() }
                     }
                     .disabled(!overrideWithFakeData)
@@ -158,7 +160,10 @@ struct WrappedView: View {
 
     private func loadData() async {
         #if DEBUG
-        guard !overrideWithFakeData else { return }
+        guard !overrideWithFakeData else {
+            restorePersistedFakeDataIfNeeded()
+            return
+        }
         #endif
         loadFailed = false
         guard let container, let serverId = container.serverState.activeServer?.id.uuidString else {
@@ -268,10 +273,27 @@ extension WrappedView {
             lastTrackOfPeriod: topTracks.last.map(makeFirstLast)
         )
 
+        if let encoded = try? JSONEncoder().encode(fake),
+           let json = String(data: encoded, encoding: .utf8) {
+            persistedFakeDataJSON = json
+        }
         data = fake
         isLoading = false
         loadFailed = false
         if case .year = period { wrappedPlaylistId = "debug-playlist" }
+        appeared = true
+    }
+
+    private func restorePersistedFakeDataIfNeeded() {
+        guard isLoading,
+              !persistedFakeDataJSON.isEmpty,
+              let jsonData = persistedFakeDataJSON.data(using: .utf8),
+              let restored = try? JSONDecoder().decode(WrappedData.self, from: jsonData) else { return }
+        selectedPeriod = restored.period
+        data = restored
+        isLoading = false
+        loadFailed = false
+        if case .year = restored.period { wrappedPlaylistId = "debug-playlist" }
         appeared = true
     }
 }
