@@ -86,12 +86,8 @@ struct AlbumDetailView: View {
     @State private var artistToNavigate: ArtistID3?
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
-    private let dominantColorLogger = Logger(subsystem: "fr.mathieu-dubart.Cassette", category: "DominantColor")
 
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
-    private var displayBackground: Color {
-        dominantColor == .clear ? Color.cassetteSystemBackground : CassetteColors.adjustedBackground(dominantColor)
-    }
     private var downloadedCount: Int { downloadedAlbumTracks.count }
     private var isOnline: Bool { container?.serverState.isOnline == true }
     private var isLoadingSkeleton: Bool {
@@ -200,8 +196,8 @@ struct AlbumDetailView: View {
         .background(
             LinearGradient(
                 colors: [
-                    displayBackground.opacity(0.9),
-                    displayBackground.opacity(0.7)
+                    (dominantColor == .clear ? Color.cassetteSystemBackground : dominantColor).opacity(0.9),
+                    (dominantColor == .clear ? Color.cassetteSystemBackground : dominantColor).opacity(0.7)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -263,8 +259,6 @@ struct AlbumDetailView: View {
             if cached != .clear {
                 dominantColor = cached
                 isLightBackground = cached.luminance > 0.6
-                // TODO: remove debug logging
-                dominantColorLogger.debug("[DominantColor] AlbumDetail — \(hexString(cached), privacy: .public)")
                 return
             }
 
@@ -307,16 +301,6 @@ struct AlbumDetailView: View {
             dominantColor = color
             isLightBackground = color.luminance > 0.6
         }
-        // TODO: remove debug logging
-        dominantColorLogger.debug("[DominantColor] AlbumDetail — \(hexString(color), privacy: .public)")
-    }
-
-    private func hexString(_ color: Color) -> String {
-        let resolved = color.resolve(in: EnvironmentValues())
-        let r = Int(resolved.red   * 255)
-        let g = Int(resolved.green * 255)
-        let b = Int(resolved.blue  * 255)
-        return String(format: "#%02X%02X%02X", r, g, b)
     }
 
     // MARK: - Download state

@@ -20,17 +20,12 @@ struct FullPlayerView: View {
     @State private var showLyrics = false
     @State private var showQueue = false
     @State private var lyricsViewModel: LyricsViewModel?
-    private let dominantColorLogger = Logger(subsystem: "fr.mathieu-dubart.Cassette", category: "DominantColor")
 
     var body: some View {
         if let playerState = container?.playerState {
             content(playerState)
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
-                }
-                // TODO: remove debug logging
-                .onChange(of: vm.dominantColor) { _, newColor in
-                    dominantColorLogger.debug("[DominantColor] FullPlayer  — \(hexString(newColor), privacy: .public)")
                 }
                 .task(id: playerState.currentTrack?.id) {
                     guard let track = playerState.currentTrack,
@@ -171,7 +166,7 @@ struct FullPlayerView: View {
                         .blur(radius: 80, opaque: true)
                         .transition(.opacity)
                 }
-                CassetteColors.adjustedBackground(vm.dominantColor).opacity(0.5)
+                vm.dominantColor.opacity(0.5)
                 Color.black.opacity(0.25)
             }
             .ignoresSafeArea()
@@ -187,14 +182,6 @@ struct FullPlayerView: View {
             .fill(vm.contentColor.opacity(0.4))
             .frame(width: 36, height: 5)
             .accessibilityHidden(true)
-    }
-
-    private func hexString(_ color: Color) -> String {
-        let resolved = color.resolve(in: EnvironmentValues())
-        let r = Int(resolved.red   * 255)
-        let g = Int(resolved.green * 255)
-        let b = Int(resolved.blue  * 255)
-        return String(format: "#%02X%02X%02X", r, g, b)
     }
 
 }

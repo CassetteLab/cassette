@@ -117,7 +117,7 @@ struct FullPlayerExpandedView: View {
     }
 
     private var meshGradientBackground: some View {
-        let palette = generatePalette(from: CassetteColors.adjustedBackground(dominantColor))
+        let palette = generatePalette(from: dominantColor)
 
         return TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
             let t = Float(context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 12.0) / 12.0)
