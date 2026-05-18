@@ -78,11 +78,13 @@ struct WrappedAwardMedal: View {
     private var outerRing: some View {
         if spinEnabled {
             // TimelineView drives rotation from absolute time — no seam at cycle boundary.
+            // Gradient captured once per body evaluation; closure reuses it each tick without reallocating.
+            let gradient = holoGradient
             TimelineView(.animation(minimumInterval: 1 / 60, paused: false)) { context in
                 let elapsed = context.date.timeIntervalSinceReferenceDate
                 let degrees = (elapsed / 12.0).truncatingRemainder(dividingBy: 1) * 360
                 Circle()
-                    .strokeBorder(holoGradient, lineWidth: 12)
+                    .strokeBorder(gradient, lineWidth: 12)
                     .frame(width: 140, height: 140)
                     .rotationEffect(.degrees(degrees))
             }
