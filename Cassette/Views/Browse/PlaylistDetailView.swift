@@ -159,7 +159,9 @@ struct PlaylistDetailView: View {
             }
         }
         .listStyle(.plain)
+        #if os(iOS)
         .environment(\.editMode, .constant(isEditing ? .active : .inactive))
+        #endif
         .scrollContentBackground(.hidden)
         .refreshable { await viewModel?.load() }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
