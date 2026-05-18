@@ -389,7 +389,7 @@ struct AlbumDetailView: View {
                 } label: {
                     Image(systemName: "shuffle")
                         .font(.cassetteCellTitle)
-                        .foregroundStyle(Color.cassetteAccent)
+                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                         .cassetteGlassButton(size: 44)
                 }
                 .disabled(songs.isEmpty)
@@ -416,7 +416,7 @@ struct AlbumDetailView: View {
                     } label: {
                         Image(systemName: "trash")
                             .font(.cassetteCellTitle)
-                            .foregroundStyle(Color.cassetteAccent)
+                            .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                             .cassetteGlassButton(size: 44)
                     }
                 } else if vm?.isOffline != true {
@@ -425,7 +425,7 @@ struct AlbumDetailView: View {
                             Button { Task { await vm.cancelAlbumDownload() } } label: {
                                 Image(systemName: "xmark")
                                     .font(.cassetteCellTitle)
-                                    .foregroundStyle(Color.cassetteAccent)
+                                    .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                                     .cassetteGlassButton(size: 44)
                             }
                         } else {
@@ -434,7 +434,7 @@ struct AlbumDetailView: View {
                                 Button { Task { await vm.downloadAlbum() } } label: {
                                     Image(systemName: "arrow.down.circle")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
+                                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                                         .cassetteGlassButton(size: 44)
                                 }
                                 .disabled(vm.songs.isEmpty)
@@ -442,7 +442,7 @@ struct AlbumDetailView: View {
                                 Button { Task { await vm.downloadMissingTracks() } } label: {
                                     Image(systemName: "arrow.down.circle.dotted")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
+                                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                                         .cassetteGlassButton(size: 44)
                                 }
                             case .fullyDownloaded:
@@ -452,7 +452,7 @@ struct AlbumDetailView: View {
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
+                                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                                         .cassetteGlassButton(size: 44)
                                 }
                             }
@@ -461,7 +461,7 @@ struct AlbumDetailView: View {
                         Button { } label: {
                             Image(systemName: "arrow.down.circle")
                                 .font(.cassetteCellTitle)
-                                .foregroundStyle(Color.cassetteAccent)
+                                .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                                 .cassetteGlassButton(size: 44)
                         }
                         .disabled(true)
@@ -486,7 +486,7 @@ struct AlbumDetailView: View {
                     } else {
                         ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
                             .progressViewStyle(.linear)
-                            .tint(Color.cassetteAccent)
+                            .tint(CassetteColors.accentForeground(on: dominantColor))
                             .frame(maxWidth: 280)
                         Text("Downloading \(downloaded)/\(total) tracks")
                             .font(.cassetteCaption)
