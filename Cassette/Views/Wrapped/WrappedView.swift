@@ -43,7 +43,7 @@ struct WrappedView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
+            LazyVStack(alignment: .leading, spacing: CassetteSpacing.xl) {
                 WrappedPeriodPicker(selectedPeriod: $selectedPeriod, availablePeriods: availablePeriods)
 
                 if isLoading {
