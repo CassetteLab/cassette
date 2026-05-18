@@ -237,7 +237,7 @@ struct FullPlayerExpandedView: View {
                 if let artist = currentTrack?.artist {
                     Text(artist)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color.cassetteAccent)
+                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                     if let album = currentTrack?.albumName {
                         Text("·")
                             .foregroundStyle(.secondary)
@@ -312,7 +312,7 @@ struct FullPlayerExpandedView: View {
                 Task { await container?.playerService.toggleShuffle() }
             } label: {
                 Image(systemName: "shuffle")
-                    .foregroundStyle(playerState?.isShuffled == true ? Color.cassetteAccent : .secondary)
+                    .foregroundStyle(playerState?.isShuffled == true ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -345,7 +345,7 @@ struct FullPlayerExpandedView: View {
                 }
             } label: {
                 Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
-                    .foregroundStyle(playerState?.repeatMode != .off ? Color.cassetteAccent : .secondary)
+                    .foregroundStyle(playerState?.repeatMode != .off ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -385,7 +385,7 @@ struct FullPlayerExpandedView: View {
                 Task { await toggleFavorite() }
             } label: {
                 Image(systemName: isFavorite ? "heart.fill" : "heart")
-                    .foregroundStyle(isFavorite ? Color.cassetteAccent : .secondary)
+                    .foregroundStyle(isFavorite ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -394,7 +394,7 @@ struct FullPlayerExpandedView: View {
                 withAnimation(.smooth(duration: 0.3)) { showLyrics.toggle() }
             } label: {
                 Image(systemName: "quote.bubble")
-                    .foregroundStyle(showLyrics ? Color.cassetteAccent : .secondary)
+                    .foregroundStyle(showLyrics ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
             }
             .buttonStyle(.plain)
             .disabled(noTrack || isLiveStream)
