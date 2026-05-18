@@ -15,8 +15,9 @@ extension CassetteColors {
     static var contrastThreshold: Double = 3.0
 
     /// Returns whichever accentForeground variant achieves WCAG 2.1 contrast (≥3.0:1)
-    /// against `background`. When both or neither pass, prefers higher contrast.
-    /// Falls back to `accentFgDark` when sRGB extraction is unavailable.
+    /// against `background`. When neither passes (dead zone), returns accentFgDark.
+    /// When both pass, prefers higher contrast. Falls back to `accentFgDark` when
+    /// sRGB extraction is unavailable.
     static func accentForeground(on background: Color) -> Color {
         guard let lBg = sRGBLuminance(of: background) else { return accentFgDark }
         let cLight = contrastRatio(lBg, luminanceFgLight)
@@ -24,7 +25,9 @@ extension CassetteColors {
         let lightPasses = cLight >= contrastThreshold
         let darkPasses  = cDark  >= contrastThreshold
         if lightPasses != darkPasses { return lightPasses ? accentFgLight : accentFgDark }
-        // Both pass or both fail: pick whichever has higher contrast.
+        // Neither passes (dead zone): always use dark variant.
+        if !lightPasses { return accentFgDark }
+        // Both pass: pick whichever has higher contrast.
         return lBg > 0.179 ? accentFgDark : accentFgLight
     }
 
