@@ -563,7 +563,7 @@ struct PlaylistDetailView: View {
                             guard let songs = vm?.songs, !songs.isEmpty else { return }
                             try? await container?.playerService.play(tracks: songs, startIndex: 0)
                         }
-                    }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true))
+                    }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true), accentColor: CassetteColors.accentForeground(on: dominantColor))
                     .frame(maxWidth: 400)
 
                     if vm?.isOffline != true {

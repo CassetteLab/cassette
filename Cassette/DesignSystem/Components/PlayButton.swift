@@ -10,6 +10,7 @@ struct PlayButton: View {
     let action: () -> Void
     var label: String = "Play"
     var isDisabled: Bool = false
+    var accentColor: Color = CassetteColors.accent
 
     var body: some View {
         Button {
@@ -21,7 +22,7 @@ struct PlayButton: View {
                 .foregroundStyle(Color.cassetteAccentText)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, CassetteSpacing.m)
-                .background(isDisabled ? Color.cassetteAccent.opacity(0.4) : Color.cassetteAccent)
+                .background(isDisabled ? accentColor.opacity(0.4) : accentColor)
                 .clipShape(Capsule())
         }
         .disabled(isDisabled)

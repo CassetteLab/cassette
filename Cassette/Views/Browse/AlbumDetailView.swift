@@ -400,7 +400,7 @@ struct AlbumDetailView: View {
                         guard !songs.isEmpty else { return }
                         try? await container?.playerService.play(tracks: songs, startIndex: 0)
                     }
-                }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true))
+                }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true), accentColor: CassetteColors.accentForeground(on: dominantColor))
                 .frame(maxWidth: 400)
 
                 if mode == .downloadedOnly {
