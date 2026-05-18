@@ -233,7 +233,7 @@ struct AlbumDetailView: View {
                     }
                 } label: {
                     Image(systemName: isAlbumFavorite ? "star.fill" : "star")
-                        .foregroundStyle(isAlbumFavorite ? Color.cassetteAccent : .primary)
+                        .foregroundStyle(isAlbumFavorite ? CassetteColors.accentForeground(on: dominantColor) : .primary)
                         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
                 }
                 .disabled(!isOnline)
@@ -351,7 +351,7 @@ struct AlbumDetailView: View {
                         } label: {
                             Text(artist)
                                 .font(.cassetteCellSubtitle)
-                                .foregroundStyle(Color.cassetteAccent)
+                                .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
                         }
                         .buttonStyle(.plain)
                     } else {

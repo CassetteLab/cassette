@@ -146,6 +146,7 @@ struct FullPlayerView: View {
                 showQueue: $showQueue,
                 isLiveStream: playerState.isLiveStream,
                 secondaryContentColor: vm.secondaryContentColor,
+                accentColor: CassetteColors.accentForeground(on: vm.dominantColor),
                 playerState: playerState
             )
             .padding(.top, CassetteSpacing.s)
@@ -601,6 +602,7 @@ private struct BottomToolbar: View {
     @Binding var showQueue: Bool
     let isLiveStream: Bool
     let secondaryContentColor: Color
+    let accentColor: Color
     let playerState: PlayerState
 
     var body: some View {
@@ -611,7 +613,7 @@ private struct BottomToolbar: View {
                 } label: {
                     Image(systemName: "quote.bubble")
                         .font(.title3)
-                        .foregroundStyle(showLyrics ? Color.cassetteAccent : secondaryContentColor)
+                        .foregroundStyle(showLyrics ? accentColor : secondaryContentColor)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.borderless)
