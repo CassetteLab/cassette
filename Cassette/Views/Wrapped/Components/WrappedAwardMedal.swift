@@ -69,6 +69,7 @@ struct WrappedAwardMedal: View {
                     .lineLimit(1)
             }
         }
+        .drawingGroup()
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
     }
 
