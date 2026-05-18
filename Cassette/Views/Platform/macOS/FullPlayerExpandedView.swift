@@ -280,7 +280,7 @@ struct FullPlayerExpandedView: View {
                     }
                 },
                 trackColor: .white.opacity(0.15),
-                fillColor: Color.cassetteAccent
+                fillColor: CassetteColors.accentForeground(on: dominantColor)
             )
             .disabled(noTrack)
 
