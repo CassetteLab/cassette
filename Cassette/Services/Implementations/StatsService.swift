@@ -293,10 +293,10 @@ actor StatsService {
                 groups[artistId] = (e.durationListened, 1, [e.trackId], e.artistName)
             }
         }
-        // Primary: playCount; tiebreaker: totalSecondsListened.
+        // Primary: totalSecondsListened; tiebreaker: playCount.
         let sorted = groups.sorted {
-            if $0.value.count != $1.value.count { return $0.value.count > $1.value.count }
             if $0.value.duration != $1.value.duration { return $0.value.duration > $1.value.duration }
+            if $0.value.count != $1.value.count { return $0.value.count > $1.value.count }
             return $0.key < $1.key
         }
         return sorted.prefix(10).enumerated().map { idx, pair in
