@@ -113,6 +113,7 @@ struct ArtistListView: View {
                             }
                         )
                         .padding(.trailing, 4)
+                        .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
                     }
                 }
                 #endif

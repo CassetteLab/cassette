@@ -143,6 +143,7 @@ private struct DownloadedContent: View {
                         }
                     )
                     .padding(.trailing, 4)
+                    .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
                 }
             }
         }

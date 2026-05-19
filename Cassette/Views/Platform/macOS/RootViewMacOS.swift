@@ -26,17 +26,17 @@ struct RootViewMacOS: View {
                     detailContent
                 }
             }
-            .safeAreaInset(edge: .bottom) {
-                if !isShowingFullPlayer {
-                    Color.clear.frame(height: 120)
-                }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if !isShowingFullPlayer {
+                Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight)
             }
-            .overlay(alignment: .bottom) {
-                if !isShowingFullPlayer {
-                    BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 16)
-                }
+        }
+        .overlay(alignment: .bottom) {
+            if !isShowingFullPlayer {
+                BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
             }
         }
         .navigationSplitViewStyle(.balanced)

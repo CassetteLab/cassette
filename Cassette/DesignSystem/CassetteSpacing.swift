@@ -47,6 +47,7 @@ enum CassetteMacOSLayout {
     static let heroCoverArtSize: CGFloat = 280
     /// heroHeight = heroCoverArtSize + 32 (top) + 32 (bottom padding)
     static let heroHeight: CGFloat = 344
+    static let playerBarReservedHeight: CGFloat = 120
 }
 #endif
 
