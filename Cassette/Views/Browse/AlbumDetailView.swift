@@ -79,11 +79,11 @@ struct AlbumDetailView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
-    @State private var artistToNavigate: ArtistID3?
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -98,6 +98,9 @@ struct AlbumDetailView: View {
     }
     private var headerSecondaryColor: Color {
         dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    }
+    private var heroIconColor: Color {
+        colorScheme == .dark ? .white : CassetteColors.accentForeground(on: dominantColor)
     }
 
     // MARK: - Song filtering
@@ -264,13 +267,6 @@ struct AlbumDetailView: View {
 
             await loadDominantColor(coverArtId: artId)
         }
-        .navigationDestination(item: $artistToNavigate) { artist in
-            #if os(macOS)
-            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-            #else
-            ArtistDetailView(artist: artist)
-            #endif
-        }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
@@ -333,31 +329,29 @@ struct AlbumDetailView: View {
             }
             .padding(.top, CassetteSpacing.xxl)
 
-            VStack(spacing: CassetteSpacing.s) {
+            VStack(spacing: 0) {
                 Text(vm?.albumName ?? initialName)
-                    .font(.cassetteDetailTitle)
+                    .font(.system(.title, design: .rounded, weight: .semibold))
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
+                    .padding(.bottom, CassetteSpacing.xs)
                 if vm == nil {
                     SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
+                        .padding(.bottom, CassetteSpacing.s)
                 } else if let artist = vm?.artistName {
                     if let artistId = vm?.artistId, vm?.isOffline != true {
-                        Button {
-                            Task {
-                                guard let c = container,
-                                      let fetched = try? await c.libraryService.artist(id: artistId) else { return }
-                                artistToNavigate = fetched
-                            }
-                        } label: {
+                        NavigationLink(value: HomeDestination.artist(ArtistID3(id: artistId, name: artist))) {
                             Text(artist)
-                                .font(.cassetteCellSubtitle)
-                                .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                                .font(.callout.weight(.semibold))
+                                .foregroundStyle(headerSecondaryColor)
                         }
                         .buttonStyle(.plain)
+                        .padding(.bottom, CassetteSpacing.s)
                     } else {
                         Text(artist)
-                            .font(.cassetteCellSubtitle)
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(headerSecondaryColor)
+                            .padding(.bottom, CassetteSpacing.s)
                     }
                 }
                 if vm == nil {
@@ -389,7 +383,7 @@ struct AlbumDetailView: View {
                 } label: {
                     Image(systemName: "shuffle")
                         .font(.cassetteCellTitle)
-                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                        .foregroundStyle(heroIconColor)
                         .cassetteGlassButton(size: 44)
                 }
                 .disabled(songs.isEmpty)
@@ -400,7 +394,7 @@ struct AlbumDetailView: View {
                         guard !songs.isEmpty else { return }
                         try? await container?.playerService.play(tracks: songs, startIndex: 0)
                     }
-                }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true), accentColor: CassetteColors.accentForeground(on: dominantColor))
+                }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true), accentColor: heroIconColor)
                 .frame(maxWidth: 400)
 
                 if mode == .downloadedOnly {
@@ -416,7 +410,7 @@ struct AlbumDetailView: View {
                     } label: {
                         Image(systemName: "trash")
                             .font(.cassetteCellTitle)
-                            .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                            .foregroundStyle(heroIconColor)
                             .cassetteGlassButton(size: 44)
                     }
                 } else if vm?.isOffline != true {
@@ -425,7 +419,7 @@ struct AlbumDetailView: View {
                             Button { Task { await vm.cancelAlbumDownload() } } label: {
                                 Image(systemName: "xmark")
                                     .font(.cassetteCellTitle)
-                                    .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                                    .foregroundStyle(heroIconColor)
                                     .cassetteGlassButton(size: 44)
                             }
                         } else {
@@ -434,7 +428,7 @@ struct AlbumDetailView: View {
                                 Button { Task { await vm.downloadAlbum() } } label: {
                                     Image(systemName: "arrow.down.circle")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                                        .foregroundStyle(heroIconColor)
                                         .cassetteGlassButton(size: 44)
                                 }
                                 .disabled(vm.songs.isEmpty)
@@ -442,7 +436,7 @@ struct AlbumDetailView: View {
                                 Button { Task { await vm.downloadMissingTracks() } } label: {
                                     Image(systemName: "arrow.down.circle.dotted")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                                        .foregroundStyle(heroIconColor)
                                         .cassetteGlassButton(size: 44)
                                 }
                             case .fullyDownloaded:
@@ -452,7 +446,7 @@ struct AlbumDetailView: View {
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                                        .foregroundStyle(heroIconColor)
                                         .cassetteGlassButton(size: 44)
                                 }
                             }
@@ -461,7 +455,7 @@ struct AlbumDetailView: View {
                         Button { } label: {
                             Image(systemName: "arrow.down.circle")
                                 .font(.cassetteCellTitle)
-                                .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                                .foregroundStyle(heroIconColor)
                                 .cassetteGlassButton(size: 44)
                         }
                         .disabled(true)
