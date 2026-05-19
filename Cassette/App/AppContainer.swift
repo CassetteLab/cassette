@@ -161,7 +161,7 @@ extension ModelContainer {
 
 extension AppContainer {
     private static let coverArtCacheVersionKey = "cassette.coverArtCacheVersion"
-    private static let currentCoverArtCacheVersion = 3
+    private static let currentCoverArtCacheVersion = 4
 
     /// Purges low-resolution cover art files from disk on the first launch after a
     /// resolution bump, so stale cached files don't shadow higher-quality server fetches.
@@ -174,6 +174,7 @@ extension AppContainer {
             .appendingPathComponent("app.cassette/coverarts")
         try? FileManager.default.removeItem(at: coverArtsDir)
         try? FileManager.default.createDirectory(at: coverArtsDir, withIntermediateDirectories: true)
+        URLCache.shared.removeAllCachedResponses()
 
         UserDefaults.standard.set(currentCoverArtCacheVersion, forKey: coverArtCacheVersionKey)
         Logger.player.info("ArtworkImageCache: invalidated cover art disk cache (version \(stored) → \(currentCoverArtCacheVersion))")
