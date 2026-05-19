@@ -59,6 +59,7 @@ struct PlaylistDetailView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
@@ -88,6 +89,9 @@ struct PlaylistDetailView: View {
     }
     private var headerSecondaryColor: Color {
         dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    }
+    private var heroIconColor: Color {
+        colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
@@ -502,7 +506,7 @@ struct PlaylistDetailView: View {
             }
             .padding(.top, CassetteSpacing.xxl)
 
-            VStack(spacing: CassetteSpacing.s) {
+            VStack(spacing: 0) {
                 if isEditing {
                     TextField("Playlist name", text: $editName)
                         .font(.cassetteDetailTitle)
@@ -510,6 +514,7 @@ struct PlaylistDetailView: View {
                         .multilineTextAlignment(.center)
                         .textFieldStyle(.plain)
                         .padding(.horizontal, CassetteSpacing.l)
+                        .padding(.bottom, CassetteSpacing.s)
                     TextField("Add a description...", text: $editDescription, axis: .vertical)
                         .font(.cassetteCellSubtitle)
                         .foregroundStyle(headerSecondaryColor)
@@ -522,12 +527,15 @@ struct PlaylistDetailView: View {
                         .font(.cassetteDetailTitle)
                         .foregroundStyle(headerTextColor)
                         .multilineTextAlignment(.center)
+                        .padding(.bottom, CassetteSpacing.xs)
                     if vm == nil {
                         SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
+                            .padding(.bottom, CassetteSpacing.s)
                     } else if let owner = vm?.owner {
                         Text("by \(owner)")
-                            .font(.cassetteCellSubtitle)
+                            .font(.callout.weight(.semibold))
                             .foregroundStyle(headerSecondaryColor)
+                            .padding(.bottom, CassetteSpacing.s)
                     }
                     if vm == nil {
                         SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
@@ -552,7 +560,7 @@ struct PlaylistDetailView: View {
                     } label: {
                         Image(systemName: "shuffle")
                             .font(.cassetteCellTitle)
-                            .foregroundStyle(Color.cassetteAccent)
+                            .foregroundStyle(heroIconColor)
                             .cassetteGlassButton(size: 44)
                     }
                     .disabled(vm?.songs.isEmpty != false)
@@ -563,7 +571,7 @@ struct PlaylistDetailView: View {
                             guard let songs = vm?.songs, !songs.isEmpty else { return }
                             try? await container?.playerService.play(tracks: songs, startIndex: 0)
                         }
-                    }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true), accentColor: CassetteColors.accentForeground(on: dominantColor))
+                    }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true), accentColor: heroIconColor)
                     .frame(maxWidth: 400)
 
                     if vm?.isOffline != true {
@@ -572,7 +580,7 @@ struct PlaylistDetailView: View {
                                 Button { Task { await vm.cancelPlaylistDownload() } } label: {
                                     Image(systemName: "xmark")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(Color.cassetteAccent)
+                                        .foregroundStyle(heroIconColor)
                                         .cassetteGlassButton(size: 44)
                                 }
                             } else {
@@ -581,7 +589,7 @@ struct PlaylistDetailView: View {
                                     Button { Task { await vm.downloadPlaylist() } } label: {
                                         Image(systemName: "arrow.down.circle")
                                             .font(.cassetteCellTitle)
-                                            .foregroundStyle(Color.cassetteAccent)
+                                            .foregroundStyle(heroIconColor)
                                             .cassetteGlassButton(size: 44)
                                     }
                                     .disabled(vm.songs.isEmpty)
@@ -589,7 +597,7 @@ struct PlaylistDetailView: View {
                                     Button { Task { await vm.downloadMissingTracks() } } label: {
                                         Image(systemName: "arrow.down.circle.dotted")
                                             .font(.cassetteCellTitle)
-                                            .foregroundStyle(Color.cassetteAccent)
+                                            .foregroundStyle(heroIconColor)
                                             .cassetteGlassButton(size: 44)
                                     }
                                 case .fullyDownloaded:
@@ -599,7 +607,7 @@ struct PlaylistDetailView: View {
                                     } label: {
                                         Image(systemName: "trash")
                                             .font(.cassetteCellTitle)
-                                            .foregroundStyle(Color.cassetteAccent)
+                                            .foregroundStyle(heroIconColor)
                                             .cassetteGlassButton(size: 44)
                                     }
                                 }
@@ -608,7 +616,7 @@ struct PlaylistDetailView: View {
                             Button { } label: {
                                 Image(systemName: "arrow.down.circle")
                                     .font(.cassetteCellTitle)
-                                    .foregroundStyle(Color.cassetteAccent)
+                                    .foregroundStyle(heroIconColor)
                                     .cassetteGlassButton(size: 44)
                             }
                             .disabled(true)
