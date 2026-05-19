@@ -100,7 +100,7 @@ struct AlbumDetailView: View {
         dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
     }
     private var heroIconColor: Color {
-        colorScheme == .dark ? .white : CassetteColors.accentForeground(on: dominantColor)
+        colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
 
     // MARK: - Song filtering
