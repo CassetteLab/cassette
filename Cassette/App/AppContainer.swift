@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import OSLog
 import SwiftUI
 import SwiftData
 
@@ -153,6 +154,29 @@ extension ModelContainer {
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)
+    }
+}
+
+// MARK: - Cover art cache invalidation
+
+extension AppContainer {
+    private static let coverArtCacheVersionKey = "cassette.coverArtCacheVersion"
+    private static let currentCoverArtCacheVersion = 3
+
+    /// Purges low-resolution cover art files from disk on the first launch after a
+    /// resolution bump, so stale cached files don't shadow higher-quality server fetches.
+    static func invalidateCoverArtCacheIfNeeded(artworkCache: ArtworkImageCache) {
+        let stored = UserDefaults.standard.integer(forKey: coverArtCacheVersionKey)
+        guard stored < currentCoverArtCacheVersion else { return }
+
+        artworkCache.clearCache()
+        let coverArtsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("app.cassette/coverarts")
+        try? FileManager.default.removeItem(at: coverArtsDir)
+        try? FileManager.default.createDirectory(at: coverArtsDir, withIntermediateDirectories: true)
+
+        UserDefaults.standard.set(currentCoverArtCacheVersion, forKey: coverArtCacheVersionKey)
+        Logger.player.info("ArtworkImageCache: invalidated cover art disk cache (version \(stored) → \(currentCoverArtCacheVersion))")
     }
 }
 
