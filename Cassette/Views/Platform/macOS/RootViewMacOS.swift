@@ -28,7 +28,7 @@ struct RootViewMacOS: View {
             }
             .safeAreaInset(edge: .bottom) {
                 if !isShowingFullPlayer {
-                    Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight)
+                    Color.clear.frame(height: 120)
                 }
             }
             .overlay(alignment: .bottom) {
