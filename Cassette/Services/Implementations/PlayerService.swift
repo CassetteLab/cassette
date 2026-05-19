@@ -1298,7 +1298,7 @@ actor PlayerService: PlayerServiceProtocol {
     private func resolveArtworkURL(for song: DisplayableSong) async -> URL? {
         guard let client = try? await serverService.makeSwiftSonicClient() else { return nil }
         let artId = song.coverArtId ?? song.id
-        return client.coverArtURL(id: artId, size: 300)
+        return client.coverArtURL(id: artId, size: 600)
     }
 
     // MARK: - Cache download helpers
