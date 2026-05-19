@@ -5,7 +5,6 @@
 
 import Foundation
 
-@MainActor
 protocol FavoritesServiceProtocol: AnyObject {
     func star(itemType: FavoriteType, itemId: String) async throws
     func unstar(itemType: FavoriteType, itemId: String) async throws
