@@ -70,22 +70,6 @@ struct ArtistsListMacOS: View {
                     .padding(24)
                 }
                 .refreshable { await vm.load() }
-                .safeAreaInset(edge: .trailing, spacing: 0) {
-                    if allArtists.count >= 30 {
-                        AlphabetJumpBar(
-                            availableLetters: Set(vm.indexes.map(\.name)),
-                            onLetterTap: { letter in
-                                if let artist = vm.indexes.first(where: { $0.name == letter })?.artist.first {
-                                    withAnimation(.easeInOut(duration: 0.3)) {
-                                        proxy.scrollTo(artist.id, anchor: .top)
-                                    }
-                                }
-                            }
-                        )
-                        .padding(.trailing, 4)
-                        .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
-                    }
-                }
             }
         }
     }

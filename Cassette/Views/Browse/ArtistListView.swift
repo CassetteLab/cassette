@@ -101,21 +101,6 @@ struct ArtistListView: View {
                         .padding(.trailing, 4)
                     }
                 }
-                #else
-                .safeAreaInset(edge: .trailing, spacing: 0) {
-                    if vm.indexes.count >= 5 {
-                        AlphabetJumpBar(
-                            availableLetters: Set(vm.indexes.map(\.name)),
-                            onLetterTap: { letter in
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    proxy.scrollTo(letter, anchor: .top)
-                                }
-                            }
-                        )
-                        .padding(.trailing, 4)
-                        .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
-                    }
-                }
                 #endif
             }
         }

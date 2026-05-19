@@ -139,22 +139,6 @@ struct AlbumsListView: View {
                 }
             }
             .refreshable { await vm.load() }
-            .safeAreaInset(edge: .trailing, spacing: 0) {
-                if vm.albums.count >= 20 {
-                    AlphabetJumpBar(
-                        availableLetters: vm.albums.availableAlphabetLetters(keyPath: \.name),
-                        onLetterTap: { letter in
-                            if let id = firstAlphabetItemID(forLetter: letter, in: vm.albums, keyPath: \.name) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(id, anchor: .top)
-                                }
-                            }
-                        }
-                    )
-                    .padding(.trailing, 4)
-                    .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
-                }
-            }
         }
     }
     #endif

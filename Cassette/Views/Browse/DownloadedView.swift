@@ -130,22 +130,6 @@ private struct DownloadedContent: View {
             .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
                 AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
             }
-            .safeAreaInset(edge: .trailing, spacing: 0) {
-                if displayAlbums.count >= 20 {
-                    AlphabetJumpBar(
-                        availableLetters: displayAlbums.availableAlphabetLetters(keyPath: \.name),
-                        onLetterTap: { letter in
-                            if let id = firstAlphabetItemID(forLetter: letter, in: displayAlbums, keyPath: \.name) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo(id, anchor: .top)
-                                }
-                            }
-                        }
-                    )
-                    .padding(.trailing, 4)
-                    .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
-                }
-            }
         }
     }
     #endif
