@@ -32,6 +32,10 @@ final class EditServerViewModel {
         !password.isEmpty
     }
 
+    var isHTTP: Bool {
+        serverURL.lowercased().hasPrefix("http://")
+    }
+
     private let serverId: UUID
     private var initialURL: String
     private var initialUsername: String

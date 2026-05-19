@@ -18,6 +18,7 @@ struct ServerFormView: View {
                     .keyboardType(.URL)
                     #endif
                 urlInlineError
+                httpWarning
             }
 
             Section("Credentials") {
@@ -59,6 +60,15 @@ struct ServerFormView: View {
     }
 
     // MARK: - Inline error helpers
+
+    @ViewBuilder
+    private var httpWarning: some View {
+        if viewModel.isHTTP {
+            Label("Unencrypted connection — make sure you are on a trusted network.", systemImage: "exclamationmark.triangle")
+                .font(.footnote)
+                .foregroundStyle(.orange)
+        }
+    }
 
     @ViewBuilder
     private var urlInlineError: some View {

@@ -29,6 +29,10 @@ final class OnboardingViewModel {
         !password.isEmpty
     }
 
+    var isHTTP: Bool {
+        serverURL.lowercased().hasPrefix("http://")
+    }
+
     private let serverService: any ServerServiceProtocol
 
     init(serverService: any ServerServiceProtocol) {

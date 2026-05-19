@@ -96,6 +96,7 @@ struct EditServerView: View {
                 .keyboardType(.URL)
                 #endif
             urlInlineError
+            httpWarning
         }
     }
 
@@ -134,6 +135,15 @@ struct EditServerView: View {
                 #endif
         } else {
             SecureField("Password", text: $viewModel.password)
+        }
+    }
+
+    @ViewBuilder
+    private var httpWarning: some View {
+        if viewModel.isHTTP {
+            Label("Unencrypted connection — make sure you are on a trusted network.", systemImage: "exclamationmark.triangle")
+                .font(.footnote)
+                .foregroundStyle(.orange)
         }
     }
 
