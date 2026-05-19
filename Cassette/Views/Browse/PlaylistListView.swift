@@ -38,6 +38,15 @@ struct PlaylistListView: View {
                 Task { await viewModel?.load() }
             }
         }
+        #if os(macOS)
+        .navigationDestination(for: Playlist.self) { playlist in
+            PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
+        }
+        #else
+        .navigationDestination(for: Playlist.self) { playlist in
+            PlaylistDetailView(playlist: playlist)
+        }
+        #endif
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = PlaylistListViewModel(libraryService: svc) }
@@ -75,13 +84,7 @@ struct PlaylistListView: View {
             )
         } else {
             List(vm.playlists) { playlist in
-                NavigationLink(destination: {
-                    #if os(macOS)
-                    PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
-                    #else
-                    PlaylistDetailView(playlist: playlist)
-                    #endif
-                }) {
+                NavigationLink(value: playlist) {
                     OnlinePlaylistRow(playlist: playlist, onActionCompleted: { Task { await vm.load() } })
                 }
             }
@@ -172,6 +175,7 @@ private struct OfflinePlaylistContent: View {
             List {
                 Section("Downloaded Playlists") {
                     ForEach(playlists) { playlist in
+                        // TODO: migrate to NavigationLink(value:) once DownloadedPlaylist (@Model) gains safe Hashable conformance
                         NavigationLink(destination: {
                             #if os(macOS)
                             PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)

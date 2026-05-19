@@ -104,6 +104,7 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
+                            // TODO: migrate to NavigationLink(value:) once DownloadedPlaylist (@Model) gains safe Hashable conformance
                             NavigationLink(destination: {
                                 PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
                             }) {
@@ -183,6 +184,7 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
+                            // TODO: migrate to NavigationLink(value:) once DownloadedPlaylist (@Model) gains safe Hashable conformance
                             NavigationLink(destination: {
                                 PlaylistDetailView(playlist: playlist)
                             }) {
