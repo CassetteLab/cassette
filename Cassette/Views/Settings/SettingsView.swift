@@ -3,11 +3,15 @@
 // Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
+import OSLog
 import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.appContainer) private var container
+    @Environment(\.openURL) private var openURL
     @State private var downloadsVM: DownloadsViewModel?
+
+    private let kofiURL = URL(string: "https://ko-fi.com/mathieudubart")
 
     var body: some View {
         Group {
@@ -40,6 +44,7 @@ struct SettingsView: View {
             serverSection()
             integrationsSection()
             aboutSection()
+            supportSection()
         }
         .formStyle(.grouped)
         .refreshable {
@@ -90,6 +95,23 @@ struct SettingsView: View {
                     SettingsIcon(systemImage: "arrow.up.right.square", color: .orange)
                 }
             }
+        }
+    }
+
+    private func supportSection() -> some View {
+        Section("Support") {
+            Button {
+                guard let url = kofiURL else { return }
+                Logger.settings.debug("Ko-fi support button tapped")
+                openURL(url)
+            } label: {
+                Label {
+                    Text("Support Cassette on Ko-fi")
+                } icon: {
+                    SettingsIcon(systemImage: "cup.and.heat.waves", color: Color.cassetteAccent)
+                }
+            }
+            .foregroundStyle(.primary)
         }
     }
 
