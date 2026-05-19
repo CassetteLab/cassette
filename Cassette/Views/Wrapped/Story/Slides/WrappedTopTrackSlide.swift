@@ -28,7 +28,7 @@ struct WrappedTopTrackSlide: View {
                 Spacer()
 
                 if let track = topTrack {
-                    CoverArtCard(id: track.trackId, size: 200, cornerRadius: CassetteCornerRadius.large)
+                    CoverArtCard(id: track.trackId, size: 300, cornerRadius: CassetteCornerRadius.large)
                         .shadow(color: .black.opacity(0.4), radius: 24, y: 12)
 
                     Spacer(minLength: CassetteSpacing.xl)

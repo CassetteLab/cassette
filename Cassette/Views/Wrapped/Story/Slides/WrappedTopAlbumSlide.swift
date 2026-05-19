@@ -28,7 +28,7 @@ struct WrappedTopAlbumSlide: View {
                 Spacer()
 
                 if let album = topAlbum {
-                    CoverArtCard(id: album.albumId, size: 200, cornerRadius: CassetteCornerRadius.large)
+                    CoverArtCard(id: album.albumId, size: 300, cornerRadius: CassetteCornerRadius.large)
                         .shadow(color: .black.opacity(0.4), radius: 24, y: 12)
 
                     Spacer(minLength: CassetteSpacing.xl)
