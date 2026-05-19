@@ -37,6 +37,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var audioSessionConfigured = false
     #if os(iOS)
     private var interruptionObserver: NSObjectProtocol?
+    private var routeChangeObserver: NSObjectProtocol?
     #endif
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
@@ -1213,6 +1214,10 @@ actor PlayerService: PlayerServiceProtocol {
             NotificationCenter.default.removeObserver(observer)
             interruptionObserver = nil
         }
+        if let observer = routeChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            routeChangeObserver = nil
+        }
         #endif
         player?.pause()
         player = nil
@@ -1232,8 +1237,17 @@ actor PlayerService: PlayerServiceProtocol {
             // background interruption (phone call, Siri, other audio app) even after a
             // successful initial setup. Without this, resume() silently fails on the lock screen.
             try session.setActive(true)
-        } catch {
-            Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
+        } catch let error as NSError {
+            if error.code == -50 {
+                // Code=-50: another app holds the session — retry after short delay.
+                Logger.player.warning("AVAudioSession setActive Code=-50, retrying in 0.5s")
+                Task {
+                    try? await Task.sleep(for: .seconds(0.5))
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                }
+            } else {
+                Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
+            }
         }
         if interruptionObserver == nil {
             interruptionObserver = NotificationCenter.default.addObserver(
@@ -1243,6 +1257,24 @@ actor PlayerService: PlayerServiceProtocol {
             ) { [weak self] notification in
                 guard let self else { return }
                 Task { await self.handleAudioSessionInterruption(notification) }
+            }
+        }
+        if routeChangeObserver == nil {
+            routeChangeObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: AVAudioSession.sharedInstance(),
+                queue: .main
+            ) { [weak self] notification in
+                guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                      let changeReason = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
+                switch changeReason {
+                case .oldDeviceUnavailable:
+                    Task { [weak self] in await self?.pause() }
+                case .newDeviceAvailable, .routeConfigurationChange:
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                default:
+                    break
+                }
             }
         }
     }

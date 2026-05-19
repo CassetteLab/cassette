@@ -24,37 +24,33 @@ actor NowPlayingService: NowPlayingServiceProtocol {
 
     func start() async {
         let center = MPRemoteCommandCenter.shared()
+        let playerService = playerService
 
-        center.playCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task { await self.playerService.resume() }
-            return .success
-        }
-
-        center.pauseCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task { await self.playerService.pause() }
-            return .success
-        }
-
-        center.togglePlayPauseCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task {
-                let state = await self.playerService.state.playbackState
-                if state == .playing {
-                    await self.playerService.pause()
-                } else {
-                    await self.playerService.resume()
-                }
+        center.playCommand.addTarget { [playerService] _ in
+            Task.detached(priority: .userInitiated) {
+                await playerService.resume()
             }
             return .success
         }
 
-        center.nextTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task {
+        center.pauseCommand.addTarget { [playerService] _ in
+            Task.detached(priority: .userInitiated) {
+                await playerService.pause()
+            }
+            return .success
+        }
+
+        center.togglePlayPauseCommand.addTarget { [playerService] _ in
+            Task.detached(priority: .userInitiated) {
+                await playerService.togglePlayPause()
+            }
+            return .success
+        }
+
+        center.nextTrackCommand.addTarget { [playerService] _ in
+            Task.detached(priority: .userInitiated) {
                 do {
-                    try await self.playerService.skipToNext()
+                    try await playerService.skipToNext()
                 } catch {
                     Logger.nowPlaying.error("[PLAYBACK] skipToNext failed: \(error, privacy: .public)")
                 }
@@ -62,11 +58,10 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             return .success
         }
 
-        center.previousTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task {
+        center.previousTrackCommand.addTarget { [playerService] _ in
+            Task.detached(priority: .userInitiated) {
                 do {
-                    try await self.playerService.skipToPrevious()
+                    try await playerService.skipToPrevious()
                 } catch {
                     Logger.nowPlaying.error("[PLAYBACK] skipToPrevious failed: \(error, privacy: .public)")
                 }
@@ -74,12 +69,14 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             return .success
         }
 
-        center.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let self,
-                  let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
+        center.changePlaybackPositionCommand.addTarget { [playerService] event in
+            guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
-            Task { await self.playerService.seek(to: seekEvent.positionTime) }
+            let position = seekEvent.positionTime
+            Task.detached(priority: .userInitiated) {
+                await playerService.seek(to: position)
+            }
             return .success
         }
     }
