@@ -7,9 +7,6 @@ import SwiftUI
 import SwiftSonic
 import SwiftData
 import OSLog
-#if os(iOS)
-import UniformTypeIdentifiers
-#endif
 
 struct PlaylistDetailView: View {
     private let playlistId: String
@@ -392,9 +389,9 @@ struct PlaylistDetailView: View {
                 mimeType: "image/jpeg"
             )
             Logger.playlist.debug("Upload playlist cover: success")
-            Logger.playlist.debug("[DBG] uploadCover: viewModel?.coverArtId='\(self.viewModel?.coverArtId ?? "<nil>", privacy: .public)'")
+            Logger.playlist.debug("uploadCover: viewModel?.coverArtId='\(self.viewModel?.coverArtId ?? "<nil>", privacy: .public)'")
             if let artId = viewModel?.coverArtId {
-                Logger.playlist.debug("[DBG] uploadCover: invalidating artId='\(artId, privacy: .public)'")
+                Logger.playlist.debug("uploadCover: invalidating artId='\(artId, privacy: .public)'")
                 await container.artworkImageCache.invalidate(for: artId)
             }
             if let vm = viewModel {
