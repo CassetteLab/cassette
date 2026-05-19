@@ -88,6 +88,7 @@ struct CassetteApp: App {
                 // Register remote commands before UI appears so lock screen controls
                 // are available from the very first play, even on cold start.
                 await newContainer.nowPlayingService.start()
+                AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
                 container = newContainer
                 AppContainer.shared = newContainer
                 // loadPersistedState must complete before restoreSession so the active

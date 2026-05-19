@@ -114,7 +114,7 @@ struct SettingsView: View {
                     Image("kofiButton")
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: 280)
+                        .frame(maxWidth: 220)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }

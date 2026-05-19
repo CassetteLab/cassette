@@ -30,4 +30,10 @@ nonisolated enum HomeDestination: Hashable {
     /// Used when only IDs are available (PinnedItem @Model, HomeDownloadedItemCard)
     case albumById(id: String, name: String, subtitle: String, coverArtId: String?)
     case playlistById(id: String, name: String, coverArtId: String?)
+
+    // MARK: - Offline-derived destinations
+    /// Offline artist summary — used from OfflineBrowseContent
+    case offlineArtist(OfflineArtistSummary)
+    /// Offline album summary — used from OfflineArtistAlbumsView
+    case offlineAlbum(OfflineAlbumSummary)
 }

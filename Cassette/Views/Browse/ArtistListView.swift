@@ -21,21 +21,6 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Artists")
-        #if os(macOS)
-        .navigationDestination(for: ArtistID3.self) { artist in
-            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-        }
-        .navigationDestination(for: AlbumID3.self) { album in
-            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-        }
-        #else
-        .navigationDestination(for: ArtistID3.self) { artist in
-            ArtistDetailView(artist: artist)
-        }
-        .navigationDestination(for: AlbumID3.self) { album in
-            AlbumDetailView(album: album)
-        }
-        #endif
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistListViewModel(libraryService: svc) }
@@ -77,7 +62,7 @@ struct ArtistListView: View {
                     ForEach(vm.indexes, id: \.name) { index in
                         Section(index.name) {
                             ForEach(index.artist) { artist in
-                                NavigationLink(value: artist) {
+                                NavigationLink(value: HomeDestination.artist(artist)) {
                                     ArtistRow(artist: artist)
                                 }
                             }
@@ -109,7 +94,7 @@ struct ArtistListView: View {
 
 // MARK: - Offline Browse
 
-private nonisolated struct OfflineAlbumSummary: Sendable, Identifiable, Hashable {
+nonisolated struct OfflineAlbumSummary: Sendable, Identifiable, Hashable {
     let albumId: String
     let albumName: String
     let artistName: String?
@@ -118,7 +103,7 @@ private nonisolated struct OfflineAlbumSummary: Sendable, Identifiable, Hashable
     var id: String { albumId }
 }
 
-private nonisolated struct OfflineArtistSummary: Sendable, Identifiable, Hashable {
+nonisolated struct OfflineArtistSummary: Sendable, Identifiable, Hashable {
     let name: String
     let albums: [OfflineAlbumSummary]
     var id: String { name }
@@ -171,7 +156,7 @@ private struct OfflineBrowseContent: View {
             List {
                 Section("Downloaded Artists") {
                     ForEach(artistSummaries) { artist in
-                        NavigationLink(value: artist) {
+                        NavigationLink(value: HomeDestination.offlineArtist(artist)) {
                             HStack(spacing: CassetteSpacing.m) {
                                 Image(systemName: "music.mic")
                                     .font(.title2)
@@ -195,20 +180,17 @@ private struct OfflineBrowseContent: View {
                 }
             }
             .listStyle(.plain)
-            .navigationDestination(for: OfflineArtistSummary.self) { artist in
-                OfflineArtistAlbumsView(artist: artist)
-            }
         }
     }
 }
 
-private struct OfflineArtistAlbumsView: View {
+struct OfflineArtistAlbumsView: View {
     let artist: OfflineArtistSummary
 
     var body: some View {
         List {
             ForEach(artist.albums) { album in
-                NavigationLink(value: album) {
+                NavigationLink(value: HomeDestination.offlineAlbum(album)) {
                     AlbumRow(
                         albumId: album.albumId,
                         name: album.albumName,
@@ -220,9 +202,6 @@ private struct OfflineArtistAlbumsView: View {
             }
         }
         .listStyle(.plain)
-        .navigationDestination(for: OfflineAlbumSummary.self) { album in
-            AlbumDetailView(albumId: album.albumId, albumName: album.albumName)
-        }
         .navigationTitle(artist.name)
         .navigationBarTitleDisplayModeInline()
         .cassetteContentWidth()

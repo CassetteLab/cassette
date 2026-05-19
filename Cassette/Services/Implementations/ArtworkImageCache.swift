@@ -74,7 +74,7 @@ final class ArtworkImageCache {
         }
 
         // 3. Server fetch → RAM + disk persist.
-        guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 300) else { return nil }
+        guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 600) else { return nil }
         guard let (data, _) = try? await session.data(from: serverURL),
               let image = PlatformImage(data: data) else {
             Logger.player.warning("ArtworkImageCache: failed to fetch \(coverArtId) from server")

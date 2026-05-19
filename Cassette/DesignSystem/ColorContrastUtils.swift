@@ -58,7 +58,7 @@ extension CassetteColors {
         return (Double(r), Double(g), Double(b))
         #elseif canImport(AppKit)
         guard let ns = NSColor(color).usingColorSpace(.deviceRGB) else { return nil }
-        return (ns.redComponent, ns.greenComponent, ns.blueComponent)
+        return (Double(ns.redComponent), Double(ns.greenComponent), Double(ns.blueComponent))
         #else
         return nil
         #endif

@@ -19,23 +19,10 @@ struct AlbumsListView: View {
                 LoadingStateView()
             }
         }
+        #if os(iOS)
         .cassetteContentWidth()
-        .navigationTitle("Albums")
-        #if os(macOS)
-        .navigationDestination(for: AlbumID3.self) { album in
-            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-        }
-        .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
-            AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-        }
-        #else
-        .navigationDestination(for: AlbumID3.self) { album in
-            AlbumDetailView(album: album)
-        }
-        .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
-            AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
-        }
         #endif
+        .navigationTitle("Albums")
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = AlbumListViewModel(libraryService: svc) }
@@ -73,11 +60,11 @@ struct AlbumsListView: View {
             )
         } else {
             #if os(macOS)
-            albumsListMacOS(vm)
+            albumsGridMacOS(vm)
             #else
             ScrollViewReader { proxy in
                 List(vm.albums) { album in
-                    NavigationLink(value: album) {
+                    NavigationLink(value: HomeDestination.album(album)) {
                         AlbumRow(
                             albumId: album.id,
                             name: album.name,
@@ -111,35 +98,23 @@ struct AlbumsListView: View {
     }
 
     #if os(macOS)
-    // macOS uses ScrollView+LazyVStack instead of List so that ScrollViewReader.scrollTo()
-    // targets a SwiftUI-native scroll container — NSTableView-backed List does not integrate
-    // correctly with ScrollViewReader and causes scroll offsets to land on the wrong row.
     @ViewBuilder
-    private func albumsListMacOS(_ vm: AlbumListViewModel) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(vm.albums) { album in
-                        NavigationLink(value: album) {
-                            AlbumRow(
-                                albumId: album.id,
-                                name: album.name,
-                                artist: album.artist,
-                                year: album.year,
-                                coverArtId: album.coverArt
-                            )
-                            .padding(.horizontal, CassetteSpacing.s)
-                        }
-                        .buttonStyle(.plain)
-                        .id(album.id)
-
-                        Divider()
-                            .padding(.leading, 56 + CassetteSpacing.m + CassetteSpacing.s)
+    private func albumsGridMacOS(_ vm: AlbumListViewModel) -> some View {
+        ScrollView {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)],
+                spacing: 24
+            ) {
+                ForEach(vm.albums) { album in
+                    NavigationLink(value: HomeDestination.album(album)) {
+                        AlbumGridCell(album: album)
                     }
+                    .buttonStyle(.plain)
                 }
             }
-            .refreshable { await vm.load() }
+            .padding(24)
         }
+        .refreshable { await vm.load() }
     }
     #endif
 }
@@ -176,7 +151,7 @@ private struct OfflineAlbumsContent: View {
             List {
                 Section("Downloaded Albums") {
                     ForEach(displayAlbums) { display in
-                        NavigationLink(value: display) {
+                        NavigationLink(value: HomeDestination.downloadedAlbum(display)) {
                             AlbumRow(
                                 albumId: display.albumId,
                                 name: display.name,
