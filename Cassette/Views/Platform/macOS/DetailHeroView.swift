@@ -21,13 +21,13 @@ struct DetailHeroView: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 344)
+        .frame(height: CassetteMacOSLayout.heroHeight)
     }
 
     private var coverSection: some View {
         Group {
             if let id = coverArtId {
-                CoverArtView(id: id, size: 280)
+                CoverArtView(id: id, size: CassetteMacOSLayout.heroCoverArtSize)
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.secondary.opacity(0.15))
@@ -38,7 +38,7 @@ struct DetailHeroView: View {
                     }
             }
         }
-        .frame(width: 280, height: 280)
+        .frame(width: CassetteMacOSLayout.heroCoverArtSize, height: CassetteMacOSLayout.heroCoverArtSize)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
     }
@@ -86,7 +86,7 @@ struct DetailHeroView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 280)
+        .frame(height: CassetteMacOSLayout.heroCoverArtSize)
     }
 }
 #endif

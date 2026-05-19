@@ -40,6 +40,16 @@ enum CassetteShadow {
     static let coverOpacity: Double  = 0.15
 }
 
+// MARK: - macOS Layout
+
+#if os(macOS)
+enum CassetteMacOSLayout {
+    static let heroCoverArtSize: CGFloat = 280
+    /// heroHeight = heroCoverArtSize + 32 (top) + 32 (bottom padding)
+    static let heroHeight: CGFloat = 344
+}
+#endif
+
 // MARK: - View modifier: content width (macOS)
 
 /// Constrains content to a max width on macOS so iPhone-designed layouts don't stretch

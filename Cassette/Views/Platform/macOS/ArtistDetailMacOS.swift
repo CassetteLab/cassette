@@ -78,7 +78,7 @@ struct ArtistDetailMacOS: View {
         }
         .padding(32)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 344)
+        .frame(height: CassetteMacOSLayout.heroHeight)
     }
 
     private var coverCircle: some View {
