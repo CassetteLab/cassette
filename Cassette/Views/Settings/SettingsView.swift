@@ -99,19 +99,21 @@ struct SettingsView: View {
     }
 
     private func supportSection() -> some View {
-        Section("Support") {
+        Section {
             Button {
                 guard let url = kofiURL else { return }
                 Logger.settings.debug("Ko-fi support button tapped")
                 openURL(url)
             } label: {
-                Label {
-                    Text("Support Cassette on Ko-fi")
-                } icon: {
-                    SettingsIcon(systemImage: "cup.and.heat.waves", color: Color.cassetteAccent)
-                }
+                Image("kofiButton")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: 280)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
             }
-            .foregroundStyle(.primary)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets())
         }
     }
 
