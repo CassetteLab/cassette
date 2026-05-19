@@ -22,6 +22,15 @@ struct FavoritesView: View {
         .cassetteContentWidth()
         .navigationTitle("Favorites")
         .navigationBarTitleDisplayModeInline()
+        #if os(macOS)
+        .navigationDestination(for: ArtistID3.self) { artist in
+            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+        }
+        #else
+        .navigationDestination(for: ArtistID3.self) { artist in
+            ArtistDetailView(artist: artist)
+        }
+        #endif
         .onAppear {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = FavoritesViewModel(libraryService: svc) }
@@ -110,13 +119,7 @@ struct FavoritesView: View {
         if !artists.isEmpty {
             Section("Artists") {
                 ForEach(artists) { artist in
-                    NavigationLink(destination: {
-                        #if os(macOS)
-                        ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                        #else
-                        ArtistDetailView(artist: artist)
-                        #endif
-                    }) {
+                    NavigationLink(value: artist) {
                         ArtistRow(artist: artist)
                     }
                 }

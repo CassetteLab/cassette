@@ -21,6 +21,15 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Artists")
+        #if os(macOS)
+        .navigationDestination(for: ArtistID3.self) { artist in
+            ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+        }
+        #else
+        .navigationDestination(for: ArtistID3.self) { artist in
+            ArtistDetailView(artist: artist)
+        }
+        #endif
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistListViewModel(libraryService: svc) }
@@ -62,13 +71,7 @@ struct ArtistListView: View {
                     ForEach(vm.indexes, id: \.name) { index in
                         Section(index.name) {
                             ForEach(index.artist) { artist in
-                                NavigationLink(destination: {
-                                    #if os(macOS)
-                                    ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                                    #else
-                                    ArtistDetailView(artist: artist)
-                                    #endif
-                                }) {
+                                NavigationLink(value: artist) {
                                     ArtistRow(artist: artist)
                                 }
                             }
@@ -176,7 +179,7 @@ private struct OfflineBrowseContent: View {
             List {
                 Section("Downloaded Artists") {
                     ForEach(artistSummaries) { artist in
-                        NavigationLink(destination: OfflineArtistAlbumsView(artist: artist)) {
+                        NavigationLink(value: artist) {
                             HStack(spacing: CassetteSpacing.m) {
                                 Image(systemName: "music.mic")
                                     .font(.title2)
@@ -200,6 +203,9 @@ private struct OfflineBrowseContent: View {
                 }
             }
             .listStyle(.plain)
+            .navigationDestination(for: OfflineArtistSummary.self) { artist in
+                OfflineArtistAlbumsView(artist: artist)
+            }
         }
     }
 }
