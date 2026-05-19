@@ -216,7 +216,7 @@ private struct OfflineArtistAlbumsView: View {
     var body: some View {
         List {
             ForEach(artist.albums) { album in
-                NavigationLink(destination: AlbumDetailView(albumId: album.albumId, albumName: album.albumName)) {
+                NavigationLink(value: album) {
                     AlbumRow(
                         albumId: album.albumId,
                         name: album.albumName,
@@ -228,6 +228,9 @@ private struct OfflineArtistAlbumsView: View {
             }
         }
         .listStyle(.plain)
+        .navigationDestination(for: OfflineAlbumSummary.self) { album in
+            AlbumDetailView(albumId: album.albumId, albumName: album.albumName)
+        }
         .navigationTitle(artist.name)
         .navigationBarTitleDisplayModeInline()
         .cassetteContentWidth()

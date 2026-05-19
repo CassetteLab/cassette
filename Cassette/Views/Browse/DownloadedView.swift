@@ -75,9 +75,7 @@ private struct DownloadedContent: View {
                 if !displayAlbums.isEmpty {
                     Section("Albums") {
                         ForEach(displayAlbums) { display in
-                            NavigationLink(destination: {
-                                AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-                            }) {
+                            NavigationLink(value: display) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
@@ -128,6 +126,9 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
+            .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
+                AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
+            }
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 if displayAlbums.count >= 20 {
                     AlphabetJumpBar(
@@ -153,9 +154,7 @@ private struct DownloadedContent: View {
                 if !displayAlbums.isEmpty {
                     Section("Albums") {
                         ForEach(displayAlbums) { display in
-                            NavigationLink(destination: {
-                                AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
-                            }) {
+                            NavigationLink(value: display) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
@@ -206,6 +205,9 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
+            .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
+                AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
+            }
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 if displayAlbums.count >= 20 {
                     AlphabetJumpBar(

@@ -25,9 +25,15 @@ struct AlbumsListView: View {
         .navigationDestination(for: AlbumID3.self) { album in
             AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
         }
+        .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
+            AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
+        }
         #else
         .navigationDestination(for: AlbumID3.self) { album in
             AlbumDetailView(album: album)
+        }
+        .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
+            AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
         }
         #endif
         .task(id: container?.serverState.isOnline) {
@@ -185,13 +191,7 @@ private struct OfflineAlbumsContent: View {
             List {
                 Section("Downloaded Albums") {
                     ForEach(displayAlbums) { display in
-                        NavigationLink(destination: {
-                            #if os(macOS)
-                            AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-                            #else
-                            AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
-                            #endif
-                        }) {
+                        NavigationLink(value: display) {
                             AlbumRow(
                                 albumId: display.albumId,
                                 name: display.name,
