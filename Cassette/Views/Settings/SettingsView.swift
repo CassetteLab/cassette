@@ -11,7 +11,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var downloadsVM: DownloadsViewModel?
 
-    private let kofiURL = URL(string: "https://ko-fi.com/mathieudubart")
+    private let kofiURL = URL(string: "https://ko-fi.com/mathieudbrt")
 
     var body: some View {
         Group {
@@ -100,17 +100,24 @@ struct SettingsView: View {
 
     private func supportSection() -> some View {
         Section {
-            Button {
-                guard let url = kofiURL else { return }
-                Logger.settings.debug("Ko-fi support button tapped")
-                openURL(url)
-            } label: {
-                Image("kofiButton")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: 280)
+            VStack(spacing: 4) {
+                Text("Cassette is free, forever.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
+                Button {
+                    guard let url = kofiURL else { return }
+                    Logger.settings.debug("Ko-fi support button tapped")
+                    openURL(url)
+                } label: {
+                    Image("kofiButton")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: 280)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
             }
             .listRowBackground(Color.clear)
             .listRowInsets(EdgeInsets())
