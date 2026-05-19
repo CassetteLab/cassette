@@ -11,26 +11,25 @@ import OSLog
 ///
 /// Called by PlayerService on track changes and every 5 s during active playback,
 /// and flushed in full when the app enters background.
-@MainActor
-final class PlaybackSessionService {
+actor PlaybackSessionService {
     private let modelContext: ModelContext
 
     init(modelContainer: ModelContainer) {
-        self.modelContext = modelContainer.mainContext
+        self.modelContext = ModelContext(modelContainer)
     }
 
     /// Full save — queue + position + current track metadata + repeat mode.
-    func save(playerState: PlayerState) {
+    func save(playerState: SessionPayload) {
         let session = fetchOrCreateSession()
         session.update(
             currentIndex: playerState.currentIndex,
-            currentPosition: playerState.position,
+            currentPosition: playerState.currentPosition,
             queue: playerState.queue,
             currentTrack: playerState.currentTrack,
             repeatMode: playerState.repeatMode
         )
         try? modelContext.save()
-        Logger.session.debug("Session saved: track='\(playerState.currentTrack?.title ?? "nil")', pos=\(playerState.position, format: .fixed(precision: 1))s, queue=\(playerState.queue.count) tracks")
+        Logger.session.debug("Session saved: track='\(playerState.currentTrack?.title ?? "nil")', pos=\(playerState.currentPosition, format: .fixed(precision: 1))s, queue=\(playerState.queue.count) tracks")
     }
 
     /// Lightweight position-only save — called every 5 s during active playback.
@@ -41,7 +40,7 @@ final class PlaybackSessionService {
         try? modelContext.save()
     }
 
-    /// Extracts and returns restoration data, keeping @Model objects on MainActor.
+    /// Extracts and returns restoration data, keeping @Model objects on this actor's context.
     func loadRestoredSession() -> RestoredSession? {
         guard let session = fetchSession() else {
             Logger.session.info("No persisted session found")
@@ -83,6 +82,16 @@ final class PlaybackSessionService {
         )
         return try? modelContext.fetch(descriptor).first
     }
+}
+
+// MARK: - SessionPayload
+
+nonisolated struct SessionPayload: Sendable {
+    let currentIndex: Int
+    let currentPosition: TimeInterval
+    let queue: [DisplayableSong]
+    let currentTrack: DisplayableSong?
+    let repeatMode: RepeatMode
 }
 
 // MARK: - RestoredSession

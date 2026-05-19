@@ -116,7 +116,14 @@ struct CassetteApp: App {
         }
         .onChange(of: scenePhase) { _, newPhase in
             guard newPhase == .background, let c = container else { return }
-            c.sessionService.save(playerState: c.playerState)
+            let snapshot = SessionPayload(
+                currentIndex: c.playerState.currentIndex,
+                currentPosition: c.playerState.position,
+                queue: c.playerState.queue,
+                currentTrack: c.playerState.currentTrack,
+                repeatMode: c.playerState.repeatMode
+            )
+            Task { await c.sessionService.save(playerState: snapshot) }
             Logger.session.info("App backgrounded — session flushed")
         }
         #if os(macOS)

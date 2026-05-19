@@ -261,7 +261,7 @@ actor PlayerService: PlayerServiceProtocol {
             radioStationName: nil
         )
         await nowPlayingService?.update(with: snapshot)
-        await sessionService.save(playerState: state)
+        await saveSession()
         startPositionSaveTimer()
         preloadNextTrackArtwork()
         await evaluateAutoExtend()
@@ -535,7 +535,7 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
         stopPositionSaveTimer()
-        await sessionService.save(playerState: state)
+        await saveSession()
         let pauseTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
@@ -655,7 +655,7 @@ actor PlayerService: PlayerServiceProtocol {
         if previousMode != .off && mode == .off {
             await evaluateAutoExtend()
         }
-        await sessionService.save(playerState: state)
+        await saveSession()
     }
 
     func toggleShuffle() async {
@@ -671,7 +671,7 @@ actor PlayerService: PlayerServiceProtocol {
             await shuffleUpNext()
             await MainActor.run { state.isShuffled = true }
         }
-        await sessionService.save(playerState: state)
+        await saveSession()
     }
 
     private func shuffleUpNext() async {
@@ -701,7 +701,7 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
         await MainActor.run { state.queue.append(contentsOf: tracks) }
-        await sessionService.save(playerState: state)
+        await saveSession()
     }
 
     func playNext(_ songs: [DisplayableSong]) async {
@@ -720,7 +720,7 @@ actor PlayerService: PlayerServiceProtocol {
             let insertAt = min(currentIndex + 1, queue.count)
             await MainActor.run { state.queue.insert(contentsOf: songs, at: insertAt) }
             Logger.player.info("Inserted \(songs.count) song(s) at queue position \(insertAt)")
-            await sessionService.save(playerState: state)
+            await saveSession()
         }
     }
 
@@ -756,7 +756,7 @@ actor PlayerService: PlayerServiceProtocol {
         if isShuffled { originalQueueOrder = nil }
         let newIdx = await MainActor.run { state.currentIndex }
         Logger.player.info("Removed track at \(index), currentIndex now \(newIdx)")
-        await sessionService.save(playerState: state)
+        await saveSession()
     }
 
     func moveInQueue(fromIndex: Int, toIndex: Int) async {
@@ -787,10 +787,23 @@ actor PlayerService: PlayerServiceProtocol {
         if isShuffled { originalQueueOrder = nil }
         let newIdx = await MainActor.run { state.currentIndex }
         Logger.player.info("Moved track \(fromIndex)→\(toIndex), currentIndex now \(newIdx)")
-        await sessionService.save(playerState: state)
+        await saveSession()
     }
 
     // MARK: - Session persistence
+
+    private func saveSession() async {
+        let snapshot = await MainActor.run {
+            SessionPayload(
+                currentIndex: state.currentIndex,
+                currentPosition: state.position,
+                queue: state.queue,
+                currentTrack: state.currentTrack,
+                repeatMode: state.repeatMode
+            )
+        }
+        await sessionService.save(playerState: snapshot)
+    }
 
     func restoreSession() async {
         guard let data = await sessionService.loadRestoredSession() else { return }
@@ -1037,7 +1050,7 @@ actor PlayerService: PlayerServiceProtocol {
 
         stopPositionSaveTimer()
         await pushPositionSnapshot(rate: 0)
-        await sessionService.save(playerState: state)
+        await saveSession()
     }
 
     // MARK: - AVPlayer setup
@@ -1244,7 +1257,7 @@ actor PlayerService: PlayerServiceProtocol {
             guard isPlaying else { return }
             await MainActor.run { state.playbackState = .paused }
             stopPositionSaveTimer()
-            await sessionService.save(playerState: state)
+            await saveSession()
             let pauseTrack = await MainActor.run { state.currentTrack }
             if let ws = widgetSyncService {
                 Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
