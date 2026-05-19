@@ -21,6 +21,15 @@ struct AlbumsListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Albums")
+        #if os(macOS)
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+        }
+        #else
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailView(album: album)
+        }
+        #endif
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = AlbumListViewModel(libraryService: svc) }
@@ -62,7 +71,7 @@ struct AlbumsListView: View {
             #else
             ScrollViewReader { proxy in
                 List(vm.albums) { album in
-                    NavigationLink(destination: { AlbumDetailView(album: album) }) {
+                    NavigationLink(value: album) {
                         AlbumRow(
                             albumId: album.id,
                             name: album.name,
@@ -105,9 +114,7 @@ struct AlbumsListView: View {
             ScrollView {
                 LazyVStack(spacing: 0) {
                     ForEach(vm.albums) { album in
-                        NavigationLink(destination: {
-                            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                        }) {
+                        NavigationLink(value: album) {
                             AlbumRow(
                                 albumId: album.id,
                                 name: album.name,

@@ -53,13 +53,7 @@ struct ArtistDetailView: View {
                             heroSection(vm: vm)
                             LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                                 ForEach(albums) { album in
-                                    NavigationLink(destination: {
-                                        #if os(macOS)
-                                        AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                                        #else
-                                        AlbumDetailView(album: album)
-                                        #endif
-                                    }) {
+                                    NavigationLink(value: album) {
                                         AlbumGridCell(album: album)
                                     }
                                     .buttonStyle(.plain)
@@ -122,6 +116,15 @@ struct ArtistDetailView: View {
                 providers: container?.externalProvidersStore.load() ?? []
             )
         }
+        #if os(macOS)
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+        }
+        #else
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailView(album: album)
+        }
+        #endif
         .navigationDestination(item: $inLibraryArtistTarget) { rec in
             ArtistDetailView(artist: ArtistID3(id: rec.id, name: rec.name))
         }

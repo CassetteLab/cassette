@@ -26,9 +26,15 @@ struct FavoritesView: View {
         .navigationDestination(for: ArtistID3.self) { artist in
             ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
         }
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+        }
         #else
         .navigationDestination(for: ArtistID3.self) { artist in
             ArtistDetailView(artist: artist)
+        }
+        .navigationDestination(for: AlbumID3.self) { album in
+            AlbumDetailView(album: album)
         }
         #endif
         .onAppear {
@@ -94,13 +100,7 @@ struct FavoritesView: View {
         if !albums.isEmpty {
             Section("Albums") {
                 ForEach(albums) { album in
-                    NavigationLink(destination: {
-                        #if os(macOS)
-                        AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                        #else
-                        AlbumDetailView(album: album)
-                        #endif
-                    }) {
+                    NavigationLink(value: album) {
                         AlbumRow(
                             albumId: album.id,
                             name: album.name,
