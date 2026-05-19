@@ -6,7 +6,6 @@
 import SwiftUI
 import SwiftSonic
 import SwiftData
-import OSLog
 
 struct ArtistDetailView: View {
     let artist: ArtistID3
@@ -14,7 +13,6 @@ struct ArtistDetailView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
-    @State private var inLibraryArtistTarget: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
 
     init(artist: ArtistID3) {
@@ -53,7 +51,7 @@ struct ArtistDetailView: View {
                             heroSection(vm: vm)
                             LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                                 ForEach(albums) { album in
-                                    NavigationLink(value: album) {
+                                    NavigationLink(value: HomeDestination.album(album)) {
                                         AlbumGridCell(album: album)
                                     }
                                     .buttonStyle(.plain)
@@ -115,9 +113,6 @@ struct ArtistDetailView: View {
                 imageURL: viewModel?.outOfLibraryArtistImages[rec.id] ?? nil,
                 providers: container?.externalProvidersStore.load() ?? []
             )
-        }
-        .navigationDestination(item: $inLibraryArtistTarget) { rec in
-            ArtistDetailView(artist: ArtistID3(id: rec.id, name: rec.name))
         }
     }
 
@@ -220,12 +215,24 @@ struct ArtistDetailView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: CassetteSpacing.m) {
                         ForEach(vm.similarArtists) { rec in
-                            SimilarArtistCell(
-                                recommendation: rec,
-                                externalImageURL: vm.outOfLibraryArtistImages[rec.id] ?? nil,
-                                onInLibraryTap: { inLibraryArtistTarget = rec },
-                                onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
-                            )
+                            Group {
+                                if rec.inLibrary {
+                                    NavigationLink(value: HomeDestination.artist(ArtistID3(id: rec.id, name: rec.name))) {
+                                        SimilarArtistCell(
+                                            recommendation: rec,
+                                            externalImageURL: vm.outOfLibraryArtistImages[rec.id] ?? nil,
+                                            onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    SimilarArtistCell(
+                                        recommendation: rec,
+                                        externalImageURL: vm.outOfLibraryArtistImages[rec.id] ?? nil,
+                                        onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
+                                    )
+                                }
+                            }
                             .frame(width: 80)
                         }
                     }
@@ -236,60 +243,22 @@ struct ArtistDetailView: View {
     }
 }
 
-// MARK: - Album grid cell
-
-private struct AlbumGridCell: View {
-    let album: AlbumID3
-
-    @Environment(ArtworkImageCache.self) private var artworkImageCache
-    @State private var coverImage: PlatformImage?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            GeometryReader { geo in
-                CoverArtView(id: album.coverArt ?? album.id, size: Int(geo.size.width * 2))
-                    .frame(width: geo.size.width, height: geo.size.width)
-                    .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
-            }
-            .aspectRatio(1, contentMode: .fit)
-            Text(album.name)
-                .font(.cassetteCellTitle)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            if let year = album.year {
-                Text(String(year))
-                    .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .task(id: album.id) {
-            coverImage = await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
-        }
-        .collectionContextMenu(
-            itemType: .album,
-            itemId: album.id,
-            displayName: album.name,
-            displaySubtitle: album.artist ?? "",
-            coverArtId: album.coverArt,
-            coverImage: coverImage,
-            favoriteType: .album
-        )
-    }
-}
-
 // MARK: - Similar artist cell
 
 private struct SimilarArtistCell: View {
     let recommendation: SimilarArtistRecommendation
     let externalImageURL: URL?
-    let onInLibraryTap: () -> Void
     let onOutOfLibraryTap: () -> Void
 
     var body: some View {
-        Button(action: recommendation.inLibrary ? onInLibraryTap : onOutOfLibraryTap) {
+        if recommendation.inLibrary {
             cellContent
+        } else {
+            Button(action: onOutOfLibraryTap) {
+                cellContent
+            }
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
     }
 
     private var cellContent: some View {

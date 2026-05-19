@@ -75,7 +75,7 @@ private struct DownloadedContent: View {
                 if !displayAlbums.isEmpty {
                     Section("Albums") {
                         ForEach(displayAlbums) { display in
-                            NavigationLink(value: display) {
+                            NavigationLink(value: HomeDestination.downloadedAlbum(display)) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
@@ -104,7 +104,8 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            // TODO: migrate to NavigationLink(value:) once DownloadedPlaylist (@Model) gains safe Hashable conformance
+                            // TODO(v2.0): migrate to NavigationLink(value:) via PlaylistNavRoute: Hashable
+                            // DownloadedPlaylist is a SwiftData @Model — not safe as navigation value directly
                             NavigationLink(destination: {
                                 PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
                             }) {
@@ -127,9 +128,6 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
-            .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
-                AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-            }
         }
     }
     #endif
@@ -140,7 +138,7 @@ private struct DownloadedContent: View {
                 if !displayAlbums.isEmpty {
                     Section("Albums") {
                         ForEach(displayAlbums) { display in
-                            NavigationLink(value: display) {
+                            NavigationLink(value: HomeDestination.downloadedAlbum(display)) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: display.coverArtId ?? display.albumId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
@@ -169,7 +167,8 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            // TODO: migrate to NavigationLink(value:) once DownloadedPlaylist (@Model) gains safe Hashable conformance
+                            // TODO(v2.0): migrate to NavigationLink(value:) via PlaylistNavRoute: Hashable
+                            // DownloadedPlaylist is a SwiftData @Model — not safe as navigation value directly
                             NavigationLink(destination: {
                                 PlaylistDetailView(playlist: playlist)
                             }) {
@@ -192,9 +191,6 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
-            .navigationDestination(for: DownloadedAlbumDisplay.self) { display in
-                AlbumDetailView(albumId: display.albumId, albumName: display.name, mode: display.hasFullDownloadIntent ? .full : .downloadedOnly)
-            }
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 if displayAlbums.count >= 20 {
                     AlphabetJumpBar(

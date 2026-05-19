@@ -169,6 +169,90 @@ struct HomeView: View {
         #if os(macOS)
         .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
         #endif
+        .navigationDestination(for: HomeDestination.self) { destination in
+            switch destination {
+            case .libraryAlbums:
+                #if os(iOS)
+                AlbumsListView()
+                #else
+                EmptyView()
+                #endif
+            case .libraryArtists:
+                #if os(iOS)
+                ArtistListView()
+                #else
+                EmptyView()
+                #endif
+            case .libraryPlaylists:
+                #if os(iOS)
+                PlaylistListView()
+                #else
+                EmptyView()
+                #endif
+            case .libraryFavorites:
+                #if os(iOS)
+                FavoritesView()
+                #else
+                EmptyView()
+                #endif
+            case .libraryDownloads:
+                #if os(iOS)
+                DownloadedView()
+                #else
+                EmptyView()
+                #endif
+            case .album(let album):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                #else
+                AlbumDetailView(
+                    album: album,
+                    zoomSourceId: album.id,
+                    zoomNamespace: recentlyAddedZoomNamespace,
+                    coverArtId: album.coverArt,
+                    initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil)
+                )
+                #endif
+            case .artist(let artist):
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                #else
+                ArtistDetailView(artist: artist)
+                #endif
+            case .playlist(let playlist):
+                #if os(macOS)
+                PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
+                #else
+                PlaylistDetailView(playlist: playlist)
+                #endif
+            case .downloadedAlbum(let display):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
+                #else
+                AlbumDetailView(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId, mode: .downloadedOnly)
+                #endif
+            case .albumById(let id, let name, _, let coverArtId):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
+                #else
+                AlbumDetailView(albumId: id, albumName: name, coverArtId: coverArtId)
+                #endif
+            case .playlistById(let id, let name, let coverArtId):
+                #if os(macOS)
+                PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
+                #else
+                PlaylistDetailView(playlistId: id, name: name, coverArtId: coverArtId)
+                #endif
+            case .offlineArtist(let artist):
+                OfflineArtistAlbumsView(artist: artist)
+            case .offlineAlbum(let album):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
+                #else
+                AlbumDetailView(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
+                #endif
+            }
+        }
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {
@@ -320,25 +404,30 @@ struct HomeView: View {
             Text("Library")
                 .font(.cassetteSectionTitle)
             VStack(spacing: 0) {
-                HomeLibraryRow(title: "Playlists", systemImage: "music.note.list") {
-                    PlaylistListView()
+                NavigationLink(value: HomeDestination.libraryPlaylists) {
+                    HomeLibraryRowLabel(title: "Playlists", systemImage: "music.note.list")
                 }
+                .buttonStyle(.plain)
                 Divider().padding(.leading, 52)
-                HomeLibraryRow(title: "Albums", systemImage: "square.stack") {
-                    AlbumsListView()
+                NavigationLink(value: HomeDestination.libraryAlbums) {
+                    HomeLibraryRowLabel(title: "Albums", systemImage: "square.stack")
                 }
+                .buttonStyle(.plain)
                 Divider().padding(.leading, 52)
-                HomeLibraryRow(title: "Artists", systemImage: "music.mic") {
-                    ArtistListView()
+                NavigationLink(value: HomeDestination.libraryArtists) {
+                    HomeLibraryRowLabel(title: "Artists", systemImage: "music.mic")
                 }
+                .buttonStyle(.plain)
                 Divider().padding(.leading, 52)
-                HomeLibraryRow(title: "Favorites", systemImage: "heart.fill") {
-                    FavoritesView()
+                NavigationLink(value: HomeDestination.libraryFavorites) {
+                    HomeLibraryRowLabel(title: "Favorites", systemImage: "heart.fill")
                 }
+                .buttonStyle(.plain)
                 Divider().padding(.leading, 52)
-                HomeLibraryRow(title: "Downloads", systemImage: "arrow.down.circle.fill") {
-                    DownloadedView()
+                NavigationLink(value: HomeDestination.libraryDownloads) {
+                    HomeLibraryRowLabel(title: "Downloads", systemImage: "arrow.down.circle.fill")
                 }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -359,22 +448,7 @@ struct HomeView: View {
                     } else {
                         LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                             ForEach(vm.recentAlbums) { album in
-                                NavigationLink(destination: {
-                                    #if os(macOS)
-                                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                                    #else
-                                    AlbumDetailView(
-                                        album: album,
-                                        zoomSourceId: album.id,
-                                        zoomNamespace: recentlyAddedZoomNamespace,
-                                        coverArtId: album.coverArt,
-                                        initialDominantColor: colorExtractor.dominantColor(
-                                            for: album.coverArt ?? album.id,
-                                            image: nil
-                                        )
-                                    )
-                                    #endif
-                                }) {
+                                NavigationLink(value: HomeDestination.album(album)) {
                                     HomeAlbumCell(album: album, namespace: recentlyAddedZoomNamespace)
                                 }
                                 .buttonStyle(.plain)
@@ -396,7 +470,10 @@ struct HomeView: View {
                 } else {
                     LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                         ForEach(recentDownloadedItems) { item in
-                            HomeDownloadedItemCard(item: item)
+                            let dest: HomeDestination = item.type == .album
+                                ? .albumById(id: item.itemId, name: item.name, subtitle: item.subtitle, coverArtId: item.coverArtId)
+                                : .playlistById(id: item.itemId, name: item.name, coverArtId: item.coverArtId)
+                            HomeDownloadedItemCard(item: item, destination: dest)
                         }
                     }
                 }
@@ -417,50 +494,19 @@ private struct HomePinnedCard: View {
     @State private var coverImage: PlatformImage?
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
-    @ViewBuilder
-    private var destination: some View {
+    private var homeNavDestination: HomeDestination {
         switch PinnedItemType(rawValue: item.itemType) {
         case .album:
-            #if os(macOS)
-            AlbumDetailMacOS(albumId: item.itemId, albumName: item.displayName, coverArtId: item.coverArtId)
-            #else
-            AlbumDetailView(
-                albumId: item.itemId,
-                albumName: item.displayName,
-                zoomSourceId: item.id,
-                zoomNamespace: namespace,
-                coverArtId: item.coverArtId,
-                initialDominantColor: colorExtractor.dominantColor(
-                    for: item.coverArtId ?? item.itemId,
-                    image: nil
-                ),
-                initialCoverImage: coverImage
-            )
-            #endif
+            .albumById(id: item.itemId, name: item.displayName, subtitle: item.displaySubtitle, coverArtId: item.coverArtId)
         case .playlist:
-            #if os(macOS)
-            PlaylistDetailMacOS(playlistId: item.itemId, name: item.displayName, coverArtId: item.coverArtId)
-            #else
-            PlaylistDetailView(
-                playlistId: item.itemId,
-                name: item.displayName,
-                coverArtId: item.coverArtId,
-                initialDominantColor: colorExtractor.dominantColor(
-                    for: item.coverArtId ?? item.itemId,
-                    image: nil
-                ),
-                initialCoverImage: coverImage,
-                zoomSourceId: item.id,
-                zoomNamespace: namespace
-            )
-            #endif
+            .playlistById(id: item.itemId, name: item.displayName, coverArtId: item.coverArtId)
         case .none:
-            EmptyView()
+            .albumById(id: item.itemId, name: item.displayName, subtitle: item.displaySubtitle, coverArtId: item.coverArtId)
         }
     }
 
     var body: some View {
-        NavigationLink(destination: destination) {
+        NavigationLink(value: homeNavDestination) {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 GeometryReader { geo in
                     CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
@@ -536,39 +582,35 @@ private struct HomePinnedCard: View {
     }
 }
 
-// MARK: - HomeLibraryRow
+// MARK: - HomeLibraryRowLabel
 
-private struct HomeLibraryRow<Destination: View>: View {
+private struct HomeLibraryRowLabel: View {
     let title: String
     let systemImage: String
-    @ViewBuilder let destination: () -> Destination
 
     var body: some View {
-        NavigationLink(destination: destination()) {
-            HStack(spacing: CassetteSpacing.m) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
-                        .fill(Color.cassetteAccent)
-                        .frame(width: 30, height: 30)
-                    Image(systemName: systemImage)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.white)
-                }
-                Text(title)
-                    .font(.cassetteCellTitle)
-                    .foregroundStyle(.primary)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
+        HStack(spacing: CassetteSpacing.m) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.cassetteAccent)
+                    .frame(width: 30, height: 30)
+                Image(systemName: systemImage)
                     .font(.caption)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.white)
             }
-            .padding(.horizontal, CassetteSpacing.m)
-            .padding(.vertical, CassetteSpacing.m)
-            .contentShape(Rectangle())
+            Text(title)
+                .font(.cassetteCellTitle)
+                .foregroundStyle(.primary)
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.tertiary)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, CassetteSpacing.m)
+        .padding(.vertical, CassetteSpacing.m)
+        .contentShape(Rectangle())
     }
 }
 
@@ -576,31 +618,14 @@ private struct HomeLibraryRow<Destination: View>: View {
 
 private struct HomeDownloadedItemCard: View {
     let item: DownloadedItem
+    let destination: HomeDestination
     @Environment(\.modelContext) private var modelContext
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var coverImage: PlatformImage?
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
-    @ViewBuilder
-    private var destination: some View {
-        switch item.type {
-        case .album:
-            #if os(macOS)
-            AlbumDetailMacOS(albumId: item.itemId, albumName: item.name, coverArtId: item.coverArtId)
-            #else
-            AlbumDetailView(albumId: item.itemId, albumName: item.name)
-            #endif
-        case .playlist:
-            #if os(macOS)
-            PlaylistDetailMacOS(playlistId: item.itemId, name: item.name, coverArtId: item.coverArtId)
-            #else
-            PlaylistDetailView(playlistId: item.itemId, name: item.name)
-            #endif
-        }
-    }
-
     var body: some View {
-        NavigationLink(destination: destination) {
+        NavigationLink(value: destination) {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 GeometryReader { geo in
                     CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
