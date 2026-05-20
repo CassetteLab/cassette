@@ -89,12 +89,12 @@ struct CassetteApp: App {
                 // are available from the very first play, even on cold start.
                 await newContainer.nowPlayingService.start()
                 AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
-                container = newContainer
-                AppContainer.shared = newContainer
-                // loadPersistedState must complete before restoreSession so the active
-                // server is known when prepareCurrentTrackForRestoration resolves the URL.
+                // Load active server before exposing the container so that views
+                // render with activeServer already set on their first .task fire.
                 await newContainer.serverService.loadPersistedState()
                 await newContainer.playerService.restoreSession()
+                container = newContainer
+                AppContainer.shared = newContainer
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 Task { await runCoverArtGarbageCollection(container: newContainer) }
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).

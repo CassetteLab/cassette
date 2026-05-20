@@ -38,7 +38,7 @@ struct PlaylistListView: View {
                 Task { await viewModel?.load() }
             }
         }
-        .task(id: container?.serverState.activeServer?.id) {
+        .task {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = PlaylistListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }
