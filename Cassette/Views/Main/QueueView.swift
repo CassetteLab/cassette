@@ -11,25 +11,56 @@ struct QueueView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
+        #if os(macOS)
+        VStack(spacing: 0) {
+            HStack {
+                Text("Queue")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Task {
+                        guard let state = container?.playerState else { return }
+                        await container?.playerService.setAutoExtendEnabled(!state.isAutoExtendEnabled)
+                    }
+                } label: {
+                    Image(systemName: "infinity")
+                        .foregroundStyle(container?.playerState.isAutoExtendEnabled == true ? Color.cassetteAccent : .secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Auto-extend with Smart Shuffle")
+                .accessibilityValue(container?.playerState.isAutoExtendEnabled == true ? "Enabled" : "Disabled")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+
+            Divider()
+
+            queueContent
+        }
+        #else
         NavigationStack {
-            Group {
-                if let playerState = container?.playerState, !playerState.queue.isEmpty {
-                    queueList(playerState)
-                } else {
-                    EmptyStateView(
-                        systemImage: "list.bullet",
-                        title: "Queue is empty",
-                        subtitle: "Start playing music to see your queue here."
-                    )
+            queueContent
+                .navigationTitle("Queue")
+                .navigationBarTitleDisplayModeInline()
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
-            }
-            .navigationTitle("Queue")
-            .navigationBarTitleDisplayModeInline()
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
+        }
+        #endif
+    }
+
+    @ViewBuilder
+    private var queueContent: some View {
+        if let playerState = container?.playerState, !playerState.queue.isEmpty {
+            queueList(playerState)
+        } else {
+            EmptyStateView(
+                systemImage: "list.bullet",
+                title: "Queue is empty",
+                subtitle: "Start playing music to see your queue here."
+            )
         }
     }
 
@@ -40,11 +71,13 @@ struct QueueView: View {
         let upNext = Array(queue.dropFirst(currentIndex + 1))
 
         List {
+            #if !os(macOS)
             Section {
                 queueControlsHeader(playerState)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
             }
+            #endif
 
             if let current = playerState.currentTrack {
                 Section("Now Playing") {
