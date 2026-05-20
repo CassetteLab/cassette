@@ -138,6 +138,14 @@ struct CassetteApp: App {
 
         #if os(macOS)
         CassetteSettingsScene(container: container)
+
+        Window("Mini Player", id: "mini-player") {
+            MiniPlayerWindowView()
+        }
+        .windowStyle(.plain)
+        .windowResizability(.contentSize)
+        .defaultSize(width: 320, height: 120)
+        .defaultPosition(.topTrailing)
         #endif
     }
 

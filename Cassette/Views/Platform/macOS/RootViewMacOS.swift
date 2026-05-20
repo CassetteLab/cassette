@@ -80,6 +80,9 @@ struct RootViewMacOS: View {
                 await container.playerService.setRepeatMode(container.playerState.repeatMode.next)
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayer)) { _ in
+            withAnimation { isShowingFullPlayer = true }
+        }
     }
 
     // MARK: - Playback

@@ -15,6 +15,7 @@ struct FullPlayerExpandedView: View {
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(ArtworkImageCache.self) private var artworkCache
+    @Environment(\.openWindow) private var openWindow
 
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
@@ -75,6 +76,18 @@ struct FullPlayerExpandedView: View {
         }
         .overlay(alignment: .topTrailing) {
             HStack(spacing: 12) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                    openWindow(id: "mini-player")
+                } label: {
+                    Image(systemName: "rectangle.compress.vertical")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
+                }
+                .buttonStyle(.borderless)
+                .help("Mini Player")
+
                 AirPlayButton()
                     .frame(width: 20, height: 20)
                 muteButton

@@ -13,4 +13,5 @@ extension Notification.Name {
     static let cassetteToggleShuffle = Notification.Name("cassette.toggleShuffle")
     static let cassetteToggleRepeat = Notification.Name("cassette.toggleRepeat")
     static let cassetteToggleQueue = Notification.Name("cassette.toggleQueue")
+    static let cassetteOpenFullPlayer = Notification.Name("cassette.openFullPlayer")
 }
