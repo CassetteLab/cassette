@@ -79,13 +79,13 @@ actor DownloadService: DownloadServiceProtocol {
     func localCoverArtURL(forId coverArtId: String) async -> URL? {
         let url = coverArtsDirectory.appendingPathComponent(coverArtId)
         let exists = FileManager.default.fileExists(atPath: url.path)
-        Logger.download.debug("[DBG] localCoverArtURL id='\(coverArtId, privacy: .public)' path='\(url.path, privacy: .public)' exists=\(exists)")
+        Logger.download.debug("localCoverArtURL id='\(coverArtId, privacy: .public)' path='\(url.path, privacy: .public)' exists=\(exists)")
         return exists ? url : nil
     }
 
     func persistCover(_ data: Data, forId coverArtId: String) async {
         let url = coverArtsDirectory.appendingPathComponent(coverArtId)
-        Logger.download.debug("[DBG] persistCover id='\(coverArtId, privacy: .public)' path='\(url.path, privacy: .public)' bytes=\(data.count)")
+        Logger.download.debug("persistCover id='\(coverArtId, privacy: .public)' path='\(url.path, privacy: .public)' bytes=\(data.count, privacy: .public)")
         do {
             try FileManager.default.createDirectory(at: coverArtsDirectory, withIntermediateDirectories: true)
             try data.write(to: url, options: .atomic)
