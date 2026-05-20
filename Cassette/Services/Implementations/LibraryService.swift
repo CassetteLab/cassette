@@ -28,12 +28,12 @@ actor LibraryService: LibraryServiceProtocol {
         // The periodic player time observer fires on the MainActor every 0.5s during playback,
         // so any await MainActor.run on the hot path causes multi-second stalls.
         if let cached = cachedClient {
-            Logger.library.notice("[CLIENT] cache hit")
+            Logger.library.debug("[CLIENT] cache hit")
             return cached
         }
-        Logger.library.notice("[CLIENT] cache miss → makeSwiftSonicClient")
+        Logger.library.debug("[CLIENT] cache miss → makeSwiftSonicClient")
         let fresh = try await serverService.makeSwiftSonicClient()
-        Logger.library.notice("[CLIENT] ← makeSwiftSonicClient done")
+        Logger.library.debug("[CLIENT] ← makeSwiftSonicClient done")
         cachedClient = fresh
         artistInfoCache = [:]
         artistNameIndex = nil
@@ -46,13 +46,13 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func artist(id: String) async throws -> ArtistID3 {
-        Logger.library.notice("[ARTIST] artist(id:) START id=\(id, privacy: .public)")
+        Logger.library.debug("[ARTIST] artist(id:) START id=\(id, privacy: .public)")
         let c = try await client()
-        Logger.library.notice("[ARTIST] → client().getArtist")
+        Logger.library.debug("[ARTIST] → client().getArtist")
         let t0 = Date()
         let result = try await c.getArtist(id: id)
         let elapsed = String(format: "%.2f", Date().timeIntervalSince(t0))
-        Logger.library.notice("[ARTIST] ← client().getArtist done \(elapsed, privacy: .public)s")
+        Logger.library.debug("[ARTIST] ← client().getArtist done \(elapsed, privacy: .public)s")
         return result
     }
 
@@ -99,7 +99,16 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func allAlbums() async throws -> [AlbumID3] {
-        try await client().getAlbumList2(type: .alphabeticalByName, size: 500)
+        Logger.library.info("🔵 allAlbums() called")
+        do {
+            let result = try await client().getAlbumList2(type: .alphabeticalByName, size: 500)
+            Logger.library.info("🔵 allAlbums() done — \(result.count, privacy: .public) items")
+            return result
+        } catch {
+            Logger.library.error("🔴 allAlbums() getAlbumList2 error: \(String(describing: error), privacy: .public)")
+            Logger.library.error("🔴 allAlbums() error type: \(type(of: error), privacy: .public)")
+            throw error
+        }
     }
 
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
@@ -246,20 +255,20 @@ actor LibraryService: LibraryServiceProtocol {
 
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo {
         if let cached = artistInfoCache[artistID] {
-            Logger.library.notice("[ARTIST-INFO] cache hit artistId=\(artistID, privacy: .public) similarCount=\(cached.similarArtist?.count ?? 0, privacy: .public)")
+            Logger.library.debug("[ARTIST-INFO] cache hit artistId=\(artistID, privacy: .public) similarCount=\(cached.similarArtist?.count ?? 0, privacy: .public)")
             return cached
         }
-        Logger.library.notice("[ARTIST-INFO] cache miss — network call artistId=\(artistID, privacy: .public) count=\(count, privacy: .public)")
+        Logger.library.debug("[ARTIST-INFO] cache miss — network call artistId=\(artistID, privacy: .public) count=\(count, privacy: .public)")
         let started = Date()
         do {
             let info = try await client().getArtistInfo2(id: artistID, count: count)
             let elapsed = Date().timeIntervalSince(started)
-            Logger.library.notice("[ARTIST-INFO] success artistId=\(artistID, privacy: .public) \(String(format: "%.2f", elapsed), privacy: .public)s similarCount=\(info.similarArtist?.count ?? 0, privacy: .public)")
+            Logger.library.debug("[ARTIST-INFO] success artistId=\(artistID, privacy: .public) \(String(format: "%.2f", elapsed), privacy: .public)s similarCount=\(info.similarArtist?.count ?? 0, privacy: .public)")
             artistInfoCache[artistID] = info
             return info
         } catch {
             let elapsed = Date().timeIntervalSince(started)
-            Logger.library.notice("[ARTIST-INFO] FAILED after \(String(format: "%.2f", elapsed), privacy: .public)s artistId=\(artistID, privacy: .public): \(error, privacy: .public)")
+            Logger.library.warning("[ARTIST-INFO] FAILED after \(String(format: "%.2f", elapsed), privacy: .public)s artistId=\(artistID, privacy: .public): \(error, privacy: .public)")
             throw error
         }
     }
@@ -271,22 +280,22 @@ actor LibraryService: LibraryServiceProtocol {
     func findArtist(byName name: String) async -> ArtistID3? {
         if artistNameIndex == nil {
             if indexBuildTask == nil {
-                Logger.library.notice("[FIND-ARTIST] index not built — starting build name=\(name, privacy: .public)")
+                Logger.library.debug("[FIND-ARTIST] index not built — starting build name=\(name, privacy: .public)")
                 indexBuildTask = Task { await self.buildArtistNameIndex() }
             } else {
-                Logger.library.notice("[FIND-ARTIST] awaiting in-progress build name=\(name, privacy: .public)")
+                Logger.library.debug("[FIND-ARTIST] awaiting in-progress build name=\(name, privacy: .public)")
             }
             _ = await indexBuildTask?.value
             indexBuildTask = nil
         } else {
-            Logger.library.notice("[FIND-ARTIST] index ready entries=\(self.artistNameIndex?.count ?? 0, privacy: .public) name=\(name, privacy: .public)")
+            Logger.library.debug("[FIND-ARTIST] index ready entries=\(self.artistNameIndex?.count ?? 0, privacy: .public) name=\(name, privacy: .public)")
         }
         let normalized = Self.normalizeArtistName(name)
         if let found = artistNameIndex?[normalized] {
-            Logger.library.notice("[FIND-ARTIST] FOUND '\(name, privacy: .public)' → id=\(found.id, privacy: .public)")
+            Logger.library.debug("[FIND-ARTIST] FOUND '\(name, privacy: .public)' → id=\(found.id, privacy: .public)")
             return found
         }
-        Logger.library.notice("[FIND-ARTIST] NOT FOUND '\(name, privacy: .public)'")
+        Logger.library.debug("[FIND-ARTIST] NOT FOUND '\(name, privacy: .public)'")
         return nil
     }
 
@@ -301,7 +310,7 @@ actor LibraryService: LibraryServiceProtocol {
             if i % 200 == 0 && i > 0 { await Task.yield() }
         }
         artistNameIndex = index
-        Logger.library.notice("[FIND-ARTIST] index built: \(all.count, privacy: .public) entries")
+        Logger.library.info("[FIND-ARTIST] index built: \(all.count, privacy: .public) entries")
     }
 
     /// Applies diacritics-insensitive folding, lowercasing, and whitespace trimming.

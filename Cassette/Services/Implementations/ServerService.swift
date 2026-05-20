@@ -236,7 +236,11 @@ actor ServerService: ServerServiceProtocol {
 
     func makeSwiftSonicClient() async throws -> SwiftSonicClient {
         let snapshot = await MainActor.run { state.activeServer }
-        guard let snapshot else { throw CassetteError.serverNotConfigured }
+        Logger.server.debug("🔵 makeSwiftSonicClient — activeServer=\(String(describing: snapshot?.baseURL), privacy: .public)")
+        guard let snapshot else {
+            Logger.server.error("🔴 makeSwiftSonicClient: activeServer is nil → serverNotConfigured")
+            throw CassetteError.serverNotConfigured
+        }
 
         let creds = try await keychain.retrieve(
             ServerCredentials.self,
