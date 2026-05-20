@@ -144,7 +144,7 @@ struct CassetteApp: App {
         }
         .windowStyle(.plain)
         .windowResizability(.contentSize)
-        .defaultSize(width: 320, height: 120)
+        .defaultSize(width: 320, height: 136)
         .defaultPosition(.topTrailing)
         #endif
     }

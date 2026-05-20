@@ -8,7 +8,6 @@ import SwiftUI
 
 struct MiniPlayerWindowView: View {
     @Environment(\.dismissWindow) private var dismissWindow
-    @Environment(\.openWindow) private var openWindow
 
     @State private var container: AppContainer? = AppContainer.shared
     @State private var isScrubbing = false
@@ -49,10 +48,11 @@ struct MiniPlayerWindowView: View {
 
                 scrubber
             }
+            .padding(.top, 20)
             .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.bottom, 12)
         }
-        .frame(width: 320, height: 120)
+        .frame(width: 320, height: 136)
         .background {
             if #available(macOS 26.0, *) {
                 RoundedRectangle(cornerRadius: 28)
@@ -66,9 +66,6 @@ struct MiniPlayerWindowView: View {
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .overlay(alignment: .topLeading) {
             closeButton
-        }
-        .overlay(alignment: .topTrailing) {
-            expandButton
         }
         .environment(\.colorScheme, .dark)
     }
@@ -173,31 +170,16 @@ struct MiniPlayerWindowView: View {
 
     private var closeButton: some View {
         Button {
-            dismissWindow(id: "mini-player")
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.7))
-                .frame(width: 16, height: 16)
-                .background(Circle().fill(.primary.opacity(0.12)))
-        }
-        .buttonStyle(.plain)
-        .padding(8)
-    }
-
-    private var expandButton: some View {
-        Button {
-            dismissWindow(id: "mini-player")
+            NSApplication.shared.keyWindow?.close()
             NotificationCenter.default.post(name: .cassetteOpenFullPlayer, object: nil)
         } label: {
-            Image(systemName: "rectangle.expand.vertical")
-                .font(.system(size: 8, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.7))
-                .frame(width: 16, height: 16)
-                .background(Circle().fill(.primary.opacity(0.12)))
+            Image(systemName: "xmark")
+                .font(.system(size: 13, weight: .semibold))
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .padding(8)
+        .padding(14)
     }
 
     // MARK: - Helpers
