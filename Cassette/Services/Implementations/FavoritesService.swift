@@ -50,7 +50,7 @@ actor FavoritesService: FavoritesServiceProtocol {
             case .album:  try await libraryService.star(songIds: [], albumIds: [itemId], artistIds: [])
             case .artist: try await libraryService.star(songIds: [], albumIds: [], artistIds: [itemId])
             }
-            Logger.favorites.info("Starred \(itemType.rawValue) \(itemId)")
+            Logger.favorites.info("Starred \(itemType.rawValue, privacy: .public) \(itemId, privacy: .public)")
         } catch {
             backgroundContext.delete(record)
             try? backgroundContext.save()
@@ -79,7 +79,7 @@ actor FavoritesService: FavoritesServiceProtocol {
             case .album:  try await libraryService.unstar(songIds: [], albumIds: [itemId], artistIds: [])
             case .artist: try await libraryService.unstar(songIds: [], albumIds: [], artistIds: [itemId])
             }
-            Logger.favorites.info("Unstarred \(itemType.rawValue) \(itemId)")
+            Logger.favorites.info("Unstarred \(itemType.rawValue, privacy: .public) \(itemId, privacy: .public)")
         } catch {
             let restored = FavoriteRecord(itemType: itemType, itemId: itemId, starredDate: capturedDate, serverId: capturedServerId)
             backgroundContext.insert(restored)
@@ -124,6 +124,6 @@ actor FavoritesService: FavoritesServiceProtocol {
         toRemove.forEach { backgroundContext.delete($0) }
 
         try? backgroundContext.save()
-        Logger.favorites.info("Favorites synced: \(added) added, \(toRemove.count) removed, \(unchanged) unchanged")
+        Logger.favorites.info("Favorites synced: \(added, privacy: .public) added, \(toRemove.count, privacy: .public) removed, \(unchanged, privacy: .public) unchanged")
     }
 }

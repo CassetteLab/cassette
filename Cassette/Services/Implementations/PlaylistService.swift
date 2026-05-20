@@ -63,7 +63,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         }
         listCache = nil
         detailCache[result.id] = result
-        Logger.playlist.info("Created playlist '\(name)' id=\(result.id)")
+        Logger.playlist.info("Created playlist '\(name, privacy: .private)' id=\(result.id, privacy: .public)")
         return result
     }
 
@@ -74,7 +74,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         detailCache[id] = nil
         do {
             try await client().deletePlaylist(id: id)
-            Logger.playlist.info("Deleted playlist id=\(id)")
+            Logger.playlist.info("Deleted playlist id=\(id, privacy: .public)")
         } catch {
             listCache = previousList
             detailCache[id] = previousDetail
@@ -95,7 +95,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         }
         do {
             try await client().updatePlaylist(id: id, name: newName)
-            Logger.playlist.info("Renamed playlist id=\(id) to '\(newName)'")
+            Logger.playlist.info("Renamed playlist id=\(id, privacy: .public) to '\(newName, privacy: .private)'")
         } catch {
             listCache = previousList
             detailCache[id] = previousDetail
@@ -110,7 +110,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         }
         do {
             try await client().updatePlaylist(id: id, comment: description)
-            Logger.playlist.info("Updated description for playlist id=\(id)")
+            Logger.playlist.info("Updated description for playlist id=\(id, privacy: .public)")
         } catch {
             detailCache[id] = previousDetail
             throw error
@@ -135,7 +135,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         }
         do {
             try await client().updatePlaylist(id: playlistId, songIdsToAdd: songs.map(\.id))
-            Logger.playlist.info("Added \(songs.count) track(s) to playlist id=\(playlistId)")
+            Logger.playlist.info("Added \(songs.count, privacy: .public) track(s) to playlist id=\(playlistId, privacy: .public)")
             await syncDownloadedPlaylistAfterAdd(playlistId: playlistId, addedSongs: songs)
         } catch {
             detailCache[playlistId] = previousDetail
@@ -168,7 +168,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         }
         do {
             try await client().updatePlaylist(id: playlistId, songIndexesToRemove: indices)
-            Logger.playlist.info("Removed \(indices.count) track(s) from playlist id=\(playlistId)")
+            Logger.playlist.info("Removed \(indices.count, privacy: .public) track(s) from playlist id=\(playlistId, privacy: .public)")
             await syncDownloadedPlaylistAfterRemove(playlistId: playlistId, removedSongIds: removedSongIds)
         } catch {
             detailCache[playlistId] = previousDetail
@@ -186,7 +186,7 @@ actor PlaylistService: PlaylistServiceProtocol {
         }
         do {
             try await client().createPlaylist(playlistId: playlistId, songIds: orderedSongIds)
-            Logger.playlist.info("Reordered tracks in playlist id=\(playlistId)")
+            Logger.playlist.info("Reordered tracks in playlist id=\(playlistId, privacy: .public)")
         } catch {
             detailCache[playlistId] = previousDetail
             throw error
@@ -247,7 +247,7 @@ actor PlaylistService: PlaylistServiceProtocol {
 
             guard !missingIds.isEmpty else { continue }
 
-            Logger.playlist.info("Retrying \(missingIds.count) missing track(s) for playlist '\(record.playlistId, privacy: .public)'")
+            Logger.playlist.info("Retrying \(missingIds.count, privacy: .public) missing track(s) for playlist '\(record.playlistId, privacy: .public)'")
 
             guard let playlist = try? await client().getPlaylist(id: record.playlistId) else {
                 Logger.playlist.warning("Failed to fetch playlist '\(record.playlistId, privacy: .public)' for retry — skipping.")

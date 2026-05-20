@@ -29,7 +29,7 @@ actor PlaybackSessionService {
             repeatMode: playerState.repeatMode
         )
         try? modelContext.save()
-        Logger.session.debug("Session saved: track='\(playerState.currentTrack?.title ?? "nil")', pos=\(playerState.currentPosition, format: .fixed(precision: 1))s, queue=\(playerState.queue.count) tracks")
+        Logger.session.debug("Session saved: track='\(playerState.currentTrack?.title ?? "nil", privacy: .private)', pos=\(playerState.currentPosition, format: .fixed(precision: 1), privacy: .public)s, queue=\(playerState.queue.count, privacy: .public) tracks")
     }
 
     /// Lightweight position-only save — called every 5 s during active playback.
@@ -52,7 +52,7 @@ actor PlaybackSessionService {
             return nil
         }
         let safeIndex = min(session.currentIndex, queue.count - 1)
-        Logger.session.info("Session loaded: '\(session.currentTrackTitle ?? "nil")', pos=\(session.currentPosition, format: .fixed(precision: 1))s, \(queue.count) tracks")
+        Logger.session.info("Session loaded: '\(session.currentTrackTitle ?? "nil", privacy: .private)', pos=\(session.currentPosition, format: .fixed(precision: 1), privacy: .public)s, \(queue.count, privacy: .public) tracks")
         return RestoredSession(
             queue: queue,
             currentIndex: safeIndex,

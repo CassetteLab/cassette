@@ -68,7 +68,7 @@ final class PinService: PinServiceProtocol {
         )
         modelContext.insert(item)
         try? modelContext.save()
-        Logger.pin.info("Pinned \(itemType.rawValue) \(itemId) at position \(count)")
+        Logger.pin.info("Pinned \(itemType.rawValue, privacy: .public) \(itemId, privacy: .public) at position \(count, privacy: .public)")
         let ws = widgetSyncService
         Task { await ws?.syncPinned() }
     }
@@ -94,7 +94,7 @@ final class PinService: PinServiceProtocol {
         }
 
         try? modelContext.save()
-        Logger.pin.info("Unpinned \(itemType.rawValue) \(itemId)")
+        Logger.pin.info("Unpinned \(itemType.rawValue, privacy: .public) \(itemId, privacy: .public)")
         let ws = widgetSyncService
         Task { await ws?.syncPinned() }
     }
@@ -120,6 +120,6 @@ final class PinService: PinServiceProtocol {
             item.sortOrder = index
         }
         try? modelContext.save()
-        Logger.pin.info("Reordered \(items.count) pinned items")
+        Logger.pin.info("Reordered \(items.count, privacy: .public) pinned items")
     }
 }

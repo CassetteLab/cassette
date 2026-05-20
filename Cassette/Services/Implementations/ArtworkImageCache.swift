@@ -69,7 +69,7 @@ final class ArtworkImageCache {
            let data = try? Data(contentsOf: localURL),
            let image = PlatformImage(data: data) {
             store(image: image, for: coverArtId)
-            Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId) (\(self.cache.count)/\(self.maxEntries))")
+            Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
             return image
         }
 
@@ -77,12 +77,12 @@ final class ArtworkImageCache {
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 600) else { return nil }
         guard let (data, _) = try? await session.data(from: serverURL),
               let image = PlatformImage(data: data) else {
-            Logger.artworkCache.warning("ArtworkImageCache: failed to fetch \(coverArtId) from server")
+            Logger.artworkCache.warning("ArtworkImageCache: failed to fetch \(coverArtId, privacy: .public) from server")
             return nil
         }
         store(image: image, for: coverArtId)
         await downloadService.persistCover(data, forId: coverArtId)
-        Logger.artworkCache.debug("ArtworkImageCache: server fetch + persisted \(coverArtId) (\(self.cache.count)/\(self.maxEntries))")
+        Logger.artworkCache.debug("ArtworkImageCache: server fetch + persisted \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
         return image
     }
 
