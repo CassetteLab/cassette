@@ -37,6 +37,7 @@ extension Logger {
     nonisolated static let externalArtwork    = Logger(subsystem: "app.cassette.externalartwork",    category: "ExternalArtworkCache")
     nonisolated static let artistArtwork      = Logger(subsystem: "app.cassette.artistartwork",      category: "ExternalArtistImageResolver")
     nonisolated static let httpTransport      = Logger(subsystem: "app.cassette.transport",          category: "CustomHeadersTransport")
+    nonisolated static let artworkCache       = Logger(subsystem: "app.cassette.artworkcache",       category: "ArtworkCache")
     nonisolated static let settings           = Logger(subsystem: "app.cassette.settings",           category: "Settings")
     nonisolated static let boot               = Logger(subsystem: "app.cassette.boot",               category: "Boot")
 }

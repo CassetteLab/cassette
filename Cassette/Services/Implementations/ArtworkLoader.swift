@@ -37,7 +37,7 @@ actor ArtworkLoader {
 
         guard let (data, _) = try? await session.data(for: request),
               let image = PlatformImage(data: data) else {
-            Logger.player.warning("ArtworkLoader: failed to fetch artwork from \(url, privacy: .public)")
+            Logger.artworkCache.warning("ArtworkLoader: failed to fetch artwork from \(url, privacy: .public)")
             return nil
         }
 
