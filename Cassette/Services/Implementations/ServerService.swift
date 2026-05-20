@@ -271,16 +271,38 @@ actor ServerService: ServerServiceProtocol {
 
     // MARK: - Private
 
-    private func mapToConnectionTestError(_ error: Error) -> ConnectionTestError {
+    func mapToConnectionTestError(_ error: Error) -> ConnectionTestError {
         guard let sonic = error as? SwiftSonicError else {
             let e = error as NSError
             return .unknown(domain: e.domain, code: e.code)
         }
-        if case .network = sonic { return .cannotConnect }
-        if sonic.isAuthenticationFailure { return .unauthorized }
-        if case .api(let apiError) = sonic { return .subsonicError(code: apiError.code, message: apiError.message) }
-        let e = sonic as NSError
-        return .unknown(domain: e.domain, code: e.code)
+        switch sonic {
+        case .network(let urlError):
+            if sonic.isDNSFailure { return .dnsFailure }
+            if sonic.isCertificateError { return .certificate }
+            switch urlError.code {
+            case .appTransportSecurityRequiresSecureConnection:
+                return .atsBlocked
+            case .timedOut:
+                return .timeout
+            default:
+                return .cannotConnect
+            }
+        case .httpError(let statusCode, _, _):
+            if statusCode == 401 || statusCode == 403 { return .unauthorized }
+            return .httpError(statusCode: statusCode)
+        case .api(let apiError):
+            if sonic.isAuthenticationFailure { return .unauthorized }
+            return .subsonicError(code: apiError.code, message: apiError.message)
+        case .decoding:
+            return .notSubsonicServer
+        case .rateLimited:
+            return .httpError(statusCode: 429)
+        case .invalidConfiguration:
+            return .invalidConfiguration
+        case .insecureRedirect:
+            return .insecureRedirect
+        }
     }
 
     private func validateHeaders(_ headers: [String: String]) throws {
