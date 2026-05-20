@@ -21,7 +21,7 @@ nonisolated struct ExternalReleaseProvider: Sendable, Codable, Identifiable, Equ
     /// Builds a search URL by encoding `"\(artistName) \(albumTitle)"` and substituting `%s`.
     /// Returns `nil` if encoding fails or the resulting string is not a valid URL.
     func buildURL(artistName: String, albumTitle: String) -> URL? {
-        let term = "\(artistName) \(albumTitle)".trimmingCharacters(in: .whitespaces)
+        let term = "\(artistName.trimmingCharacters(in: .whitespaces)) \(albumTitle.trimmingCharacters(in: .whitespaces))"
         guard let encoded = term.addingPercentEncoding(withAllowedCharacters: Self.searchTermEncoding) else {
             return nil
         }
@@ -42,8 +42,14 @@ nonisolated struct ExternalReleaseProvider: Sendable, Codable, Identifiable, Equ
         if placeholderCount == 0 { return .missingPlaceholder }
         if placeholderCount > 1  { return .multiplePlaceholders }
         // Ensure the final URL is parseable with a sample term injected.
+        // Use URLComponents.percentEncodedHost rather than URL(string:) alone, because
+        // Foundation is lenient with bracket notation (e.g. https://[invalid]/…) and does
+        // not return nil from URL(string:). A host containing "[" is never a valid domain.
         let testString = urlTemplate.replacingOccurrences(of: "%s", with: "test")
-        guard URL(string: testString) != nil else { return .malformed }
+        guard let comps = URLComponents(string: testString),
+              let host = comps.percentEncodedHost,
+              !host.isEmpty,
+              !host.contains("[") else { return .malformed }
         return .valid
     }
 

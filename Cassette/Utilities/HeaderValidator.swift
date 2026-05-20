@@ -17,8 +17,11 @@ nonisolated enum HeaderValidator {
     }
 
     /// Returns true if `value` contains no CR, LF, or NUL characters.
+    /// Uses unicodeScalars rather than String.contains because Swift treats
+    /// the CRLF pair (\r\n) as a single grapheme cluster, making
+    /// String.contains("\r") return false for any string with \r\n.
     static func isValidValue(_ value: String) -> Bool {
-        !value.contains("\r") && !value.contains("\n") && !value.contains("\0")
+        value.unicodeScalars.allSatisfy { $0.value != 0x0D && $0.value != 0x0A && $0.value != 0x00 }
     }
 
     private static func isTChar(_ scalar: Unicode.Scalar) -> Bool {
