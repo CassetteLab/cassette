@@ -53,7 +53,17 @@ struct MiniPlayerWindowView: View {
             .padding(.vertical, 12)
         }
         .frame(width: 320, height: 120)
-        .background(.ultraThinMaterial)
+        .background {
+            if #available(macOS 26.0, *) {
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(.clear)
+                    .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28))
+            } else {
+                RoundedRectangle(cornerRadius: 28)
+                    .fill(.ultraThinMaterial)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 28))
         .overlay(alignment: .topLeading) {
             closeButton
         }
