@@ -34,7 +34,7 @@ struct AlbumDetailMacOS: View {
         .navigationBarBackButtonHidden(true)
         .toolbar { albumToolbar }
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.activeServer?.id) {
             guard let c = container else { return }
             if vm == nil {
                 vm = AlbumDetailViewModel(

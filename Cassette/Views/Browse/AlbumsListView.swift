@@ -23,7 +23,7 @@ struct AlbumsListView: View {
         .cassetteContentWidth()
         #endif
         .navigationTitle("Albums")
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.activeServer?.id) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = AlbumListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }

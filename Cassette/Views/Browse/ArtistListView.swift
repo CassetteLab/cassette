@@ -21,7 +21,7 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Artists")
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.activeServer?.id) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }

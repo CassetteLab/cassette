@@ -53,7 +53,7 @@ struct PlaylistDetailMacOS: View {
                 }
             )
         }
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.activeServer?.id) {
             guard let c = container else { return }
             if vm == nil {
                 vm = PlaylistDetailViewModel(
