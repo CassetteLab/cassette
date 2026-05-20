@@ -1171,7 +1171,7 @@ actor PlayerService: PlayerServiceProtocol {
                 // Always refine forwardPlaybackEndTime to the true asset duration, even when
                 // the delta is too small to justify a state.duration update. This keeps the
                 // end-of-track boundary accurate regardless of the Subsonic metadata precision.
-                await self.updateForwardPlaybackEndTime(to: max(seconds, currentDuration))
+                await self.updateForwardPlaybackEndTime(to: max(seconds, currentDuration), for: item)
                 guard abs(seconds - currentDuration) > 0.5 else {
                     Logger.player.debug("[DURATION] asset.load matches header (delta<0.5s): asset=\(seconds, format: .fixed(precision: 4))s state=\(currentDuration, format: .fixed(precision: 4))s")
                     return
@@ -1193,23 +1193,22 @@ actor PlayerService: PlayerServiceProtocol {
             let newDuration = observedItem.duration.seconds
             guard newDuration.isFinite, !newDuration.isNaN, newDuration > 0 else { return }
             Task { [weak self] in
-                await self?.updateDuration(newDuration)
+                await self?.updateDuration(newDuration, for: observedItem)
             }
         }
     }
 
-    private func updateDuration(_ newDuration: TimeInterval) async {
+    private func updateDuration(_ newDuration: TimeInterval, for item: AVPlayerItem) async {
         let current = await MainActor.run { state.duration }
         guard abs(newDuration - current) > 0.1 else { return }
         Logger.player.info("[DURATION] \(current, format: .fixed(precision: 2))s → \(newDuration, format: .fixed(precision: 2))s (delta=\(abs(newDuration - current), format: .fixed(precision: 3))s)")
         await MainActor.run { state.duration = newDuration }
-        updateForwardPlaybackEndTime(to: newDuration)
+        updateForwardPlaybackEndTime(to: newDuration, for: item)
         await pushPositionSnapshot()
     }
 
-    private func updateForwardPlaybackEndTime(to seconds: TimeInterval) {
-        guard let item = player?.currentItem,
-              item.forwardPlaybackEndTime.isValid else { return }
+    private func updateForwardPlaybackEndTime(to seconds: TimeInterval, for item: AVPlayerItem) {
+        guard item.forwardPlaybackEndTime.isValid else { return }
         item.forwardPlaybackEndTime = CMTime(seconds: seconds, preferredTimescale: 1000)
     }
 
