@@ -31,6 +31,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var player: AVPlayer?
     private var timeObserverToken: Any?
     private var endOfTrackObserver: NSObjectProtocol?
+    private var failedToEndObserver: NSObjectProtocol?
     private var durationObserver: NSKeyValueObservation?
     private var liveStreamFailureObserver: NSKeyValueObservation?
     private var liveStreamStallTask: Task<Void, Never>?
@@ -38,6 +39,11 @@ actor PlayerService: PlayerServiceProtocol {
     #if os(iOS)
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
+    // AirPlay / route state
+    private var isTransitioningTrack = false
+    private var isPlayingIntent = false
+    private var timeControlStatusObserver: NSKeyValueObservation?
+    private var stallRecoveryTask: Task<Void, Never>?
     #endif
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
@@ -213,6 +219,10 @@ actor PlayerService: PlayerServiceProtocol {
             }
         }
 
+        Logger.player.info("[TRANSITION] advancing to '\(song.title, privacy: .public)' (id=\(song.id, privacy: .public)) — teardown begin")
+        #if os(iOS)
+        isTransitioningTrack = true
+        #endif
         teardownPlayer()
 
         #if os(iOS)
@@ -229,6 +239,11 @@ actor PlayerService: PlayerServiceProtocol {
         startAssetDurationLoad(for: item, songId: song.id)
 
         newPlayer.play()
+        Logger.player.info("[TRANSITION] new player started for '\(song.title, privacy: .public)' — awaiting timeControlStatus=.playing confirmation")
+        #if os(iOS)
+        isPlayingIntent = true
+        setupTimeControlStatusObserver(for: newPlayer)
+        #endif
 
         let duration = song.duration
         await MainActor.run {
@@ -294,6 +309,9 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
 
+        #if os(iOS)
+        isTransitioningTrack = true
+        #endif
         teardownPlayer()
 
         #if os(iOS)
@@ -324,6 +342,11 @@ actor PlayerService: PlayerServiceProtocol {
             state.playbackState = .playing
             state.isPlaybackAvailable = true
         }
+        #if os(iOS)
+        // Live streams use liveStreamStallTask for stall detection; no timeControlStatus observer.
+        isPlayingIntent = true
+        isTransitioningTrack = false
+        #endif
 
         let artworkHeaders: [String: String]
         do {
@@ -532,6 +555,9 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Pause / Resume
 
     func pause() async {
+        #if os(iOS)
+        isPlayingIntent = false
+        #endif
         player?.pause()
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
@@ -546,6 +572,7 @@ actor PlayerService: PlayerServiceProtocol {
     func resume() async {
         #if os(iOS)
         configureAudioSessionIfNeeded()
+        isPlayingIntent = true
         #endif
         // Lazily set trackStartDate for session-restored tracks that resume for the first time.
         if trackStartDate == nil {
@@ -569,6 +596,9 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Stop
 
     func stop() async {
+        #if os(iOS)
+        isPlayingIntent = false
+        #endif
         cancelPendingScrobble()
         cancelPendingCacheDownload()
         teardownPlayer()
@@ -1007,6 +1037,9 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("[PLAYBACK] End of queue — rewinding to first track paused")
 
         player?.pause()
+        #if os(iOS)
+        isPlayingIntent = false
+        #endif
 
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
             await stop()
@@ -1181,7 +1214,7 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func setupEndOfTrackObserver(for item: AVPlayerItem) {
-        Logger.player.debug("[TRANSITION] setupEndOfTrackObserver: attaching observer for item \(item.debugDescription, privacy: .public)")
+        Logger.player.debug("[TRANSITION] setupEndOfTrackObserver: attaching observers for item \(item.debugDescription, privacy: .public)")
         endOfTrackObserver = NotificationCenter.default.addObserver(
             forName: .AVPlayerItemDidPlayToEndTime,
             object: item,
@@ -1190,6 +1223,17 @@ actor PlayerService: PlayerServiceProtocol {
             guard let self else { return }
             Logger.player.info("[TRANSITION] AVPlayerItemDidPlayToEndTime fired → handleEndOfTrack")
             Task { await self.handleEndOfTrack() }
+        }
+        if let old = failedToEndObserver {
+            NotificationCenter.default.removeObserver(old)
+        }
+        failedToEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemFailedToPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { notification in
+            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
+            Logger.player.error("[TRANSITION] AVPlayerItemFailedToPlayToEndTime: \(error?.localizedDescription ?? "nil", privacy: .public)")
         }
     }
 
@@ -1203,6 +1247,10 @@ actor PlayerService: PlayerServiceProtocol {
             NotificationCenter.default.removeObserver(observer)
             endOfTrackObserver = nil
         }
+        if let observer = failedToEndObserver {
+            NotificationCenter.default.removeObserver(observer)
+            failedToEndObserver = nil
+        }
         durationObserver?.invalidate()
         durationObserver = nil
         liveStreamFailureObserver?.invalidate()
@@ -1210,6 +1258,13 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         #if os(iOS)
+        // timeControlStatusObserver and stallRecoveryTask are player-scoped.
+        // isTransitioningTrack is NOT reset here — startPlayback() sets it true before calling
+        // teardownPlayer() and relies on it persisting through the synchronous teardown sequence.
+        timeControlStatusObserver?.invalidate()
+        timeControlStatusObserver = nil
+        stallRecoveryTask?.cancel()
+        stallRecoveryTask = nil
         if let observer = interruptionObserver {
             NotificationCenter.default.removeObserver(observer)
             interruptionObserver = nil
@@ -1265,16 +1320,10 @@ actor PlayerService: PlayerServiceProtocol {
                 object: AVAudioSession.sharedInstance(),
                 queue: .main
             ) { [weak self] notification in
+                guard let self else { return }
                 guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                       let changeReason = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
-                switch changeReason {
-                case .oldDeviceUnavailable:
-                    Task { [weak self] in await self?.pause() }
-                case .newDeviceAvailable, .routeConfigurationChange:
-                    try? AVAudioSession.sharedInstance().setActive(true)
-                default:
-                    break
-                }
+                Task { await self.handleRouteChange(changeReason) }
             }
         }
     }
@@ -1294,20 +1343,110 @@ actor PlayerService: PlayerServiceProtocol {
             if let ws = widgetSyncService {
                 Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
             }
-            Logger.player.info("[INTERRUPTION] began — playbackState set to paused")
+            Logger.player.info("[INTERRUPTION] began — intent=\(self.isPlayingIntent, privacy: .public) timeControlStatus=\(self.player?.timeControlStatus.logDescription ?? "nil", privacy: .public)")
 
         case .ended:
             let shouldResume = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
                 .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0 as! UInt) }
                 .map { $0.contains(.shouldResume) } ?? false
+            Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public) intent=\(self.isPlayingIntent, privacy: .public)")
             if shouldResume {
                 await resume()
-                Logger.player.info("[INTERRUPTION] ended — resumed playback")
             } else {
                 Logger.player.info("[INTERRUPTION] ended — shouldResume false, staying paused")
             }
 
         @unknown default:
+            break
+        }
+    }
+
+    // MARK: - Route & timeControlStatus handling (H1 / H2 / H3)
+
+    private func setupTimeControlStatusObserver(for player: AVPlayer) {
+        timeControlStatusObserver?.invalidate()
+        stallRecoveryTask?.cancel()
+        stallRecoveryTask = nil
+        timeControlStatusObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] observedPlayer, _ in
+            let status = observedPlayer.timeControlStatus
+            let reason = observedPlayer.reasonForWaitingToPlay?.rawValue
+            Task { [weak self] in await self?.handleTimeControlStatus(status, waitingReason: reason) }
+        }
+    }
+
+    // internal: accessible from tests via @testable import
+    func handleTimeControlStatus(_ status: AVPlayer.TimeControlStatus, waitingReason: String?) async {
+        Logger.player.info("[ROUTE] timeControlStatus=\(status.logDescription, privacy: .public) reason=\(waitingReason ?? "nil", privacy: .public) isTransitioning=\(self.isTransitioningTrack, privacy: .public) intent=\(self.isPlayingIntent, privacy: .public)")
+        switch status {
+        case .playing:
+            if isTransitioningTrack {
+                Logger.player.info("[TRANSITION] playback confirmed on new player — clearing isTransitioningTrack")
+            }
+            isTransitioningTrack = false
+            stallRecoveryTask?.cancel()
+            stallRecoveryTask = nil
+
+        case .waitingToPlayAtSpecifiedRate:
+            guard isPlayingIntent, stallRecoveryTask == nil else { return }
+            stallRecoveryTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                guard !Task.isCancelled else { return }
+                await self?.recoverFromStall()
+            }
+
+        case .paused:
+            stallRecoveryTask?.cancel()
+            stallRecoveryTask = nil
+
+        @unknown default:
+            break
+        }
+    }
+
+    private func recoverFromStall() async {
+        // Clear the transition guard regardless — 3 s is long enough; a real disconnect
+        // after this point is a genuine user-facing event, not a teardown artefact.
+        isTransitioningTrack = false
+        guard isPlayingIntent else {
+            Logger.player.debug("[ROUTE] Stall recovery cancelled — intent is paused")
+            return
+        }
+        guard let p = player, p.timeControlStatus == .waitingToPlayAtSpecifiedRate else {
+            Logger.player.debug("[ROUTE] Stall recovery: player no longer stalled, skipping")
+            return
+        }
+        Logger.player.warning("[ROUTE] Stall recovery: calling play() after 3 s in waitingToPlayAtSpecifiedRate")
+        p.play()
+        stallRecoveryTask = nil
+    }
+
+    // internal: accessible from tests via @testable import
+    func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) async {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+            .map { $0.portType.rawValue }
+            .joined(separator: ",")
+        Logger.player.info("[ROUTE] routeChange reason=\(reason.logDescription, privacy: .public) outputs=[\(outputs, privacy: .public)] isTransitioning=\(self.isTransitioningTrack, privacy: .public) intent=\(self.isPlayingIntent, privacy: .public) timeControlStatus=\(self.player?.timeControlStatus.logDescription ?? "nil", privacy: .public)")
+
+        switch reason {
+        case .oldDeviceUnavailable:
+            guard !isTransitioningTrack else {
+                // Spurious .oldDeviceUnavailable caused by AVPlayer teardown during track
+                // transition — the new player is already starting; do not pause it.
+                Logger.player.info("[ROUTE] .oldDeviceUnavailable suppressed — track transition in progress")
+                return
+            }
+            await pause()
+
+        case .newDeviceAvailable, .routeConfigurationChange:
+            try? AVAudioSession.sharedInstance().setActive(true)
+            // H3: if the player went to .paused during route reconfiguration but intent says
+            // we should be playing, explicitly re-trigger play() (Apple recommendation).
+            if isPlayingIntent, let p = player, p.timeControlStatus == .paused {
+                Logger.player.info("[ROUTE] \(reason.logDescription, privacy: .public) — re-triggering play() (intent=playing, timeControlStatus=paused)")
+                p.play()
+            }
+
+        default:
             break
         }
     }
@@ -1371,6 +1510,8 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("Cached '\(songId, privacy: .public)' from stream (\(data.count) bytes, \(mimeType, privacy: .public))")
     }
 
+    // MARK: - NowPlaying position push
+
     /// Pushes a position-only snapshot when track metadata hasn't changed (pause/resume/seek).
     private func pushPositionSnapshot(rate: Float? = nil) async {
         let (track, position, playbackState, duration) = await MainActor.run {
@@ -1404,3 +1545,46 @@ actor PlayerService: PlayerServiceProtocol {
         await nowPlayingService?.update(with: snapshot)
     }
 }
+
+// MARK: - Test helpers (DEBUG + iOS only)
+
+#if os(iOS) && DEBUG
+extension PlayerService {
+    func setTestTransitioningTrack(_ value: Bool) { isTransitioningTrack = value }
+    func setTestPlayingIntent(_ value: Bool) { isPlayingIntent = value }
+    var testIsTransitioningTrack: Bool { isTransitioningTrack }
+    var testIsPlayingIntent: Bool { isPlayingIntent }
+    var testHasStallRecoveryTask: Bool { stallRecoveryTask != nil }
+}
+#endif
+
+// MARK: - iOS logging helpers (file-private)
+
+#if os(iOS)
+private extension AVAudioSession.RouteChangeReason {
+    var logDescription: String {
+        switch self {
+        case .unknown: return "unknown"
+        case .newDeviceAvailable: return "newDeviceAvailable"
+        case .oldDeviceUnavailable: return "oldDeviceUnavailable"
+        case .categoryChange: return "categoryChange"
+        case .override: return "override"
+        case .wakeFromSleep: return "wakeFromSleep"
+        case .noSuitableRouteForCategory: return "noSuitableRouteForCategory"
+        case .routeConfigurationChange: return "routeConfigurationChange"
+        @unknown default: return "unknown(\(rawValue))"
+        }
+    }
+}
+
+private extension AVPlayer.TimeControlStatus {
+    var logDescription: String {
+        switch self {
+        case .paused: return "paused"
+        case .playing: return "playing"
+        case .waitingToPlayAtSpecifiedRate: return "waitingToPlayAtSpecifiedRate"
+        @unknown default: return "unknown(\(rawValue))"
+        }
+    }
+}
+#endif
