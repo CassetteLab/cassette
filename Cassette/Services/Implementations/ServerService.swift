@@ -274,8 +274,29 @@ actor ServerService: ServerServiceProtocol {
     func mapToConnectionTestError(_ error: Error) -> ConnectionTestError {
         guard let sonic = error as? SwiftSonicError else {
             let e = error as NSError
+            Logger.server.error("Connection test failed — non-SwiftSonic error: domain=\(e.domain, privacy: .public) code=\(e.code, privacy: .public)")
             return .unknown(domain: e.domain, code: e.code)
         }
+
+        // Log the raw underlying error details before any mapping.
+        switch sonic {
+        case .network(let urlError):
+            Logger.server.error("Connection test failed — URLError code=\(urlError.code.rawValue, privacy: .public)")
+        case .httpError(let statusCode, let endpoint, let serverHost):
+            Logger.server.error("Connection test failed — HTTP \(statusCode, privacy: .public) endpoint=\(endpoint, privacy: .public) host=\(serverHost ?? "nil", privacy: .public)")
+        case .api(let apiError):
+            Logger.server.error("Connection test failed — Subsonic API error code=\(apiError.code.rawValue, privacy: .public) endpoint=\(apiError.endpoint, privacy: .public)")
+        case .decoding(_, let rawData):
+            Logger.server.error("Connection test failed — decoding error, rawData.count=\(rawData.count, privacy: .public)")
+        case .rateLimited(let retryAfter, let endpoint, let serverHost):
+            let retryAfterStr = retryAfter.map { "\($0)" } ?? "nil"
+            Logger.server.error("Connection test failed — rate limited endpoint=\(endpoint, privacy: .public) host=\(serverHost ?? "nil", privacy: .public) retryAfterSecs=\(retryAfterStr, privacy: .public)")
+        case .invalidConfiguration(let reason):
+            Logger.server.error("Connection test failed — invalidConfiguration: \(reason, privacy: .public)")
+        case .insecureRedirect(let from, let to):
+            Logger.server.error("Connection test failed — insecureRedirect from=\(from.host ?? "nil", privacy: .public) to=\(to.host ?? "nil", privacy: .public)")
+        }
+
         switch sonic {
         case .network(let urlError):
             if sonic.isDNSFailure { return .dnsFailure }
