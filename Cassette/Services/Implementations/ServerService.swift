@@ -273,12 +273,14 @@ actor ServerService: ServerServiceProtocol {
 
     private func mapToConnectionTestError(_ error: Error) -> ConnectionTestError {
         guard let sonic = error as? SwiftSonicError else {
-            return .unknown(description: error.localizedDescription)
+            let e = error as NSError
+            return .unknown(domain: e.domain, code: e.code)
         }
-        if case .network = sonic { return .unreachable }
-        if sonic.isAuthenticationFailure { return .authenticationFailed }
-        if case .api(let apiError) = sonic { return .serverError(message: apiError.message) }
-        return .unknown(description: sonic.localizedDescription)
+        if case .network = sonic { return .cannotConnect }
+        if sonic.isAuthenticationFailure { return .unauthorized }
+        if case .api(let apiError) = sonic { return .subsonicError(code: apiError.code, message: apiError.message) }
+        let e = sonic as NSError
+        return .unknown(domain: e.domain, code: e.code)
     }
 
     private func validateHeaders(_ headers: [String: String]) throws {

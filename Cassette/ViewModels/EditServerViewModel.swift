@@ -91,7 +91,8 @@ final class EditServerViewModel {
             connectionError = error
             return
         } catch {
-            connectionError = .unknown(description: error.localizedDescription)
+            let e = error as NSError
+            connectionError = .unknown(domain: e.domain, code: e.code)
             return
         }
 

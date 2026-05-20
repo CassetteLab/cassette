@@ -71,34 +71,34 @@ struct OnboardingViewModelTests {
         #expect(vm.isLoading == false)
     }
 
-    @Test func testConnection_unreachable_setsUnreachableError() async {
+    @Test func testConnection_cannotConnect_setsCannotConnectError() async {
         let service = MockServerService()
-        service.testConnectionError = ConnectionTestError.unreachable
+        service.testConnectionError = ConnectionTestError.cannotConnect
         let vm = makeViewModel(service: service)
 
         await vm.testConnection()
 
-        #expect(vm.connectionError == .unreachable)
+        #expect(vm.connectionError == .cannotConnect)
     }
 
-    @Test func testConnection_authFailed_setsAuthError() async {
+    @Test func testConnection_authFailed_setsUnauthorizedError() async {
         let service = MockServerService()
-        service.testConnectionError = ConnectionTestError.authenticationFailed
+        service.testConnectionError = ConnectionTestError.unauthorized
         let vm = makeViewModel(service: service)
 
         await vm.testConnection()
 
-        #expect(vm.connectionError == .authenticationFailed)
+        #expect(vm.connectionError == .unauthorized)
     }
 
-    @Test func testConnection_serverError_setsServerError() async {
+    @Test func testConnection_subsonicError_setsSubsonicError() async {
         let service = MockServerService()
-        service.testConnectionError = ConnectionTestError.serverError(message: "Quota exceeded")
+        service.testConnectionError = ConnectionTestError.subsonicError(code: .generic, message: "Quota exceeded")
         let vm = makeViewModel(service: service)
 
         await vm.testConnection()
 
-        #expect(vm.connectionError == .serverError(message: "Quota exceeded"))
+        #expect(vm.connectionError == .subsonicError(code: .generic, message: "Quota exceeded"))
     }
 
     @Test func testConnection_invalidURL_setsInvalidURLError() async {
@@ -125,7 +125,7 @@ struct OnboardingViewModelTests {
 
     @Test func testConnection_isLoadingFalseAfterCompletion() async {
         let service = MockServerService()
-        service.testConnectionError = ConnectionTestError.unreachable
+        service.testConnectionError = ConnectionTestError.cannotConnect
         let vm = makeViewModel(service: service)
 
         await vm.testConnection()
@@ -147,12 +147,12 @@ struct OnboardingViewModelTests {
 
     @Test func addServer_connectionFails_doesNotCallAddServer() async {
         let service = MockServerService()
-        service.testConnectionError = ConnectionTestError.unreachable
+        service.testConnectionError = ConnectionTestError.cannotConnect
         let vm = makeViewModel(service: service)
 
         await vm.addServer()
 
-        #expect(vm.connectionError == .unreachable)
+        #expect(vm.connectionError == .cannotConnect)
         #expect(!service.addServerCalled)
     }
 

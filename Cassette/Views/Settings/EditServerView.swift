@@ -153,8 +153,10 @@ struct EditServerView: View {
             switch error {
             case .invalidURL:
                 inlineError("Enter a valid URL (e.g. https://music.example.com).")
-            case .unreachable:
+            case .dnsFailure, .cannotConnect, .timeout, .certificate, .atsBlocked:
                 inlineError("Could not reach this server. Check the URL and your network.")
+            case .notSubsonicServer:
+                inlineError("The server did not respond as a Subsonic server. Check the URL.")
             default:
                 EmptyView()
             }
@@ -163,7 +165,7 @@ struct EditServerView: View {
 
     @ViewBuilder
     private var credentialsInlineError: some View {
-        if case .authenticationFailed = viewModel.connectionError {
+        if case .unauthorized = viewModel.connectionError {
             inlineError("Incorrect username or password.")
         }
     }
@@ -172,14 +174,15 @@ struct EditServerView: View {
     private var generalErrors: some View {
         if let error = viewModel.connectionError {
             switch error {
-            case .serverError, .unknown:
+            case .invalidURL, .dnsFailure, .cannotConnect, .timeout,
+                 .certificate, .atsBlocked, .notSubsonicServer, .unauthorized:
+                EmptyView()
+            default:
                 Section {
-                    Text(error.localizedDescription)
+                    Text(verbatim: error.localizedDescription ?? "")
                         .font(.footnote)
                         .foregroundStyle(.red)
                 }
-            default:
-                EmptyView()
             }
         }
         if let error = viewModel.saveError {
