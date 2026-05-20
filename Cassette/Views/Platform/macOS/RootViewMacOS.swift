@@ -14,33 +14,48 @@ struct RootViewMacOS: View {
     @State private var searchQuery: String = ""
     @FocusState private var searchFieldFocused: Bool
     @State private var isShowingFullPlayer = false
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
-        NavigationSplitView {
-            sidebarContent
-        } detail: {
-            Group {
-                if isShowingFullPlayer {
-                    FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
-                } else {
-                    detailContent
-                }
+        ZStack {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
+                sidebarContent
+            } detail: {
+                detailContent
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: 120)
+                    }
+                    .overlay(alignment: .bottom) {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0),
+                                .init(color: Color(nsColor: .windowBackgroundColor).opacity(0.6), location: 0.5),
+                                .init(color: Color(nsColor: .windowBackgroundColor), location: 1),
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 80)
+                        .allowsHitTesting(false)
+                    }
+                    .overlay(alignment: .bottom) {
+                        BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
+                            .padding(.horizontal, 24)
+                            .padding(.bottom, 16)
+                    }
             }
-            .safeAreaInset(edge: .bottom) {
-                if !isShowingFullPlayer {
-                    Color.clear.frame(height: 120)
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if !isShowingFullPlayer {
-                    BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 16)
-                }
+            .navigationSplitViewStyle(.balanced)
+
+            if isShowingFullPlayer {
+                FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.opacity)
+                    .zIndex(1)
+                    .toolbar(.hidden, for: .windowToolbar)
             }
         }
-        .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 1100, minHeight: 500)
+        .onChange(of: columnVisibility) { _, _ in columnVisibility = .all }
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }
@@ -106,6 +121,7 @@ struct RootViewMacOS: View {
             }
         }
         .listStyle(.sidebar)
+        .toolbar(removing: .sidebarToggle)
         .safeAreaInset(edge: .top, spacing: 0) {
             searchField
         }
