@@ -17,6 +17,7 @@ struct ServerFormView: View {
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
                     #endif
+                invalidURLHint
                 httpWarning
             }
 
@@ -69,8 +70,17 @@ struct ServerFormView: View {
     }
 
     @ViewBuilder
+    private var invalidURLHint: some View {
+        if case .invalidURL = viewModel.connectionError {
+            Text("Enter a valid URL, including http:// or https://")
+                .font(.footnote)
+                .foregroundStyle(.red)
+        }
+    }
+
+    @ViewBuilder
     private var errorSection: some View {
-        if let error = viewModel.connectionError {
+        if let error = viewModel.connectionError, error != .invalidURL {
             Section {
                 ConnectionErrorView(error: error)
                     .padding(.vertical, CassetteSpacing.xs)
