@@ -124,27 +124,7 @@ struct HomeView: View {
         .cassetteContentWidth()
         .navigationTitle("Home")
         .toolbar {
-            #if os(macOS)
-            // Settings is accessible via ⌘, (native Settings scene); only show
-            // the menu when there is something else to offer (Edit Pinned).
-            if !allPinnedItems.isEmpty {
-                ToolbarItem(placement: .automatic) {
-                    Menu {
-                        Button { showEditPinned = true } label: {
-                            Label("Edit Pinned", systemImage: "pin")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.primary)
-                            .cassetteGlassButton(size: 28)
-                    }
-                    .menuIndicator(.hidden)
-                    .buttonStyle(.plain)
-                }
-                .sharedBackgroundVisibility(.hidden)
-            }
-            #else
+            #if !os(macOS)
             ToolbarItem(placement: .automatic) {
                 Menu {
                     if !allPinnedItems.isEmpty {
