@@ -45,7 +45,7 @@ struct RadioListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Radio")
-        .task {
+        .task(id: container?.serverState.isOnline) {
             guard container?.serverState.isOnline == true else { return }
             await load(forceRefresh: false)
         }

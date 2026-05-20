@@ -8,8 +8,8 @@ import SwiftUI
 
 struct MiniPlayerWindowView: View {
     @Environment(\.dismissWindow) private var dismissWindow
-    @Environment(\.appContainer) private var container
 
+    @State private var container: AppContainer? = AppContainer.shared
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
     @State private var isMuted = false
@@ -170,10 +170,8 @@ struct MiniPlayerWindowView: View {
 
     private var closeButton: some View {
         Button {
+            NSApplication.shared.keyWindow?.close()
             NotificationCenter.default.post(name: .cassetteOpenFullPlayer, object: nil)
-            NSApplication.shared.windows
-                .first { $0.identifier?.rawValue == "mini-player-window" }?
-                .close()
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 13, weight: .semibold))

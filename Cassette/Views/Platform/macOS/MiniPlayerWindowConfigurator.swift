@@ -19,7 +19,6 @@ struct MiniPlayerWindowConfigurator: NSViewRepresentable {
             window.titleVisibility = .hidden
             window.isOpaque = false
             window.backgroundColor = .clear
-            window.identifier = NSUserInterfaceItemIdentifier("mini-player-window")
         }
         return view
     }

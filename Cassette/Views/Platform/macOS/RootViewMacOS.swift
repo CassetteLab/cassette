@@ -14,10 +14,11 @@ struct RootViewMacOS: View {
     @State private var searchQuery: String = ""
     @FocusState private var searchFieldFocused: Bool
     @State private var isShowingFullPlayer = false
+    @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         ZStack {
-            NavigationSplitView {
+            NavigationSplitView(columnVisibility: $columnVisibility) {
                 sidebarContent
             } detail: {
                 detailContent
@@ -54,6 +55,7 @@ struct RootViewMacOS: View {
             }
         }
         .frame(minWidth: 1100, minHeight: 500)
+        .onChange(of: columnVisibility) { _, _ in columnVisibility = .all }
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }

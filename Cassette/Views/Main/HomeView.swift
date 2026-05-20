@@ -235,7 +235,7 @@ struct HomeView: View {
         }
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
-        .task {
+        .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = HomeViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }

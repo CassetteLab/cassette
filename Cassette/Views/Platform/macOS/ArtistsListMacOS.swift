@@ -22,7 +22,7 @@ struct ArtistsListMacOS: View {
             }
         }
         .navigationTitle("Artists")
-        .task {
+        .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if vm == nil { vm = ArtistListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }
