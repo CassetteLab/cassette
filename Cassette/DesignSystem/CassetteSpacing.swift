@@ -51,19 +51,11 @@ enum CassetteMacOSLayout {
 }
 #endif
 
-// MARK: - View modifier: content width (macOS)
+// MARK: - View modifier: content width
 
-/// Constrains content to a max width on macOS so iPhone-designed layouts don't stretch
-/// grotesquely in wide windows. On iOS this is a no-op.
 struct ContentWidthModifier: ViewModifier {
     func body(content: Content) -> some View {
-        #if os(macOS)
         content
-            .frame(maxWidth: 600)
-            .frame(maxWidth: .infinity)
-        #else
-        content
-        #endif
     }
 }
 
@@ -83,9 +75,9 @@ struct CassetteCoverModifier: ViewModifier {
         content
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             .shadow(
-                color: colorScheme == .dark ? .clear : Color.cassetteCoverShadow,
-                radius: CassetteShadow.coverRadius,
-                y: CassetteShadow.coverY
+                color: colorScheme == .dark ? .clear : .black.opacity(0.1),
+                radius: 2,
+                y: 1
             )
             .overlay {
                 if colorScheme == .dark {
