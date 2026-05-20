@@ -55,7 +55,7 @@ private struct RSIMockProvider: RecommendationProvider {
         self.artistResults = artists
     }
 
-    func freshReleases(limit: Int) async throws -> [AlbumRecommendation] { albumResults }
+    func freshReleases(limit: Int, daysWindow: Int) async throws -> [AlbumRecommendation] { albumResults }
     func similarArtists(toArtistID: String, limit: Int) async throws -> [SimilarArtistRecommendation] { artistResults }
 }
 
@@ -121,7 +121,7 @@ struct RecommendationServiceIntegrationTests {
     @Test("LB enabled: freshReleases returns LB data, Subsonic not consulted")
     func lbEnabledFreshReleasesFromLB() async throws {
         let svcTransport = RSITransport()
-        await svcTransport.enqueue(status: 200)  // enable() validation
+        await svcTransport.enqueue(data: Data(#"{"payload":{"count":0}}"#.utf8), status: 200)  // enable() validation
         let provTransport = RSITransport()
         await provTransport.enqueue(data: integrationJSON, status: 200)
 

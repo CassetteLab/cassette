@@ -37,13 +37,14 @@ private actor PRServiceTransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(status: Int) {
+        let body = status == 200 ? Data(#"{"payload":{"count":0}}"#.utf8) : Data()
         let resp = HTTPURLResponse(
             url: URL(string: "https://api.listenbrainz.org")!,
             statusCode: status,
             httpVersion: nil,
             headerFields: nil
         )!
-        queue.append((Data(), resp))
+        queue.append((body, resp))
     }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {

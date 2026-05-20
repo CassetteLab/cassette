@@ -31,7 +31,7 @@ private struct MockRecommendationProvider: RecommendationProvider {
         return artistResults
     }
 
-    func freshReleases(limit: Int) async throws -> [AlbumRecommendation] {
+    func freshReleases(limit: Int, daysWindow: Int) async throws -> [AlbumRecommendation] {
         if shouldThrow { throw MockError.failure }
         return albumResults
     }

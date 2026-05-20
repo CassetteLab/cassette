@@ -14,13 +14,14 @@ private actor FlexibleTransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(status: Int, headers: [String: String]? = nil) {
+        let body = status == 200 ? Data(#"{"payload":{"count":0}}"#.utf8) : Data()
         let resp = HTTPURLResponse(
             url: URL(string: "https://api.listenbrainz.org/1/user/test")!,
             statusCode: status,
             httpVersion: "HTTP/1.1",
             headerFields: headers
         )!
-        queue.append((Data(), resp))
+        queue.append((body, resp))
     }
 
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
