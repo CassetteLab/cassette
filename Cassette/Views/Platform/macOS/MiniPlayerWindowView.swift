@@ -8,8 +8,8 @@ import SwiftUI
 
 struct MiniPlayerWindowView: View {
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.appContainer) private var container
 
-    @State private var container: AppContainer? = AppContainer.shared
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
     @State private var isMuted = false

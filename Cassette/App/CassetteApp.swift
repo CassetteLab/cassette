@@ -141,6 +141,7 @@ struct CassetteApp: App {
 
         Window("Mini Player", id: "mini-player") {
             MiniPlayerWindowView()
+                .environment(\.appContainer, container)
         }
         .windowStyle(.plain)
         .windowResizability(.contentSize)
