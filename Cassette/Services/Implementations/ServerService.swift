@@ -217,10 +217,9 @@ actor ServerService: ServerServiceProtocol {
         }
         let transport = CustomHeadersTransport(headers: customHeaders)
         let client = SwiftSonicClient(
-            serverURL: serverURL,
-            username: username,
-            password: password,
-            transport: transport
+            configuration: ServerConfiguration(serverURL: serverURL, username: username, password: password),
+            transport: transport,
+            logSubsystem: "app.cassette.server"
         )
         do {
             try await client.ping()
@@ -250,10 +249,9 @@ actor ServerService: ServerServiceProtocol {
 
         let transport = CustomHeadersTransport(headers: creds.customHeaders)
         return SwiftSonicClient(
-            serverURL: url,
-            username: snapshot.username,
-            password: creds.password,
-            transport: transport
+            configuration: ServerConfiguration(serverURL: url, username: snapshot.username, password: creds.password),
+            transport: transport,
+            logSubsystem: "app.cassette.server"
         )
     }
 
