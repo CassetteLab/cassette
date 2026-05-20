@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import SwiftSonic
+import OSLog
 
 struct AlbumsListView: View {
     @Environment(\.appContainer) private var container
@@ -24,9 +25,16 @@ struct AlbumsListView: View {
         #endif
         .navigationTitle("Albums")
         .task(id: container?.serverState.isOnline) {
-            guard let svc = container?.libraryService else { return }
+            Logger.boot.notice("🟢 AlbumsListView task fired — activeServer=\(String(describing: container?.serverState.activeServer?.baseURL), privacy: .public) isOnline=\(String(describing: container?.serverState.isOnline), privacy: .public)")
+            guard let svc = container?.libraryService else {
+                Logger.boot.error("🔴 AlbumsListView: container?.libraryService is nil — skipping")
+                return
+            }
             if viewModel == nil { viewModel = AlbumListViewModel(libraryService: svc) }
-            guard container?.serverState.isOnline == true else { return }
+            guard container?.serverState.isOnline == true else {
+                Logger.boot.notice("🟡 AlbumsListView: isOnline=false — skipping load")
+                return
+            }
             await viewModel?.load()
         }
     }

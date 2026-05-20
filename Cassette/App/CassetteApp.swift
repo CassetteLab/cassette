@@ -83,17 +83,21 @@ struct CassetteApp: App {
             .tint(CassetteColors.accent)
             .task {
                 guard container == nil else { return }
+                Logger.boot.notice("🟡 AppContainer init start")
                 guard let newContainer = try? AppContainer() else { return }
+                Logger.boot.notice("🟡 setup() start")
                 await newContainer.setup()
-                // Register remote commands before UI appears so lock screen controls
-                // are available from the very first play, even on cold start.
+                Logger.boot.notice("🟡 setup() done — nowPlayingService.start()")
                 await newContainer.nowPlayingService.start()
                 AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
+                Logger.boot.notice("🟡 container = newContainer (views will render)")
                 container = newContainer
                 AppContainer.shared = newContainer
+                Logger.boot.notice("🟡 loadPersistedState() start")
                 // loadPersistedState must complete before restoreSession so the active
                 // server is known when prepareCurrentTrackForRestoration resolves the URL.
                 await newContainer.serverService.loadPersistedState()
+                Logger.boot.notice("🟡 loadPersistedState() done — activeServer = \(String(describing: newContainer.serverState.activeServer?.baseURL), privacy: .public)")
                 await newContainer.playerService.restoreSession()
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 Task { await runCoverArtGarbageCollection(container: newContainer) }

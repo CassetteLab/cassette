@@ -39,4 +39,5 @@ extension Logger {
     nonisolated static let navidromeNative    = Logger(subsystem: "app.cassette.navidrome",          category: "NavidromeNativeAPI")
     nonisolated static let httpTransport      = Logger(subsystem: "app.cassette.transport",          category: "CustomHeadersTransport")
     nonisolated static let settings           = Logger(subsystem: "app.cassette.settings",           category: "Settings")
+    nonisolated static let boot               = Logger(subsystem: "app.cassette.boot",               category: "Boot")
 }
