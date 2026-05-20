@@ -219,6 +219,7 @@ actor ServerService: ServerServiceProtocol {
         let client = SwiftSonicClient(
             configuration: ServerConfiguration(serverURL: serverURL, username: username, password: password),
             transport: transport,
+            retryPolicy: .none,
             logSubsystem: "app.cassette.server"
         )
         do {
