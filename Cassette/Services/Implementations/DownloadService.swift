@@ -204,7 +204,9 @@ actor DownloadService: DownloadServiceProtocol {
         }
 
         let mimeType = response.mimeType ?? "audio/mpeg"
-        let ext = mimeType.split(separator: "/").last.map(String.init) ?? "mp3"
+        // Prefer the server-declared suffix (e.g. "mp3", "flac") over the MIME subtype.
+        // audio/mpeg → "mpeg" which AVPlayer maps to a video UTI, not public.mp3.
+        let ext = song.suffix ?? mimeType.split(separator: "/").last.map(String.init) ?? "bin"
         let relativePath = "\(serverId.uuidString)/\(song.id).\(ext)"
         let fileURL = downloadsDirectory.appendingPathComponent(relativePath)
 

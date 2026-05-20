@@ -81,6 +81,13 @@ struct CassetteApp: App {
                 }
             }
             .tint(CassetteColors.accent)
+            .onAppear {
+                #if os(macOS)
+                NSApplication.shared.windows
+                    .first { $0.title == "Mini Player" }?
+                    .close()
+                #endif
+            }
             .task {
                 guard container == nil else { return }
                 Logger.boot.notice("🟡 AppContainer init start")
@@ -90,6 +97,7 @@ struct CassetteApp: App {
                 Logger.boot.notice("🟡 setup() done — nowPlayingService.start()")
                 await newContainer.nowPlayingService.start()
                 AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
+                Task { await AppContainer.migrateAudioExtensionsIfNeeded(modelContainer: newContainer.modelContainer, cacheService: newContainer.cacheService) }
                 Logger.boot.notice("🟡 container = newContainer (views will render)")
                 container = newContainer
                 AppContainer.shared = newContainer
@@ -117,6 +125,10 @@ struct CassetteApp: App {
             }
             #if os(macOS)
             .frame(minHeight: 580)
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                guard let c = container else { return }
+                Task { await c.playerService.stop() }
+            }
             #endif
         }
         .onChange(of: scenePhase) { _, newPhase in
@@ -135,6 +147,7 @@ struct CassetteApp: App {
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 1280, height: 800)
+        .restorationBehavior(.disabled)
         .commands {
             CassetteCommands()
         }
@@ -150,6 +163,7 @@ struct CassetteApp: App {
         .windowResizability(.contentSize)
         .defaultSize(width: 320, height: 136)
         .defaultPosition(.topTrailing)
+        .restorationBehavior(.disabled)
         #endif
     }
 

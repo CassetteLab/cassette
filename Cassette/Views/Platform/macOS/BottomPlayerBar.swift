@@ -53,7 +53,16 @@ struct BottomPlayerBar: View {
             }
         }
         .frame(height: 50)
-        .background(.ultraThinMaterial, in: Capsule())
+        .background {
+            if #available(macOS 26.0, *) {
+                Capsule()
+                    .fill(.clear)
+                    .glassEffect(.regular, in: Capsule())
+            } else {
+                Capsule()
+                    .fill(.ultraThinMaterial)
+            }
+        }
         .overlay {
             Capsule()
                 .strokeBorder(.white.opacity(0.08), lineWidth: 0.5)

@@ -7,6 +7,7 @@ import SwiftUI
 
 struct ListenBrainzSettingsView: View {
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ListenBrainzSettingsViewModel?
     @State private var showForgetAlert = false
 
@@ -24,6 +25,13 @@ struct ListenBrainzSettingsView: View {
             }
         }
         .navigationTitle("ListenBrainz")
+        #if os(macOS)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") { dismiss() }
+            }
+        }
+        #endif
         .task {
             guard let container else { return }
             if viewModel == nil {

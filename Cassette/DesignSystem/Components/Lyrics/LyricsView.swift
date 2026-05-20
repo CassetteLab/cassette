@@ -61,7 +61,7 @@ struct LyricsView: View {
                 guard viewModel.autoScrollEnabled,
                       !viewModel.isUserScrolling,
                       let newIndex else { return }
-                withAnimation(.smooth(duration: 0.4)) {
+                withAnimation(.easeInOut(duration: 0.3)) {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
             }

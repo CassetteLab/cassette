@@ -72,7 +72,7 @@ actor CacheService: CacheServiceProtocol {
 
     /// Stores audio data in the cache. Upserts the SwiftData record, then runs FIFO eviction.
     func store(data: Data, forSongId songId: String, serverId: UUID, mimeType: String) async throws -> URL {
-        let ext = mimeType.split(separator: "/").last.map(String.init) ?? "bin"
+        let ext = audioExtension(mimeType: mimeType)
         let relativePath = "\(serverId.uuidString)-\(songId).\(ext)"
         let fileURL = cacheDirectory.appendingPathComponent(relativePath)
 
@@ -103,6 +103,20 @@ actor CacheService: CacheServiceProtocol {
         await evictToFitLimit()
         Logger.cache.info("Cached '\(songId, privacy: .public)' (\(fileSize) bytes, \(mimeType, privacy: .public))")
         return fileURL
+    }
+
+    private func audioExtension(mimeType: String) -> String {
+        switch mimeType.lowercased() {
+        case "audio/mpeg", "audio/mp3":          return "mp3"
+        case "audio/flac", "audio/x-flac":       return "flac"
+        case "audio/mp4", "audio/m4a",
+             "audio/aac", "audio/x-aac":         return "m4a"
+        case "audio/ogg":                         return "ogg"
+        case "audio/opus":                        return "opus"
+        case "audio/wav", "audio/x-wav":         return "wav"
+        case "audio/aiff", "audio/x-aiff":       return "aiff"
+        default:                                  return "bin"
+        }
     }
 
     // MARK: - Eviction

@@ -19,6 +19,9 @@ struct MiniPlayerWindowConfigurator: NSViewRepresentable {
             window.titleVisibility = .hidden
             window.isOpaque = false
             window.backgroundColor = .clear
+            window.standardWindowButton(.closeButton)?.isHidden = true
+            window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+            window.standardWindowButton(.zoomButton)?.isHidden = true
         }
         return view
     }

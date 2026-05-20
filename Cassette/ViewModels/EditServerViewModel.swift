@@ -12,7 +12,7 @@ final class EditServerViewModel {
     var serverURL: String
     var username: String
     var password: String = ""
-    var customHeaders: [(key: String, value: String)] = []
+    var customHeaders: [CustomHeaderEntry] = []
 
     var isSaving: Bool = false
     var isLoadingCredentials: Bool = true
@@ -40,7 +40,7 @@ final class EditServerViewModel {
     private var initialURL: String
     private var initialUsername: String
     private var initialPassword: String = ""
-    private var initialHeaders: [(key: String, value: String)] = []
+    private var initialHeaders: [CustomHeaderEntry] = []
 
     private let serverService: any ServerServiceProtocol
 
@@ -62,7 +62,7 @@ final class EditServerViewModel {
             initialPassword = creds.password
             let pairs = creds.customHeaders
                 .sorted { $0.key < $1.key }
-                .map { (key: $0.key, value: $0.value) }
+                .map { CustomHeaderEntry(key: $0.key, value: $0.value) }
             customHeaders = pairs
             initialHeaders = pairs
         } catch {
@@ -116,12 +116,11 @@ final class EditServerViewModel {
     }
 
     func addCustomHeader() {
-        customHeaders.append((key: "", value: ""))
+        customHeaders.append(CustomHeaderEntry())
     }
 
-    func removeCustomHeader(at index: Int) {
-        guard customHeaders.indices.contains(index) else { return }
-        customHeaders.remove(at: index)
+    func removeCustomHeader(id: UUID) {
+        customHeaders.removeAll { $0.id == id }
     }
 
     // MARK: - Private
@@ -138,10 +137,7 @@ final class EditServerViewModel {
         return dict
     }
 
-    private func headersMatch(
-        _ lhs: [(key: String, value: String)],
-        _ rhs: [(key: String, value: String)]
-    ) -> Bool {
+    private func headersMatch(_ lhs: [CustomHeaderEntry], _ rhs: [CustomHeaderEntry]) -> Bool {
         guard lhs.count == rhs.count else { return false }
         return zip(lhs, rhs).allSatisfy { $0.key == $1.key && $0.value == $1.value }
     }

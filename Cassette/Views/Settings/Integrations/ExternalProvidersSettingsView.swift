@@ -37,6 +37,7 @@ final class ExternalProvidersSettingsViewModel {
 
 struct ExternalProvidersSettingsView: View {
     @Environment(\.appContainer) private var container
+    @Environment(\.dismiss) private var dismiss
     @State private var vm: ExternalProvidersSettingsViewModel?
     @State private var showingAdd = false
     @State private var editingProvider: ExternalReleaseProvider?
@@ -54,6 +55,7 @@ struct ExternalProvidersSettingsView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        #if os(iOS)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { showingAdd = true } label: {
@@ -61,20 +63,40 @@ struct ExternalProvidersSettingsView: View {
                 }
             }
         }
+        #endif
+        #if os(macOS)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") { dismiss() }
+            }
+        }
+        #endif
         .sheet(isPresented: $showingAdd) {
             if let vm {
+                #if os(macOS)
+                ExternalProviderEditView(mode: .new) { vm.save($0) }
+                    .frame(minWidth: 400, minHeight: 300)
+                #else
                 NavigationStack {
                     ExternalProviderEditView(mode: .new) { vm.save($0) }
                 }
+                #endif
             }
         }
         .sheet(item: $editingProvider) { provider in
             if let vm {
+                #if os(macOS)
+                ExternalProviderEditView(mode: .edit(provider), onSave: { vm.save($0) }) {
+                    vm.delete(provider)
+                }
+                .frame(minWidth: 400, minHeight: 300)
+                #else
                 NavigationStack {
                     ExternalProviderEditView(mode: .edit(provider), onSave: { vm.save($0) }) {
                         vm.delete(provider)
                     }
                 }
+                #endif
             }
         }
         .onAppear {
@@ -110,6 +132,7 @@ struct ExternalProvidersSettingsView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .contextMenu {

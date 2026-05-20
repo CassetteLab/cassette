@@ -40,4 +40,5 @@ extension Logger {
     nonisolated static let artworkCache       = Logger(subsystem: "app.cassette.artworkcache",       category: "ArtworkCache")
     nonisolated static let settings           = Logger(subsystem: "app.cassette.settings",           category: "Settings")
     nonisolated static let boot               = Logger(subsystem: "app.cassette.boot",               category: "Boot")
+    nonisolated static let migration          = Logger(subsystem: "app.cassette.migration",          category: "Migration")
 }

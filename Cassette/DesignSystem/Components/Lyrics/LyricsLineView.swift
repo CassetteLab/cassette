@@ -42,7 +42,7 @@ struct LyricsLineView: View {
 
     private var scale: CGFloat {
         guard isSynced, currentIndex != nil else { return 1.0 }
-        return distance == 0 ? 1.0 : 0.94
+        return distance == 0 ? 1.05 : 1.0
     }
 
     private var lineFont: Font {
@@ -57,7 +57,7 @@ struct LyricsLineView: View {
             .foregroundStyle(.white.opacity(opacity))
             .blur(radius: blurRadius)
             .scaleEffect(scale, anchor: .leading)
-            .animation(.smooth(duration: 0.3), value: currentIndex)
+            .animation(.easeInOut(duration: 0.25), value: currentIndex)
             .contentShape(Rectangle())
             .onTapGesture {
                 if isTappable { onTap() }

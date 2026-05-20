@@ -24,6 +24,7 @@ struct FullPlayerExpandedView: View {
     @State private var selectedPanel: RightPanel = .queue
     @State private var lyricsViewModel: LyricsViewModel?
     @State private var isMuted = false
+    @State private var volumeBeforeMute: Double = 0.7
     @State private var showAddToPlaylist = false
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
 
@@ -47,52 +48,73 @@ struct FullPlayerExpandedView: View {
                 .ignoresSafeArea()
 
             HStack(spacing: 0) {
-                playerColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(40)
+                ZStack(alignment: .top) {
+                    playerColumn
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(40)
+
+                    HStack {
+                        HStack(spacing: 8) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Close")
+
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                                openWindow(id: "mini-player")
+                            } label: {
+                                Image(systemName: "pip.enter")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .buttonStyle(.plain)
+                            .help("Mini Player")
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background {
+                            if #available(macOS 26.0, *) {
+                                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+                            } else {
+                                Capsule().fill(.ultraThinMaterial)
+                            }
+                        }
+                        .clipShape(Capsule())
+
+                        Spacer()
+
+                        HStack(spacing: 12) {
+                            AirPlayButton()
+                                .frame(width: 20, height: 20)
+                            muteButton
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background {
+                            if #available(macOS 26.0, *) {
+                                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+                            } else {
+                                Capsule().fill(.ultraThinMaterial)
+                            }
+                        }
+                        .clipShape(Capsule())
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+                }
 
                 Divider()
                     .opacity(0.3)
 
                 rightPanelColumn
-                    .frame(width: 380)
-                    .padding(.vertical, 24)
-                    .padding(.leading, 16)
-                    .padding(.trailing, 24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-        .overlay(alignment: .topLeading) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .cassetteGlassButton(size: 28)
-            }
-            .buttonStyle(.borderless)
-            .padding(20)
-            .help("Close")
-        }
-        .overlay(alignment: .topTrailing) {
-            HStack(spacing: 12) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-                    openWindow(id: "mini-player")
-                } label: {
-                    Image(systemName: "rectangle.compress.vertical")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
-                }
-                .buttonStyle(.borderless)
-                .help("Mini Player")
-
-                AirPlayButton()
-                    .frame(width: 20, height: 20)
-                muteButton
-            }
-            .padding(20)
         }
         .task(id: currentTrack?.id) {
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
@@ -251,7 +273,7 @@ struct FullPlayerExpandedView: View {
                     if let artist = currentTrack?.artist {
                         Text(artist)
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(CassetteColors.accentForeground(on: dominantColor))
+                            .foregroundStyle(.white.opacity(0.9))
                         if let album = currentTrack?.albumName {
                             Text("·")
                                 .foregroundStyle(.secondary)
@@ -265,10 +287,10 @@ struct FullPlayerExpandedView: View {
 
                 if let format = currentTrack?.audioFormat {
                     HStack(spacing: 6) {
-                        AudioFormatBadge(format: format)
+                        AudioFormatBadge(format: format, color: .white.opacity(0.7))
                         Text(format)
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                     }
                     .padding(.top, 2)
                 }
@@ -281,7 +303,7 @@ struct FullPlayerExpandedView: View {
                     Task { await toggleFavorite() }
                 } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .foregroundStyle(isFavorite ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
+                        .foregroundStyle(isFavorite ? .white : .white.opacity(0.55))
                 }
                 .buttonStyle(.plain)
                 .disabled(noTrack)
@@ -301,11 +323,13 @@ struct FullPlayerExpandedView: View {
                 .disabled(!isOnline)
         } label: {
             Image(systemName: "ellipsis")
-                .foregroundStyle(.secondary)
                 .font(.system(size: 14))
+                .foregroundStyle(Color.white.opacity(0.8))
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
+        .foregroundStyle(Color.white.opacity(0.8))
+        .tint(Color.white)
         .fixedSize()
         .disabled(noTrack)
     }
@@ -327,7 +351,7 @@ struct FullPlayerExpandedView: View {
                     }
                 },
                 trackColor: .white.opacity(0.15),
-                fillColor: CassetteColors.accentForeground(on: dominantColor)
+                fillColor: .white
             )
             .disabled(noTrack)
 
@@ -359,7 +383,7 @@ struct FullPlayerExpandedView: View {
                 Task { await container?.playerService.toggleShuffle() }
             } label: {
                 Image(systemName: "shuffle")
-                    .foregroundStyle(playerState?.isShuffled == true ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
+                    .foregroundStyle(playerState?.isShuffled == true ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -392,7 +416,7 @@ struct FullPlayerExpandedView: View {
                 }
             } label: {
                 Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
-                    .foregroundStyle(playerState?.repeatMode != .off ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
+                    .foregroundStyle(playerState?.repeatMode != .off ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -430,13 +454,19 @@ struct FullPlayerExpandedView: View {
 
     private var muteButton: some View {
         Button {
-            isMuted.toggle()
-            let volume = isMuted ? 0.0 : localVolume
-            Task { await container?.playerService.setVolume(Float(volume)) }
+            if isMuted {
+                isMuted = false
+                let restore = volumeBeforeMute > 0 ? volumeBeforeMute : 1.0
+                Task { await container?.playerService.setVolume(Float(restore)) }
+            } else {
+                volumeBeforeMute = localVolume
+                isMuted = true
+                Task { await container?.playerService.setVolume(0.0) }
+            }
         } label: {
             Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.white)
         }
         .buttonStyle(.plain)
     }
@@ -450,14 +480,20 @@ struct FullPlayerExpandedView: View {
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
                 if selectedPanel == .queue, let ps = playerState {
-                    let (symbol, isActive) = ps.queueIcon
-                    if isActive {
-                        Image(systemName: symbol)
+                    let isAutoExtend = ps.isAutoExtendEnabled
+                    Button {
+                        Task { await container?.playerService.setAutoExtendEnabled(!isAutoExtend) }
+                    } label: {
+                        Image(systemName: "infinity")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.cassetteAccent)
-                            .animation(.smooth(duration: 0.2), value: symbol)
-                            .accessibilityHidden(true)
+                            .foregroundStyle(isAutoExtend ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.6))
+                            .padding(6)
+                            .background(isAutoExtend ? CassetteColors.accentBackground : .clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Auto-extend with Smart Shuffle")
+                    .accessibilityValue(isAutoExtend ? "Enabled" : "Disabled")
                 }
             }
             .padding(.horizontal, 16)
@@ -489,7 +525,10 @@ struct FullPlayerExpandedView: View {
                     withAnimation(.smooth(duration: 0.3)) { selectedPanel = .lyrics }
                 } label: {
                     Image(systemName: "quote.bubble")
-                        .foregroundStyle(selectedPanel == .lyrics ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(selectedPanel == .lyrics ? CassetteColors.accentBackground : .clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
                 .disabled(noTrack || isLiveStream)
@@ -498,45 +537,56 @@ struct FullPlayerExpandedView: View {
                     withAnimation(.smooth(duration: 0.3)) { selectedPanel = .queue }
                 } label: {
                     Image(systemName: "list.bullet.indent")
-                        .foregroundStyle(selectedPanel == .queue ? CassetteColors.accentForeground(on: dominantColor) : .secondary)
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(selectedPanel == .queue ? CassetteColors.accentBackground : .clear)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
             }
             .font(.system(size: 14))
             .padding(16)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(.black.opacity(0.20))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(.white.opacity(0.10), lineWidth: 0.5)
-        )
     }
 
     @ViewBuilder
     private var queueContent: some View {
+        let upNext = Array(queue.dropFirst(currentIndex + 1))
+
         if queue.isEmpty {
             ContentUnavailableView("No tracks in queue", systemImage: "list.bullet.indent")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             List {
-                ForEach(Array(queue.enumerated()), id: \.element.id) { index, track in
-                    ExpandedQueueRow(track: track, isCurrent: index == currentIndex)
-                }
-                .onMove { indexSet, destination in
-                    Task {
-                        for fromIndex in indexSet {
-                            await container?.playerService.moveInQueue(fromIndex: fromIndex, toIndex: destination)
-                        }
+                if let current = currentTrack {
+                    Section("Now Playing") {
+                        ExpandedQueueRow(track: current, isCurrent: true)
                     }
                 }
-                .onDelete { indexSet in
-                    Task {
-                        for index in indexSet.sorted().reversed() {
-                            await container?.playerService.removeFromQueue(at: index)
+
+                if !upNext.isEmpty {
+                    Section("Up Next") {
+                        ForEach(Array(upNext.enumerated()), id: \.element.id) { offset, track in
+                            let absoluteIndex = currentIndex + 1 + offset
+                            ExpandedQueueRow(track: track, isCurrent: false)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    Task { try? await container?.playerService.play(tracks: queue, startIndex: absoluteIndex) }
+                                }
+                        }
+                        .onMove { indexSet, destination in
+                            guard let relativeSource = indexSet.first else { return }
+                            let absoluteSource = currentIndex + 1 + relativeSource
+                            let absoluteDestination = currentIndex + 1 + destination
+                            Task { await container?.playerService.moveInQueue(fromIndex: absoluteSource, toIndex: absoluteDestination) }
+                        }
+                        .onDelete { indexSet in
+                            let absoluteIndices = indexSet.sorted(by: >).map { currentIndex + 1 + $0 }
+                            Task {
+                                for absoluteIndex in absoluteIndices {
+                                    await container?.playerService.removeFromQueue(at: absoluteIndex)
+                                }
+                            }
                         }
                     }
                 }
@@ -589,7 +639,7 @@ private struct ExpandedQueueRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.title)
                     .font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? Color.cassetteAccent : .primary)
+                    .foregroundStyle(isCurrent ? Color.white : .primary)
                     .lineLimit(1)
                 if let artist = track.artist {
                     Text(artist)
@@ -604,7 +654,7 @@ private struct ExpandedQueueRow: View {
             if isCurrent {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 11))
-                    .foregroundStyle(Color.cassetteAccent)
+                    .foregroundStyle(.white)
             }
         }
         .padding(.vertical, 2)

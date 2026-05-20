@@ -222,27 +222,34 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("[TRANSITION] advancing to '\(song.title, privacy: .public)' (id=\(song.id, privacy: .public)) — teardown begin")
         #if os(iOS)
         isTransitioningTrack = true
-        #endif
-        teardownPlayer()
-
-        #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
 
         let item = makePlayerItem(source: source, expectedDuration: song.duration)
-        let newPlayer = AVPlayer(playerItem: item)
-        player = newPlayer
+
+        if let existingPlayer = player {
+            // Reuse the existing AVPlayer to preserve the CoreAudio pipeline and AirPlay connection.
+            teardownCurrentItem()
+            existingPlayer.replaceCurrentItem(with: item)
+            Logger.player.info("[TRANSITION] replaceCurrentItem — CoreAudio pipeline preserved")
+        } else {
+            let newPlayer = AVPlayer(playerItem: item)
+            player = newPlayer
+            setupPeriodicTimeObserver(for: newPlayer)
+            #if os(iOS)
+            setupTimeControlStatusObserver(for: newPlayer)
+            #endif
+            Logger.player.info("[TRANSITION] new AVPlayer created")
+        }
 
         setupEndOfTrackObserver(for: item)
-        setupPeriodicTimeObserver(for: newPlayer)
         setupDurationObserver(for: item)
         startAssetDurationLoad(for: item, songId: song.id)
 
-        newPlayer.play()
-        Logger.player.info("[TRANSITION] new player started for '\(song.title, privacy: .public)' — awaiting timeControlStatus=.playing confirmation")
+        player?.play()
+        Logger.player.info("[TRANSITION] playback started for '\(song.title, privacy: .public)'")
         #if os(iOS)
         isPlayingIntent = true
-        setupTimeControlStatusObserver(for: newPlayer)
         #endif
 
         let duration = song.duration
@@ -1237,12 +1244,9 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
-    private func teardownPlayer() {
-        stopPositionSaveTimer()
-        if let token = timeObserverToken {
-            player?.removeTimeObserver(token)
-            timeObserverToken = nil
-        }
+    /// Removes item-scoped observers only. Safe to call before replaceCurrentItem(with:).
+    /// Does NOT touch the player instance, timeObserverToken, or session observers.
+    private func teardownCurrentItem() {
         if let observer = endOfTrackObserver {
             NotificationCenter.default.removeObserver(observer)
             endOfTrackObserver = nil
@@ -1258,13 +1262,24 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         #if os(iOS)
+        stallRecoveryTask?.cancel()
+        stallRecoveryTask = nil
+        #endif
+    }
+
+    private func teardownPlayer() {
+        stopPositionSaveTimer()
+        teardownCurrentItem()
+        if let token = timeObserverToken {
+            player?.removeTimeObserver(token)
+            timeObserverToken = nil
+        }
+        #if os(iOS)
         // timeControlStatusObserver and stallRecoveryTask are player-scoped.
         // isTransitioningTrack is NOT reset here — startPlayback() sets it true before calling
         // teardownPlayer() and relies on it persisting through the synchronous teardown sequence.
         timeControlStatusObserver?.invalidate()
         timeControlStatusObserver = nil
-        stallRecoveryTask?.cancel()
-        stallRecoveryTask = nil
         if let observer = interruptionObserver {
             NotificationCenter.default.removeObserver(observer)
             interruptionObserver = nil

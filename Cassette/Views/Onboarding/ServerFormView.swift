@@ -91,17 +91,11 @@ struct ServerFormView: View {
     private var customHeadersSection: some View {
         Section {
             DisclosureGroup("Custom Headers") {
-                ForEach(viewModel.customHeaders.indices, id: \.self) { index in
+                ForEach($viewModel.customHeaders) { $header in
                     CustomHeaderRowView(
-                        key: Binding(
-                            get: { viewModel.customHeaders[index].key },
-                            set: { viewModel.customHeaders[index].key = $0 }
-                        ),
-                        value: Binding(
-                            get: { viewModel.customHeaders[index].value },
-                            set: { viewModel.customHeaders[index].value = $0 }
-                        ),
-                        onRemove: { viewModel.removeCustomHeader(at: index) }
+                        key: $header.key,
+                        value: $header.value,
+                        onRemove: { viewModel.removeCustomHeader(id: header.id) }
                     )
                 }
                 Button(action: viewModel.addCustomHeader) {
@@ -128,15 +122,24 @@ struct CustomHeaderRowView: View {
     @State private var copyFeedbackTask: Task<Void, Never>?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-            TextField("Name", text: $key)
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Header name")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            TextField("e.g. CF-Access-Client-Id", text: $key)
+                .textFieldStyle(.roundedBorder)
                 .autocorrectionDisabled()
                 #if os(iOS)
                 .textInputAutocapitalization(.never)
                 #endif
 
+            Text("Value")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.top, CassetteSpacing.xs)
             HStack(spacing: 0) {
                 valueField
+                    .textFieldStyle(.roundedBorder)
                     .autocorrectionDisabled()
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -185,6 +188,7 @@ struct CustomHeaderRowView: View {
                     .foregroundStyle(.red)
             }
         }
+        .labelsHidden()
         .padding(.vertical, CassetteSpacing.xs)
         .onDisappear {
             isRevealed = false

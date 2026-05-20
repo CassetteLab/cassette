@@ -30,23 +30,34 @@ struct CassetteSettingsScene: Scene {
 
 // MARK: - Tab container
 
+private enum SettingsTab: Int {
+    case general, server, cache, integrations, about
+}
+
 struct MacOSSettingsView: View {
+    @State private var selectedTab: SettingsTab = .general
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             GeneralSettingsTab()
                 .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(SettingsTab.general)
 
             ServerSettingsTab()
                 .tabItem { Label("Server", systemImage: "server.rack") }
+                .tag(SettingsTab.server)
 
             CacheSettingsTab()
                 .tabItem { Label("Cache", systemImage: "externaldrive") }
+                .tag(SettingsTab.cache)
 
             IntegrationsSettingsTab()
                 .tabItem { Label("Integrations", systemImage: "link.circle") }
+                .tag(SettingsTab.integrations)
 
             AboutSettingsTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
+                .tag(SettingsTab.about)
         }
         .frame(minWidth: 480, minHeight: 320)
     }
@@ -77,30 +88,39 @@ private struct GeneralSettingsTab: View {
 
 private struct ServerSettingsTab: View {
     @Environment(\.appContainer) private var container
+    @State private var showEditServer = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Server") {
-                    if let server = container?.serverState.activeServer,
-                       let serverService = container?.serverService {
-                        NavigationLink {
-                            EditServerDestinationView(server: server, serverService: serverService)
-                        } label: {
-                            LabeledContent("Server Configuration") {
+        Form {
+            Section("Server") {
+                if let server = container?.serverState.activeServer,
+                   let serverService = container?.serverService {
+                    Button {
+                        showEditServer = true
+                    } label: {
+                        LabeledContent("Server Configuration") {
+                            HStack(spacing: CassetteSpacing.xs) {
                                 Text(server.displayName)
                                     .foregroundStyle(.secondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
                             }
                         }
-                    } else {
-                        Text("No server configured.")
-                            .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .sheet(isPresented: $showEditServer) {
+                        EditServerDestinationView(server: server, serverService: serverService)
+                            .frame(minWidth: 480, minHeight: 400)
+                    }
+                } else {
+                    Text("No server configured.")
+                        .foregroundStyle(.secondary)
                 }
             }
-            .formStyle(.grouped)
-            .navigationTitle("Server")
         }
+        .formStyle(.grouped)
         .frame(maxWidth: 480)
     }
 }
@@ -137,32 +157,58 @@ private struct CacheSettingsTab: View {
 // MARK: - Integrations tab
 
 private struct IntegrationsSettingsTab: View {
+    @State private var showListenBrainz = false
+    @State private var showProviders = false
+
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    NavigationLink {
-                        ListenBrainzSettingsView()
-                    } label: {
+        Form {
+            Section {
+                Button { showListenBrainz = true } label: {
+                    HStack {
                         Label("ListenBrainz", systemImage: "link.circle")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
-                    NavigationLink {
-                        ExternalProvidersSettingsView()
-                    } label: {
-                        Label("Open Releases In", systemImage: "arrow.up.right.square")
-                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+
+                Button { showProviders = true } label: {
+                    HStack {
+                        Label("Open Releases In", systemImage: "arrow.up.right.square")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
-            .formStyle(.grouped)
-            .navigationTitle("Integrations")
         }
+        .formStyle(.grouped)
         .frame(maxWidth: 480)
+        .sheet(isPresented: $showListenBrainz) {
+            ListenBrainzSettingsView()
+                .frame(minWidth: 400, minHeight: 300)
+        }
+        .sheet(isPresented: $showProviders) {
+            ExternalProvidersSettingsView()
+                .frame(minWidth: 400, minHeight: 300)
+        }
     }
 }
 
 // MARK: - About tab
 
 private struct AboutSettingsTab: View {
+    @Environment(\.openURL) private var openURL
+    private let kofiURL = URL(string: "https://ko-fi.com/mathieudbrt")
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
     }
@@ -186,6 +232,27 @@ private struct AboutSettingsTab: View {
                     Text("© 2026 Mathieu Dubart")
                         .foregroundStyle(.secondary)
                 }
+            }
+            Section {
+                VStack(spacing: CassetteSpacing.xs) {
+                    Text("Cassette is free, forever.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                    Button {
+                        guard let url = kofiURL else { return }
+                        openURL(url)
+                    } label: {
+                        Image("kofiButton")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 220)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, CassetteSpacing.m)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .listRowBackground(Color.clear)
             }
             Section("Links") {
                 Link(destination: URL(string: "https://github.com/MathieuDubart/cassette")!) {

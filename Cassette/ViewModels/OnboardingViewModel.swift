@@ -12,9 +12,7 @@ final class OnboardingViewModel {
     var serverURL: String = ""
     var username: String = ""
     var password: String = ""
-    /// Editable list of custom HTTP headers (key/value pairs).
-    /// Includes Cloudflare Access tokens or any other reverse-proxy auth headers.
-    var customHeaders: [(key: String, value: String)] = []
+    var customHeaders: [CustomHeaderEntry] = []
     var isLoading: Bool = false
     var connectionError: ConnectionTestError?
 
@@ -102,12 +100,11 @@ final class OnboardingViewModel {
     }
 
     func addCustomHeader() {
-        customHeaders.append((key: "", value: ""))
+        customHeaders.append(CustomHeaderEntry())
     }
 
-    func removeCustomHeader(at index: Int) {
-        guard customHeaders.indices.contains(index) else { return }
-        customHeaders.remove(at: index)
+    func removeCustomHeader(id: UUID) {
+        customHeaders.removeAll { $0.id == id }
     }
 
     // MARK: - Private

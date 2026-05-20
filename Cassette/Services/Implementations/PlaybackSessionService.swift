@@ -12,10 +12,12 @@ import OSLog
 /// Called by PlayerService on track changes and every 5 s during active playback,
 /// and flushed in full when the app enters background.
 actor PlaybackSessionService {
-    private let modelContext: ModelContext
+    private let modelContainer: ModelContainer
+    // Lazy so the context is created on the actor's executor, not the MainActor caller of init.
+    private lazy var modelContext: ModelContext = ModelContext(modelContainer)
 
     init(modelContainer: ModelContainer) {
-        self.modelContext = ModelContext(modelContainer)
+        self.modelContainer = modelContainer
     }
 
     /// Full save — queue + position + current track metadata + repeat mode.

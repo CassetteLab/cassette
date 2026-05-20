@@ -181,6 +181,95 @@ extension AppContainer {
     }
 }
 
+// MARK: - Audio extension migration
+
+extension AppContainer {
+    private static let audioExtMigrationKey = "cassette.audioExtMigration_v1"
+
+    /// One-shot migration that fixes downloaded tracks saved with a `.mpeg` extension.
+    ///
+    /// Root cause: the original DownloadService derived the file extension from the HTTP
+    /// Content-Type header. `audio/mpeg` → `.mpeg`, which AVPlayer maps to a video UTI
+    /// (public.mpeg) instead of public.mp3, causing silent playback failure for MP3 files.
+    ///
+    /// This migration:
+    /// 1. Purges the ephemeral CacheService (all entries may carry .mpeg).
+    /// 2. Renames permanent downloaded files from .mpeg to the correct extension using
+    ///    the server-declared `suffix` stored in DownloadedTrack, falling back to a
+    ///    MIME-type map when suffix is absent.
+    /// 3. Updates the SwiftData filePath records for each successfully renamed file.
+    static func migrateAudioExtensionsIfNeeded(
+        modelContainer: ModelContainer,
+        cacheService: any CacheServiceProtocol
+    ) async {
+        guard !UserDefaults.standard.bool(forKey: audioExtMigrationKey) else { return }
+
+        await cacheService.clearAll()
+        Logger.migration.info("[ExtMigration] Ephemeral audio cache cleared")
+
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let downloadsDir = docs.appendingPathComponent("app.cassette/downloads", isDirectory: true)
+
+        let ctx = ModelContext(modelContainer)
+        let tracks = (try? ctx.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+
+        var renamedCount = 0
+        var skippedCount = 0
+
+        for track in tracks {
+            guard track.filePath.hasSuffix(".mpeg") else { continue }
+            let desiredExt: String
+            if let s = track.suffix, !s.isEmpty {
+                desiredExt = s
+            } else {
+                desiredExt = Self.audioExtFromMime(track.mimeType)
+            }
+            guard desiredExt != "mpeg" else { continue }
+
+            let oldPath = track.filePath
+            let newPath = String(oldPath.dropLast(".mpeg".count)) + ".\(desiredExt)"
+            let oldURL = downloadsDir.appendingPathComponent(oldPath)
+            let newURL = downloadsDir.appendingPathComponent(newPath)
+
+            guard FileManager.default.fileExists(atPath: oldURL.path) else {
+                Logger.migration.warning("[ExtMigration] File missing, skipping: '\(oldPath, privacy: .public)'")
+                skippedCount += 1
+                continue
+            }
+            do {
+                if FileManager.default.fileExists(atPath: newURL.path) {
+                    try FileManager.default.removeItem(at: newURL)
+                }
+                try FileManager.default.moveItem(at: oldURL, to: newURL)
+                track.filePath = newPath
+                renamedCount += 1
+                Logger.migration.info("[ExtMigration] '\(oldPath, privacy: .public)' → '\(newPath, privacy: .public)'")
+            } catch {
+                Logger.migration.error("[ExtMigration] Rename failed '\(oldPath, privacy: .public)': \(error, privacy: .public)")
+                skippedCount += 1
+            }
+        }
+
+        try? ctx.save()
+        UserDefaults.standard.set(true, forKey: audioExtMigrationKey)
+        Logger.migration.info("[ExtMigration] Complete: \(renamedCount) renamed, \(skippedCount) skipped")
+    }
+
+    private static func audioExtFromMime(_ mimeType: String) -> String {
+        switch mimeType.lowercased() {
+        case "audio/mpeg", "audio/mp3":        return "mp3"
+        case "audio/flac", "audio/x-flac":     return "flac"
+        case "audio/mp4", "audio/m4a",
+             "audio/aac", "audio/x-aac":       return "m4a"
+        case "audio/ogg":                       return "ogg"
+        case "audio/opus":                      return "opus"
+        case "audio/wav", "audio/x-wav":       return "wav"
+        case "audio/aiff", "audio/x-aiff":     return "aiff"
+        default:                                return "mpeg"
+        }
+    }
+}
+
 // MARK: - SwiftUI environment key
 
 private struct AppContainerKey: EnvironmentKey {

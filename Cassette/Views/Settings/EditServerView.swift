@@ -24,8 +24,21 @@ struct EditServerView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(viewModel.hasUnsavedChanges)
-        #endif
         .toolbar { toolbar }
+        #endif
+        #if os(macOS)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Close") {
+                    if viewModel.hasUnsavedChanges {
+                        showDiscardAlert = true
+                    } else {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        #endif
         .alert("Discard Changes?", isPresented: $showDiscardAlert) {
             Button("Discard", role: .destructive) { dismiss() }
             Button("Keep Editing", role: .cancel) {}
@@ -37,11 +50,11 @@ struct EditServerView: View {
         }
     }
 
-    // MARK: - Toolbar
+    // MARK: - Toolbar (iOS only)
 
+    #if os(iOS)
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        #if os(iOS)
         if viewModel.hasUnsavedChanges {
             ToolbarItem(placement: .cancellationAction) {
                 Button {
@@ -52,25 +65,8 @@ struct EditServerView: View {
                 }
             }
         }
-        #endif
-        ToolbarItem(placement: .confirmationAction) {
-            if viewModel.isSaving {
-                ProgressView()
-            } else {
-                Button("Save") {
-                    Task {
-                        await viewModel.save()
-                        if viewModel.connectionError == nil,
-                           viewModel.saveError == nil,
-                           !viewModel.hasUnsavedChanges {
-                            dismiss()
-                        }
-                    }
-                }
-                .disabled(!viewModel.canSave)
-            }
-        }
     }
+    #endif
 
     // MARK: - Form
 
@@ -85,6 +81,36 @@ struct EditServerView: View {
         #if os(iOS)
         .scrollDismissesKeyboard(.interactively)
         #endif
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            saveButton
+        }
+    }
+
+    private var saveButton: some View {
+        Button {
+            Task {
+                await viewModel.save()
+                if viewModel.connectionError == nil,
+                   viewModel.saveError == nil,
+                   !viewModel.hasUnsavedChanges {
+                    dismiss()
+                }
+            }
+        } label: {
+            if viewModel.isSaving {
+                ProgressView()
+                    .frame(maxWidth: .infinity)
+            } else {
+                Text("Save Changes")
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .disabled(!viewModel.canSave || viewModel.isSaving)
+        .padding(.horizontal)
+        .padding(.vertical, CassetteSpacing.m)
+        .background(.regularMaterial)
     }
 
     private var serverSection: some View {
@@ -174,17 +200,11 @@ struct EditServerView: View {
     private var customHeadersSection: some View {
         Section {
             DisclosureGroup("Custom Headers") {
-                ForEach(viewModel.customHeaders.indices, id: \.self) { index in
+                ForEach($viewModel.customHeaders) { $header in
                     CustomHeaderRowView(
-                        key: Binding(
-                            get: { viewModel.customHeaders[index].key },
-                            set: { viewModel.customHeaders[index].key = $0 }
-                        ),
-                        value: Binding(
-                            get: { viewModel.customHeaders[index].value },
-                            set: { viewModel.customHeaders[index].value = $0 }
-                        ),
-                        onRemove: { viewModel.removeCustomHeader(at: index) }
+                        key: $header.key,
+                        value: $header.value,
+                        onRemove: { viewModel.removeCustomHeader(id: header.id) }
                     )
                 }
                 Button(action: viewModel.addCustomHeader) {

@@ -35,6 +35,7 @@ actor WidgetSyncService {
     private let serverState: ServerState
 
     private var lastReloadDate: Date?
+    private var lastPlayStateChangeDate: Date = .distantPast
 
     init(
         dominantColorExtractor: DominantColorExtractor,
@@ -85,6 +86,10 @@ actor WidgetSyncService {
     // MARK: - Now playing state
 
     func onPlayStateChanged(isPlaying: Bool, currentSong: DisplayableSong?) async {
+        let now = Date()
+        guard now.timeIntervalSince(lastPlayStateChangeDate) > 0.3 else { return }
+        lastPlayStateChangeDate = now
+
         let track: SharedTrackInfo? = currentSong.map { song in
             let coverArtId = song.coverArtId ?? song.id
             return SharedTrackInfo(
@@ -213,10 +218,10 @@ actor WidgetSyncService {
 
     // MARK: - Throttled timeline reload
 
-    /// Calls WidgetCenter.shared.reloadAllTimelines() at most once per second.
+    /// Calls WidgetCenter.shared.reloadAllTimelines() at most once every 2 seconds.
     func reloadTimelinesIfNeeded() {
         let now = Date()
-        if let last = lastReloadDate, now.timeIntervalSince(last) < 1.0 { return }
+        if let last = lastReloadDate, now.timeIntervalSince(last) < 2.0 { return }
         lastReloadDate = now
         #if os(iOS)
         WidgetCenter.shared.reloadAllTimelines()
