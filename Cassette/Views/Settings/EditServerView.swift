@@ -78,7 +78,7 @@ struct EditServerView: View {
         Form {
             serverSection
             credentialsSection
-            generalErrors
+            errorSection
             customHeadersSection
         }
         .formStyle(.grouped)
@@ -95,7 +95,6 @@ struct EditServerView: View {
                 .textInputAutocapitalization(.never)
                 .keyboardType(.URL)
                 #endif
-            urlInlineError
             httpWarning
         }
     }
@@ -120,8 +119,6 @@ struct EditServerView: View {
                 }
                 .buttonStyle(.plain)
             }
-
-            credentialsInlineError
         }
     }
 
@@ -148,41 +145,11 @@ struct EditServerView: View {
     }
 
     @ViewBuilder
-    private var urlInlineError: some View {
+    private var errorSection: some View {
         if let error = viewModel.connectionError {
-            switch error {
-            case .invalidURL:
-                inlineError("Enter a valid URL (e.g. https://music.example.com).")
-            case .dnsFailure, .cannotConnect, .timeout, .certificate, .atsBlocked:
-                inlineError("Could not reach this server. Check the URL and your network.")
-            case .notSubsonicServer:
-                inlineError("The server did not respond as a Subsonic server. Check the URL.")
-            default:
-                EmptyView()
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var credentialsInlineError: some View {
-        if case .unauthorized = viewModel.connectionError {
-            inlineError("Incorrect username or password.")
-        }
-    }
-
-    @ViewBuilder
-    private var generalErrors: some View {
-        if let error = viewModel.connectionError {
-            switch error {
-            case .invalidURL, .dnsFailure, .cannotConnect, .timeout,
-                 .certificate, .atsBlocked, .notSubsonicServer, .unauthorized:
-                EmptyView()
-            default:
-                Section {
-                    Text(verbatim: error.localizedDescription ?? "")
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
+            Section {
+                ConnectionErrorView(error: error)
+                    .padding(.vertical, CassetteSpacing.xs)
             }
         }
         if let error = viewModel.saveError {
@@ -220,11 +187,6 @@ struct EditServerView: View {
         }
     }
 
-    private func inlineError(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
-    }
 }
 
 // MARK: - Navigation destination wrapper

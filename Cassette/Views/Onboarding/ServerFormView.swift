@@ -17,7 +17,6 @@ struct ServerFormView: View {
                     .textInputAutocapitalization(.never)
                     .keyboardType(.URL)
                     #endif
-                urlInlineError
                 httpWarning
             }
 
@@ -28,10 +27,9 @@ struct ServerFormView: View {
                     .textInputAutocapitalization(.never)
                     #endif
                 SecureField("Password", text: $viewModel.password)
-                credentialsInlineError
             }
 
-            generalError
+            errorSection
 
             customHeadersSection
 
@@ -59,7 +57,7 @@ struct ServerFormView: View {
         #endif
     }
 
-    // MARK: - Inline error helpers
+    // MARK: - Error / warning helpers
 
     @ViewBuilder
     private var httpWarning: some View {
@@ -71,41 +69,11 @@ struct ServerFormView: View {
     }
 
     @ViewBuilder
-    private var urlInlineError: some View {
+    private var errorSection: some View {
         if let error = viewModel.connectionError {
-            switch error {
-            case .invalidURL:
-                inlineError("Enter a valid URL (e.g. https://music.example.com).")
-            case .dnsFailure, .cannotConnect, .timeout, .certificate, .atsBlocked:
-                inlineError("Could not reach this server. Check the URL and your network.")
-            case .notSubsonicServer:
-                inlineError("The server did not respond as a Subsonic server. Check the URL.")
-            default:
-                EmptyView()
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var credentialsInlineError: some View {
-        if case .unauthorized = viewModel.connectionError {
-            inlineError("Incorrect username or password.")
-        }
-    }
-
-    @ViewBuilder
-    private var generalError: some View {
-        if let error = viewModel.connectionError {
-            switch error {
-            case .invalidURL, .dnsFailure, .cannotConnect, .timeout,
-                 .certificate, .atsBlocked, .notSubsonicServer, .unauthorized:
-                EmptyView()
-            default:
-                Section {
-                    Text(verbatim: error.localizedDescription ?? "")
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                }
+            Section {
+                ConnectionErrorView(error: error)
+                    .padding(.vertical, CassetteSpacing.xs)
             }
         }
     }
@@ -136,11 +104,6 @@ struct ServerFormView: View {
         }
     }
 
-    private func inlineError(_ message: String) -> some View {
-        Text(message)
-            .font(.footnote)
-            .foregroundStyle(.red)
-    }
 }
 
 // MARK: - CustomHeaderRowView
@@ -232,13 +195,7 @@ struct CustomHeaderRowView: View {
     }
 
     private func copyValueToClipboard() {
-        #if os(iOS)
-        UIPasteboard.general.string = value
-        #elseif os(macOS)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(value, forType: .string)
-        #endif
-
+        PlatformPasteboard.copy(value)
         copyFeedbackTask?.cancel()
         justCopied = true
         copyFeedbackTask = Task {
