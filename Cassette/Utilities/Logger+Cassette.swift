@@ -36,7 +36,6 @@ extension Logger {
     nonisolated static let integrations       = Logger(subsystem: "app.cassette.integrations",       category: "Integrations")
     nonisolated static let externalArtwork    = Logger(subsystem: "app.cassette.externalartwork",    category: "ExternalArtworkCache")
     nonisolated static let artistArtwork      = Logger(subsystem: "app.cassette.artistartwork",      category: "ExternalArtistImageResolver")
-    nonisolated static let navidromeNative    = Logger(subsystem: "app.cassette.navidrome",          category: "NavidromeNativeAPI")
     nonisolated static let httpTransport      = Logger(subsystem: "app.cassette.transport",          category: "CustomHeadersTransport")
     nonisolated static let settings           = Logger(subsystem: "app.cassette.settings",           category: "Settings")
     nonisolated static let boot               = Logger(subsystem: "app.cassette.boot",               category: "Boot")
