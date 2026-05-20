@@ -1062,15 +1062,8 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
 
-        // Detach item-scoped observers from the expiring item
-        if let observer = endOfTrackObserver {
-            NotificationCenter.default.removeObserver(observer)
-            endOfTrackObserver = nil
-        }
-        durationObserver?.invalidate()
-        durationObserver = nil
-
         // Swap in new item without destroying the player or its time observer
+        teardownCurrentItem()
         let newItem = makePlayerItem(source: source, expectedDuration: firstTrack.duration)
         player?.replaceCurrentItem(with: newItem)
 
