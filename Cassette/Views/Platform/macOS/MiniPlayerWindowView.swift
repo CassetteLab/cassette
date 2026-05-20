@@ -170,8 +170,8 @@ struct MiniPlayerWindowView: View {
 
     private var closeButton: some View {
         Button {
-            NSApplication.shared.keyWindow?.close()
             NotificationCenter.default.post(name: .cassetteOpenFullPlayer, object: nil)
+            NSApplication.shared.keyWindow?.close()
         } label: {
             Image(systemName: "xmark")
                 .font(.system(size: 13, weight: .semibold))
