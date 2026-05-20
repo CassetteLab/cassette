@@ -471,6 +471,7 @@ struct ProgressSlider: View {
     var trackColor: Color = Color.white.opacity(0.2)
     var fillColor: Color = Color.white.opacity(0.95)
     var height: CGFloat = 32
+    var trackHeight: CGFloat = 5
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -487,7 +488,7 @@ struct ProgressSlider: View {
                     .fill(fillColor)
                     .frame(width: progressWidth(in: trackW))
             }
-            .frame(height: isDragging ? 12 : 5)
+            .frame(height: isDragging ? 12 : trackHeight)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())

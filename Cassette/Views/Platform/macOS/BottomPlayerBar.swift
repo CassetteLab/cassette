@@ -16,6 +16,8 @@ struct BottomPlayerBar: View {
     @State private var showQueue = false
     @State private var showAddToPlaylist = false
     @State private var isFavorite = false
+    @State private var isDownloadedLocally = false
+    @State private var isMuted = false
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
     @State private var barWidth: CGFloat = 800
 
@@ -29,12 +31,7 @@ struct BottomPlayerBar: View {
     private var noTrack: Bool { currentTrack == nil }
     private var isCompact: Bool { barWidth < 560 }
     private var isNarrow: Bool { barWidth < 400 }
-
-    private var volumeIconName: String {
-        if localVolume < 0.01 { return "speaker.slash.fill" }
-        if localVolume < 0.4 { return "speaker.fill" }
-        return "speaker.wave.2.fill"
-    }
+    private var serverId: UUID? { container?.serverState.activeServer?.id }
 
     private var artistAlbumLine: String {
         let parts = [currentTrack?.artist, currentTrack?.albumName].compactMap { $0 }
@@ -46,20 +43,16 @@ struct BottomPlayerBar: View {
             playbackControls
                 .padding(.horizontal, 16)
 
-            currentTrackInfo
-                .frame(width: 260)
-                .padding(.trailing, 8)
-
-            scrubberCenter
+            centerBlock
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 12)
 
             if !isCompact {
                 secondaryActions
                     .padding(.horizontal, 16)
             }
         }
-        .frame(height: 80)
+        .frame(height: 50)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay {
             Capsule()
@@ -69,12 +62,10 @@ struct BottomPlayerBar: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barWidth = $0 }
         .task(id: currentTrack?.id) {
             await refreshFavorite()
+            await refreshDownloadState()
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleQueue)) { _ in
             showQueue.toggle()
-        }
-        .onChange(of: localVolume) { _, newValue in
-            Task { await container?.playerService.setVolume(Float(newValue)) }
         }
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {
@@ -83,50 +74,141 @@ struct BottomPlayerBar: View {
         }
     }
 
-    @ViewBuilder
-    private var scrubberCenter: some View {
-        if isLiveStream {
-            Text("LIVE")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.red)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(.red.opacity(0.15), in: Capsule())
-                .frame(maxWidth: .infinity)
-        } else {
-            VStack(spacing: 2) {
-                ProgressSlider(
-                    value: Binding(
-                        get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
-                        set: { localScrubPosition = $0 }
-                    ),
-                    total: max(1, playerState?.duration ?? 1),
-                    onEditingChanged: { editing in
-                        if editing { localScrubPosition = playerState?.position ?? 0 }
-                        isScrubbing = editing
-                        if !editing {
-                            let pos = localScrubPosition
-                            Task { await container?.playerService.seek(to: pos) }
-                        }
-                    },
-                    trackColor: .primary.opacity(0.15),
-                    fillColor: Color.cassetteAccent
-                )
-                .disabled(noTrack)
+    // MARK: - Center Block
 
-                HStack {
-                    Text(timeString(isScrubbing ? localScrubPosition : (playerState?.position ?? 0)))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Spacer()
-                    Text(timeString(playerState?.duration ?? 0))
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
+    @ViewBuilder
+    private var centerBlock: some View {
+        VStack(spacing: 3) {
+            HStack(alignment: .center, spacing: 10) {
+                artworkThumbnail
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(currentTrack?.title ?? "No track playing")
+                        .font(.system(size: 12, weight: .semibold))
+                        .lineLimit(1)
+                        .foregroundStyle(noTrack ? .secondary : .primary)
+                    Text(artistAlbumLine)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.primary.opacity(0.6))
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+
+                if !noTrack {
+                    ellipsisMenu
                 }
             }
+
+            if isLiveStream {
+                liveIndicator
+            } else {
+                thinScrubber
+            }
         }
+    }
+
+    // MARK: - Artwork
+
+    @ViewBuilder
+    private var artworkThumbnail: some View {
+        Group {
+            if let track = currentTrack {
+                CoverArtView(id: track.coverArtId ?? track.id, size: 32)
+                    .frame(width: 32, height: 32)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.secondary.opacity(0.15))
+                    .frame(width: 32, height: 32)
+                    .overlay {
+                        Image(systemName: "music.note")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+            }
+        }
+        .scaleEffect(artworkIsHovered ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: artworkIsHovered)
+        .onHover { hovering in
+            artworkIsHovered = hovering
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .onTapGesture { onArtworkTap?() }
+    }
+
+    // MARK: - Scrubber
+
+    private var thinScrubber: some View {
+        ProgressSlider(
+            value: Binding(
+                get: { isScrubbing ? localScrubPosition : (playerState?.position ?? 0) },
+                set: { localScrubPosition = $0 }
+            ),
+            total: max(1, playerState?.duration ?? 1),
+            onEditingChanged: { editing in
+                if editing { localScrubPosition = playerState?.position ?? 0 }
+                isScrubbing = editing
+                if !editing {
+                    let pos = localScrubPosition
+                    Task { await container?.playerService.seek(to: pos) }
+                }
+            },
+            trackColor: .primary.opacity(0.12),
+            fillColor: .primary,
+            height: 8,
+            trackHeight: 2
+        )
+        .disabled(noTrack)
+        .accessibilityHidden(true)
+    }
+
+    private var liveIndicator: some View {
+        HStack(spacing: 4) {
+            Circle().fill(Color.red).frame(width: 5, height: 5)
+            Text("LIVE")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.red)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityHidden(true)
+    }
+
+    // MARK: - Ellipsis Menu
+
+    private var ellipsisMenu: some View {
+        Menu {
+            Button("Go to Album") {
+                // TODO(v1.9): wire navigation from mini player
+            }
+            Button("Go to Artist") {
+                // TODO(v1.9): wire navigation from mini player
+            }
+            Divider()
+            Button("Add to Playlist…") {
+                showAddToPlaylist = true
+            }
+            .disabled(noTrack || container?.serverState.isOnline != true)
+            Divider()
+            Button(isFavorite ? "Remove from Favorites" : "Add to Favorites") {
+                Task { await toggleFavorite() }
+            }
+            .disabled(noTrack || container?.serverState.isOnline != true)
+            Divider()
+            // TODO(v1.9): Download requires Song type from library — only remove is available in mini bar
+            Button(isDownloadedLocally ? "Remove Download" : "Download") {
+                Task { await toggleDownload() }
+            }
+            .disabled(noTrack || !isDownloadedLocally)
+        } label: {
+            Image(systemName: "ellipsis")
+                .foregroundStyle(.secondary)
+                .font(.system(size: 11))
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .disabled(noTrack)
     }
 
     // MARK: - Playback Controls
@@ -149,7 +231,7 @@ struct BottomPlayerBar: View {
                 Task { try? await container?.playerService.skipToPrevious() }
             } label: {
                 Image(systemName: "backward.fill")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(noTrack ? .quaternary : .primary)
             }
             .buttonStyle(.plain)
@@ -161,7 +243,7 @@ struct BottomPlayerBar: View {
                 Task { try? await container?.playerService.skipToNext() }
             } label: {
                 Image(systemName: "forward.fill")
-                    .font(.system(size: 14))
+                    .font(.system(size: 13))
                     .foregroundStyle(noTrack ? .quaternary : .primary)
             }
             .buttonStyle(.plain)
@@ -190,7 +272,7 @@ struct BottomPlayerBar: View {
         if isLoading {
             ProgressView()
                 .controlSize(.small)
-                .frame(width: 32, height: 32)
+                .frame(width: 26, height: 26)
         } else {
             Button {
                 Task {
@@ -202,110 +284,14 @@ struct BottomPlayerBar: View {
                 }
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
-                    .font(.system(size: 22))
+                    .font(.system(size: 18))
                     .foregroundStyle(noTrack ? .secondary : .primary)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 26, height: 26)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
         }
-    }
-
-    private func timeString(_ seconds: Double) -> String {
-        let s = Int(max(0, seconds))
-        return String(format: "%d:%02d", s / 60, s % 60)
-    }
-
-    // MARK: - Track Info
-
-    private var currentTrackInfo: some View {
-        HStack(spacing: 10) {
-            artworkThumbnail
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(currentTrack?.title ?? "No track playing")
-                    .font(.system(size: 13, weight: .semibold))
-                    .lineLimit(1)
-                    .foregroundStyle(noTrack ? .secondary : .primary)
-                Text(artistAlbumLine)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .onTapGesture { onArtworkTap?() }
-
-            Button {
-                Task { await toggleFavorite() }
-            } label: {
-                Image(systemName: isFavorite ? "heart.fill" : "heart")
-                    .font(.system(size: 12))
-                    .foregroundStyle(isFavorite ? Color.cassetteAccent : .secondary)
-            }
-            .buttonStyle(.plain)
-            .disabled(noTrack)
-        }
-        .contextMenu {
-            Button {
-                showAddToPlaylist = true
-            } label: {
-                Label("Add to Playlist...", systemImage: "music.note.list")
-            }
-            .disabled(noTrack || container?.serverState.isOnline != true)
-
-            Divider()
-
-            Button {
-                Task { await toggleFavorite() }
-            } label: {
-                Label(
-                    isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: isFavorite ? "heart.slash" : "heart"
-                )
-            }
-            .disabled(noTrack || container?.serverState.isOnline != true)
-
-            Button {
-                guard let track = currentTrack else { return }
-                let info = "\(track.artist ?? "Unknown Artist") \u{2014} \(track.title)"
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(info, forType: .string)
-            } label: {
-                Label("Copy Track Info", systemImage: "doc.on.doc")
-            }
-            .disabled(noTrack)
-            // TODO(v1.5.x): Add "Show in Album" and "Show in Artist" once
-            // albumId/artistId are added to DisplayableSong and NavigationPath
-            // is lifted into RootViewMacOS.
-        }
-    }
-
-    @ViewBuilder
-    private var artworkThumbnail: some View {
-        Group {
-            if let track = currentTrack {
-                CoverArtView(id: track.coverArtId ?? track.id, size: 40)
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(Color.secondary.opacity(0.15))
-                    .frame(width: 40, height: 40)
-                    .overlay {
-                        Image(systemName: "music.note")
-                            .font(.system(size: 16))
-                            .foregroundStyle(.secondary)
-                    }
-            }
-        }
-        .scaleEffect(artworkIsHovered ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.15), value: artworkIsHovered)
-        .onHover { hovering in
-            artworkIsHovered = hovering
-            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-        }
-        .onTapGesture { onArtworkTap?() }
     }
 
     // MARK: - Secondary Actions
@@ -319,24 +305,6 @@ struct BottomPlayerBar: View {
             }
             .buttonStyle(.plain)
 
-            RoutePickerView()
-                .frame(width: 20, height: 20)
-
-            HStack(spacing: 4) {
-                Image(systemName: volumeIconName)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                ProgressSlider(
-                    value: $localVolume,
-                    total: 1.0,
-                    onEditingChanged: { _ in },
-                    trackColor: .primary.opacity(0.15),
-                    fillColor: .primary.opacity(0.6),
-                    height: 20
-                )
-                .frame(width: 60)
-            }
-
             Button {
                 showQueue.toggle()
             } label: {
@@ -349,6 +317,18 @@ struct BottomPlayerBar: View {
                 QueueView()
                     .frame(width: 400, height: 600)
             }
+
+            AirPlayButton()
+                .frame(width: 20, height: 20)
+
+            Button {
+                toggleMute()
+            } label: {
+                Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.primary.opacity(0.8))
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -362,6 +342,14 @@ struct BottomPlayerBar: View {
         isFavorite = container.favoritesService.isFavorite(itemType: .song, itemId: track.id)
     }
 
+    private func refreshDownloadState() async {
+        guard let track = currentTrack, let container, let sid = serverId else {
+            isDownloadedLocally = false
+            return
+        }
+        isDownloadedLocally = await container.downloadService.isDownloaded(songId: track.id, serverId: sid)
+    }
+
     private func toggleFavorite() async {
         guard let track = currentTrack, let container else { return }
         do {
@@ -373,14 +361,34 @@ struct BottomPlayerBar: View {
             isFavorite.toggle()
         } catch {}
     }
+
+    private func toggleDownload() async {
+        guard let track = currentTrack, let container, let sid = serverId else { return }
+        if isDownloadedLocally {
+            try? await container.downloadService.remove(songId: track.id, serverId: sid)
+            isDownloadedLocally = false
+        }
+    }
+
+    private func toggleMute() {
+        isMuted.toggle()
+        let volume = isMuted ? 0.0 : localVolume
+        Task { await container?.playerService.setVolume(Float(volume)) }
+    }
 }
 
-private struct RoutePickerView: NSViewRepresentable {
+struct AirPlayButton: NSViewRepresentable {
     func makeNSView(context: Context) -> AVRoutePickerView {
-        let view = AVRoutePickerView()
-        view.isRoutePickerButtonBordered = false
-        return view
+        let picker = AVRoutePickerView()
+        picker.isRoutePickerButtonBordered = false
+        picker.setRoutePickerButtonColor(NSColor.controlAccentColor, for: .active)
+        picker.setRoutePickerButtonColor(NSColor.secondaryLabelColor, for: .normal)
+        return picker
     }
-    func updateNSView(_ view: AVRoutePickerView, context: Context) {}
+
+    func updateNSView(_ nsView: AVRoutePickerView, context: Context) {
+        nsView.setRoutePickerButtonColor(NSColor.controlAccentColor, for: .active)
+        nsView.setRoutePickerButtonColor(NSColor.secondaryLabelColor, for: .normal)
+    }
 }
 #endif
