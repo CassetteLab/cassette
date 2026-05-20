@@ -1562,7 +1562,7 @@ extension PlayerService {
 
 #if os(iOS)
 private extension AVAudioSession.RouteChangeReason {
-    var logDescription: String {
+    nonisolated var logDescription: String {
         switch self {
         case .unknown: return "unknown"
         case .newDeviceAvailable: return "newDeviceAvailable"
@@ -1578,7 +1578,7 @@ private extension AVAudioSession.RouteChangeReason {
 }
 
 private extension AVPlayer.TimeControlStatus {
-    var logDescription: String {
+    nonisolated var logDescription: String {
         switch self {
         case .paused: return "paused"
         case .playing: return "playing"
