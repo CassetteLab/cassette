@@ -6,6 +6,7 @@
 #if os(macOS)
 import SwiftUI
 import SwiftData
+import SwiftSonic
 
 struct RootViewMacOS: View {
     @Environment(\.appContainer) private var container
@@ -18,6 +19,9 @@ struct RootViewMacOS: View {
 
     var body: some View {
         ZStack {
+            MainWindowConfigurator()
+                .frame(width: 0, height: 0)
+
             NavigationSplitView(columnVisibility: $columnVisibility) {
                 sidebarContent
             } detail: {
@@ -40,11 +44,13 @@ struct RootViewMacOS: View {
                     }
                     .overlay(alignment: .bottom) {
                         BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
+                            .frame(maxWidth: 600)
                             .padding(.horizontal, 24)
                             .padding(.bottom, 16)
                     }
             }
             .navigationSplitViewStyle(.balanced)
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
 
             if isShowingFullPlayer {
                 FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
@@ -82,6 +88,9 @@ struct RootViewMacOS: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayer)) { _ in
             withAnimation { isShowingFullPlayer = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteSelectAlbums)) { _ in
+            selection = .section(.albums)
         }
     }
 
@@ -234,10 +243,34 @@ struct RootViewMacOS: View {
     @ViewBuilder
     private var detailContent: some View {
         NavigationStack {
-            if !searchQuery.isEmpty {
-                SearchView(searchQuery: $searchQuery)
-            } else {
-                detailView(for: selection ?? .section(.home))
+            Group {
+                if !searchQuery.isEmpty {
+                    SearchView(searchQuery: $searchQuery)
+                } else {
+                    detailView(for: selection ?? .section(.home))
+                }
+            }
+            .navigationDestination(for: HomeDestination.self) { destination in
+                switch destination {
+                case .album(let album):
+                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                case .artist(let artist):
+                    ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                case .playlist(let playlist):
+                    PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
+                case .downloadedAlbum(let display):
+                    AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
+                case .albumById(let id, let name, _, let coverArtId):
+                    AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
+                case .playlistById(let id, let name, let coverArtId):
+                    PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
+                case .offlineAlbum(let album):
+                    AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
+                case .offlineArtist(let artist):
+                    OfflineArtistAlbumsView(artist: artist)
+                default:
+                    EmptyView()
+                }
             }
         }
     }
@@ -249,6 +282,7 @@ struct RootViewMacOS: View {
             sectionView(for: section)
         case .pinned(let id):
             pinnedDetail(for: id)
+                .id(id)
         }
     }
 
@@ -290,5 +324,21 @@ struct RootViewMacOS: View {
             ContentUnavailableView("Item not found", systemImage: "pin.slash")
         }
     }
+}
+
+// MARK: - Window configurator
+
+private struct MainWindowConfigurator: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        DispatchQueue.main.async {
+            guard let window = view.window else { return }
+            window.titlebarAppearsTransparent = true
+            window.isMovableByWindowBackground = true
+        }
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 #endif

@@ -157,7 +157,17 @@ struct CassetteApp: App {
         CassetteSettingsScene(container: container)
 
         Window("Mini Player", id: "mini-player") {
-            MiniPlayerWindowView()
+            Group {
+                if let container {
+                    MiniPlayerWindowView()
+                        .environment(\.appContainer, container)
+                        .environment(container.dominantColorExtractor)
+                        .environment(container.artworkImageCache)
+                        .modelContainer(container.modelContainer)
+                } else {
+                    MiniPlayerWindowView()
+                }
+            }
         }
         .windowStyle(.plain)
         .windowResizability(.contentSize)
