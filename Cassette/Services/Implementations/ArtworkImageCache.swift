@@ -52,6 +52,11 @@ final class ArtworkImageCache {
         return image
     }
 
+    /// Read-only sync lookup by id — no LRU touch, no fetch.
+    func cachedImage(for id: String) -> PlatformImage? {
+        cache[id]
+    }
+
     /// Returns the image from cache if available; otherwise fetches from disk
     /// or server, populates the RAM cache, and (on server fetch) persists to disk.
     @discardableResult
