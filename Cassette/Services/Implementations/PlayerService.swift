@@ -1426,6 +1426,15 @@ actor PlayerService: PlayerServiceProtocol {
                 Logger.player.info("[TRANSITION] playback confirmed on new player — clearing isTransitioningTrack")
             }
             isTransitioningTrack = false
+            #if os(iOS)
+            let isOnAirPlay = AVAudioSession.sharedInstance()
+                .currentRoute.outputs
+                .contains { $0.portType == .airPlay }
+            if isOnAirPlay {
+                Logger.player.debug("[AIRPLAY] re-calling play() after startPlayback confirmation")
+                player?.play()
+            }
+            #endif
             stallRecoveryTask?.cancel()
             stallRecoveryTask = nil
 
