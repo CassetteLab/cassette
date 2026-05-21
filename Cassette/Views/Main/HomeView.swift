@@ -218,12 +218,14 @@ struct HomeView: View {
                 AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
                 #else
                 AlbumDetailView(albumId: id, albumName: name, coverArtId: coverArtId)
+                    .cassetteZoomTransition(sourceID: id, in: pinnedZoomNamespace)
                 #endif
             case .playlistById(let id, let name, let coverArtId):
                 #if os(macOS)
                 PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
                 #else
                 PlaylistDetailView(playlistId: id, name: name, coverArtId: coverArtId)
+                    .cassetteZoomTransition(sourceID: id, in: pinnedZoomNamespace)
                 #endif
             case .offlineArtist(let artist):
                 OfflineArtistAlbumsView(artist: artist)
@@ -497,7 +499,7 @@ private struct HomePinnedCard: View {
                         .id("\(item.coverArtId ?? item.itemId)_\(coverArtUploadVersion)")
                 }
                 .aspectRatio(1, contentMode: .fit)
-                .modifier(ConditionalMatchedTransitionSource(id: item.id, namespace: namespace))
+                .modifier(ConditionalMatchedTransitionSource(id: item.itemId, namespace: namespace))
                 Text(item.displayName)
                     .font(.cassetteCaption)
                     .fontWeight(.semibold)
