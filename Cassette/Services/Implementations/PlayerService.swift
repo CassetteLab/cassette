@@ -4,7 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
-import AVFoundation
+import AudioStreaming
 import SwiftSonic
 import OSLog
 
@@ -28,24 +28,24 @@ actor PlayerService: PlayerServiceProtocol {
     private let toastService: ToastService
     private let statsService: StatsService
 
-    private var player: AVPlayer?
-    private var timeObserverToken: Any?
-    private var endOfTrackObserver: NSObjectProtocol?
-    private var failedToEndObserver: NSObjectProtocol?
-    private var durationObserver: NSKeyValueObservation?
-    private var liveStreamFailureObserver: NSKeyValueObservation?
+    // AudioStreaming — single instance for the session lifetime.
+    // nonisolated(unsafe): constant references; AudioPlayer has its own internal queue.
+    private nonisolated(unsafe) let audioPlayer: AudioPlayer
+    private let audioDelegate: AudioStreamingDelegate
+    private var progressTask: Task<Void, Never>?
+    /// Pending seek + optional pause applied once the player first reaches `.playing`.
+    /// Used for session restoration and end-of-queue rewind.
+    private var pendingRestoreInfo: (seekTime: Double, pause: Bool)?
+    /// Source of the currently playing track; kept for repeat-one replay.
+    private var currentSource: MediaSource?
     private var liveStreamStallTask: Task<Void, Never>?
+
     private var audioSessionConfigured = false
     #if os(iOS)
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
-    // AirPlay / route state
-    private var isTransitioningTrack = false
-    private var isPlayingIntent = false
-    private var hasConfirmedAirPlayPlayback = false
-    private var timeControlStatusObserver: NSKeyValueObservation?
-    private var stallRecoveryTask: Task<Void, Never>?
     #endif
+
     private var isHandlingEndOfTrack = false
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
@@ -94,6 +94,22 @@ actor PlayerService: PlayerServiceProtocol {
         cacheConfig.timeoutIntervalForRequest = 30
         cacheConfig.timeoutIntervalForResource = 30
         self.cacheSession = URLSession(configuration: cacheConfig)
+
+        let playerConfig = AudioPlayerConfiguration(
+            flushQueueOnSeek: true,
+            bufferSizeInSeconds: 10,
+            secondsRequiredToStartPlaying: 1,
+            gracePeriodAfterSeekInSeconds: 0.5,
+            secondsRequiredToStartPlayingAfterBufferUnderrun: 1,
+            enableLogs: false
+        )
+        let player = AudioPlayer(configuration: playerConfig)
+        let delegate = AudioStreamingDelegate()
+        self.audioPlayer = player
+        self.audioDelegate = delegate
+        // Wire delegate after all stored properties are initialised.
+        delegate.service = self
+        player.delegate = delegate
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
@@ -221,42 +237,19 @@ actor PlayerService: PlayerServiceProtocol {
             }
         }
 
-        Logger.player.info("[TRANSITION] advancing to '\(song.title, privacy: .public)' (id=\(song.id, privacy: .public)) — teardown begin")
-        #if os(iOS)
-        isTransitioningTrack = true
-        hasConfirmedAirPlayPlayback = false
-        #endif
-        teardownPlayer()
+        Logger.player.info("[TRANSITION] advancing to '\(song.title, privacy: .public)' (id=\(song.id, privacy: .public)) — starting AudioStreaming")
+
+        stopProgressTimer()
+        liveStreamStallTask?.cancel()
+        liveStreamStallTask = nil
+        currentSource = source
+        pendingRestoreInfo = nil
 
         #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
 
-        #if DEBUG
-        if case .stream(let streamURL, let customHeaders) = source {
-            var curlCmd = "curl -I \"\(streamURL.absoluteString)\""
-            for (key, value) in customHeaders.sorted(by: { $0.key < $1.key }) {
-                curlCmd += " \\\n  -H \"\(key): \(value)\""
-            }
-            print("[DEBUG-CURL] \(curlCmd)")
-        }
-        #endif
-
-        let item = await makePlayerItem(source: source, expectedDuration: song.duration)
-        let newPlayer = AVPlayer(playerItem: item)
-        player = newPlayer
-
-        setupEndOfTrackObserver(for: item)
-        setupPeriodicTimeObserver(for: newPlayer)
-        setupDurationObserver(for: item)
-        startAssetDurationLoad(for: item, songId: song.id)
-
-        newPlayer.play()
-        Logger.player.info("[TRANSITION] new player started for '\(song.title, privacy: .public)' — awaiting timeControlStatus=.playing confirmation")
-        #if os(iOS)
-        isPlayingIntent = true
-        setupTimeControlStatusObserver(for: newPlayer)
-        #endif
+        audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         let duration = song.duration
         await MainActor.run {
@@ -266,6 +259,8 @@ actor PlayerService: PlayerServiceProtocol {
             state.playbackState = .playing
             state.isPlaybackAvailable = true
         }
+
+        startProgressTimer()
 
         let artworkURL = await resolveArtworkURL(for: song)
         Logger.player.debug("[TRANSITION] attempting credentials fetch for NowPlaying headers")
@@ -322,11 +317,11 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
 
-        #if os(iOS)
-        isTransitioningTrack = true
-        hasConfirmedAirPlayPlayback = false
-        #endif
-        teardownPlayer()
+        stopProgressTimer()
+        liveStreamStallTask?.cancel()
+        liveStreamStallTask = nil
+        currentSource = source
+        pendingRestoreInfo = nil
 
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -342,25 +337,15 @@ actor PlayerService: PlayerServiceProtocol {
             state.duration = 0
         }
 
-        let item = await makePlayerItem(source: source)
-        let newPlayer = AVPlayer(playerItem: item)
-        player = newPlayer
-
-        // Duration and end-of-track observers are not attached — live streams have
-        // indefinite duration and do not fire AVPlayerItemDidPlayToEndTime naturally.
-        setupPeriodicTimeObserver(for: newPlayer)
-        newPlayer.play()
-        setupLiveStreamObservers(for: item, stationName: station.name)
+        audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         await MainActor.run {
             state.playbackState = .playing
             state.isPlaybackAvailable = true
         }
-        #if os(iOS)
-        // Live streams use liveStreamStallTask for stall detection; no timeControlStatus observer.
-        isPlayingIntent = true
-        isTransitioningTrack = false
-        #endif
+
+        startProgressTimer()
+        startLiveStreamStallMonitor(stationName: station.name)
 
         let artworkHeaders: [String: String]
         do {
@@ -403,7 +388,7 @@ actor PlayerService: PlayerServiceProtocol {
         }
         guard let (_, response) = try? await URLSession.shared.data(for: request),
               let httpResponse = response as? HTTPURLResponse else {
-            Logger.player.debug("[RADIO-CODEC] HEAD request failed or timed out — letting AVPlayer try")
+            Logger.player.debug("[RADIO-CODEC] HEAD request failed or timed out — letting player try")
             return .ambiguous
         }
         let rawType = (httpResponse.allHeaderFields["Content-Type"] as? String ?? "").lowercased()
@@ -419,22 +404,11 @@ actor PlayerService: PlayerServiceProtocol {
         if blacklist.contains(contentType) {
             return .unsupported(contentType: contentType)
         }
-        Logger.player.debug("[RADIO-CODEC] content-type=\(contentType.isEmpty ? "(empty)" : contentType, privacy: .public) → ambiguous, letting AVPlayer try")
+        Logger.player.debug("[RADIO-CODEC] content-type=\(contentType.isEmpty ? "(empty)" : contentType, privacy: .public) → ambiguous, letting player try")
         return .ambiguous
     }
 
-    private func setupLiveStreamObservers(for item: AVPlayerItem, stationName: String) {
-        // Immediate failure: AVPlayerItem.status transitions to .failed
-        liveStreamFailureObserver = item.observe(\.status, options: [.new]) { [weak self] observedItem, _ in
-            guard observedItem.status == .failed else { return }
-            let error = observedItem.error
-            Task { [weak self] in
-                await self?.handleLiveStreamFailure(stationName: stationName, error: error)
-            }
-        }
-
-        // Stall detection: if state.position (driven by the periodic time observer) hasn't
-        // advanced past 1s after 8s of attempted playback, the stream is stalled or undecodable.
+    private func startLiveStreamStallMonitor(stationName: String) {
         liveStreamStallTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(8))
             guard !Task.isCancelled else { return }
@@ -451,7 +425,8 @@ actor PlayerService: PlayerServiceProtocol {
 
         Logger.player.error("[RADIO-FAILSAFE] live stream '\(stationName, privacy: .public)' failed: \(error?.localizedDescription ?? "stall timeout", privacy: .public)")
 
-        teardownPlayer()
+        stopProgressTimer()
+        audioPlayer.stop()
 
         await MainActor.run {
             state.currentRadio = nil
@@ -482,7 +457,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     func setVolume(_ volume: Float) async {
         let clamped = max(0, min(1, volume))
-        player?.volume = clamped
+        audioPlayer.volume = clamped
         UserDefaults.standard.set(clamped, forKey: "cassette.lastVolume")
     }
 
@@ -569,13 +544,10 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Pause / Resume
 
     func pause() async {
-        #if os(iOS)
-        isPlayingIntent = false
-        #endif
-        player?.pause()
+        audioPlayer.pause()
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
-        stopPositionSaveTimer()
+        stopProgressTimer()
         await saveSession()
         let pauseTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
@@ -586,16 +558,15 @@ actor PlayerService: PlayerServiceProtocol {
     func resume() async {
         #if os(iOS)
         configureAudioSessionIfNeeded()
-        isPlayingIntent = true
         #endif
         // Lazily set trackStartDate for session-restored tracks that resume for the first time.
         if trackStartDate == nil {
             trackStartDate = Date()
         }
-        player?.play()
+        audioPlayer.resume()
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
-        startPositionSaveTimer()
+        startProgressTimer()
         let resumeTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
@@ -610,12 +581,14 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Stop
 
     func stop() async {
-        #if os(iOS)
-        isPlayingIntent = false
-        #endif
         cancelPendingScrobble()
         cancelPendingCacheDownload()
-        teardownPlayer()
+        stopProgressTimer()
+        liveStreamStallTask?.cancel()
+        liveStreamStallTask = nil
+        audioPlayer.stop()
+        currentSource = nil
+        pendingRestoreInfo = nil
         await MainActor.run {
             state.playbackState = .idle
             state.currentTrack = nil
@@ -635,8 +608,7 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.debug("seek ignored — live stream mode")
             return
         }
-        let time = CMTime(seconds: position, preferredTimescale: 1000)
-        await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        audioPlayer.seek(to: position)
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
     }
@@ -867,13 +839,13 @@ actor PlayerService: PlayerServiceProtocol {
 
         await prepareCurrentTrackForRestoration(track: track, position: data.currentPosition)
         let savedVolume = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
-        if savedVolume > 0 { player?.volume = savedVolume }
+        if savedVolume > 0 { audioPlayer.volume = savedVolume }
         Logger.player.info("Session restored: \(data.queue.count) tracks, index \(data.currentIndex), pos=\(data.currentPosition, format: .fixed(precision: 1))s")
     }
 
     private func prepareCurrentTrackForRestoration(track: DisplayableSong, position: TimeInterval) async {
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
-            Logger.player.warning("Session restore: no active server, skipping AVPlayer prep")
+            Logger.player.warning("Session restore: no active server, skipping player prep")
             return
         }
 
@@ -886,28 +858,23 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
 
-        teardownPlayer()
+        stopProgressTimer()
+        currentSource = source
+        // Seek to saved position then pause once buffering completes.
+        pendingRestoreInfo = (seekTime: position, pause: true)
+
         #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
 
-        let item = await makePlayerItem(source: source, expectedDuration: track.duration)
-        let newPlayer = AVPlayer(playerItem: item)
-        player = newPlayer
-
-        setupEndOfTrackObserver(for: item)
-        setupPeriodicTimeObserver(for: newPlayer)
-        setupDurationObserver(for: item)
-
-        let cmTime = CMTime(seconds: position, preferredTimescale: 600)
-        await newPlayer.seek(to: cmTime, toleranceBefore: .zero, toleranceAfter: .zero)
+        audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         await MainActor.run { state.isPlaybackAvailable = true }
-        Logger.player.info("Session restore: '\(track.title)' prepared at \(position, format: .fixed(precision: 1))s")
+        Logger.player.info("Session restore: '\(track.title)' queued at \(position, format: .fixed(precision: 1))s")
 
-        // Populate MPNowPlayingInfoCenter in paused state so lock screen controls
-        // appear immediately when the user resumes — resume() only sends a
-        // position-only update which would start from an empty dict otherwise.
+        // Populate MPNowPlayingInfoCenter in paused state so lock screen controls appear
+        // immediately when the user resumes — resume() only sends a position-only update
+        // which would start from an empty dict otherwise.
         let duration = await MainActor.run { state.duration }
         let artworkURL = await resolveArtworkURL(for: track)
         let artworkHeaders: [String: String]
@@ -960,6 +927,35 @@ actor PlayerService: PlayerServiceProtocol {
         positionSaveTask = nil
     }
 
+    // MARK: - Progress timer
+
+    private func startProgressTimer() {
+        stopProgressTimer()
+        progressTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled, let self else { break }
+                let progress = self.audioPlayer.progress
+                let audioDuration = self.audioPlayer.duration
+                await MainActor.run {
+                    let cur = self.state.duration
+                    let clamped = cur > 0 ? min(progress, cur) : progress
+                    self.state.position = clamped
+                    // Refine duration when AudioStreaming parses the real value from the stream.
+                    if audioDuration > 0, abs(audioDuration - cur) > 0.5 {
+                        self.state.duration = audioDuration
+                    }
+                }
+                await self.periodicNowPlayingPush(elapsed: progress)
+            }
+        }
+    }
+
+    private func stopProgressTimer() {
+        progressTask?.cancel()
+        progressTask = nil
+    }
+
     // MARK: - Scrobble
 
     /// Cancels any pending `submission: true` scrobble. Called when switching tracks,
@@ -1008,13 +1004,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - End of track
 
-    private func handleEndOfTrack() async {
-        #if os(iOS)
-        guard !isTransitioningTrack else {
-            Logger.player.warning("[END-OF-TRACK] fired during transition — skipping")
-            return
-        }
-        #endif
+    func handleEndOfTrack() async {
         guard !isHandlingEndOfTrack else {
             Logger.player.warning("[END-OF-TRACK] already handling — skipping duplicate")
             return
@@ -1028,15 +1018,9 @@ actor PlayerService: PlayerServiceProtocol {
             await recordCurrentTrackPlayback()
             wasTrackCompletedNaturally = false
             trackStartDate = Date()
-            // Re-attach the observer so AVPlayerItemDidPlayToEndTime fires on the next
-            // iteration. The same AVPlayerItem is reused; explicit teardown+setup guards
-            // against any platform edge case where the notification silently stops firing.
-            if let item = player?.currentItem {
-                if let old = endOfTrackObserver { NotificationCenter.default.removeObserver(old) }
-                setupEndOfTrackObserver(for: item)
+            if let source = currentSource {
+                audioPlayer.play(url: source.url, headers: source.customHeaders)
             }
-            await seek(to: 0)
-            player?.play()
         } else {
             // Signal natural completion — recordCurrentTrackPlayback() reads this in startPlayback().
             wasTrackCompletedNaturally = true
@@ -1062,11 +1046,6 @@ actor PlayerService: PlayerServiceProtocol {
 
         Logger.player.info("[PLAYBACK] End of queue — rewinding to first track paused")
 
-        player?.pause()
-        #if os(iOS)
-        isPlayingIntent = false
-        #endif
-
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
             await stop()
             return
@@ -1081,16 +1060,12 @@ actor PlayerService: PlayerServiceProtocol {
             return
         }
 
-        // Swap in new item without destroying the player or its time observer
-        teardownCurrentItem()
-        let newItem = await makePlayerItem(source: source, expectedDuration: firstTrack.duration)
-        player?.replaceCurrentItem(with: newItem)
+        stopProgressTimer()
+        currentSource = source
+        // Start playing, seek to 0, then pause once the player reaches .playing.
+        pendingRestoreInfo = (seekTime: 0, pause: true)
 
-        setupEndOfTrackObserver(for: newItem)
-        setupDurationObserver(for: newItem)
-        startAssetDurationLoad(for: newItem, songId: firstTrack.id)
-
-        await player?.seek(to: .zero, toleranceBefore: .zero, toleranceAfter: .zero)
+        audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         let duration = firstTrack.duration
         await MainActor.run {
@@ -1106,407 +1081,47 @@ actor PlayerService: PlayerServiceProtocol {
         await saveSession()
     }
 
-    // MARK: - AVPlayer setup
+    // MARK: - Delegate callbacks
 
-    /// Builds an AVPlayerItem from a MediaSource.
-    ///
-    /// For `.stream`, custom headers are injected via the `"AVURLAssetHTTPHeaderFields"` key.
-    /// Private AVFoundation key (iOS 10+, stable in practice). No public Swift constant exists.
-    /// Monitor AVFoundation release notes.
-    /// Fallback if removed: AVAssetResourceLoaderDelegate (planned v1.x).
-    private func makePlayerItem(source: MediaSource, expectedDuration: TimeInterval? = nil) async -> AVPlayerItem {
-        let headers = source.customHeaders
-        let item: AVPlayerItem
-        if case .stream(let url, _) = source {
-            // Preload asset properties before creating AVPlayerItem so AVFoundation resolves
-            // the real FLAC duration from STREAMINFO before playback starts. Without this,
-            // forwardPlaybackEndTime is set against an unresolved duration and tracks cut off early.
-            let asset: AVURLAsset
-            if headers.isEmpty {
-                asset = AVURLAsset(url: url)
-            } else {
-                asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFields": headers])
-            }
-            do {
-                async let duration = asset.load(.duration)
-                async let tracks = asset.load(.tracks)
-                async let isPlayable = asset.load(.isPlayable)
-                _ = try await (duration, tracks, isPlayable)
-                Logger.player.debug("[PRELOAD] Asset preloaded for stream — real duration resolved before playback")
-            } catch {
-                Logger.player.warning("[PRELOAD] Asset preload failed for stream, proceeding without: \(error, privacy: .public)")
-            }
-            item = AVPlayerItem(asset: asset)
-        } else if headers.isEmpty {
-            item = AVPlayerItem(url: source.url)
-        } else {
-            let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFields": headers])
-            item = AVPlayerItem(asset: asset)
-        }
-        if source.isLiveStream {
-            // Default buffer is too conservative for high-bitrate FLAC streams; 15s absorbs cellular/wifi jitter.
-            item.preferredForwardBufferDuration = 15.0
-        }
-        // Bound the playback timeline to the known audio duration. Tagged FLAC files contain a
-        // MJPEG video stream (embedded cover art / attached_pic). Without this bound, AVPlayer
-        // waits for that visual stream to exhaust its timeline before firing
-        // AVPlayerItemDidPlayToEndTime, causing currentTime to drift 6–13 s past audio duration.
-        if !source.isLiveStream, let duration = expectedDuration, duration > 0 {
-            item.forwardPlaybackEndTime = CMTime(seconds: duration, preferredTimescale: 1000)
-        }
-        return item
-    }
-
-    private func setupPeriodicTimeObserver(for player: AVPlayer) {
-        let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
-        // .main queue so MainActor.assumeIsolated is valid in the block.
-        timeObserverToken = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
-            guard let self else { return }
-            let current = time.seconds
-            MainActor.assumeIsolated {
-                let dur = self.state.duration
-                self.state.position = dur > 0 ? min(current, dur) : current
-            }
-            Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
-        }
-    }
-
-    /// Called from the periodic time observer to keep MPNowPlayingInfoCenter in sync.
-    /// Guards ensure we only push during live playback — not during transitions, live streams,
-    /// or when elapsed is out of range — so we never send a stale or impossible position.
-    private func periodicNowPlayingPush(elapsed: TimeInterval) async {
-        let (playbackState, duration, isLiveStream, hasTrack) = await MainActor.run {
-            (state.playbackState, state.duration, state.isLiveStream, state.currentTrack != nil)
-        }
-        guard case .playing = playbackState, !isLiveStream, hasTrack else { return }
-        guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
-        await nowPlayingService?.pushPosition(elapsed: elapsed, rate: 1.0, duration: duration)
-    }
-
-    // Loads the real asset duration asynchronously via full file parsing.
-    // AVPlayerItem.duration (from the header) can underestimate the true length on
-    // some transcoded files. This runs concurrently with playback and refines
-    // state.duration when the result meaningfully differs from the header estimate.
-    private func startAssetDurationLoad(for item: AVPlayerItem, songId: String) {
-        Task { [weak self] in
-            guard let self else { return }
-            let asset = await MainActor.run { item.asset }
-            Logger.player.debug("[DURATION] asset.load starting for songId=\(songId, privacy: .public)")
-            do {
-                let cmDuration = try await asset.load(.duration)
-                let seconds = CMTimeGetSeconds(cmDuration)
-                Logger.player.debug("[DURATION] asset.load result: \(seconds, format: .fixed(precision: 4))s (CMTime flags=\(cmDuration.flags.rawValue))")
-                guard seconds.isFinite, !seconds.isNaN, seconds > 0 else {
-                    Logger.player.warning("[DURATION] Asset load returned invalid: \(seconds)")
-                    return
-                }
-                let (currentTrackId, currentDuration) = await MainActor.run {
-                    (self.state.currentTrack?.id, self.state.duration)
-                }
-                guard currentTrackId == songId else {
-                    Logger.player.debug("[DURATION] Track changed during asset load, discarding")
-                    return
-                }
-                // Always refine forwardPlaybackEndTime to the true asset duration, even when
-                // the delta is too small to justify a state.duration update. This keeps the
-                // end-of-track boundary accurate regardless of the Subsonic metadata precision.
-                await self.updateForwardPlaybackEndTime(to: max(seconds, currentDuration), for: item)
-                guard abs(seconds - currentDuration) > 0.5 else {
-                    Logger.player.debug("[DURATION] asset.load matches header (delta<0.5s): asset=\(seconds, format: .fixed(precision: 4))s state=\(currentDuration, format: .fixed(precision: 4))s")
-                    return
-                }
-                Logger.player.info("[DURATION] Refined via asset.load: \(currentDuration, format: .fixed(precision: 2))s → \(seconds, format: .fixed(precision: 2))s (delta=\(abs(seconds - currentDuration), format: .fixed(precision: 3))s)")
-                await MainActor.run { self.state.duration = seconds }
-                await self.pushPositionSnapshot()
-            } catch {
-                Logger.player.error("[DURATION] Asset load failed: \(error, privacy: .public)")
-            }
-        }
-    }
-
-    private func setupDurationObserver(for item: AVPlayerItem) {
-        durationObserver?.invalidate()
-        // .initial fires immediately with whatever AVPlayer knows now; .new fires on each update.
-        // AVPlayer refines AVPlayerItem.duration multiple times as it parses the asset header.
-        durationObserver = item.observe(\.duration, options: [.new, .initial]) { [weak self] observedItem, _ in
-            let newDuration = observedItem.duration.seconds
-            guard newDuration.isFinite, !newDuration.isNaN, newDuration > 0 else { return }
-            Task { [weak self] in
-                await self?.updateDuration(newDuration, for: observedItem)
-            }
-        }
-    }
-
-    private func updateDuration(_ newDuration: TimeInterval, for item: AVPlayerItem) async {
-        let current = await MainActor.run { state.duration }
-        guard abs(newDuration - current) > 0.1 else { return }
-        Logger.player.info("[DURATION] \(current, format: .fixed(precision: 2))s → \(newDuration, format: .fixed(precision: 2))s (delta=\(abs(newDuration - current), format: .fixed(precision: 3))s)")
-        await MainActor.run { state.duration = newDuration }
-        updateForwardPlaybackEndTime(to: newDuration, for: item)
-        await pushPositionSnapshot()
-    }
-
-    private func updateForwardPlaybackEndTime(to seconds: TimeInterval, for item: AVPlayerItem) {
-        guard item.forwardPlaybackEndTime.isValid else { return }
-        item.forwardPlaybackEndTime = CMTime(seconds: seconds, preferredTimescale: 1000)
-    }
-
-    private func setupEndOfTrackObserver(for item: AVPlayerItem) {
-        Logger.player.debug("[TRANSITION] setupEndOfTrackObserver: attaching observers for item \(item.debugDescription, privacy: .public)")
-        endOfTrackObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            Logger.player.info("[TRANSITION] AVPlayerItemDidPlayToEndTime fired → handleEndOfTrack")
-            Task { [weak self] in await self?.handleEndOfTrack() }
-        }
-        if let old = failedToEndObserver {
-            NotificationCenter.default.removeObserver(old)
-        }
-        failedToEndObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemFailedToPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { notification in
-            let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error
-            Logger.player.error("[TRANSITION] AVPlayerItemFailedToPlayToEndTime: \(error?.localizedDescription ?? "nil", privacy: .public)")
-        }
-    }
-
-    /// Removes item-scoped observers only. Safe to call before replaceCurrentItem(with:).
-    /// Does NOT touch the player instance, timeObserverToken, or session observers.
-    private func teardownCurrentItem() {
-        if let observer = endOfTrackObserver {
-            NotificationCenter.default.removeObserver(observer)
-            endOfTrackObserver = nil
-        }
-        if let observer = failedToEndObserver {
-            NotificationCenter.default.removeObserver(observer)
-            failedToEndObserver = nil
-        }
-        durationObserver?.invalidate()
-        durationObserver = nil
-        liveStreamFailureObserver?.invalidate()
-        liveStreamFailureObserver = nil
-        liveStreamStallTask?.cancel()
-        liveStreamStallTask = nil
-        #if os(iOS)
-        stallRecoveryTask?.cancel()
-        stallRecoveryTask = nil
-        #endif
-    }
-
-    private func teardownPlayer() {
-        stopPositionSaveTimer()
-        teardownCurrentItem()
-        if let token = timeObserverToken {
-            player?.removeTimeObserver(token)
-            timeObserverToken = nil
-        }
-        #if os(iOS)
-        // timeControlStatusObserver and stallRecoveryTask are player-scoped.
-        // isTransitioningTrack is NOT reset here — startPlayback() sets it true before calling
-        // teardownPlayer() and relies on it persisting through the synchronous teardown sequence.
-        timeControlStatusObserver?.invalidate()
-        timeControlStatusObserver = nil
-        if let observer = interruptionObserver {
-            NotificationCenter.default.removeObserver(observer)
-            interruptionObserver = nil
-        }
-        if let observer = routeChangeObserver {
-            NotificationCenter.default.removeObserver(observer)
-            routeChangeObserver = nil
-        }
-        #endif
-        player?.pause()
-        player = nil
-    }
-
-    #if os(iOS)
-    private func configureAudioSessionIfNeeded() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            if !audioSessionConfigured {
-                // .playback disables the silent switch and allows background audio.
-                // AirPlay + Bluetooth options enable wireless output without extra entitlements.
-                try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
-                audioSessionConfigured = true
-            }
-            // Always call setActive(true) — iOS may have deactivated the session during a
-            // background interruption (phone call, Siri, other audio app) even after a
-            // successful initial setup. Without this, resume() silently fails on the lock screen.
-            try session.setActive(true)
-        } catch let error as NSError {
-            if error.code == -50 {
-                // Code=-50: another app holds the session — retry after short delay.
-                Logger.player.warning("AVAudioSession setActive Code=-50, retrying in 0.5s")
-                Task {
-                    try? await Task.sleep(for: .seconds(0.5))
-                    try? AVAudioSession.sharedInstance().setActive(true)
-                }
-            } else {
-                Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
-            }
-        }
-        if interruptionObserver == nil {
-            interruptionObserver = NotificationCenter.default.addObserver(
-                forName: AVAudioSession.interruptionNotification,
-                object: AVAudioSession.sharedInstance(),
-                queue: .main
-            ) { [weak self] notification in
-                guard let self else { return }
-                Task { await self.handleAudioSessionInterruption(notification) }
-            }
-        }
-        if routeChangeObserver == nil {
-            routeChangeObserver = NotificationCenter.default.addObserver(
-                forName: AVAudioSession.routeChangeNotification,
-                object: AVAudioSession.sharedInstance(),
-                queue: .main
-            ) { [weak self] notification in
-                guard let self else { return }
-                guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
-                      let changeReason = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
-                Task { await self.handleRouteChange(changeReason) }
-            }
-        }
-    }
-
-    private func handleAudioSessionInterruption(_ notification: Notification) async {
-        guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
-
-        switch type {
-        case .began:
-            let isPlaying = await MainActor.run { state.playbackState == .playing }
-            guard isPlaying else { return }
-            await MainActor.run { state.playbackState = .paused }
-            stopPositionSaveTimer()
-            await saveSession()
-            let pauseTrack = await MainActor.run { state.currentTrack }
-            if let ws = widgetSyncService {
-                Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
-            }
-            Logger.player.info("[INTERRUPTION] began — intent=\(self.isPlayingIntent, privacy: .public) timeControlStatus=\(self.player?.timeControlStatus.logDescription ?? "nil", privacy: .public)")
-
-        case .ended:
-            let shouldResume = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
-                .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0 as! UInt) }
-                .map { $0.contains(.shouldResume) } ?? false
-            Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public) intent=\(self.isPlayingIntent, privacy: .public)")
-            if shouldResume {
-                await resume()
-            } else {
-                Logger.player.info("[INTERRUPTION] ended — shouldResume false, staying paused")
-            }
-
-        @unknown default:
-            break
-        }
-    }
-
-    // MARK: - Route & timeControlStatus handling (H1 / H2 / H3)
-
-    private func setupTimeControlStatusObserver(for player: AVPlayer) {
-        timeControlStatusObserver?.invalidate()
-        stallRecoveryTask?.cancel()
-        stallRecoveryTask = nil
-        timeControlStatusObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] observedPlayer, _ in
-            let status = observedPlayer.timeControlStatus
-            let reason = observedPlayer.reasonForWaitingToPlay?.rawValue
-            Task { [weak self] in await self?.handleTimeControlStatus(status, waitingReason: reason) }
-        }
-    }
-
-    // internal: accessible from tests via @testable import
-    func handleTimeControlStatus(_ status: AVPlayer.TimeControlStatus, waitingReason: String?) async {
-        Logger.player.info("[ROUTE] timeControlStatus=\(status.logDescription, privacy: .public) reason=\(waitingReason ?? "nil", privacy: .public) isTransitioning=\(self.isTransitioningTrack, privacy: .public) intent=\(self.isPlayingIntent, privacy: .public)")
-        switch status {
+    /// Called by AudioStreamingDelegate when AudioPlayer's state changes.
+    func handleAudioStateChanged(_ newState: AudioPlayerState) async {
+        switch newState {
         case .playing:
-            if isTransitioningTrack {
-                Logger.player.info("[TRANSITION] playback confirmed on new player — clearing isTransitioningTrack")
+            // Apply a pending seek + optional pause (session restore or end-of-queue rewind).
+            if let info = pendingRestoreInfo {
+                pendingRestoreInfo = nil
+                audioPlayer.seek(to: info.seekTime)
+                if info.pause {
+                    audioPlayer.pause()
+                    await MainActor.run { state.playbackState = .paused }
+                    stopProgressTimer()
+                }
             }
-            isTransitioningTrack = false
-            #if os(iOS)
-            let isOnAirPlay = AVAudioSession.sharedInstance()
-                .currentRoute.outputs
-                .contains { $0.portType == .airPlay }
-            if isOnAirPlay && !hasConfirmedAirPlayPlayback {
-                hasConfirmedAirPlayPlayback = true
-                Logger.player.debug("[AIRPLAY] re-calling play() after startPlayback confirmation (one-shot)")
-                player?.play()
+        case .error:
+            Logger.player.error("[PLAYER] AudioStreaming entered error state")
+            let isLive = await MainActor.run { state.isLiveStream }
+            if isLive {
+                let name = await MainActor.run { state.currentRadio?.name ?? "" }
+                await handleLiveStreamFailure(stationName: name, error: nil)
+            } else {
+                await MainActor.run { state.playbackState = .error(.timeout) }
             }
-            #endif
-            stallRecoveryTask?.cancel()
-            stallRecoveryTask = nil
-
-        case .waitingToPlayAtSpecifiedRate:
-            guard isPlayingIntent, stallRecoveryTask == nil else { return }
-            stallRecoveryTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(3))
-                guard !Task.isCancelled else { return }
-                await self?.recoverFromStall()
-            }
-
-        case .paused:
-            stallRecoveryTask?.cancel()
-            stallRecoveryTask = nil
-
-        @unknown default:
-            break
-        }
-    }
-
-    private func recoverFromStall() async {
-        // Clear the transition guard regardless — 3 s is long enough; a real disconnect
-        // after this point is a genuine user-facing event, not a teardown artefact.
-        isTransitioningTrack = false
-        guard isPlayingIntent else {
-            Logger.player.debug("[ROUTE] Stall recovery cancelled — intent is paused")
-            return
-        }
-        guard let p = player, p.timeControlStatus == .waitingToPlayAtSpecifiedRate else {
-            Logger.player.debug("[ROUTE] Stall recovery: player no longer stalled, skipping")
-            return
-        }
-        Logger.player.warning("[ROUTE] Stall recovery: calling play() after 3 s in waitingToPlayAtSpecifiedRate")
-        p.play()
-        stallRecoveryTask = nil
-    }
-
-    // internal: accessible from tests via @testable import
-    func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) async {
-        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
-            .map { $0.portType.rawValue }
-            .joined(separator: ",")
-        Logger.player.info("[ROUTE] routeChange reason=\(reason.logDescription, privacy: .public) outputs=[\(outputs, privacy: .public)] isTransitioning=\(self.isTransitioningTrack, privacy: .public) intent=\(self.isPlayingIntent, privacy: .public) timeControlStatus=\(self.player?.timeControlStatus.logDescription ?? "nil", privacy: .public)")
-
-        switch reason {
-        case .oldDeviceUnavailable:
-            guard !isTransitioningTrack else {
-                // Spurious .oldDeviceUnavailable caused by AVPlayer teardown during track
-                // transition — the new player is already starting; do not pause it.
-                Logger.player.info("[ROUTE] .oldDeviceUnavailable suppressed — track transition in progress")
-                return
-            }
-            await pause()
-
-        case .newDeviceAvailable, .routeConfigurationChange:
-            try? AVAudioSession.sharedInstance().setActive(true)
-            // H3: if the player went to .paused during route reconfiguration but intent says
-            // we should be playing, explicitly re-trigger play() (Apple recommendation).
-            if isPlayingIntent, let p = player, p.timeControlStatus == .paused {
-                Logger.player.info("[ROUTE] \(reason.logDescription, privacy: .public) — re-triggering play() (intent=playing, timeControlStatus=paused)")
-                p.play()
-            }
-
         default:
             break
         }
     }
-    #endif
+
+    /// Called by AudioStreamingDelegate on unexpected errors.
+    func handleAudioError(_ error: AudioPlayerError) async {
+        Logger.player.error("[PLAYER] AudioStreaming unexpected error: \(error.localizedDescription, privacy: .public)")
+        let isLive = await MainActor.run { state.isLiveStream }
+        if isLive {
+            let name = await MainActor.run { state.currentRadio?.name ?? "" }
+            await handleLiveStreamFailure(stationName: name, error: nil)
+        } else {
+            await MainActor.run { state.playbackState = .error(.timeout) }
+        }
+    }
 
     // MARK: - Next track artwork pre-load
 
@@ -1600,19 +1215,170 @@ actor PlayerService: PlayerServiceProtocol {
         )
         await nowPlayingService?.update(with: snapshot)
     }
+
+    /// Called from the progress timer to keep MPNowPlayingInfoCenter in sync.
+    /// Guards ensure we only push during live playback — not during transitions, live streams,
+    /// or when elapsed is out of range — so we never send a stale or impossible position.
+    private func periodicNowPlayingPush(elapsed: TimeInterval) async {
+        let (playbackState, duration, isLiveStream, hasTrack) = await MainActor.run {
+            (state.playbackState, state.duration, state.isLiveStream, state.currentTrack != nil)
+        }
+        guard case .playing = playbackState, !isLiveStream, hasTrack else { return }
+        guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
+        await nowPlayingService?.pushPosition(elapsed: elapsed, rate: 1.0, duration: duration)
+    }
 }
 
-// MARK: - Test helpers (DEBUG + iOS only)
+// MARK: - iOS Audio Session
 
-#if os(iOS) && DEBUG
+#if os(iOS)
 extension PlayerService {
-    func setTestTransitioningTrack(_ value: Bool) { isTransitioningTrack = value }
-    func setTestPlayingIntent(_ value: Bool) { isPlayingIntent = value }
-    var testIsTransitioningTrack: Bool { isTransitioningTrack }
-    var testIsPlayingIntent: Bool { isPlayingIntent }
-    var testHasStallRecoveryTask: Bool { stallRecoveryTask != nil }
+    func configureAudioSessionIfNeeded() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            if !audioSessionConfigured {
+                // .playback disables the silent switch and allows background audio.
+                // AirPlay + Bluetooth options enable wireless output without extra entitlements.
+                try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
+                audioSessionConfigured = true
+            }
+            // Always call setActive(true) — iOS may have deactivated the session during a
+            // background interruption (phone call, Siri, other audio app) even after a
+            // successful initial setup. Without this, resume() silently fails on the lock screen.
+            try session.setActive(true)
+        } catch let error as NSError {
+            if error.code == -50 {
+                // Code=-50: another app holds the session — retry after short delay.
+                Logger.player.warning("AVAudioSession setActive Code=-50, retrying in 0.5s")
+                Task {
+                    try? await Task.sleep(for: .seconds(0.5))
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                }
+            } else {
+                Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
+            }
+        }
+        if interruptionObserver == nil {
+            interruptionObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: AVAudioSession.sharedInstance(),
+                queue: .main
+            ) { [weak self] notification in
+                guard let self else { return }
+                Task { await self.handleAudioSessionInterruption(notification) }
+            }
+        }
+        if routeChangeObserver == nil {
+            routeChangeObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: AVAudioSession.sharedInstance(),
+                queue: .main
+            ) { [weak self] notification in
+                guard let self else { return }
+                guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                      let changeReason = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
+                Task { await self.handleRouteChange(changeReason) }
+            }
+        }
+    }
+
+    private func handleAudioSessionInterruption(_ notification: Notification) async {
+        guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        switch type {
+        case .began:
+            let isPlaying = await MainActor.run { state.playbackState == .playing }
+            guard isPlaying else { return }
+            audioPlayer.pause()
+            await MainActor.run { state.playbackState = .paused }
+            stopProgressTimer()
+            await saveSession()
+            let pauseTrack = await MainActor.run { state.currentTrack }
+            if let ws = widgetSyncService {
+                Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
+            }
+            Logger.player.info("[INTERRUPTION] began — paused playback")
+
+        case .ended:
+            let shouldResume = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
+                .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0 as! UInt) }
+                .map { $0.contains(.shouldResume) } ?? false
+            Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public)")
+            if shouldResume {
+                await resume()
+            } else {
+                Logger.player.info("[INTERRUPTION] ended — shouldResume false, staying paused")
+            }
+
+        @unknown default:
+            break
+        }
+    }
+
+    // internal: accessible from tests via @testable import
+    func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) async {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+            .map { $0.portType.rawValue }
+            .joined(separator: ",")
+        Logger.player.info("[ROUTE] routeChange reason=\(reason.logDescription, privacy: .public) outputs=[\(outputs, privacy: .public)]")
+
+        switch reason {
+        case .oldDeviceUnavailable:
+            let isPlaying = await MainActor.run { state.playbackState == .playing }
+            if isPlaying { await pause() }
+
+        case .newDeviceAvailable, .routeConfigurationChange:
+            try? AVAudioSession.sharedInstance().setActive(true)
+
+        default:
+            break
+        }
+    }
 }
 #endif
+
+// MARK: - AudioStreamingDelegate
+
+/// Bridges AudioPlayerDelegate callbacks (dispatched on main via asyncOnMain) to PlayerService (actor).
+final class AudioStreamingDelegate: AudioPlayerDelegate, @unchecked Sendable {
+    weak var service: PlayerService?
+
+    func audioPlayerDidStartPlaying(player: AudioPlayer, with entryId: AudioEntryId) {}
+
+    func audioPlayerDidFinishBuffering(player: AudioPlayer, with entryId: AudioEntryId) {}
+
+    func audioPlayerStateChanged(
+        player: AudioPlayer,
+        with newState: AudioPlayerState,
+        previous: AudioPlayerState
+    ) {
+        guard let service else { return }
+        Task { await service.handleAudioStateChanged(newState) }
+    }
+
+    func audioPlayerDidFinishPlaying(
+        player: AudioPlayer,
+        entryId: AudioEntryId,
+        stopReason: AudioPlayerStopReason,
+        progress: Double,
+        duration: Double
+    ) {
+        // Only natural completions (eof) trigger end-of-track handling.
+        // User-initiated play() or stop() arrive with .userAction / .none.
+        guard let service, stopReason == .eof else { return }
+        Task { await service.handleEndOfTrack() }
+    }
+
+    func audioPlayerUnexpectedError(player: AudioPlayer, error: AudioPlayerError) {
+        guard let service else { return }
+        Task { await service.handleAudioError(error) }
+    }
+
+    func audioPlayerDidCancel(player: AudioPlayer, queuedItems: [AudioEntryId]) {}
+
+    func audioPlayerDidReadMetadata(player: AudioPlayer, metadata: [String: String]) {}
+}
 
 // MARK: - iOS logging helpers (file-private)
 
@@ -1628,17 +1394,6 @@ private extension AVAudioSession.RouteChangeReason {
         case .wakeFromSleep: return "wakeFromSleep"
         case .noSuitableRouteForCategory: return "noSuitableRouteForCategory"
         case .routeConfigurationChange: return "routeConfigurationChange"
-        @unknown default: return "unknown(\(rawValue))"
-        }
-    }
-}
-
-private extension AVPlayer.TimeControlStatus {
-    nonisolated var logDescription: String {
-        switch self {
-        case .paused: return "paused"
-        case .playing: return "playing"
-        case .waitingToPlayAtSpecifiedRate: return "waitingToPlayAtSpecifiedRate"
         @unknown default: return "unknown(\(rawValue))"
         }
     }
