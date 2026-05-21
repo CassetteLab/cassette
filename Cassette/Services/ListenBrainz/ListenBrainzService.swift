@@ -31,11 +31,15 @@ actor ListenBrainzService {
         self.isEnabled = userDefaults.bool(forKey: Self.isEnabledDefaultsKey)
     }
 
-    /// Loads persisted username from Keychain. Call once from AppContainer after init.
-    /// No network calls are made.
+    /// Loads persisted username from Keychain and, if one exists, revalidates it in the background.
+    /// Call once from AppContainer after init.
     func loadPersistedState() async {
-        username = try? await keychain.retrieve(String.self, forKey: Self.usernameKeychainKey)
+        let persistedUsername = try? await keychain.retrieve(String.self, forKey: Self.usernameKeychainKey)
+        username = persistedUsername
         Logger.listenBrainz.debug("State loaded — isEnabled=\(self.isEnabled, privacy: .public) hasUsername=\(self.username != nil, privacy: .public)")
+        if persistedUsername != nil {
+            try? await revalidate()
+        }
     }
 
     // MARK: - Public interface
