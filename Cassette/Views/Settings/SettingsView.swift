@@ -145,7 +145,7 @@ struct SettingsView: View {
                 Text("MIT License — MathieuDubart")
             }
             LabeledContent("AudioStreaming") {
-                Link("dimitris-c", destination: URL(string: "https://github.com/dimitris-c/AudioStreaming")!)
+                Link("MIT License — dimitris-c", destination: URL(string: "https://github.com/dimitris-c/AudioStreaming")!)
             }
             Link("View on GitHub", destination: URL(string: "https://github.com/MathieuDubart/cassette")!)
             Link("Send Feedback / Report a Bug", destination: URL(string: "mailto:support@getcassette.app?subject=Feedback%20%2F%20Bug%20Report")!)
