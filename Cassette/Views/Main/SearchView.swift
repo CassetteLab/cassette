@@ -11,6 +11,7 @@ import OSLog
 struct SearchView: View {
     @Binding var searchQuery: String
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: SearchViewModel?
     @AppStorage("cassette.recentSearches") private var recentSearchesData = "[]"
     @Query private var allFavorites: [FavoriteRecord]
@@ -63,6 +64,39 @@ struct SearchView: View {
             #else
             AlbumDetailView(album: album)
             #endif
+        }
+        .navigationDestination(for: HomeDestination.self) { destination in
+            switch destination {
+            case .album(let album):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                #else
+                AlbumDetailView(
+                    album: album,
+                    coverArtId: album.coverArt,
+                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
+                )
+                #endif
+            case .albumById(let id, let name, _, let coverArtId):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
+                #else
+                AlbumDetailView(
+                    albumId: id,
+                    albumName: name,
+                    coverArtId: coverArtId,
+                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
+                )
+                #endif
+            case .artist(let artist):
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                #else
+                ArtistDetailView(artist: artist)
+                #endif
+            default:
+                EmptyView()
+            }
         }
         .onSubmit(of: .search) { addRecentSearch(searchQuery) }
         .onAppear {

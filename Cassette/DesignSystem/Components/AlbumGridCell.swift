@@ -10,6 +10,8 @@ import SwiftSonic
 /// Displays a square cover art, album name, and artist name.
 struct AlbumGridCell: View {
     let album: AlbumID3
+    var zoomSourceId: String? = nil
+    var zoomNamespace: Namespace.ID? = nil
 
     @Environment(\.appContainer) private var container
     @State private var isHovered = false
@@ -22,6 +24,7 @@ struct AlbumGridCell: View {
                     .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
             }
             .aspectRatio(1, contentMode: .fit)
+            .cassetteMatchedTransitionSource(id: zoomSourceId, in: zoomNamespace)
             #if os(macOS)
             .scaleEffect(isHovered ? 1.03 : 1.0)
             .animation(.easeInOut(duration: 0.15), value: isHovered)

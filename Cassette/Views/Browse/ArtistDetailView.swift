@@ -10,7 +10,10 @@ import SwiftData
 struct ArtistDetailView: View {
     let artist: ArtistID3
 
+    @Namespace private var albumZoomNamespace
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
@@ -52,9 +55,16 @@ struct ArtistDetailView: View {
                             LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
                                 ForEach(albums) { album in
                                     NavigationLink(value: HomeDestination.album(album)) {
-                                        AlbumGridCell(album: album)
+                                        AlbumGridCell(
+                                            album: album,
+                                            zoomSourceId: album.id,
+                                            zoomNamespace: albumZoomNamespace
+                                        )
                                     }
                                     .buttonStyle(.plain)
+                                    .task(id: album.id) {
+                                        await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+                                    }
                                 }
                             }
                             .padding(CassetteSpacing.l)
@@ -113,6 +123,31 @@ struct ArtistDetailView: View {
                 imageURL: viewModel?.outOfLibraryArtistImages[rec.id] ?? nil,
                 providers: container?.externalProvidersStore.load() ?? []
             )
+        }
+        .navigationDestination(for: HomeDestination.self) { destination in
+            switch destination {
+            case .album(let album):
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                #else
+                AlbumDetailView(
+                    album: album,
+                    zoomSourceId: album.id,
+                    zoomNamespace: albumZoomNamespace,
+                    coverArtId: album.coverArt,
+                    initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil),
+                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
+                )
+                #endif
+            case .artist(let artist):
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                #else
+                ArtistDetailView(artist: artist)
+                #endif
+            default:
+                EmptyView()
+            }
         }
     }
 
