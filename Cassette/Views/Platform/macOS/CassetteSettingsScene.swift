@@ -19,6 +19,9 @@ struct CassetteSettingsScene: Scene {
                         .environment(container.dominantColorExtractor)
                         .environment(container.artworkImageCache)
                         .modelContainer(container.modelContainer)
+                        // ToastService is intentionally absent: no Settings view or sheet
+                        // currently reads @Environment(ToastService.self). Add it here if
+                        // toastOverlay() is ever applied inside the Settings scene.
                 } else {
                     ProgressView()
                         .frame(width: 480, height: 300)

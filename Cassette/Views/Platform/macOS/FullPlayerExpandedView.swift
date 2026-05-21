@@ -143,6 +143,7 @@ struct FullPlayerExpandedView: View {
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {
                 AddToPlaylistSheet(song: track)
+                    .environment(artworkCache)
             }
         }
     }

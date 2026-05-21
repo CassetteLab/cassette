@@ -9,6 +9,7 @@ import AVKit
 
 struct BottomPlayerBar: View {
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
 
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
@@ -79,6 +80,7 @@ struct BottomPlayerBar: View {
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {
                 AddToPlaylistSheet(song: track)
+                    .environment(artworkImageCache)
             }
         }
     }
