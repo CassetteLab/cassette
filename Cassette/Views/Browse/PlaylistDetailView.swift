@@ -174,13 +174,18 @@ struct PlaylistDetailView: View {
         .background(
             LinearGradient(
                 colors: [
-                    (dominantColor == .clear ? Color.cassetteSystemBackground : dominantColor).opacity(0.9),
-                    (dominantColor == .clear ? Color.cassetteSystemBackground : dominantColor).opacity(0.7)
+                    dominantColor == .clear
+                        ? Color(.systemBackground)
+                        : dominantColor.opacity(0.9),
+                    dominantColor == .clear
+                        ? Color(.systemBackground)
+                        : dominantColor.opacity(0.7)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.3), value: dominantColor)
         )
         .cassetteContentWidth()
         .navigationTitle("")

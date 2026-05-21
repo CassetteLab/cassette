@@ -31,6 +31,7 @@ struct HomeView: View {
     @Namespace private var recentlyAddedZoomNamespace
     @Namespace private var playlistZoomNamespace
     @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
     @State private var navigateToSettings = false
@@ -191,7 +192,8 @@ struct HomeView: View {
                     zoomSourceId: album.id,
                     zoomNamespace: recentlyAddedZoomNamespace,
                     coverArtId: album.coverArt,
-                    initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil)
+                    initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil),
+                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
                 )
                 #endif
             case .artist(let artist):
@@ -204,8 +206,13 @@ struct HomeView: View {
                 #if os(macOS)
                 PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
                 #else
-                PlaylistDetailView(playlist: playlist)
-                    .cassetteZoomTransition(sourceID: playlist.id, in: playlistZoomNamespace)
+                PlaylistDetailView(
+                    playlist: playlist,
+                    coverArtId: playlist.coverArt ?? playlist.id,
+                    initialCoverImage: artworkImageCache.cachedImage(for: playlist.coverArt ?? playlist.id),
+                    zoomSourceId: playlist.id,
+                    zoomNamespace: playlistZoomNamespace
+                )
                 #endif
             case .downloadedAlbum(let display):
                 #if os(macOS)
@@ -217,15 +224,27 @@ struct HomeView: View {
                 #if os(macOS)
                 AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
                 #else
-                AlbumDetailView(albumId: id, albumName: name, coverArtId: coverArtId)
-                    .cassetteZoomTransition(sourceID: id, in: pinnedZoomNamespace)
+                AlbumDetailView(
+                    albumId: id,
+                    albumName: name,
+                    zoomSourceId: id,
+                    zoomNamespace: pinnedZoomNamespace,
+                    coverArtId: coverArtId,
+                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
+                )
                 #endif
             case .playlistById(let id, let name, let coverArtId):
                 #if os(macOS)
                 PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
                 #else
-                PlaylistDetailView(playlistId: id, name: name, coverArtId: coverArtId)
-                    .cassetteZoomTransition(sourceID: id, in: pinnedZoomNamespace)
+                PlaylistDetailView(
+                    playlistId: id,
+                    name: name,
+                    coverArtId: coverArtId,
+                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id),
+                    zoomSourceId: id,
+                    zoomNamespace: pinnedZoomNamespace
+                )
                 #endif
             case .offlineArtist(let artist):
                 OfflineArtistAlbumsView(artist: artist)
@@ -499,7 +518,7 @@ private struct HomePinnedCard: View {
                         .id("\(item.coverArtId ?? item.itemId)_\(coverArtUploadVersion)")
                 }
                 .aspectRatio(1, contentMode: .fit)
-                .modifier(ConditionalMatchedTransitionSource(id: item.itemId, namespace: namespace))
+                .cassetteMatchedTransitionSource(id: item.itemId, in: namespace)
                 Text(item.displayName)
                     .font(.cassetteCaption)
                     .fontWeight(.semibold)
@@ -709,7 +728,7 @@ private struct HomeAlbumCell: View {
                     .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
             }
             .aspectRatio(1, contentMode: .fit)
-            .modifier(ConditionalMatchedTransitionSource(id: album.id, namespace: namespace))
+            .cassetteMatchedTransitionSource(id: album.id, in: namespace)
             Text(album.name)
                 .font(.cassetteCaption)
                 .fontWeight(.semibold)
@@ -737,21 +756,6 @@ private struct HomeAlbumCell: View {
         ) {
             let detail = try await container?.libraryService.album(id: album.id)
             return (detail?.song ?? []).map { DisplayableSong(from: $0) }
-        }
-    }
-}
-
-// MARK: - Zoom transition source modifier
-
-private struct ConditionalMatchedTransitionSource: ViewModifier {
-    let id: String
-    let namespace: Namespace.ID
-
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content.matchedTransitionSource(id: id, in: namespace)
-        } else {
-            content
         }
     }
 }

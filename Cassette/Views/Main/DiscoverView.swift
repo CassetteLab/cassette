@@ -8,6 +8,7 @@ import SwiftSonic
 
 struct DiscoverView: View {
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var vm: DiscoverViewModel?
     @Namespace private var recentlyPlayedNS
     @Namespace private var mostPlayedNS
@@ -313,11 +314,19 @@ struct DiscoverView: View {
                         #if os(macOS)
                         AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
                         #else
-                        AlbumDetailView(album: album, zoomSourceId: album.id, zoomNamespace: namespace)
+                        AlbumDetailView(
+                            album: album,
+                            zoomSourceId: album.id,
+                            zoomNamespace: namespace,
+                            initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
+                        )
                         #endif
                     } label: {
                         AlbumCard(album: album)
-                            .modifier(ConditionalMatchedTransitionSource(id: album.id, namespace: namespace))
+                            .cassetteMatchedTransitionSource(id: album.id, in: namespace)
+                            .task(id: album.id) {
+                                await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+                            }
                     }
                     .buttonStyle(.plain)
                 }
@@ -385,20 +394,5 @@ struct DiscoverView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, CassetteSpacing.l)
             .padding(.horizontal, CassetteSpacing.m)
-    }
-}
-
-// MARK: - Zoom transition source modifier
-
-private struct ConditionalMatchedTransitionSource: ViewModifier {
-    let id: String
-    let namespace: Namespace.ID
-
-    func body(content: Content) -> some View {
-        if #available(macOS 15.0, *) {
-            content.matchedTransitionSource(id: id, in: namespace)
-        } else {
-            content
-        }
     }
 }
