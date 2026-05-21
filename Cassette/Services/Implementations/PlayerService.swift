@@ -617,12 +617,42 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Seek
 
     func seek(to position: TimeInterval) async {
-        guard await MainActor.run(body: { !state.isLiveStream }) else {
+        let currentItem = player?.currentItem
+        let (isLiveStream, currentTrack, assetURL): (Bool, DisplayableSong?, URL?) = await MainActor.run {
+            let url = (currentItem?.asset as? AVURLAsset)?.url
+            return (state.isLiveStream, state.currentTrack, url)
+        }
+        guard !isLiveStream else {
             Logger.player.debug("seek ignored — live stream mode")
             return
         }
-        let time = CMTime(seconds: position, preferredTimescale: 1000)
-        await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+
+        let isStream = currentTrack != nil && (assetURL.map { !$0.isFileURL } ?? false)
+
+        if isStream, let track = currentTrack {
+            guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }),
+                  let source = try? await mediaResolver.resolve(songId: track.id, serverId: serverId),
+                  var components = URLComponents(url: source.url, resolvingAgainstBaseURL: false)
+            else { return }
+            var queryItems = components.queryItems ?? []
+            queryItems.append(URLQueryItem(name: "timeOffset", value: String(Int(position))))
+            components.queryItems = queryItems
+            guard let seekURL = components.url else { return }
+            let asset = AVURLAsset(url: seekURL,
+                options: ["AVURLAssetHTTPHeaderFields": source.customHeaders])
+            let item = AVPlayerItem(asset: asset)
+            if track.duration > 0 {
+                item.forwardPlaybackEndTime = CMTime(seconds: track.duration, preferredTimescale: 1000)
+            }
+            player?.replaceCurrentItem(with: item)
+            setupEndOfTrackObserver(for: item)
+            setupDurationObserver(for: item)
+            player?.play()
+        } else {
+            let time = CMTime(seconds: position, preferredTimescale: 1000)
+            await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
+        }
+
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
     }
