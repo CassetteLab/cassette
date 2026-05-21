@@ -44,7 +44,7 @@ struct RootViewMacOS: View {
                     }
                     .overlay(alignment: .bottom) {
                         BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
-                            .frame(maxWidth: 300)
+                            .frame(maxWidth: 600)
                             .padding(.horizontal, 24)
                             .padding(.bottom, 16)
                     }
