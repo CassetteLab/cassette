@@ -6,49 +6,72 @@
 import SwiftUI
 
 /// Horizontal scroll card showing personalized fresh releases from ListenBrainz.
-/// Self-hides entirely when releases are empty and not loading.
+/// Shows an empty state when releases are unavailable instead of collapsing.
 struct FreshReleasesCard: View {
     let releases: [AlbumRecommendation]
     let isLoading: Bool
+    let isListenBrainzConnected: Bool
     let onTap: (AlbumRecommendation) -> Void
     let onSeeAll: () -> Void
 
     var body: some View {
-        if isLoading || !releases.isEmpty {
-            VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-                HStack {
-                    Text("Fresh Releases")
-                        .font(.cassetteSectionTitle)
-                    Spacer(minLength: 0)
-                    if !releases.isEmpty {
-                        Button(action: onSeeAll) {
-                            Text("See all")
-                                .font(.cassetteCaption)
-                                .foregroundStyle(Color.cassetteAccent)
-                        }
-                        .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            HStack {
+                Text("Fresh Releases")
+                    .font(.cassetteSectionTitle)
+                Spacer(minLength: 0)
+                if !releases.isEmpty {
+                    Button(action: onSeeAll) {
+                        Text("See all")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(Color.cassetteAccent)
                     }
-                }
-                .padding(.horizontal, CassetteSpacing.m)
-
-                if isLoading {
-                    skeletonScroll
-                } else {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: CassetteSpacing.s) {
-                            ForEach(Array(releases.enumerated()), id: \.offset) { _, release in
-                                FreshReleaseAlbumCell(release: release) {
-                                    onTap(release)
-                                }
-                                .frame(width: 140)
-                            }
-                            seeAllCell
-                        }
-                        .padding(.horizontal, CassetteSpacing.m)
-                    }
+                    .buttonStyle(.plain)
                 }
             }
+            .padding(.horizontal, CassetteSpacing.m)
+
+            if isLoading {
+                skeletonScroll
+            } else if !releases.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.s) {
+                        ForEach(Array(releases.enumerated()), id: \.offset) { _, release in
+                            FreshReleaseAlbumCell(release: release) {
+                                onTap(release)
+                            }
+                            .frame(width: 140)
+                        }
+                        seeAllCell
+                    }
+                    .padding(.horizontal, CassetteSpacing.m)
+                }
+            } else if !isListenBrainzConnected {
+                emptyStatePlaceholder(
+                    icon: "waveform.circle",
+                    message: "Connect ListenBrainz in Settings to discover fresh releases based on your listening history."
+                )
+            } else {
+                emptyStatePlaceholder(
+                    icon: "music.note.list",
+                    message: "No fresh releases found based on your recent listening history."
+                )
+            }
         }
+    }
+
+    private func emptyStatePlaceholder(icon: String, message: String) -> some View {
+        VStack(spacing: CassetteSpacing.s) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.cassetteCaption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, minHeight: 168)
+        .padding(.horizontal, CassetteSpacing.m)
     }
 
     private var seeAllCell: some View {

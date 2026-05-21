@@ -17,6 +17,7 @@ struct DiscoverView: View {
     @State private var selectedRelease: AlbumRecommendation?
     @State private var showAllFreshReleases = false
     @State private var allReleasesVM: AllFreshReleasesViewModel?
+    @State private var isListenBrainzConnected: Bool = false
 
     var body: some View {
         ScrollView {
@@ -50,6 +51,7 @@ struct DiscoverView: View {
                 allReleasesVM = AllFreshReleasesViewModel(recommendationService: container.recommendationService)
             }
             await vm?.load()
+            isListenBrainzConnected = await container.listenBrainzService.currentSnapshot().isEnabled
             await vm?.loadFreshReleases()
             guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
             yearlyPlaylists = await container.wrappedPlaylistService.fetchYearlyPlaylists(serverId: serverId)
@@ -57,6 +59,7 @@ struct DiscoverView: View {
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
+            isListenBrainzConnected = await container?.listenBrainzService.currentSnapshot().isEnabled ?? false
             await vm?.loadFreshReleases()
         }
         .sheet(isPresented: Binding(
@@ -82,6 +85,7 @@ struct DiscoverView: View {
         FreshReleasesCard(
             releases: vm.freshReleases,
             isLoading: vm.isLoadingFreshReleases,
+            isListenBrainzConnected: isListenBrainzConnected,
             onTap: { release in selectedRelease = release },
             onSeeAll: { showAllFreshReleases = true }
         )
