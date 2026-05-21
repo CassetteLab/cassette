@@ -296,13 +296,37 @@ final class StreamingResourceLoader: NSObject, AVAssetResourceLoaderDelegate, @u
                let length = Int64(lengthStr) {
                 await loaderState.setContentInfo(length: length, mimeType: http.mimeType)
             }
-            let knownLength = await loaderState.contentLength
-            Logger.streaming.debug("[LOADER] HEAD length=\(knownLength ?? -1) songId=\(self.songId, privacy: .public)")
         } else {
             Logger.streaming.warning("[LOADER] HEAD failed songId=\(self.songId, privacy: .public)")
         }
 
+        // Many Subsonic/Navidrome stream endpoints use chunked Transfer-Encoding,
+        // which omits Content-Length on HEAD. Probe with Range: bytes=0-0 to get
+        // the total from Content-Range: bytes 0-0/TOTAL.
+        if await loaderState.contentLength == nil {
+            await fetchContentLengthProbe()
+        }
+
+        let knownLength = await loaderState.contentLength
+        Logger.streaming.debug("[LOADER] HEAD length=\(knownLength ?? -1) songId=\(self.songId, privacy: .public)")
         await loaderState.fulfillPendingRequests()
+    }
+
+    private func fetchContentLengthProbe() async {
+        var req = URLRequest(url: realURL)
+        headers.forEach { req.setValue($0.value, forHTTPHeaderField: $0.key) }
+        req.setValue("bytes=0-0", forHTTPHeaderField: "Range")
+
+        guard let (_, response) = try? await urlSession.data(for: req),
+              let http = response as? HTTPURLResponse,
+              let contentRange = http.value(forHTTPHeaderField: "Content-Range"),
+              let parsed = parseContentRange(contentRange) else {
+            Logger.streaming.warning("[LOADER] Content-Range probe failed songId=\(self.songId, privacy: .public)")
+            return
+        }
+
+        await loaderState.setContentInfo(length: parsed.total, mimeType: http.mimeType)
+        Logger.streaming.debug("[LOADER] Probe: total=\(parsed.total) songId=\(self.songId, privacy: .public)")
     }
 
     private func fetchOpenEnded(from offset: Int64, for request: AVAssetResourceLoadingRequest) async {
