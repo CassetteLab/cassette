@@ -110,7 +110,7 @@ private actor LoaderState {
                 info.contentLength = length
                 info.isByteRangeAccessSupported = true
                 if let mimeType = contentMimeType {
-                    info.contentType = UTType(mimeType: mimeType)?.identifier
+                    info.contentType = UTType(mimeType: mimeType)?.identifier ?? UTType.audio.identifier
                 }
             }
 
