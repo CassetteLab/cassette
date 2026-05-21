@@ -29,6 +29,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let statsService: StatsService
 
     private var currentStreamingLoader: StreamingResourceLoader?
+    private var assetDurationLoadTask: Task<Void, Never>?
 
     private var player: AVPlayer?
     private var timeObserverToken: Any?
@@ -1182,7 +1183,8 @@ actor PlayerService: PlayerServiceProtocol {
     // some transcoded files. This runs concurrently with playback and refines
     // state.duration when the result meaningfully differs from the header estimate.
     private func startAssetDurationLoad(for item: AVPlayerItem, songId: String) {
-        Task { [weak self] in
+        assetDurationLoadTask?.cancel()
+        assetDurationLoadTask = Task { [weak self] in
             guard let self else { return }
             let asset = await MainActor.run { item.asset }
             Logger.player.debug("[DURATION] asset.load starting for songId=\(songId, privacy: .public)")
@@ -1273,6 +1275,8 @@ actor PlayerService: PlayerServiceProtocol {
     /// Does NOT touch the player instance, timeObserverToken, or session observers.
     private func teardownCurrentItem() {
         currentStreamingLoader = nil
+        assetDurationLoadTask?.cancel()
+        assetDurationLoadTask = nil
         if let observer = endOfTrackObserver {
             NotificationCenter.default.removeObserver(observer)
             endOfTrackObserver = nil
