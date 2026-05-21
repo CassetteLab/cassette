@@ -8,6 +8,7 @@ import SwiftData
 import SwiftSonic
 
 struct PlaylistListView: View {
+    var zoomNamespace: Namespace.ID? = nil
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistListViewModel?
     @State private var showCreateSheet = false
@@ -76,7 +77,11 @@ struct PlaylistListView: View {
         } else {
             List(vm.playlists) { playlist in
                 NavigationLink(value: HomeDestination.playlist(playlist)) {
-                    OnlinePlaylistRow(playlist: playlist, onActionCompleted: { Task { await vm.load() } })
+                    OnlinePlaylistRow(
+                        playlist: playlist,
+                        namespace: zoomNamespace,
+                        onActionCompleted: { Task { await vm.load() } }
+                    )
                 }
             }
             .listStyle(.plain)
@@ -89,6 +94,7 @@ struct PlaylistListView: View {
 
 private struct OnlinePlaylistRow: View {
     let playlist: Playlist
+    var namespace: Namespace.ID? = nil
     var onActionCompleted: (() -> Void)? = nil
 
     @Environment(\.appContainer) private var container
@@ -99,6 +105,7 @@ private struct OnlinePlaylistRow: View {
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
             CoverArtCard(id: playlist.coverArt ?? playlist.id, size: 56)
+                .cassetteMatchedTransitionSource(id: playlist.id, in: namespace)
             VStack(alignment: .leading, spacing: 2) {
                 Text(playlist.name)
                     .font(.cassetteCellTitle)

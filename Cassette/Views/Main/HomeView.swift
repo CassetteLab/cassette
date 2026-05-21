@@ -29,6 +29,7 @@ struct HomeView: View {
 
     @Namespace private var pinnedZoomNamespace
     @Namespace private var recentlyAddedZoomNamespace
+    @Namespace private var playlistZoomNamespace
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: HomeViewModel?
     @State private var showEditPinned = false
@@ -165,7 +166,7 @@ struct HomeView: View {
                 #endif
             case .libraryPlaylists:
                 #if os(iOS)
-                PlaylistListView()
+                PlaylistListView(zoomNamespace: playlistZoomNamespace)
                 #else
                 EmptyView()
                 #endif
@@ -204,6 +205,7 @@ struct HomeView: View {
                 PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
                 #else
                 PlaylistDetailView(playlist: playlist)
+                    .cassetteZoomTransition(sourceID: playlist.id, in: playlistZoomNamespace)
                 #endif
             case .downloadedAlbum(let display):
                 #if os(macOS)
