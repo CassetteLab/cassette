@@ -15,9 +15,7 @@ struct CarouselAlbumCard: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            NavigationLink {
-                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-            } label: {
+            NavigationLink(value: HomeDestination.album(album)) {
                 VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                     CoverArtCard(id: album.coverArt ?? album.id, size: 180)
                         .frame(width: 180, height: 180)

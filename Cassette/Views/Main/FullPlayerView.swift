@@ -201,6 +201,7 @@ private struct TrackInfoSection: View {
     @State private var resolvedArtist: ArtistID3?
     @State private var showArtistSheet = false
     @State private var songToAddToPlaylist: DisplayableSong?
+    @State private var showAlbumSheet = false
 
     private let swipeThreshold: CGFloat = 80
     private let velocityThreshold: CGFloat = 200
@@ -239,18 +240,35 @@ private struct TrackInfoSection: View {
                         .foregroundStyle(secondaryContentColor)
                         .lineLimit(1)
                 } else {
-                    HStack(spacing: CassetteSpacing.xs) {
-                        if let artist = playerState.currentTrack?.artist {
-                            Button {
-                                Task {
-                                    guard let c = container,
-                                          let result = try? await c.libraryService.search(artist),
-                                          let found = result.artist?.first else { return }
-                                    resolvedArtist = found
-                                    showArtistSheet = true
+                    VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                        HStack(spacing: CassetteSpacing.xs) {
+                            if let artist = playerState.currentTrack?.artist {
+                                Button {
+                                    Task {
+                                        guard let c = container,
+                                              let result = try? await c.libraryService.search(artist),
+                                              let found = result.artist?.first else { return }
+                                        resolvedArtist = found
+                                        showArtistSheet = true
+                                    }
+                                } label: {
+                                    Text(artist)
+                                        .font(.subheadline)
+                                        .foregroundStyle(secondaryContentColor)
+                                        .lineLimit(1)
+                                        .truncationMode(.tail)
                                 }
-                            } label: {
-                                Text(artist)
+                                .buttonStyle(.plain)
+                                .disabled(!isOnline)
+                            }
+                            if let format = playerState.currentTrack?.audioFormat {
+                                AudioFormatBadge(format: format, color: secondaryContentColor)
+                            }
+                        }
+                        if let albumName = playerState.currentTrack?.albumName,
+                           playerState.currentTrack?.albumId != nil {
+                            Button { showAlbumSheet = true } label: {
+                                Text(albumName)
                                     .font(.subheadline)
                                     .foregroundStyle(secondaryContentColor)
                                     .lineLimit(1)
@@ -258,9 +276,6 @@ private struct TrackInfoSection: View {
                             }
                             .buttonStyle(.plain)
                             .disabled(!isOnline)
-                        }
-                        if let format = playerState.currentTrack?.audioFormat {
-                            AudioFormatBadge(format: format, color: secondaryContentColor)
                         }
                     }
                 }
@@ -298,8 +313,22 @@ private struct TrackInfoSection: View {
 
                 Menu {
                     if !playerState.isLiveStream {
-                        Button("Go to Album", systemImage: "square.stack") { }
-                        Button("Go to Artist", systemImage: "music.mic") { }
+                        Button("Go to Album", systemImage: "square.stack") {
+                            guard playerState.currentTrack?.albumId != nil else { return }
+                            showAlbumSheet = true
+                        }
+                        .disabled(playerState.currentTrack?.albumId == nil || !isOnline)
+                        Button("Go to Artist", systemImage: "music.mic") {
+                            guard let artistName = playerState.currentTrack?.artist else { return }
+                            Task {
+                                guard let c = container,
+                                      let result = try? await c.libraryService.search(artistName),
+                                      let found = result.artist?.first else { return }
+                                resolvedArtist = found
+                                showArtistSheet = true
+                            }
+                        }
+                        .disabled(playerState.currentTrack?.artist == nil || !isOnline)
                         Divider()
                         Button("Add to Playlist...", systemImage: "music.note.list") {
                             songToAddToPlaylist = playerState.currentTrack
@@ -329,6 +358,29 @@ private struct TrackInfoSection: View {
                 #else
                 NavigationStack {
                     ArtistDetailView(artist: artist)
+                        .navigationDestination(for: HomeDestination.self) { destination in
+                            switch destination {
+                            case .album(let a):
+                                AlbumDetailView(albumId: a.id, albumName: a.name, coverArtId: a.coverArt)
+                            case .artist(let a):
+                                ArtistDetailView(artist: a)
+                            default:
+                                EmptyView()
+                            }
+                        }
+                }
+                #endif
+            }
+        }
+        .sheet(isPresented: $showAlbumSheet) {
+            if let track = playerState.currentTrack,
+               let albumId = track.albumId,
+               let albumName = track.albumName {
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: albumId, albumName: albumName, coverArtId: track.coverArtId)
+                #else
+                NavigationStack {
+                    AlbumDetailView(albumId: albumId, albumName: albumName, coverArtId: track.coverArtId)
                 }
                 #endif
             }

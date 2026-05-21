@@ -13,7 +13,6 @@ struct ArtistDetailView: View {
     @Namespace private var albumZoomNamespace
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
-    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var viewModel: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
@@ -123,31 +122,6 @@ struct ArtistDetailView: View {
                 imageURL: viewModel?.outOfLibraryArtistImages[rec.id] ?? nil,
                 providers: container?.externalProvidersStore.load() ?? []
             )
-        }
-        .navigationDestination(for: HomeDestination.self) { destination in
-            switch destination {
-            case .album(let album):
-                #if os(macOS)
-                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                #else
-                AlbumDetailView(
-                    album: album,
-                    zoomSourceId: album.id,
-                    zoomNamespace: albumZoomNamespace,
-                    coverArtId: album.coverArt,
-                    initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil),
-                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
-                )
-                #endif
-            case .artist(let artist):
-                #if os(macOS)
-                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                #else
-                ArtistDetailView(artist: artist)
-                #endif
-            default:
-                EmptyView()
-            }
         }
     }
 
