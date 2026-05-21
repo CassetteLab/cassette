@@ -63,6 +63,11 @@ actor PlayerService: PlayerServiceProtocol {
     private var trackStartDate: Date?
     /// Set to true by handleEndOfTrack before a natural completion transition; reset after recording.
     private var wasTrackCompletedNaturally: Bool = false
+    /// Applied to AVPlayer's reported currentTime after a timeOffset seek so the UI position
+    /// reflects the requested start second, not 0. nonisolated(unsafe) so it is readable
+    /// from the periodic time observer's synchronous MainActor.assumeIsolated block and
+    /// from the synchronous teardownCurrentItem().
+    private nonisolated(unsafe) var currentTimeOffset: TimeInterval = 0
 
     init(
         state: PlayerState,
@@ -644,11 +649,18 @@ actor PlayerService: PlayerServiceProtocol {
             if track.duration > 0 {
                 item.forwardPlaybackEndTime = CMTime(seconds: track.duration, preferredTimescale: 1000)
             }
+            #if os(iOS)
+            isTransitioningTrack = true
+            #endif
             player?.replaceCurrentItem(with: item)
             setupEndOfTrackObserver(for: item)
             setupDurationObserver(for: item)
+            currentTimeOffset = position
             player?.play()
         } else {
+            let duration = await MainActor.run { state.duration }
+            let ratio = position / max(1, duration)
+            Logger.player.debug("[SEEK] requested=\(position, privacy: .public)s duration=\(duration, privacy: .public)s ratio=\(ratio, privacy: .public)")
             let time = CMTime(seconds: position, preferredTimescale: 1000)
             await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         }
@@ -1149,7 +1161,8 @@ actor PlayerService: PlayerServiceProtocol {
             let current = time.seconds
             MainActor.assumeIsolated {
                 let dur = self.state.duration
-                self.state.position = dur > 0 ? min(current, dur) : current
+                let adjusted = current + self.currentTimeOffset
+                self.state.position = dur > 0 ? min(adjusted, dur) : adjusted
             }
             Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
         }
@@ -1280,6 +1293,7 @@ actor PlayerService: PlayerServiceProtocol {
         stallRecoveryTask?.cancel()
         stallRecoveryTask = nil
         #endif
+        currentTimeOffset = 0
     }
 
     private func teardownPlayer() {
