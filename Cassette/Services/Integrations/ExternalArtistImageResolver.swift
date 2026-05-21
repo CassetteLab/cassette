@@ -99,7 +99,7 @@ actor ExternalArtistImageResolver {
         guard let url = components.url else { return nil }
 
         var req = URLRequest(url: url)
-        req.setValue("Cassette/1.0 (mathieu.dubart@icloud.com)", forHTTPHeaderField: "User-Agent")
+        req.setValue("Cassette/1.0 (support@getcassette.app)", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 10
 
         do {
@@ -134,7 +134,7 @@ actor ExternalArtistImageResolver {
         await enforceMBRateLimit()
 
         var req = URLRequest(url: URL(string: "https://musicbrainz.org/ws/2/artist/\(mbid)?inc=url-rels&fmt=json")!)
-        req.setValue("Cassette/1.0 (mathieu.dubart@icloud.com)", forHTTPHeaderField: "User-Agent")
+        req.setValue("Cassette/1.0 (support@getcassette.app)", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 10
 
         do {
