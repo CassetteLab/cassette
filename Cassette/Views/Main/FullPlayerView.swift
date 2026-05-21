@@ -411,6 +411,7 @@ private struct ScrubberView: View {
     @State private var isDragging = false
     @State private var isSeeking = false
     @State private var displayPosition: TimeInterval = 0
+    @State private var isAdvancing = false
 
     // Prefer AVPlayer-reported duration; fall back to song metadata to avoid slider clamping to 0..1
     private var effectiveDuration: TimeInterval {
@@ -446,8 +447,13 @@ private struct ScrubberView: View {
                     }
                 },
                 trackColor: contentColor.opacity(0.2),
-                fillColor: contentColor.opacity(0.95)
+                fillColor: contentColor.opacity(0.95),
+                isInteracting: isDragging || isSeeking,
+                isAdvancing: isAdvancing
             )
+            .onChange(of: playerState.position) { oldValue, newValue in
+                isAdvancing = newValue > oldValue
+            }
 
             HStack {
                 Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
@@ -472,6 +478,8 @@ struct ProgressSlider: View {
     var fillColor: Color = Color.white.opacity(0.95)
     var height: CGFloat = 32
     var trackHeight: CGFloat = 5
+    var isInteracting: Bool = false
+    var isAdvancing: Bool = false
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -487,6 +495,7 @@ struct ProgressSlider: View {
                 Capsule()
                     .fill(fillColor)
                     .frame(width: progressWidth(in: trackW))
+                    .animation(isDragging || isInteracting || !isAdvancing ? nil : .linear(duration: 0.5), value: value)
             }
             .frame(height: isDragging ? 12 : trackHeight)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
