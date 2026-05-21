@@ -151,42 +151,20 @@ struct HomeView: View {
         #if os(macOS)
         .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
         #endif
+        #if os(iOS)
         .navigationDestination(for: HomeDestination.self) { destination in
             switch destination {
             case .libraryAlbums:
-                #if os(iOS)
                 AlbumsListView()
-                #else
-                EmptyView()
-                #endif
             case .libraryArtists:
-                #if os(iOS)
                 ArtistListView()
-                #else
-                EmptyView()
-                #endif
             case .libraryPlaylists:
-                #if os(iOS)
                 PlaylistListView(zoomNamespace: playlistZoomNamespace)
-                #else
-                EmptyView()
-                #endif
             case .libraryFavorites:
-                #if os(iOS)
                 FavoritesView()
-                #else
-                EmptyView()
-                #endif
             case .libraryDownloads:
-                #if os(iOS)
                 DownloadedView()
-                #else
-                EmptyView()
-                #endif
             case .album(let album):
-                #if os(macOS)
-                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                #else
                 AlbumDetailView(
                     album: album,
                     zoomSourceId: album.id,
@@ -195,17 +173,9 @@ struct HomeView: View {
                     initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil),
                     initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
                 )
-                #endif
             case .artist(let artist):
-                #if os(macOS)
-                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                #else
                 ArtistDetailView(artist: artist)
-                #endif
             case .playlist(let playlist):
-                #if os(macOS)
-                PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
-                #else
                 PlaylistDetailView(
                     playlist: playlist,
                     coverArtId: playlist.coverArt ?? playlist.id,
@@ -213,17 +183,9 @@ struct HomeView: View {
                     zoomSourceId: playlist.id,
                     zoomNamespace: playlistZoomNamespace
                 )
-                #endif
             case .downloadedAlbum(let display):
-                #if os(macOS)
-                AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-                #else
                 AlbumDetailView(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId, mode: .downloadedOnly)
-                #endif
             case .albumById(let id, let name, _, let coverArtId):
-                #if os(macOS)
-                AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
-                #else
                 AlbumDetailView(
                     albumId: id,
                     albumName: name,
@@ -232,11 +194,7 @@ struct HomeView: View {
                     coverArtId: coverArtId,
                     initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
                 )
-                #endif
             case .playlistById(let id, let name, let coverArtId):
-                #if os(macOS)
-                PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
-                #else
                 PlaylistDetailView(
                     playlistId: id,
                     name: name,
@@ -245,17 +203,13 @@ struct HomeView: View {
                     zoomSourceId: id,
                     zoomNamespace: pinnedZoomNamespace
                 )
-                #endif
             case .offlineArtist(let artist):
                 OfflineArtistAlbumsView(artist: artist)
             case .offlineAlbum(let album):
-                #if os(macOS)
-                AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
-                #else
                 AlbumDetailView(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
-                #endif
             }
         }
+        #endif
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {
@@ -296,7 +250,13 @@ struct HomeView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 32) {
                         if !vm.recentAlbums.isEmpty {
-                            CarouselSection(title: "Recently Added", onSeeAll: { navigateToAllAlbums = true }) {
+                            CarouselSection(title: "Recently Added", onSeeAll: {
+                                #if os(macOS)
+                                NotificationCenter.default.post(name: .cassetteSelectAlbums, object: nil)
+                                #else
+                                navigateToAllAlbums = true
+                                #endif
+                            }) {
                                 ForEach(vm.recentAlbums) { album in
                                     CarouselAlbumCard(album: album)
                                 }

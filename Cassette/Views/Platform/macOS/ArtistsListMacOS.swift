@@ -54,13 +54,7 @@ struct ArtistsListMacOS: View {
                     // TODO(v1.5.x): Add visible alphabet section headers (jump bar already implemented in v1.5)
                     LazyVGrid(columns: columns, spacing: 32) {
                         ForEach(allArtists) { artist in
-                            NavigationLink {
-                                ArtistDetailMacOS(
-                                    artistId: artist.id,
-                                    artistName: artist.name,
-                                    coverArtId: artist.coverArt
-                                )
-                            } label: {
+                            NavigationLink(value: HomeDestination.artist(artist)) {
                                 ArtistGridCard(artist: artist)
                             }
                             .buttonStyle(.plain)
