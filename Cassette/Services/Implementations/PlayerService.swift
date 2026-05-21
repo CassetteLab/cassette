@@ -28,6 +28,8 @@ actor PlayerService: PlayerServiceProtocol {
     private let toastService: ToastService
     private let statsService: StatsService
 
+    private var currentStreamingLoader: StreamingResourceLoader?
+
     private var player: AVPlayer?
     private var timeObserverToken: Any?
     private var endOfTrackObserver: NSObjectProtocol?
@@ -621,9 +623,21 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.debug("seek ignored — live stream mode")
             return
         }
-        let time = CMTime(seconds: position, preferredTimescale: 1000)
-        await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-        await MainActor.run { state.position = position }
+        let realDuration = player?.currentItem?.duration
+        let maxPosition: TimeInterval
+        if let d = realDuration, d.isValid, !d.isIndefinite, d.seconds > 0 {
+            maxPosition = d.seconds
+        } else {
+            maxPosition = await MainActor.run { state.duration }
+        }
+        let clampedPosition = min(position, maxPosition)
+        let time = CMTime(seconds: clampedPosition, preferredTimescale: 1000)
+        let currentPlayer = player
+        let isLocal = await MainActor.run { (currentPlayer?.currentItem?.asset as? AVURLAsset)?.url.isFileURL == true }
+        let toleranceSeconds: Double = isLocal ? 0.0 : 0.5
+        let tolerance = CMTime(seconds: toleranceSeconds, preferredTimescale: 600)
+        await player?.seek(to: time, toleranceBefore: tolerance, toleranceAfter: .zero)
+        await MainActor.run { state.position = clampedPosition }
         await pushPositionSnapshot()
     }
 
@@ -1012,6 +1026,13 @@ actor PlayerService: PlayerServiceProtocol {
             await seek(to: 0)
             player?.play()
         } else {
+            // Pin duration to the actual final position, discarding any +1.0 live-extension
+            // buffer accumulated in the periodic observer. startPlayback() resets it for
+            // the next track, so this only affects the brief transition window.
+            await MainActor.run {
+                let pos = state.position
+                if pos > 0 { state.duration = pos }
+            }
             // Signal natural completion — recordCurrentTrackPlayback() reads this in startPlayback().
             wasTrackCompletedNaturally = true
             do {
@@ -1085,18 +1106,32 @@ actor PlayerService: PlayerServiceProtocol {
     /// Builds an AVPlayerItem from a MediaSource.
     ///
     /// For `.stream`, custom headers are injected via the `"AVURLAssetHTTPHeaderFields"` key.
-    /// Private AVFoundation key (iOS 10+, stable in practice). No public Swift constant exists.
-    /// Monitor AVFoundation release notes.
-    /// Fallback if removed: AVAssetResourceLoaderDelegate (planned v1.x).
     private func makePlayerItem(source: MediaSource, expectedDuration: TimeInterval? = nil) -> AVPlayerItem {
-        let headers = source.customHeaders
         let item: AVPlayerItem
-        if headers.isEmpty {
-            item = AVPlayerItem(url: source.url)
-        } else {
-            let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFields": headers])
+
+        if case .managedStream(let cassetteURL, let loader) = source {
+            // cassette-stream:// URLs are intercepted by the resource loader delegate.
+            // Per-track queue prevents concurrent loaders from serializing on a single queue.
+            // Do NOT pass AVURLAssetHTTPHeaderFieldsKey — headers are handled by the loader.
+            let loaderQueue = DispatchQueue(
+                label: "app.cassette.resourceLoader.\(loader.songId)",
+                qos: .userInitiated
+            )
+            let asset = AVURLAsset(url: cassetteURL, options: nil)
+            asset.resourceLoader.setDelegate(loader, queue: loaderQueue)
+            currentStreamingLoader = loader
             item = AVPlayerItem(asset: asset)
+        } else {
+            let headers = source.customHeaders
+            if headers.isEmpty {
+                item = AVPlayerItem(url: source.url)
+            } else {
+                // Private AVFoundation key (iOS 10+, stable in practice).
+                let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFields": headers])
+                item = AVPlayerItem(asset: asset)
+            }
         }
+
         if source.isLiveStream {
             // Default buffer is too conservative for high-bitrate FLAC streams; 15s absorbs cellular/wifi jitter.
             item.preferredForwardBufferDuration = 15.0
@@ -1118,8 +1153,13 @@ actor PlayerService: PlayerServiceProtocol {
             guard let self else { return }
             let current = time.seconds
             MainActor.assumeIsolated {
-                let dur = self.state.duration
-                self.state.position = dur > 0 ? min(current, dur) : current
+                // Extend duration forward if the playhead has passed the known duration.
+                // setupDurationObserver() handles authoritative KVO refinement; this is
+                // a safety net so the scrubber never reaches 100% while audio is still playing.
+                if current > self.state.duration {
+                    self.state.duration = current + 1.0
+                }
+                self.state.position = min(current, self.state.duration)
             }
             Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
         }
@@ -1232,6 +1272,7 @@ actor PlayerService: PlayerServiceProtocol {
     /// Removes item-scoped observers only. Safe to call before replaceCurrentItem(with:).
     /// Does NOT touch the player instance, timeObserverToken, or session observers.
     private func teardownCurrentItem() {
+        currentStreamingLoader = nil
         if let observer = endOfTrackObserver {
             NotificationCenter.default.removeObserver(observer)
             endOfTrackObserver = nil
@@ -1334,8 +1375,13 @@ actor PlayerService: PlayerServiceProtocol {
 
         switch type {
         case .began:
+            guard !isTransitioningTrack else { return }
             let isPlaying = await MainActor.run { state.playbackState == .playing }
             guard isPlaying else { return }
+            // Use player?.pause() directly — NOT the public pause() method.
+            // Calling pause() would clear isPlayingIntent, which prevents stall recovery
+            // and handleRouteChange from resuming when the interruption ends.
+            player?.pause()
             await MainActor.run { state.playbackState = .paused }
             stopPositionSaveTimer()
             await saveSession()
