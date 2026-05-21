@@ -42,6 +42,7 @@ actor PlayerService: PlayerServiceProtocol {
     // AirPlay / route state
     private var isTransitioningTrack = false
     private var isPlayingIntent = false
+    private var hasConfirmedAirPlayPlayback = false
     private var timeControlStatusObserver: NSKeyValueObservation?
     private var stallRecoveryTask: Task<Void, Never>?
     #endif
@@ -223,6 +224,7 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("[TRANSITION] advancing to '\(song.title, privacy: .public)' (id=\(song.id, privacy: .public)) — teardown begin")
         #if os(iOS)
         isTransitioningTrack = true
+        hasConfirmedAirPlayPlayback = false
         #endif
         teardownPlayer()
 
@@ -322,6 +324,7 @@ actor PlayerService: PlayerServiceProtocol {
 
         #if os(iOS)
         isTransitioningTrack = true
+        hasConfirmedAirPlayPlayback = false
         #endif
         teardownPlayer()
 
@@ -1430,8 +1433,9 @@ actor PlayerService: PlayerServiceProtocol {
             let isOnAirPlay = AVAudioSession.sharedInstance()
                 .currentRoute.outputs
                 .contains { $0.portType == .airPlay }
-            if isOnAirPlay {
-                Logger.player.debug("[AIRPLAY] re-calling play() after startPlayback confirmation")
+            if isOnAirPlay && !hasConfirmedAirPlayPlayback {
+                hasConfirmedAirPlayPlayback = true
+                Logger.player.debug("[AIRPLAY] re-calling play() after startPlayback confirmation (one-shot)")
                 player?.play()
             }
             #endif
