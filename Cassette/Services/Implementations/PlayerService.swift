@@ -222,34 +222,27 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("[TRANSITION] advancing to '\(song.title, privacy: .public)' (id=\(song.id, privacy: .public)) — teardown begin")
         #if os(iOS)
         isTransitioningTrack = true
+        #endif
+        teardownPlayer()
+
+        #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
 
         let item = makePlayerItem(source: source, expectedDuration: song.duration)
-
-        if let existingPlayer = player {
-            // Reuse the existing AVPlayer to preserve the CoreAudio pipeline and AirPlay connection.
-            teardownCurrentItem()
-            existingPlayer.replaceCurrentItem(with: item)
-            Logger.player.info("[TRANSITION] replaceCurrentItem — CoreAudio pipeline preserved")
-        } else {
-            let newPlayer = AVPlayer(playerItem: item)
-            player = newPlayer
-            setupPeriodicTimeObserver(for: newPlayer)
-            #if os(iOS)
-            setupTimeControlStatusObserver(for: newPlayer)
-            #endif
-            Logger.player.info("[TRANSITION] new AVPlayer created")
-        }
+        let newPlayer = AVPlayer(playerItem: item)
+        player = newPlayer
 
         setupEndOfTrackObserver(for: item)
+        setupPeriodicTimeObserver(for: newPlayer)
         setupDurationObserver(for: item)
         startAssetDurationLoad(for: item, songId: song.id)
 
-        player?.play()
-        Logger.player.info("[TRANSITION] playback started for '\(song.title, privacy: .public)'")
+        newPlayer.play()
+        Logger.player.info("[TRANSITION] new player started for '\(song.title, privacy: .public)' — awaiting timeControlStatus=.playing confirmation")
         #if os(iOS)
         isPlayingIntent = true
+        setupTimeControlStatusObserver(for: newPlayer)
         #endif
 
         let duration = song.duration
