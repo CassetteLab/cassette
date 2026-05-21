@@ -261,6 +261,9 @@ private struct AboutSettingsTab: View {
                 Link(destination: URL(string: "https://github.com/MathieuDubart/cassette")!) {
                     Label("GitHub Repository", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
+                Link(destination: URL(string: "mailto:support@getcassette.app?subject=Feedback%20%2F%20Bug%20Report")!) {
+                    Label("Send Feedback / Report a Bug", systemImage: "envelope")
+                }
             }
             Section("Third-party") {
                 LabeledContent("SwiftSonic") {
