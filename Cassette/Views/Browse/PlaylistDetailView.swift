@@ -90,6 +90,13 @@ struct PlaylistDetailView: View {
     private var heroIconColor: Color {
         colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
+    private var systemBackgroundColor: Color {
+        #if canImport(UIKit)
+        Color(UIColor.systemBackground)
+        #else
+        Color(NSColor.windowBackgroundColor)
+        #endif
+    }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
@@ -175,10 +182,10 @@ struct PlaylistDetailView: View {
             LinearGradient(
                 colors: [
                     dominantColor == .clear
-                        ? Color(.systemBackground)
+                        ? systemBackgroundColor
                         : dominantColor.opacity(0.9),
                     dominantColor == .clear
-                        ? Color(.systemBackground)
+                        ? systemBackgroundColor
                         : dominantColor.opacity(0.7)
                 ],
                 startPoint: .top,

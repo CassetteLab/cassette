@@ -102,6 +102,13 @@ struct AlbumDetailView: View {
     private var heroIconColor: Color {
         colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
+    private var systemBackgroundColor: Color {
+        #if canImport(UIKit)
+        Color(UIColor.systemBackground)
+        #else
+        Color(NSColor.windowBackgroundColor)
+        #endif
+    }
 
     // MARK: - Song filtering
 
@@ -200,10 +207,10 @@ struct AlbumDetailView: View {
             LinearGradient(
                 colors: [
                     dominantColor == .clear
-                        ? Color(.systemBackground)
+                        ? systemBackgroundColor
                         : dominantColor.opacity(0.9),
                     dominantColor == .clear
-                        ? Color(.systemBackground)
+                        ? systemBackgroundColor
                         : dominantColor.opacity(0.7)
                 ],
                 startPoint: .top,
