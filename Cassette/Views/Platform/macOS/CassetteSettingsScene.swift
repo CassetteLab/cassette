@@ -270,6 +270,9 @@ private struct AboutSettingsTab: View {
                     Text("MIT License")
                         .foregroundStyle(.secondary)
                 }
+                LabeledContent("AudioStreaming") {
+                    Link("dimitris-c", destination: URL(string: "https://github.com/dimitris-c/AudioStreaming")!)
+                }
             }
         }
         .formStyle(.grouped)

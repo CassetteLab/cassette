@@ -170,6 +170,8 @@ Cassette is licensed under [MPL-2.0](LICENSE).
 
 The underlying [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic) library is MIT-licensed, which is compatible with MPL-2.0.
 
+[AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. — MIT License.
+
 > Code prior to commit 21f9227 was licensed under GPL-3.0-or-later.
 
 ---
