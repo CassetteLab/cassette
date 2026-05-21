@@ -45,6 +45,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var timeControlStatusObserver: NSKeyValueObservation?
     private var stallRecoveryTask: Task<Void, Never>?
     #endif
+    private var isHandlingEndOfTrack = false
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -63,11 +64,6 @@ actor PlayerService: PlayerServiceProtocol {
     private var trackStartDate: Date?
     /// Set to true by handleEndOfTrack before a natural completion transition; reset after recording.
     private var wasTrackCompletedNaturally: Bool = false
-    /// Applied to AVPlayer's reported currentTime after a timeOffset seek so the UI position
-    /// reflects the requested start second, not 0. nonisolated(unsafe) so it is readable
-    /// from the periodic time observer's synchronous MainActor.assumeIsolated block and
-    /// from the synchronous teardownCurrentItem().
-    private nonisolated(unsafe) var currentTimeOffset: TimeInterval = 0
 
     init(
         state: PlayerState,
@@ -234,7 +230,17 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
-        let item = makePlayerItem(source: source, expectedDuration: song.duration)
+        #if DEBUG
+        if case .stream(let streamURL, let customHeaders) = source {
+            var curlCmd = "curl -I \"\(streamURL.absoluteString)\""
+            for (key, value) in customHeaders.sorted(by: { $0.key < $1.key }) {
+                curlCmd += " \\\n  -H \"\(key): \(value)\""
+            }
+            print("[DEBUG-CURL] \(curlCmd)")
+        }
+        #endif
+
+        let item = await makePlayerItem(source: source, expectedDuration: song.duration)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
 
@@ -333,7 +339,7 @@ actor PlayerService: PlayerServiceProtocol {
             state.duration = 0
         }
 
-        let item = makePlayerItem(source: source)
+        let item = await makePlayerItem(source: source)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
 
@@ -622,49 +628,12 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Seek
 
     func seek(to position: TimeInterval) async {
-        let currentItem = player?.currentItem
-        let (isLiveStream, currentTrack, assetURL): (Bool, DisplayableSong?, URL?) = await MainActor.run {
-            let url = (currentItem?.asset as? AVURLAsset)?.url
-            return (state.isLiveStream, state.currentTrack, url)
-        }
-        guard !isLiveStream else {
+        guard await MainActor.run(body: { !state.isLiveStream }) else {
             Logger.player.debug("seek ignored — live stream mode")
             return
         }
-
-        let isStream = currentTrack != nil && (assetURL.map { !$0.isFileURL } ?? false)
-
-        if isStream, let track = currentTrack {
-            guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }),
-                  let source = try? await mediaResolver.resolve(songId: track.id, serverId: serverId),
-                  var components = URLComponents(url: source.url, resolvingAgainstBaseURL: false)
-            else { return }
-            var queryItems = components.queryItems ?? []
-            queryItems.append(URLQueryItem(name: "timeOffset", value: String(Int(position))))
-            components.queryItems = queryItems
-            guard let seekURL = components.url else { return }
-            let asset = AVURLAsset(url: seekURL,
-                options: ["AVURLAssetHTTPHeaderFields": source.customHeaders])
-            let item = AVPlayerItem(asset: asset)
-            if track.duration > 0 {
-                item.forwardPlaybackEndTime = CMTime(seconds: track.duration, preferredTimescale: 1000)
-            }
-            #if os(iOS)
-            isTransitioningTrack = true
-            #endif
-            player?.replaceCurrentItem(with: item)
-            setupEndOfTrackObserver(for: item)
-            setupDurationObserver(for: item)
-            currentTimeOffset = position
-            player?.play()
-        } else {
-            let duration = await MainActor.run { state.duration }
-            let ratio = position / max(1, duration)
-            Logger.player.debug("[SEEK] requested=\(position, privacy: .public)s duration=\(duration, privacy: .public)s ratio=\(ratio, privacy: .public)")
-            let time = CMTime(seconds: position, preferredTimescale: 1000)
-            await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
-        }
-
+        let time = CMTime(seconds: position, preferredTimescale: 1000)
+        await player?.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
     }
@@ -919,7 +888,7 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
-        let item = makePlayerItem(source: source, expectedDuration: track.duration)
+        let item = await makePlayerItem(source: source, expectedDuration: track.duration)
         let newPlayer = AVPlayer(playerItem: item)
         player = newPlayer
 
@@ -1037,6 +1006,18 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - End of track
 
     private func handleEndOfTrack() async {
+        #if os(iOS)
+        guard !isTransitioningTrack else {
+            Logger.player.warning("[END-OF-TRACK] fired during transition — skipping")
+            return
+        }
+        #endif
+        guard !isHandlingEndOfTrack else {
+            Logger.player.warning("[END-OF-TRACK] already handling — skipping duplicate")
+            return
+        }
+        isHandlingEndOfTrack = true
+        defer { isHandlingEndOfTrack = false }
         let repeatMode = await MainActor.run { state.repeatMode }
         if repeatMode == .one {
             // Record this completed listen, then restart the same track.
@@ -1099,7 +1080,7 @@ actor PlayerService: PlayerServiceProtocol {
 
         // Swap in new item without destroying the player or its time observer
         teardownCurrentItem()
-        let newItem = makePlayerItem(source: source, expectedDuration: firstTrack.duration)
+        let newItem = await makePlayerItem(source: source, expectedDuration: firstTrack.duration)
         player?.replaceCurrentItem(with: newItem)
 
         setupEndOfTrackObserver(for: newItem)
@@ -1130,10 +1111,30 @@ actor PlayerService: PlayerServiceProtocol {
     /// Private AVFoundation key (iOS 10+, stable in practice). No public Swift constant exists.
     /// Monitor AVFoundation release notes.
     /// Fallback if removed: AVAssetResourceLoaderDelegate (planned v1.x).
-    private func makePlayerItem(source: MediaSource, expectedDuration: TimeInterval? = nil) -> AVPlayerItem {
+    private func makePlayerItem(source: MediaSource, expectedDuration: TimeInterval? = nil) async -> AVPlayerItem {
         let headers = source.customHeaders
         let item: AVPlayerItem
-        if headers.isEmpty {
+        if case .stream(let url, _) = source {
+            // Preload asset properties before creating AVPlayerItem so AVFoundation resolves
+            // the real FLAC duration from STREAMINFO before playback starts. Without this,
+            // forwardPlaybackEndTime is set against an unresolved duration and tracks cut off early.
+            let asset: AVURLAsset
+            if headers.isEmpty {
+                asset = AVURLAsset(url: url)
+            } else {
+                asset = AVURLAsset(url: url, options: ["AVURLAssetHTTPHeaderFields": headers])
+            }
+            do {
+                async let duration = asset.load(.duration)
+                async let tracks = asset.load(.tracks)
+                async let isPlayable = asset.load(.isPlayable)
+                _ = try await (duration, tracks, isPlayable)
+                Logger.player.debug("[PRELOAD] Asset preloaded for stream — real duration resolved before playback")
+            } catch {
+                Logger.player.warning("[PRELOAD] Asset preload failed for stream, proceeding without: \(error, privacy: .public)")
+            }
+            item = AVPlayerItem(asset: asset)
+        } else if headers.isEmpty {
             item = AVPlayerItem(url: source.url)
         } else {
             let asset = AVURLAsset(url: source.url, options: ["AVURLAssetHTTPHeaderFields": headers])
@@ -1161,8 +1162,7 @@ actor PlayerService: PlayerServiceProtocol {
             let current = time.seconds
             MainActor.assumeIsolated {
                 let dur = self.state.duration
-                let adjusted = current + self.currentTimeOffset
-                self.state.position = dur > 0 ? min(adjusted, dur) : adjusted
+                self.state.position = dur > 0 ? min(current, dur) : current
             }
             Task { [weak self] in await self?.periodicNowPlayingPush(elapsed: current) }
         }
@@ -1257,7 +1257,7 @@ actor PlayerService: PlayerServiceProtocol {
         ) { [weak self] _ in
             guard let self else { return }
             Logger.player.info("[TRANSITION] AVPlayerItemDidPlayToEndTime fired → handleEndOfTrack")
-            Task { await self.handleEndOfTrack() }
+            Task { [weak self] in await self?.handleEndOfTrack() }
         }
         if let old = failedToEndObserver {
             NotificationCenter.default.removeObserver(old)
@@ -1293,7 +1293,6 @@ actor PlayerService: PlayerServiceProtocol {
         stallRecoveryTask?.cancel()
         stallRecoveryTask = nil
         #endif
-        currentTimeOffset = 0
     }
 
     private func teardownPlayer() {
