@@ -172,7 +172,8 @@ struct FullPlayerExpandedView: View {
 
     private func artworkSize(for geo: GeometryProxy, isWide: Bool) -> CGFloat {
         if isWide {
-            return max(200, min(300, geo.size.height - 240))
+            let available = geo.size.height - 80
+            return max(160, min(300, available - 244))
         } else {
             return max(100, min(260, geo.size.height * 0.55 - 220))
         }
