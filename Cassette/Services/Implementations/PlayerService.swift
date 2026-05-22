@@ -51,6 +51,10 @@ actor PlayerService: PlayerServiceProtocol {
     /// deferred seek+pause is confirmed applied. Blocks handleEndOfTrack() during that window
     /// to prevent a spurious eof from the old stream triggering an unwanted skip.
     private var isRestoringSession = false
+    /// Set after the first .playing fires and seek() is dispatched while playing.
+    /// A 150 ms Task reads this flag to pause once processSeekTime() has completed.
+    /// Cleared by resume() if the user taps play before the deferred pause runs.
+    private var pendingPauseAfterSeek = false
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -563,6 +567,9 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func resume() async {
+        // User explicitly pressed play — cancel any pending restore auto-pause and lift eof guard.
+        pendingPauseAfterSeek = false
+        isRestoringSession = false
         #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
@@ -596,6 +603,7 @@ actor PlayerService: PlayerServiceProtocol {
         audioPlayer.stop()
         currentSource = nil
         pendingRestoreInfo = nil
+        pendingPauseAfterSeek = false
         isRestoringSession = false
         await MainActor.run {
             state.playbackState = .idle
@@ -852,8 +860,14 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     private func prepareCurrentTrackForRestoration(track: DisplayableSong, position: TimeInterval) async {
+        // Set the guard immediately — before any await — so handleNetworkRestored() cannot
+        // race in during mediaResolver.resolve() and trigger a second play() call that would
+        // consume pendingRestoreInfo before the deferred seek is applied.
+        isRestoringSession = true
+
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
             Logger.player.warning("Session restore: no active server, skipping player prep")
+            isRestoringSession = false
             return
         }
 
@@ -863,6 +877,7 @@ actor PlayerService: PlayerServiceProtocol {
         } catch {
             Logger.player.error("Session restore: failed to resolve media — \(error)")
             await MainActor.run { state.isPlaybackAvailable = false }
+            isRestoringSession = false
             return
         }
 
@@ -875,7 +890,6 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
-        isRestoringSession = true
         audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         await MainActor.run { state.isPlaybackAvailable = true }
@@ -909,6 +923,12 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func handleNetworkRestored() async {
+        // Don't race with an in-progress session restore; prepareCurrentTrackForRestoration
+        // sets isRestoringSession before its first await so this check is reliable.
+        guard !isRestoringSession else {
+            Logger.player.info("Network restored — session restore already in progress, skipping re-prepare")
+            return
+        }
         let (isAvailable, track, position) = await MainActor.run {
             (state.isPlaybackAvailable, state.currentTrack, state.position)
         }
@@ -1100,25 +1120,38 @@ actor PlayerService: PlayerServiceProtocol {
     func handleAudioStateChanged(_ newState: AudioPlayerState) async {
         switch newState {
         case .playing:
-            // Apply a pending seek + optional pause (session restore or end-of-queue rewind).
             if let info = pendingRestoreInfo {
+                // Seek while the engine is running so processSource() is not a no-op
+                // (AudioStreaming guards processSource with internalState != .paused).
                 pendingRestoreInfo = nil
                 audioPlayer.seek(to: info.seekTime)
                 if info.pause {
-                    audioPlayer.pause()
-                    await MainActor.run { state.playbackState = .paused }
-                    stopProgressTimer()
+                    pendingPauseAfterSeek = true
+                    // processSeekTime() runs async on sourceQueue. Give it 150 ms to complete
+                    // (clears the render buffer, reopens HTTP at the correct byte offset)
+                    // before pausing. Checking the flag in the Task lets a user-initiated
+                    // play cancel the deferred pause if they tap play during that window.
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(150))
+                        guard self.pendingPauseAfterSeek else { return }
+                        self.pendingPauseAfterSeek = false
+                        self.audioPlayer.pause()
+                        await MainActor.run { self.state.playbackState = .paused }
+                        self.stopProgressTimer()
+                        self.isRestoringSession = false
+                        Logger.player.info("[RESTORE] seek landed — paused at \(self.audioPlayer.progress, format: .fixed(precision: 1))s")
+                    }
+                } else {
+                    isRestoringSession = false
                 }
-                // Seek issued; player is paused — eof cannot fire. Lift the restore guard.
+            } else if pendingPauseAfterSeek {
+                // User resumed before the 150 ms task fired (engine was never paused).
+                // pendingPauseAfterSeek already cleared by resume() — defensive fallback.
+                pendingPauseAfterSeek = false
                 isRestoringSession = false
             } else if isRestoringSession {
-                // Seek already applied; this .playing fires after the user resumes.
-                // Confirm position > 0 to verify the seek actually landed before clearing.
                 let pos = audioPlayer.progress
-                if pos > 0 {
-                    isRestoringSession = false
-                    Logger.player.info("[RESTORE] seek confirmed at pos=\(pos, format: .fixed(precision: 1))s — end-of-track guard lifted")
-                }
+                if pos > 0 { isRestoringSession = false }
             }
         case .error:
             Logger.player.error("[PLAYER] AudioStreaming entered error state")
