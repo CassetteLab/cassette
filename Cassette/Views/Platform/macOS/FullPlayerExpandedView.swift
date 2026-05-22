@@ -94,6 +94,10 @@ struct FullPlayerExpandedView: View {
         .onChange(of: selectedPanel) { _, newPanel in
             UserDefaults.standard.set(newPanel == .lyrics, forKey: "cassette.fullPlayerLastPanel")
         }
+        .onAppear {
+            let remembered = UserDefaults.standard.bool(forKey: "cassette.fullPlayerLastPanel")
+            selectedPanel = remembered ? .lyrics : .queue
+        }
         .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {
