@@ -5,6 +5,34 @@
 
 import Foundation
 
+// MARK: - Player navigation helpers
+
+func postNavigateToAlbum(track: DisplayableSong) {
+    guard let albumId = track.albumId else { return }
+    NotificationCenter.default.post(
+        name: .cassetteNavigateToAlbum,
+        object: nil,
+        userInfo: [
+            "albumId":   albumId,
+            "albumName": track.albumName ?? "",
+            "coverArtId": track.coverArtId as Any
+        ]
+    )
+}
+
+func postNavigateToArtist(track: DisplayableSong) {
+    guard let artistId = track.artistId else { return }
+    NotificationCenter.default.post(
+        name: .cassetteNavigateToArtist,
+        object: nil,
+        userInfo: [
+            "artistId":   artistId,
+            "artistName": track.artist ?? "",
+            "coverArtId": track.coverArtId as Any
+        ]
+    )
+}
+
 extension Notification.Name {
     static let cassetteTogglePlayPause = Notification.Name("cassette.togglePlayPause")
     static let cassetteSkipNext = Notification.Name("cassette.skipNext")
@@ -16,4 +44,6 @@ extension Notification.Name {
     static let cassetteOpenFullPlayer = Notification.Name("cassette.openFullPlayer")
     static let cassetteOpenFullPlayerLyrics = Notification.Name("cassette.openFullPlayerLyrics")
     static let cassetteSelectAlbums = Notification.Name("cassette.selectAlbums")
+    static let cassetteNavigateToAlbum  = Notification.Name("cassetteNavigateToAlbum")
+    static let cassetteNavigateToArtist = Notification.Name("cassetteNavigateToArtist")
 }

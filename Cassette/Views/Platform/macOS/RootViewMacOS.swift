@@ -15,6 +15,7 @@ struct RootViewMacOS: View {
     @State private var searchQuery: String = ""
     @State private var isShowingFullPlayer = false
     @State private var columnVisibility = NavigationSplitViewVisibility.all
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
         ZStack {
@@ -89,6 +90,22 @@ struct RootViewMacOS: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteSelectAlbums)) { _ in
             selection = .section(.albums)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToAlbum)) { note in
+            guard let id   = note.userInfo?["albumId"]   as? String,
+                  let name = note.userInfo?["albumName"]  as? String else { return }
+            let coverArtId = note.userInfo?["coverArtId"] as? String
+            withAnimation { isShowingFullPlayer = false }
+            selection = .section(.home)
+            navigationPath.append(HomeDestination.albumById(id: id, name: name, subtitle: "", coverArtId: coverArtId))
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToArtist)) { note in
+            guard let id   = note.userInfo?["artistId"]   as? String,
+                  let name = note.userInfo?["artistName"]  as? String else { return }
+            let coverArtId = note.userInfo?["coverArtId"] as? String
+            withAnimation { isShowingFullPlayer = false }
+            selection = .section(.home)
+            navigationPath.append(HomeDestination.artistById(id: id, name: name, coverArtId: coverArtId))
         }
     }
 
@@ -210,7 +227,7 @@ struct RootViewMacOS: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             Group {
                 if !searchQuery.isEmpty {
                     SearchView(searchQuery: $searchQuery)
@@ -236,6 +253,8 @@ struct RootViewMacOS: View {
                     AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
                 case .offlineArtist(let artist):
                     OfflineArtistAlbumsView(artist: artist)
+                case .artistById(let id, let name, let coverArtId):
+                    ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
                 default:
                     EmptyView()
                 }

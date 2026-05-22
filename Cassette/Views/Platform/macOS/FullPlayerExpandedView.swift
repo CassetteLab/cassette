@@ -407,8 +407,14 @@ struct FullPlayerExpandedView: View {
 
     private var trackOptionsMenu: some View {
         Menu {
-            Button("Go to Album") { }
-            Button("Go to Artist") { }
+            Button("Go to Album") {
+                if let t = currentTrack { postNavigateToAlbum(track: t) }
+            }
+            .disabled(currentTrack?.albumId == nil)
+            Button("Go to Artist") {
+                if let t = currentTrack { postNavigateToArtist(track: t) }
+            }
+            .disabled(currentTrack?.artistId == nil)
             Divider()
             Button("Add to Playlist…") { showAddToPlaylist = true }
                 .disabled(!isOnline)

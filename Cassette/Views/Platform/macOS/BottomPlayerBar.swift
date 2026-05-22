@@ -199,11 +199,13 @@ struct BottomPlayerBar: View {
     private var ellipsisMenu: some View {
         Menu {
             Button("Go to Album") {
-                // TODO(v1.9): wire navigation from mini player
+                if let t = currentTrack { postNavigateToAlbum(track: t) }
             }
+            .disabled(currentTrack?.albumId == nil)
             Button("Go to Artist") {
-                // TODO(v1.9): wire navigation from mini player
+                if let t = currentTrack { postNavigateToArtist(track: t) }
             }
+            .disabled(currentTrack?.artistId == nil)
             Divider()
             Button("Add to Playlist…") {
                 showAddToPlaylist = true
