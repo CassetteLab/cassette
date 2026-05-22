@@ -351,9 +351,10 @@ actor StatsService {
     }
 
     private func buildFirstLast(from events: [PlaybackEvent]) -> (first: TopTrackEntry?, last: TopTrackEntry?) {
-        guard !events.isEmpty else { return (nil, nil) }
-        let earliest = events.min(by: { $0.timestamp < $1.timestamp })!
-        let latest = events.max(by: { $0.timestamp < $1.timestamp })!
+        guard !events.isEmpty,
+              let earliest = events.min(by: { $0.timestamp < $1.timestamp }),
+              let latest = events.max(by: { $0.timestamp < $1.timestamp })
+        else { return (nil, nil) }
         let first = TopTrackEntry(
             rank: 0, trackId: earliest.trackId, title: earliest.trackTitle,
             artistName: earliest.artistName, albumTitle: earliest.albumTitle,
