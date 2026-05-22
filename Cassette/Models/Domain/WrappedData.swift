@@ -21,8 +21,10 @@ nonisolated enum WrappedPeriod: Sendable, Hashable, Codable {
             startComponents.hour = 0
             startComponents.minute = 0
             startComponents.second = 0
-            let start = calendar.date(from: startComponents)!
-            let end = calendar.date(byAdding: .month, value: 1, to: start)!
+            guard let start = calendar.date(from: startComponents),
+                  let end = calendar.date(byAdding: .month, value: 1, to: start) else {
+                return (Date(), Date())
+            }
             return (start, end)
         case let .year(year):
             var startComponents = DateComponents()
@@ -32,8 +34,10 @@ nonisolated enum WrappedPeriod: Sendable, Hashable, Codable {
             startComponents.hour = 0
             startComponents.minute = 0
             startComponents.second = 0
-            let start = calendar.date(from: startComponents)!
-            let end = calendar.date(byAdding: .year, value: 1, to: start)!
+            guard let start = calendar.date(from: startComponents),
+                  let end = calendar.date(byAdding: .year, value: 1, to: start) else {
+                return (Date(), Date())
+            }
             return (start, end)
         }
     }
@@ -62,14 +66,15 @@ nonisolated enum WrappedPeriod: Sendable, Hashable, Codable {
 
     static func previousMonth(calendar: Calendar = .current) -> WrappedPeriod {
         let now = Date()
-        let startOfCurrentMonth = calendar.date(
+        guard let startOfCurrentMonth = calendar.date(
             from: DateComponents(
                 year: calendar.component(.year, from: now),
                 month: calendar.component(.month, from: now),
                 day: 1
             )
-        )!
-        let startOfPrevMonth = calendar.date(byAdding: .month, value: -1, to: startOfCurrentMonth)!
+        ), let startOfPrevMonth = calendar.date(byAdding: .month, value: -1, to: startOfCurrentMonth) else {
+            return currentMonth(calendar: calendar)
+        }
         let year = calendar.component(.year, from: startOfPrevMonth)
         let month = calendar.component(.month, from: startOfPrevMonth)
         return .month(year: year, month: month)
