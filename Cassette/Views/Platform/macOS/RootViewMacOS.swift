@@ -43,7 +43,7 @@ struct RootViewMacOS: View {
                     }
                     .overlay(alignment: .bottom) {
                         BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
-                            .frame(maxWidth: 600)
+                            .frame(maxWidth: 800)
                             .padding(.horizontal, 24)
                             .padding(.bottom, 16)
                     }
@@ -82,6 +82,9 @@ struct RootViewMacOS: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayer)) { _ in
+            withAnimation { isShowingFullPlayer = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
             withAnimation { isShowingFullPlayer = true }
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteSelectAlbums)) { _ in

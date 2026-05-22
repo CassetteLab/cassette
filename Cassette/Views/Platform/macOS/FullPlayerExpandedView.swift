@@ -86,6 +86,9 @@ struct FullPlayerExpandedView: View {
             lyricsViewModel = newVM
             await newVM.load()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
+            selectedPanel = .lyrics
+        }
         .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {

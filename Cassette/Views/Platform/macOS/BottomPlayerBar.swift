@@ -389,12 +389,15 @@ struct BottomPlayerBar: View {
 
     private var secondaryIconsGroup: some View {
         HStack(spacing: 12) {
-            Button { } label: {
+            Button {
+                NotificationCenter.default.post(name: .cassetteOpenFullPlayerLyrics, object: nil)
+            } label: {
                 Image(systemName: "quote.bubble")
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.8))
             }
             .buttonStyle(.plain)
+            .disabled(noTrack)
 
             Button {
                 showQueue.toggle()
