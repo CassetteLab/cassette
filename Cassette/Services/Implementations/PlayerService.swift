@@ -54,6 +54,9 @@ actor PlayerService: PlayerServiceProtocol {
     /// Stored handle for the 150 ms deferred-pause task during session restore.
     /// Cancelled by resume() if the user taps play before the pause fires.
     private var restorePauseTask: Task<Void, Never>?
+    /// True while the player is muted for the restore seek window (150 ms).
+    /// Ensures volume is restored whether the pause fires or the user taps play first.
+    private var isMutedForRestore = false
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -570,6 +573,11 @@ actor PlayerService: PlayerServiceProtocol {
         // User explicitly pressed play — cancel any pending restore auto-pause and lift eof guard.
         restorePauseTask?.cancel()
         restorePauseTask = nil
+        if isMutedForRestore {
+            let vol = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
+            audioPlayer.volume = vol
+            isMutedForRestore = false
+        }
         isRestoringSession = false
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -603,6 +611,11 @@ actor PlayerService: PlayerServiceProtocol {
         stopPositionSaveTimer()
         restorePauseTask?.cancel()
         restorePauseTask = nil
+        if isMutedForRestore {
+            let vol = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
+            audioPlayer.volume = vol
+            isMutedForRestore = false
+        }
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         audioPlayer.stop()
@@ -866,8 +879,6 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         await prepareCurrentTrackForRestoration(track: track, position: data.currentPosition)
-        let savedVolume = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
-        if savedVolume > 0 { audioPlayer.volume = savedVolume }
         Logger.player.info("Session restored: \(data.queue.count) tracks, index \(data.currentIndex), pos=\(data.currentPosition, format: .fixed(precision: 1))s")
     }
 
@@ -902,6 +913,11 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
+        // Mute before play to prevent audible audio during the seek window.
+        // Volume is restored in the 150 ms pause task, or in resume() if the
+        // user taps play before the task fires.
+        isMutedForRestore = true
+        audioPlayer.volume = 0
         audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         await MainActor.run { state.isPlaybackAvailable = true }
@@ -1157,6 +1173,9 @@ actor PlayerService: PlayerServiceProtocol {
                 guard !Task.isCancelled else { return }
                 self.restorePauseTask = nil
                 self.audioPlayer.pause()
+                let vol = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
+                self.audioPlayer.volume = vol
+                self.isMutedForRestore = false
                 await MainActor.run { self.state.playbackState = .paused }
                 self.stopProgressTimer()
                 self.isRestoringSession = false
