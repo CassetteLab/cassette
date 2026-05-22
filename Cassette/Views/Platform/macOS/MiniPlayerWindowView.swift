@@ -12,6 +12,7 @@ struct MiniPlayerWindowView: View {
     @Environment(\.appContainer) private var container
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
+    @State private var artworkIsHovered = false
 
     private var playerState: PlayerState? { container?.playerState }
     private var currentTrack: DisplayableSong? { playerState?.currentTrack }
@@ -24,10 +25,10 @@ struct MiniPlayerWindowView: View {
             MiniPlayerWindowConfigurator()
                 .frame(width: 0, height: 0)
 
-            VStack(spacing: 6) {
-                HStack(spacing: 10) {
-                    artwork
-
+            
+            HStack(spacing: 10) {
+                artwork
+                VStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(currentTrack?.title ?? "No track playing")
                             .font(.system(size: 12, weight: .semibold))
@@ -37,20 +38,24 @@ struct MiniPlayerWindowView: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                        
+                        scrubber
                     }
-
-                    Spacer(minLength: 0)
-
-                    controls
                 }
+                
 
-                scrubber
+                Spacer(minLength: 0)
+
+                controls
             }
-            .padding(.top, 20)
+
+                
+
+            .padding(.top, 4)
             .padding(.horizontal, 14)
-            .padding(.bottom, 12)
+            .padding(.bottom, 4)
         }
-        .frame(width: 320, height: 136)
+        .frame(width: 320, height: 78)
         .background {
             if #available(macOS 26.0, *) {
                 RoundedRectangle(cornerRadius: 28)
@@ -68,7 +73,7 @@ struct MiniPlayerWindowView: View {
     // MARK: - Subviews
 
     private var artwork: some View {
-        Group {
+        ZStack {
             if let track = currentTrack {
                 CoverArtView(id: track.coverArtId ?? track.id, size: 44)
                     .frame(width: 44, height: 44)
@@ -83,7 +88,17 @@ struct MiniPlayerWindowView: View {
                             .foregroundStyle(.secondary)
                     }
             }
+
+            if artworkIsHovered {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.black.opacity(0.45))
+                    .frame(width: 44, height: 44)
+                Image(systemName: "pip.exit")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
         }
+        .animation(.easeInOut(duration: 0.15), value: artworkIsHovered)
         .onTapGesture {
             NotificationCenter.default.post(name: .cassetteOpenFullPlayer, object: nil)
             Task { @MainActor in
@@ -92,6 +107,7 @@ struct MiniPlayerWindowView: View {
             }
         }
         .onHover { hovering in
+            artworkIsHovered = hovering
             if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
     }

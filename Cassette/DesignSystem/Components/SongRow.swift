@@ -10,12 +10,10 @@ import OSLog
 ///
 /// - `showCoverArt`: show a 44pt thumbnail (useful in playlist context where tracks
 ///   may come from different albums). Default `false` for album tracks.
-/// - `isCurrentTrack`: tints the title with `cassetteAccent`.
 struct SongRow: View {
     let song: DisplayableSong
     let index: Int
     var showCoverArt: Bool = false
-    var isCurrentTrack: Bool = false
     var isFavorite: Bool = false
     var titleColor: Color = .primary
     var secondaryColor: Color = .secondary
@@ -32,11 +30,10 @@ struct SongRow: View {
     @State private var isHovered = false
     #endif
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isCurrentTrack: Bool = false, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
-        self.isCurrentTrack = isCurrentTrack
         self.isFavorite = isFavorite
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
@@ -47,6 +44,8 @@ struct SongRow: View {
     }
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
+    private var isCurrentTrack: Bool { container?.playerState.currentTrack?.id == song.id }
+    private var isPlaying: Bool { container?.playerState.playbackState == .playing }
 
     var body: some View {
         HStack(spacing: CassetteSpacing.s) {
@@ -62,20 +61,24 @@ struct SongRow: View {
                     }
             } else {
                 ZStack {
-                    Text("\(song.trackNumber ?? index)")
-                        #if os(macOS)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                        #else
-                        .font(.cassetteCaption)
-                        .foregroundStyle(secondaryColor.opacity(0.6))
-                        #endif
-                        .opacity(isFavorite ? 0 : 1)
-                    if isFavorite {
-                        Image(systemName: "heart.fill")
-                            .font(.caption2)
-                            .foregroundStyle(Color.cassetteAccent)
-                            .accessibilityLabel("Favorite")
+                    if isCurrentTrack {
+                        NowPlayingBarsIndicator(isPlaying: isPlaying)
+                    } else {
+                        Text("\(song.trackNumber ?? index)")
+                            #if os(macOS)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                            #else
+                            .font(.cassetteCaption)
+                            .foregroundStyle(secondaryColor.opacity(0.6))
+                            #endif
+                            .opacity(isFavorite ? 0 : 1)
+                        if isFavorite {
+                            Image(systemName: "heart.fill")
+                                .font(.caption2)
+                                .foregroundStyle(Color.cassetteAccent)
+                                .accessibilityLabel("Favorite")
+                        }
                     }
                 }
                 .frame(width: 28, alignment: .trailing)

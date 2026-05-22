@@ -177,6 +177,7 @@ private struct QueueRow: View {
     @State private var showAddToPlaylist = false
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
+    private var isPlaying: Bool { container?.playerState.playbackState == .playing }
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
@@ -200,10 +201,7 @@ private struct QueueRow: View {
             Spacer(minLength: 0)
 
             if isCurrent {
-                Image(systemName: "waveform")
-                    .font(.caption)
-                    .foregroundStyle(Color.cassetteAccent)
-                    .symbolEffect(.variableColor.iterative.reversing)
+                NowPlayingBarsIndicator(isPlaying: isPlaying)
             }
         }
         .padding(.vertical, CassetteSpacing.xs)

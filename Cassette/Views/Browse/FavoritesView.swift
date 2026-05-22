@@ -63,6 +63,37 @@ struct FavoritesView: View {
     private func songsSection(_ songs: [DisplayableSong]) -> some View {
         if !songs.isEmpty {
             Section("Songs") {
+                HStack(spacing: 12) {
+                    Button {
+                        Task {
+                            try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                        }
+                    } label: {
+                        Label("Play", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Color.cassetteAccent)
+
+                    Button {
+                        Task {
+                            let idx = Int.random(in: 0..<songs.count)
+                            try? await container?.playerService.play(tracks: songs, startIndex: idx)
+                            if container?.playerState.isShuffled != true {
+                                await container?.playerService.toggleShuffle()
+                            }
+                        }
+                    } label: {
+                        Label("Shuffle", systemImage: "shuffle")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Color.cassetteAccent)
+                }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .padding(.vertical, 4)
+
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                     SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: true)
                         .contentShape(Rectangle())

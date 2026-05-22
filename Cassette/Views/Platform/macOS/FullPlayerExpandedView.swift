@@ -712,6 +712,10 @@ private struct ExpandedQueueRow: View {
     let track: DisplayableSong
     let isCurrent: Bool
 
+    @Environment(\.appContainer) private var container
+
+    private var isPlaying: Bool { container?.playerState.playbackState == .playing }
+
     var body: some View {
         HStack(spacing: 10) {
             CoverArtView(id: track.coverArtId ?? track.id, size: 36)
@@ -735,9 +739,7 @@ private struct ExpandedQueueRow: View {
             Spacer()
 
             if isCurrent {
-                Image(systemName: "speaker.wave.2.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white)
+                NowPlayingBarsIndicator(isPlaying: isPlaying)
             }
         }
         .padding(.vertical, 2)
