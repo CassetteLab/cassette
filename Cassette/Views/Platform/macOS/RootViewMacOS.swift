@@ -281,7 +281,7 @@ struct RootViewMacOS: View {
         case .home:          HomeView()
         case .radio:         RadioListView()
         case .freshReleases: FreshReleasesSidebarView()
-        case .wrapped:       WrappedYearlyListView()
+        case .wrapped:       WrappedView()
         case .albums:    AlbumsListView()
         case .artists:   ArtistsListMacOS()
         case .playlists: PlaylistListView()
