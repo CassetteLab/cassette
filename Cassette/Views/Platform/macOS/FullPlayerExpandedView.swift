@@ -288,7 +288,7 @@ struct FullPlayerExpandedView: View {
 
     private func playerColumn(artworkSize: CGFloat = 300, maxWidth: CGFloat = 380) -> some View {
         VStack(spacing: 0) {
-            Spacer().frame(maxHeight: 24)
+            Spacer()
 
             artworkView(size: artworkSize)
                 .padding(.bottom, 28)
