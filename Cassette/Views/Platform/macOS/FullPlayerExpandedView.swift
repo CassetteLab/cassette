@@ -26,6 +26,7 @@ struct FullPlayerExpandedView: View {
     @State private var lyricsViewModel: LyricsViewModel?
     @State private var isMuted = false
     @State private var volumeBeforeMute: Double = 0.7
+    @State private var showVolumeSlider = false
     @State private var showAddToPlaylist = false
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
 
@@ -41,6 +42,13 @@ struct FullPlayerExpandedView: View {
 
     private var dominantColor: Color {
         colorExtractor.dominantColor(for: currentTrack?.coverArtId, image: artworkImage)
+    }
+
+    private var volumeIconName: String {
+        if localVolume == 0 || isMuted { return "speaker.slash.fill" }
+        if localVolume < 0.33 { return "speaker.fill" }
+        if localVolume < 0.66 { return "speaker.wave.1.fill" }
+        return "speaker.wave.2.fill"
     }
 
     var body: some View {
@@ -132,10 +140,34 @@ struct FullPlayerExpandedView: View {
             }
             .clipShape(Capsule())
 
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 AirPlayButton()
                     .frame(width: 20, height: 20)
-                muteButton
+
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showVolumeSlider.toggle()
+                    }
+                } label: {
+                    Image(systemName: volumeIconName)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+
+                if showVolumeSlider {
+                    Slider(value: Binding(
+                        get: { localVolume },
+                        set: { newVal in
+                            localVolume = newVal
+                            isMuted = newVal == 0
+                            Task { await container?.playerService.setVolume(Float(newVal)) }
+                        }
+                    ), in: 0...1)
+                    .frame(width: 80)
+                    .tint(.white)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
+                }
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 14)
@@ -150,7 +182,7 @@ struct FullPlayerExpandedView: View {
             .clipShape(Capsule())
         }
         .padding(.horizontal, 20)
-        .padding(.top, -16)
+        .padding(.top, -38)
     }
 
     private func wideLayout(_ geo: GeometryProxy) -> some View {
@@ -490,27 +522,6 @@ struct FullPlayerExpandedView: View {
             .buttonStyle(.plain)
             .disabled(noTrack)
         }
-    }
-
-    // MARK: - Mute Button
-
-    private var muteButton: some View {
-        Button {
-            if isMuted {
-                isMuted = false
-                let restore = volumeBeforeMute > 0 ? volumeBeforeMute : 1.0
-                Task { await container?.playerService.setVolume(Float(restore)) }
-            } else {
-                volumeBeforeMute = localVolume
-                isMuted = true
-                Task { await container?.playerService.setVolume(0.0) }
-            }
-        } label: {
-            Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                .font(.system(size: 12))
-                .foregroundStyle(.white)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Right Panel
