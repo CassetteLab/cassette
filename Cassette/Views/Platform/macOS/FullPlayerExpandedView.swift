@@ -157,7 +157,9 @@ struct FullPlayerExpandedView: View {
             ZStack(alignment: .top) {
                 playerColumn(artworkSize: artworkSize(for: geo, isWide: true))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(40)
+                    .padding(.top, 16)
+                    .padding(.horizontal, 40)
+                    .padding(.bottom, 40)
 
                 topOverlayButtons
             }
@@ -257,7 +259,7 @@ struct FullPlayerExpandedView: View {
 
     private func playerColumn(artworkSize: CGFloat = 300) -> some View {
         VStack(spacing: 0) {
-            Spacer()
+            Spacer().frame(maxHeight: 24)
 
             artworkView(size: artworkSize)
                 .padding(.bottom, 28)
