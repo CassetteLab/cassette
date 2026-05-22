@@ -594,6 +594,8 @@ struct FullPlayerExpandedView: View {
             }
             .font(.system(size: 14))
             .padding(16)
+
+            Color.clear.frame(height: 12)
         }
         .frame(minWidth: 0, maxWidth: .infinity)
         .clipped()
