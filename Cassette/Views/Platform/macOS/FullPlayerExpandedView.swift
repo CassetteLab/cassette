@@ -13,12 +13,6 @@ private enum RightPanel { case lyrics, queue }
 struct FullPlayerExpandedView: View {
     @Binding var isPresented: Bool
 
-    init(isPresented: Binding<Bool>) {
-        self._isPresented = isPresented
-        let remembered = UserDefaults.standard.bool(forKey: "cassette.fullPlayerLastPanel")
-        self._selectedPanel = State(initialValue: remembered ? .lyrics : .queue)
-    }
-
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(ArtworkImageCache.self) private var artworkCache
@@ -28,7 +22,9 @@ struct FullPlayerExpandedView: View {
     @State private var localScrubPosition: Double = 0
     @State private var artworkImage: PlatformImage? = nil
     @State private var isFavorite = false
-    @State private var selectedPanel: RightPanel = .queue
+    @State private var selectedPanel: RightPanel = {
+        UserDefaults.standard.bool(forKey: "cassette.fullPlayerLastPanel") ? .lyrics : .queue
+    }()
     @State private var lyricsViewModel: LyricsViewModel?
     @State private var isMuted = false
     @State private var volumeBeforeMute: Double = 0.7

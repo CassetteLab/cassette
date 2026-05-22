@@ -390,6 +390,7 @@ struct BottomPlayerBar: View {
     private var secondaryIconsGroup: some View {
         HStack(spacing: 12) {
             Button {
+                UserDefaults.standard.set(true, forKey: "cassette.fullPlayerLastPanel")
                 NotificationCenter.default.post(name: .cassetteOpenFullPlayerLyrics, object: nil)
             } label: {
                 Image(systemName: "quote.bubble")
