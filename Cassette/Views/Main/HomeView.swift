@@ -123,7 +123,6 @@ struct HomeView: View {
             .padding(.top, CassetteSpacing.m)
             .padding(.bottom, CassetteSpacing.xl)
         }
-        .cassetteContentWidth()
         .navigationTitle("Home")
         .toolbar {
             #if !os(macOS)
