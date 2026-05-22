@@ -62,9 +62,6 @@ struct MiniPlayerWindowView: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 28))
-        .overlay(alignment: .topLeading) {
-            closeButton
-        }
         .environment(\.colorScheme, .dark)
     }
 
@@ -86,6 +83,16 @@ struct MiniPlayerWindowView: View {
                             .foregroundStyle(.secondary)
                     }
             }
+        }
+        .onTapGesture {
+            NotificationCenter.default.post(name: .cassetteOpenFullPlayer, object: nil)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(100))
+                dismissWindow(id: "mini-player")
+            }
+        }
+        .onHover { hovering in
+            if hovering { NSCursor.pointingHand.push() } else { NSCursor.pop() }
         }
     }
 
@@ -164,23 +171,6 @@ struct MiniPlayerWindowView: View {
         )
         .disabled(noTrack)
         .accessibilityHidden(true)
-    }
-
-    private var closeButton: some View {
-        Button {
-            NotificationCenter.default.post(name: .cassetteOpenFullPlayer, object: nil)
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(100))
-                dismissWindow(id: "mini-player")
-            }
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 13, weight: .semibold))
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .padding(14)
     }
 
     // MARK: - Helpers
