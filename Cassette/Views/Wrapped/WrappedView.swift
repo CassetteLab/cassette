@@ -86,7 +86,6 @@ struct WrappedView: View {
             .padding(.bottom, CassetteSpacing.xl)
         }
         .refreshable { await loadData() }
-        .cassetteContentWidth()
         .navigationTitle("")
         .task(id: selectedPeriod) {
             await loadData()
