@@ -53,7 +53,10 @@ enum DownloadedAlbumMerger {
         }
 
         // Partial albums: groups of tracks whose albumId has no matching record.
-        let groupedTracks = Dictionary(grouping: tracks.filter { $0.albumId != nil }, by: { $0.albumId! })
+        let groupedTracks: [String: [DownloadedTrack]] = tracks.reduce(into: [:]) { dict, track in
+            guard let id = track.albumId else { return }
+            dict[id, default: []].append(track)
+        }
         for (albumId, group) in groupedTracks where byAlbumId[albumId] == nil {
             guard let first = group.first else { continue }
             byAlbumId[albumId] = DownloadedAlbumDisplay(
