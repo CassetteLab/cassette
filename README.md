@@ -66,6 +66,13 @@ Licensed under MPL-2.0.
 
 ## Installation
 
+### Via homebrew
+
+```bash
+brew tap MathieuDubart/cassette
+brew install --cask cassette
+```
+
 ### Via the App Store
 
 Coming soon.
