@@ -384,6 +384,7 @@ struct BottomPlayerBar: View {
                     .font(.system(size: 12))
                     .foregroundStyle(showVolumeSlider ? Color.cassetteAccent : .primary.opacity(0.8))
                     .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 16, height: 16)
             }
             .buttonStyle(.plain)
         }
