@@ -12,13 +12,12 @@ actor FavoritesService: FavoritesServiceProtocol {
     private let libraryService: any LibraryServiceProtocol
     private nonisolated let serverState: ServerState
     nonisolated let modelContainer: ModelContainer
-    private nonisolated(unsafe) let backgroundContext: ModelContext
+    private lazy var backgroundContext: ModelContext = ModelContext(modelContainer)
 
     init(libraryService: any LibraryServiceProtocol, serverState: ServerState, modelContainer: ModelContainer) {
         self.libraryService = libraryService
         self.serverState = serverState
         self.modelContainer = modelContainer
-        self.backgroundContext = ModelContext(modelContainer)
     }
 
     // MARK: - Query
