@@ -54,8 +54,21 @@ enum CassetteMacOSLayout {
 // MARK: - View modifier: content width
 
 struct ContentWidthModifier: ViewModifier {
+    @ViewBuilder
     func body(content: Content) -> some View {
+        #if os(macOS)
         content
+            .containerRelativeFrame(.horizontal, alignment: .center) { total, _ in
+                switch total {
+                case ..<900:  return min(total, 560)
+                case ..<1200: return min(total, 680)
+                case ..<1600: return min(total, 800)
+                default:      return min(total, 960)
+                }
+            }
+        #else
+        content
+        #endif
     }
 }
 
