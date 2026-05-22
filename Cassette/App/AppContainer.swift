@@ -97,7 +97,9 @@ final class AppContainer {
         let playlist = PlaylistService(serverService: server, modelContainer: modelContainer, downloadService: download)
         playlistService = playlist
 
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            fatalError("Documents directory unavailable — cannot initialise AppContainer")
+        }
         let coversDir = docs.appendingPathComponent("app.cassette/coverarts", isDirectory: true)
         let widgetSync = WidgetSyncService(
             dominantColorExtractor: dominantColorExtractor,
