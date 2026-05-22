@@ -30,7 +30,11 @@ actor PlaybackSessionService {
             currentTrack: playerState.currentTrack,
             repeatMode: playerState.repeatMode
         )
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Logger.session.warning("PlaybackSessionService: save failed — \(error)")
+        }
         Logger.session.debug("Session saved: track='\(playerState.currentTrack?.title ?? "nil", privacy: .private)', pos=\(playerState.currentPosition, format: .fixed(precision: 1), privacy: .public)s, queue=\(playerState.queue.count, privacy: .public) tracks")
     }
 
@@ -39,7 +43,11 @@ actor PlaybackSessionService {
         guard let session = fetchSession() else { return }
         session.currentPosition = position
         session.lastUpdated = Date()
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Logger.session.warning("PlaybackSessionService: savePosition failed — \(error)")
+        }
     }
 
     /// Extracts and returns restoration data, keeping @Model objects on this actor's context.
@@ -67,7 +75,11 @@ actor PlaybackSessionService {
     func clear() {
         guard let session = fetchSession() else { return }
         modelContext.delete(session)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Logger.session.warning("PlaybackSessionService: clear save failed — \(error)")
+        }
         Logger.session.info("Session cleared")
     }
 
