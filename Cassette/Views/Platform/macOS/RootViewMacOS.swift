@@ -128,6 +128,7 @@ struct RootViewMacOS: View {
             Section {
                 sidebarRow(.home)
                 sidebarRow(.radio)
+                sidebarRow(.freshReleases)
             }
 
             Section("Library") {
@@ -276,8 +277,9 @@ struct RootViewMacOS: View {
     @ViewBuilder
     private func sectionView(for section: SidebarSection) -> some View {
         switch section {
-        case .home:      HomeView()
-        case .radio:     RadioListView()
+        case .home:          HomeView()
+        case .radio:         RadioListView()
+        case .freshReleases: FreshReleasesSidebarView()
         case .albums:    AlbumsListView()
         case .artists:   ArtistsListMacOS()
         case .playlists: PlaylistListView()
@@ -309,6 +311,31 @@ struct RootViewMacOS: View {
             }
         } else {
             ContentUnavailableView("Item not found", systemImage: "pin.slash")
+        }
+    }
+}
+
+// MARK: - Fresh Releases sidebar wrapper
+
+private struct FreshReleasesSidebarView: View {
+    @Environment(\.appContainer) private var container
+    @State private var vm: AllFreshReleasesViewModel?
+
+    var body: some View {
+        Group {
+            if let vm {
+                AllFreshReleasesView(vm: vm)
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .task(id: container?.serverState.activeServer?.id) {
+            guard let container else { return }
+            if vm == nil {
+                vm = AllFreshReleasesViewModel(recommendationService: container.recommendationService)
+            }
+            await vm?.loadReleases()
         }
     }
 }
