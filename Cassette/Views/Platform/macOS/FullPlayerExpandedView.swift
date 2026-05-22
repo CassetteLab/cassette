@@ -52,6 +52,9 @@ struct FullPlayerExpandedView: View {
                 contentLayout(geo)
             }
         }
+        .overlay(alignment: .topLeading) {
+            topLeadingButtons
+        }
         .task(id: currentTrack?.id) {
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
             await refreshFavorite()
@@ -95,57 +98,59 @@ struct FullPlayerExpandedView: View {
         }
     }
 
-    private var artworkLeadingButtons: some View {
-        HStack(spacing: 8) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .semibold))
-            }
-            .buttonStyle(.plain)
-            .help("Close")
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-                openWindow(id: "mini-player")
-            } label: {
-                Image(systemName: "pip.enter")
-                    .font(.system(size: 14, weight: .semibold))
-            }
-            .buttonStyle(.plain)
-            .help("Mini Player")
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background {
-            if #available(macOS 26.0, *) {
-                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
-            } else {
-                Capsule().fill(.ultraThinMaterial)
-            }
-        }
-        .clipShape(Capsule())
-    }
-
-    private var artworkTrailingButtons: some View {
+    private var topLeadingButtons: some View {
         HStack(spacing: 12) {
-            AirPlayButton()
-                .frame(width: 20, height: 20)
-            muteButton
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background {
-            if #available(macOS 26.0, *) {
-                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
-            } else {
-                Capsule().fill(.ultraThinMaterial)
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                    openWindow(id: "mini-player")
+                } label: {
+                    Image(systemName: "pip.enter")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Mini Player")
             }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background {
+                if #available(macOS 26.0, *) {
+                    Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                }
+            }
+            .clipShape(Capsule())
+
+            HStack(spacing: 12) {
+                AirPlayButton()
+                    .frame(width: 20, height: 20)
+                muteButton
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background {
+                if #available(macOS 26.0, *) {
+                    Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                }
+            }
+            .clipShape(Capsule())
         }
-        .clipShape(Capsule())
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
     }
 
     private func wideLayout(_ geo: GeometryProxy) -> some View {
@@ -295,12 +300,6 @@ struct FullPlayerExpandedView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.smooth(duration: 0.3)) { selectedPanel = .lyrics }
-        }
-        .overlay(alignment: .topLeading) {
-            artworkLeadingButtons.offset(x: -8, y: -8)
-        }
-        .overlay(alignment: .topTrailing) {
-            artworkTrailingButtons.offset(x: 8, y: -8)
         }
     }
 
