@@ -1389,8 +1389,8 @@ extension PlayerService {
             Logger.player.info("[INTERRUPTION] began — paused playback")
 
         case .ended:
-            let shouldResume = notification.userInfo?[AVAudioSessionInterruptionOptionKey]
-                .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0 as! UInt) }
+            let shouldResume = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0) }
                 .map { $0.contains(.shouldResume) } ?? false
             Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public)")
             if shouldResume {
