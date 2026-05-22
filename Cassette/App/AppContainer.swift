@@ -13,7 +13,6 @@ import SwiftData
 /// All stored service references are protocol existentials — fully mockable in tests.
 @MainActor
 final class AppContainer {
-    nonisolated(unsafe) static var shared: AppContainer?
     // Observable state objects — created here so they exist on the MainActor
     // before actors are initialized (actors receive them via init injection).
     let playerState = PlayerState()

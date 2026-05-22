@@ -100,7 +100,6 @@ struct CassetteApp: App {
                 Task { await AppContainer.migrateAudioExtensionsIfNeeded(modelContainer: newContainer.modelContainer, cacheService: newContainer.cacheService) }
                 Logger.boot.notice("🟡 container = newContainer (views will render)")
                 container = newContainer
-                AppContainer.shared = newContainer
                 Logger.boot.notice("🟡 loadPersistedState() start")
                 // loadPersistedState must complete before restoreSession so the active
                 // server is known when prepareCurrentTrackForRestoration resolves the URL.
