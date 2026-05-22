@@ -88,6 +88,5 @@ struct AllFreshReleasesView: View {
                 }
             }
         }
-        .cassetteContentWidth()
     }
 }
