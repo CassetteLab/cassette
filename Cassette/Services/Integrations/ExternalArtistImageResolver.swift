@@ -133,7 +133,11 @@ actor ExternalArtistImageResolver {
     private func fetchWikidataID(mbid: String) async -> String? {
         await enforceMBRateLimit()
 
-        var req = URLRequest(url: URL(string: "https://musicbrainz.org/ws/2/artist/\(mbid)?inc=url-rels&fmt=json")!)
+        guard let reqURL = URL(string: "https://musicbrainz.org/ws/2/artist/\(mbid)?inc=url-rels&fmt=json") else {
+            Logger.artistArtwork.warning("fetchWikidataID: could not build URL for MBID=\(mbid, privacy: .public)")
+            return nil
+        }
+        var req = URLRequest(url: reqURL)
         req.setValue("Cassette/1.0 (support@getcassette.app)", forHTTPHeaderField: "User-Agent")
         req.timeoutInterval = 10
 
@@ -159,7 +163,11 @@ actor ExternalArtistImageResolver {
 
     private func fetchCommonsFilename(wikidataID: String) async -> String? {
         let urlString = "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=\(wikidataID)&props=claims&format=json"
-        let req = URLRequest(url: URL(string: urlString)!, timeoutInterval: 10)
+        guard let reqURL = URL(string: urlString) else {
+            Logger.artistArtwork.warning("fetchCommonsFilename: could not build URL for Wikidata=\(wikidataID, privacy: .public)")
+            return nil
+        }
+        let req = URLRequest(url: reqURL, timeoutInterval: 10)
 
         do {
             let (data, _) = try await httpClient.data(for: req)
