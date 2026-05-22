@@ -210,7 +210,6 @@ private struct IntegrationsSettingsTab: View {
 
 private struct AboutSettingsTab: View {
     @Environment(\.openURL) private var openURL
-    private let kofiURL = URL(string: "https://ko-fi.com/mathieudbrt")
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
@@ -243,8 +242,7 @@ private struct AboutSettingsTab: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                     Button {
-                        guard let url = kofiURL else { return }
-                        openURL(url)
+                        openURL(CassetteURLs.kofi)
                     } label: {
                         Image("kofiButton")
                             .resizable()
@@ -258,7 +256,7 @@ private struct AboutSettingsTab: View {
                 .listRowBackground(Color.clear)
             }
             Section("Links") {
-                Link(destination: URL(string: "https://github.com/MathieuDubart/cassette")!) {
+                Link(destination: CassetteURLs.cassette) {
                     Label("GitHub Repository", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
                 Link(destination: URL(string: "mailto:support@getcassette.app?subject=Feedback%20%2F%20Bug%20Report")!) {
@@ -271,7 +269,7 @@ private struct AboutSettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
                 LabeledContent("AudioStreaming") {
-                    Link("dimitris-c", destination: URL(string: "https://github.com/dimitris-c/AudioStreaming")!)
+                    Link("dimitris-c", destination: CassetteURLs.audioStreaming)
                 }
             }
         }

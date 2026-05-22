@@ -11,8 +11,6 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @State private var downloadsVM: DownloadsViewModel?
 
-    private let kofiURL = URL(string: "https://ko-fi.com/mathieudbrt")
-
     var body: some View {
         Group {
             if let downloadsVM {
@@ -107,9 +105,8 @@ struct SettingsView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                 Button {
-                    guard let url = kofiURL else { return }
                     Logger.settings.debug("Ko-fi support button tapped")
-                    openURL(url)
+                    openURL(CassetteURLs.kofi)
                 } label: {
                     Image("kofiButton")
                         .resizable()
@@ -145,9 +142,9 @@ struct SettingsView: View {
                 Text("MIT License — MathieuDubart")
             }
             LabeledContent("AudioStreaming") {
-                Link("MIT License — dimitris-c", destination: URL(string: "https://github.com/dimitris-c/AudioStreaming")!)
+                Link("MIT License — dimitris-c", destination: CassetteURLs.audioStreaming)
             }
-            Link("View on GitHub", destination: URL(string: "https://github.com/MathieuDubart/cassette")!)
+            Link("View on GitHub", destination: CassetteURLs.cassette)
             Link("Send Feedback / Report a Bug", destination: URL(string: "mailto:support@getcassette.app?subject=Feedback%20%2F%20Bug%20Report")!)
         }
     }
