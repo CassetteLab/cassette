@@ -24,6 +24,7 @@ struct RadioCard: View {
             .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Play \(station.name)")
     }
 
     @ViewBuilder
