@@ -104,11 +104,7 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            // TODO(v2.0): migrate to NavigationLink(value:) via PlaylistNavRoute: Hashable
-                            // DownloadedPlaylist is a SwiftData @Model — not safe as navigation value directly
-                            NavigationLink(destination: {
-                                PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
-                            }) {
+                            NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
@@ -167,11 +163,7 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            // TODO(v2.0): migrate to NavigationLink(value:) via PlaylistNavRoute: Hashable
-                            // DownloadedPlaylist is a SwiftData @Model — not safe as navigation value directly
-                            NavigationLink(destination: {
-                                PlaylistDetailView(playlist: playlist)
-                            }) {
+                            NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {

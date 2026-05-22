@@ -173,15 +173,7 @@ private struct OfflinePlaylistContent: View {
             List {
                 Section("Downloaded Playlists") {
                     ForEach(playlists) { playlist in
-                        // TODO(v2.0): migrate to NavigationLink(value:) via PlaylistNavRoute: Hashable
-                        // DownloadedPlaylist is a SwiftData @Model — not safe as navigation value directly
-                        NavigationLink(destination: {
-                            #if os(macOS)
-                            PlaylistDetailMacOS(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)
-                            #else
-                            PlaylistDetailView(playlist: playlist)
-                            #endif
-                        }) {
+                        NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)) {
                             OfflinePlaylistRow(playlist: playlist)
                         }
                     }
