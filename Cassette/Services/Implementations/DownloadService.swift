@@ -114,7 +114,11 @@ actor DownloadService: DownloadServiceProtocol {
         for fileURL in entries {
             let coverArtId = fileURL.lastPathComponent
             if !referencedIds.contains(coverArtId) {
-                try? fm.removeItem(at: fileURL)
+                do {
+                    try fm.removeItem(at: fileURL)
+                } catch {
+                    Logger.download.debug("DownloadService: garbageCollect removeItem failed — \(error)")
+                }
                 deletedCount += 1
             }
         }
@@ -261,7 +265,11 @@ actor DownloadService: DownloadServiceProtocol {
                 genre: genre
             )
             modelContainer.mainContext.insert(record)
-            try? modelContainer.mainContext.save()
+            do {
+                try modelContainer.mainContext.save()
+            } catch {
+                Logger.download.error("DownloadService: track record save failed for '\(songId, privacy: .public)' — \(error)")
+            }
         }
 
         emit(progress: DownloadProgress(songId: song.id, serverId: serverId, progress: 1.0, totalBytes: fileSize, receivedBytes: fileSize))
@@ -352,7 +360,11 @@ actor DownloadService: DownloadServiceProtocol {
                 )
                 context.insert(record)
             }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.download.debug("DownloadService: album record save failed — \(error)")
+            }
         }
         Logger.download.info("Album '\(album.id, privacy: .public)': \(succeeded)/\(total) tracks downloaded.")
         if succeeded == total {
@@ -444,7 +456,11 @@ actor DownloadService: DownloadServiceProtocol {
                 )
                 context.insert(record)
             }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.download.debug("DownloadService: playlist record save failed — \(error)")
+            }
         }
         Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
         if tracksSucceeded == totalTracks {
@@ -492,7 +508,11 @@ actor DownloadService: DownloadServiceProtocol {
             let predicate = #Predicate<DownloadedTrack> { $0.songId == songId }
             let tracks = (try? context.fetch(FetchDescriptor(predicate: predicate))) ?? []
             tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.download.debug("DownloadService: remove track save failed — \(error)")
+            }
         }
         // Sync DownloadedPlaylist.songIds — remove this songId from any playlist that contains it.
         // Without this, the cold-start retry would re-download the song silently after removal.
@@ -507,7 +527,13 @@ actor DownloadService: DownloadServiceProtocol {
                 playlist.songIds.removeAll { $0 == songId }
                 didMutate = true
             }
-            if didMutate { try? context.save() }
+            if didMutate {
+                do {
+                    try context.save()
+                } catch {
+                    Logger.download.debug("DownloadService: remove playlist sync save failed — \(error)")
+                }
+            }
         }
     }
 
@@ -524,7 +550,11 @@ actor DownloadService: DownloadServiceProtocol {
             let context = ModelContext(modelContainer)
             let albums = (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? []
             albums.filter { $0.albumId == albumId && $0.serverId == serverId }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.download.debug("DownloadService: remove album save failed — \(error)")
+            }
         }
     }
 
@@ -534,7 +564,11 @@ actor DownloadService: DownloadServiceProtocol {
             let context = ModelContext(modelContainer)
             let playlists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
             playlists.filter { $0.playlistId == playlistId && $0.serverId == serverId }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.download.debug("DownloadService: remove playlist save failed — \(error)")
+            }
         }
     }
 
