@@ -152,6 +152,7 @@ struct FullPlayerExpandedView: View {
                     Image(systemName: volumeIconName)
                         .font(.system(size: 12))
                         .foregroundStyle(.white)
+                        .frame(width: 16, height: 16)
                 }
                 .buttonStyle(.plain)
 
