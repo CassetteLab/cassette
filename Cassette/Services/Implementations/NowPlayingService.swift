@@ -14,6 +14,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     private let playerService: any PlayerServiceProtocol
     private let artworkLoader = ArtworkLoader()
     private let artworkImageCache: ArtworkImageCache
+    private var commandsRegistered = false
 
     init(playerService: any PlayerServiceProtocol, artworkImageCache: ArtworkImageCache) {
         self.playerService = playerService
@@ -23,6 +24,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     // MARK: - Lifecycle
 
     func start() async {
+        guard !commandsRegistered else { return }
+        commandsRegistered = true
+
         let center = MPRemoteCommandCenter.shared()
         let playerService = playerService
 
@@ -57,6 +61,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+        appendToDebugLog("[RCC] start() — registered nextTrackCommand")
 
         center.previousTrackCommand.addTarget { [playerService] _ in
             Task.detached(priority: .userInitiated) {
@@ -68,6 +73,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+        appendToDebugLog("[RCC] start() — registered previousTrackCommand")
 
         center.changePlaybackPositionCommand.addTarget { [playerService] event in
             guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
@@ -79,18 +85,11 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+        appendToDebugLog("[RCC] start() — isEnabled next=\(center.nextTrackCommand.isEnabled) prev=\(center.previousTrackCommand.isEnabled)")
     }
 
     func stop() async {
         await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
-
-        let center = MPRemoteCommandCenter.shared()
-        center.playCommand.removeTarget(nil)
-        center.pauseCommand.removeTarget(nil)
-        center.togglePlayPauseCommand.removeTarget(nil)
-        center.nextTrackCommand.removeTarget(nil)
-        center.previousTrackCommand.removeTarget(nil)
-        center.changePlaybackPositionCommand.removeTarget(nil)
     }
 
     // MARK: - Update
@@ -203,8 +202,35 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         let center = MPRemoteCommandCenter.shared()
         // Skip, previous, and scrubbing are meaningless for a live stream.
         // play/pause/togglePlayPause remain enabled in both modes (always-on).
+        Logger.nowPlaying.debug("[REMOTE] updateRemoteCommandsAvailability — isLiveStream=\(isLiveStream, privacy: .public) nextEnabled=\(!isLiveStream, privacy: .public)")
+        Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled BEFORE=\(center.nextTrackCommand.isEnabled, privacy: .public)")
+        appendToDebugLog("[RCC] updateRemoteCommandsAvailability called — isLiveStream=\(isLiveStream)")
+        appendToDebugLog("[RCC] nextTrack BEFORE=\(center.nextTrackCommand.isEnabled)")
+        appendToDebugLog("[RCC] previousTrack BEFORE=\(center.previousTrackCommand.isEnabled)")
         center.nextTrackCommand.isEnabled = !isLiveStream
         center.previousTrackCommand.isEnabled = !isLiveStream
         center.changePlaybackPositionCommand.isEnabled = !isLiveStream
+        Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled AFTER=\(center.nextTrackCommand.isEnabled, privacy: .public)")
+        appendToDebugLog("[RCC] nextTrack AFTER=\(center.nextTrackCommand.isEnabled)")
+        appendToDebugLog("[RCC] previousTrack AFTER=\(center.previousTrackCommand.isEnabled)")
+    }
+
+    private func appendToDebugLog(_ message: String) {
+        #if os(iOS)
+        guard let docs = FileManager.default.urls(
+            for: .documentDirectory, in: .userDomainMask
+        ).first else { return }
+        let file = docs.appendingPathComponent("cassette_debug.log")
+        let line = "\(Date()): \(message)\n"
+        guard let data = line.data(using: .utf8) else { return }
+        if FileManager.default.fileExists(atPath: file.path) {
+            guard let handle = try? FileHandle(forWritingTo: file) else { return }
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        } else {
+            try? data.write(to: file)
+        }
+        #endif
     }
 }
