@@ -95,74 +95,65 @@ struct FullPlayerExpandedView: View {
         }
     }
 
-    private var topOverlayButtons: some View {
-        HStack {
-            HStack(spacing: 8) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                .help("Close")
+    private var artworkLeadingButtons: some View {
+        HStack(spacing: 8) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .semibold))
+            }
+            .buttonStyle(.plain)
+            .help("Close")
 
-                Button {
-                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-                    openWindow(id: "mini-player")
-                } label: {
-                    Image(systemName: "pip.enter")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .buttonStyle(.plain)
-                .help("Mini Player")
+            Button {
+                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                openWindow(id: "mini-player")
+            } label: {
+                Image(systemName: "pip.enter")
+                    .font(.system(size: 14, weight: .semibold))
             }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background {
-                if #available(macOS 26.0, *) {
-                    Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
-                } else {
-                    Capsule().fill(.ultraThinMaterial)
-                }
-            }
-            .clipShape(Capsule())
-
-            Spacer()
-
-            HStack(spacing: 12) {
-                AirPlayButton()
-                    .frame(width: 20, height: 20)
-                muteButton
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 8)
-            .background {
-                if #available(macOS 26.0, *) {
-                    Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
-                } else {
-                    Capsule().fill(.ultraThinMaterial)
-                }
-            }
-            .clipShape(Capsule())
+            .buttonStyle(.plain)
+            .help("Mini Player")
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 20)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background {
+            if #available(macOS 26.0, *) {
+                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+            } else {
+                Capsule().fill(.ultraThinMaterial)
+            }
+        }
+        .clipShape(Capsule())
+    }
+
+    private var artworkTrailingButtons: some View {
+        HStack(spacing: 12) {
+            AirPlayButton()
+                .frame(width: 20, height: 20)
+            muteButton
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background {
+            if #available(macOS 26.0, *) {
+                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+            } else {
+                Capsule().fill(.ultraThinMaterial)
+            }
+        }
+        .clipShape(Capsule())
     }
 
     private func wideLayout(_ geo: GeometryProxy) -> some View {
         HStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                playerColumn(artworkSize: artworkSize(for: geo, isWide: true))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.top, 16)
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
-
-                topOverlayButtons
-            }
+            playerColumn(artworkSize: artworkSize(for: geo, isWide: true))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 40)
+                .padding(.bottom, 40)
 
             Divider()
                 .opacity(0.3)
@@ -183,14 +174,10 @@ struct FullPlayerExpandedView: View {
 
     private func narrowLayout(_ geo: GeometryProxy) -> some View {
         VStack(spacing: 0) {
-            ZStack(alignment: .top) {
-                playerColumn(artworkSize: artworkSize(for: geo, isWide: false))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(40)
-
-                topOverlayButtons
-            }
-            .frame(height: geo.size.height * 0.55)
+            playerColumn(artworkSize: artworkSize(for: geo, isWide: false))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(40)
+                .frame(height: geo.size.height * 0.55)
 
             rightPanelColumn
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -308,6 +295,12 @@ struct FullPlayerExpandedView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.smooth(duration: 0.3)) { selectedPanel = .lyrics }
+        }
+        .overlay(alignment: .topLeading) {
+            artworkLeadingButtons.offset(x: -8, y: -8)
+        }
+        .overlay(alignment: .topTrailing) {
+            artworkTrailingButtons.offset(x: 8, y: -8)
         }
     }
 
