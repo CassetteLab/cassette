@@ -67,4 +67,10 @@ nonisolated enum WrappedYearPalette {
             ]
         }
     }
+
+    // MARK: - Medal colors
+
+    static let medalGold   = Color(red: 1.0,  green: 0.84, blue: 0.0)
+    static let medalSilver = Color(red: 0.75, green: 0.75, blue: 0.75)
+    static let medalBronze = Color(red: 0.80, green: 0.50, blue: 0.20)
 }
