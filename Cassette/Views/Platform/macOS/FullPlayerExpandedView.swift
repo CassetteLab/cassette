@@ -188,10 +188,13 @@ struct FullPlayerExpandedView: View {
 
     private func wideLayout(_ geo: GeometryProxy) -> some View {
         HStack(spacing: 0) {
-            playerColumn(artworkSize: artworkSize(for: geo, isWide: true))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
+            playerColumn(
+                artworkSize: artworkSize(for: geo, isWide: true),
+                maxWidth: geo.size.width >= 1200 ? 480 : 380
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, 40)
+            .padding(.bottom, 40)
 
             Divider()
                 .opacity(0.3)
@@ -204,7 +207,8 @@ struct FullPlayerExpandedView: View {
     private func artworkSize(for geo: GeometryProxy, isWide: Bool) -> CGFloat {
         if isWide {
             let available = geo.size.height - 80
-            return max(160, min(300, available - 244))
+            let cap: CGFloat = geo.size.width >= 1200 ? 360 : 300
+            return max(160, min(cap, available - 244))
         } else {
             return max(100, min(260, geo.size.height * 0.55 - 220))
         }
@@ -282,7 +286,7 @@ struct FullPlayerExpandedView: View {
 
     // MARK: - Player Column
 
-    private func playerColumn(artworkSize: CGFloat = 300) -> some View {
+    private func playerColumn(artworkSize: CGFloat = 300, maxWidth: CGFloat = 380) -> some View {
         VStack(spacing: 0) {
             Spacer().frame(maxHeight: 24)
 
@@ -305,7 +309,7 @@ struct FullPlayerExpandedView: View {
 
             Spacer()
         }
-        .frame(maxWidth: 380)
+        .frame(maxWidth: maxWidth)
         .frame(maxWidth: .infinity, alignment: .center)
         .frame(maxHeight: .infinity, alignment: .center)
     }
