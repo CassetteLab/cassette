@@ -129,6 +129,7 @@ struct RootViewMacOS: View {
                 sidebarRow(.home)
                 sidebarRow(.radio)
                 sidebarRow(.freshReleases)
+                sidebarRow(.wrapped)
             }
 
             Section("Library") {
@@ -280,6 +281,7 @@ struct RootViewMacOS: View {
         case .home:          HomeView()
         case .radio:         RadioListView()
         case .freshReleases: FreshReleasesSidebarView()
+        case .wrapped:       WrappedYearlyListView()
         case .albums:    AlbumsListView()
         case .artists:   ArtistsListMacOS()
         case .playlists: PlaylistListView()
