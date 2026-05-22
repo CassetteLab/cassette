@@ -89,7 +89,7 @@ struct FullPlayerExpandedView: View {
     @ViewBuilder
     private func contentLayout(_ geo: GeometryProxy) -> some View {
         if geo.size.width >= 900 {
-            wideLayout
+            wideLayout(geo)
         } else {
             narrowLayout(geo)
         }
@@ -152,10 +152,10 @@ struct FullPlayerExpandedView: View {
         .padding(.top, 20)
     }
 
-    private var wideLayout: some View {
+    private func wideLayout(_ geo: GeometryProxy) -> some View {
         HStack(spacing: 0) {
             ZStack(alignment: .top) {
-                playerColumn()
+                playerColumn(artworkSize: artworkSize(for: geo, isWide: true))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(40)
 
@@ -170,15 +170,18 @@ struct FullPlayerExpandedView: View {
         }
     }
 
-    private func narrowArtworkSize(for geo: GeometryProxy) -> CGFloat {
-        let available = geo.size.height * 0.55 - 220
-        return max(100, min(260, available))
+    private func artworkSize(for geo: GeometryProxy, isWide: Bool) -> CGFloat {
+        if isWide {
+            return max(200, min(300, geo.size.height - 240))
+        } else {
+            return max(100, min(260, geo.size.height * 0.55 - 220))
+        }
     }
 
     private func narrowLayout(_ geo: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                playerColumn(artworkSize: narrowArtworkSize(for: geo))
+                playerColumn(artworkSize: artworkSize(for: geo, isWide: false))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(40)
 
