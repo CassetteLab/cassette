@@ -48,73 +48,8 @@ struct FullPlayerExpandedView: View {
             meshGradientBackground
                 .ignoresSafeArea()
 
-            HStack(spacing: 0) {
-                ZStack(alignment: .top) {
-                    playerColumn
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(40)
-
-                    HStack {
-                        HStack(spacing: 8) {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-                            } label: {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .semibold))
-                            }
-                            .buttonStyle(.plain)
-                            .help("Close")
-
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
-                                openWindow(id: "mini-player")
-                            } label: {
-                                Image(systemName: "pip.enter")
-                                    .font(.system(size: 14, weight: .semibold))
-                            }
-                            .buttonStyle(.plain)
-                            .help("Mini Player")
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background {
-                            if #available(macOS 26.0, *) {
-                                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
-                            } else {
-                                Capsule().fill(.ultraThinMaterial)
-                            }
-                        }
-                        .clipShape(Capsule())
-
-                        Spacer()
-
-                        HStack(spacing: 12) {
-                            AirPlayButton()
-                                .frame(width: 20, height: 20)
-                            muteButton
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background {
-                            if #available(macOS 26.0, *) {
-                                Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
-                            } else {
-                                Capsule().fill(.ultraThinMaterial)
-                            }
-                        }
-                        .clipShape(Capsule())
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-                }
-
-                Divider()
-                    .opacity(0.3)
-
-                rightPanelColumn
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            GeometryReader { geo in
+                contentLayout(geo)
             }
         }
         .task(id: currentTrack?.id) {
@@ -146,6 +81,108 @@ struct FullPlayerExpandedView: View {
                 AddToPlaylistSheet(song: track)
                     .environment(artworkCache)
             }
+        }
+    }
+
+    // MARK: - Layout
+
+    @ViewBuilder
+    private func contentLayout(_ geo: GeometryProxy) -> some View {
+        if geo.size.width >= 900 {
+            wideLayout
+        } else {
+            narrowLayout(geo)
+        }
+    }
+
+    private var topOverlayButtons: some View {
+        HStack {
+            HStack(spacing: 8) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Close")
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.3)) { isPresented = false }
+                    openWindow(id: "mini-player")
+                } label: {
+                    Image(systemName: "pip.enter")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .help("Mini Player")
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background {
+                if #available(macOS 26.0, *) {
+                    Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                }
+            }
+            .clipShape(Capsule())
+
+            Spacer()
+
+            HStack(spacing: 12) {
+                AirPlayButton()
+                    .frame(width: 20, height: 20)
+                muteButton
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background {
+                if #available(macOS 26.0, *) {
+                    Capsule().fill(.clear).glassEffect(.regular, in: Capsule())
+                } else {
+                    Capsule().fill(.ultraThinMaterial)
+                }
+            }
+            .clipShape(Capsule())
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 20)
+    }
+
+    private var wideLayout: some View {
+        HStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                playerColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(40)
+
+                topOverlayButtons
+            }
+
+            Divider()
+                .opacity(0.3)
+
+            rightPanelColumn
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func narrowLayout(_ geo: GeometryProxy) -> some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .top) {
+                playerColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(40)
+
+                topOverlayButtons
+            }
+            .frame(height: geo.size.height * 0.55)
+
+            rightPanelColumn
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
