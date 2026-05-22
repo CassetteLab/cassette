@@ -6,6 +6,7 @@
 #if os(macOS)
 import SwiftUI
 import AppKit
+import OSLog
 
 private enum RightPanel { case lyrics, queue }
 
@@ -621,7 +622,9 @@ struct FullPlayerExpandedView: View {
                 try await container.favoritesService.star(itemType: .song, itemId: track.id)
             }
             isFavorite.toggle()
-        } catch {}
+        } catch {
+            Logger.ui.error("FullPlayerExpandedView: toggleFavorite failed — \(error)")
+        }
     }
 }
 

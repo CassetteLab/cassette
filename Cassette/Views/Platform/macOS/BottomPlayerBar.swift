@@ -6,6 +6,7 @@
 #if os(macOS)
 import SwiftUI
 import AVKit
+import OSLog
 
 struct BottomPlayerBar: View {
     @Environment(\.appContainer) private var container
@@ -354,7 +355,7 @@ struct BottomPlayerBar: View {
     // MARK: - Secondary Actions
 
     private var secondaryActions: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             // Swap between icons and volume slider; volume button stays anchored on the right.
             ZStack {
                 secondaryIconsGroup
@@ -440,7 +441,9 @@ struct BottomPlayerBar: View {
                 try await container.favoritesService.star(itemType: .song, itemId: track.id)
             }
             isFavorite.toggle()
-        } catch {}
+        } catch {
+            Logger.ui.error("BottomPlayerBar: toggleFavorite failed — \(error)")
+        }
     }
 
     private func toggleDownload() async {

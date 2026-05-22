@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftSonic
+import OSLog
 
 struct RadioCard: View {
     let station: InternetRadioStation
@@ -73,6 +74,8 @@ struct RadioCard: View {
         HapticFeedback.medium.trigger()
         do {
             try await container.playerService.playRadio(station)
-        } catch {}
+        } catch {
+            Logger.radio.error("RadioCard: playRadio failed — \(error)")
+        }
     }
 }

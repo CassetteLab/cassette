@@ -262,7 +262,9 @@ struct CollectionContextMenuModifier: ViewModifier {
                         } catch PinError.limitReached {
                             HapticFeedback.warning.trigger()
                             showPinLimitAlert = true
-                        } catch {}
+                        } catch {
+                            Logger.pin.error("ItemContextMenus: pin failed — \(error)")
+                        }
                     } label: {
                         Label("Pin to Home", systemImage: "pin")
                     }
@@ -411,7 +413,9 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                         } catch PinError.limitReached {
                             HapticFeedback.warning.trigger()
                             showPinLimitAlert = true
-                        } catch {}
+                        } catch {
+                            Logger.pin.error("ItemContextMenus: pin failed — \(error)")
+                        }
                     } label: {
                         Label("Pin to Home", systemImage: "pin")
                     }
