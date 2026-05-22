@@ -99,14 +99,14 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func allAlbums() async throws -> [AlbumID3] {
-        Logger.library.info("🔵 allAlbums() called")
+        Logger.library.info("allAlbums() called")
         do {
             let result = try await client().getAlbumList2(type: .alphabeticalByName, size: 500)
-            Logger.library.info("🔵 allAlbums() done — \(result.count, privacy: .public) items")
+            Logger.library.info("allAlbums() done — \(result.count, privacy: .public) items")
             return result
         } catch {
-            Logger.library.error("🔴 allAlbums() getAlbumList2 error: \(String(describing: error), privacy: .public)")
-            Logger.library.error("🔴 allAlbums() error type: \(type(of: error), privacy: .public)")
+            Logger.library.error("allAlbums() getAlbumList2 error: \(String(describing: error), privacy: .public)")
+            Logger.library.error("allAlbums() error type: \(type(of: error), privacy: .public)")
             throw error
         }
     }
