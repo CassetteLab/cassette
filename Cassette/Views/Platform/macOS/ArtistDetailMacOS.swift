@@ -23,6 +23,7 @@ struct ArtistDetailMacOS: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @State private var vm: ArtistDetailViewModel?
+    @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
 
     private var effectiveCoverArtId: String? { vm?.artist?.coverArt ?? coverArtId }
 
@@ -48,6 +49,14 @@ struct ArtistDetailMacOS: View {
                 )
             }
             await vm?.load()
+            await vm?.loadSimilarArtists()
+        }
+        .sheet(item: $selectedOutOfLibraryArtist) { rec in
+            OutOfLibraryArtistSheet(
+                artist: rec,
+                imageURL: vm?.outOfLibraryArtistImages[rec.id] ?? nil,
+                providers: container?.externalProvidersStore.load() ?? []
+            )
         }
     }
 
@@ -64,10 +73,70 @@ struct ArtistDetailMacOS: View {
                     }
                     .padding(.bottom, 16)
                 }
+
+                let similar = vm.similarArtists
+                if vm.isLoadingSimilarArtists || !similar.isEmpty {
+                    similarArtistsSection(vm: vm)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .refreshable { await vm.load() }
+    }
+
+    // MARK: - Similar Artists
+
+    @ViewBuilder
+    private func similarArtistsSection(vm: ArtistDetailViewModel) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            Text("Similar Artists")
+                .font(.cassetteSectionTitle)
+                .padding(.horizontal, 32)
+
+            if vm.isLoadingSimilarArtists {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.m) {
+                        ForEach(0..<8, id: \.self) { _ in
+                            VStack(spacing: CassetteSpacing.xs) {
+                                SkeletonBlock(width: 64, height: 64, cornerRadius: 32)
+                                SkeletonBlock(width: 72, height: 10)
+                            }
+                            .frame(width: 80)
+                        }
+                    }
+                    .padding(.horizontal, 32)
+                }
+                .allowsHitTesting(false)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.m) {
+                        ForEach(vm.similarArtists) { rec in
+                            Group {
+                                if rec.inLibrary {
+                                    NavigationLink(value: HomeDestination.artist(ArtistID3(id: rec.id, name: rec.name))) {
+                                        SimilarArtistCell(
+                                            recommendation: rec,
+                                            externalImageURL: vm.outOfLibraryArtistImages[rec.id] ?? nil,
+                                            onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                } else {
+                                    SimilarArtistCell(
+                                        recommendation: rec,
+                                        externalImageURL: vm.outOfLibraryArtistImages[rec.id] ?? nil,
+                                        onOutOfLibraryTap: { selectedOutOfLibraryArtist = rec }
+                                    )
+                                }
+                            }
+                            .frame(width: 80)
+                        }
+                    }
+                    .padding(.horizontal, 32)
+                }
+            }
+        }
+        .padding(.bottom, 32)
     }
 
     // MARK: - Hero
