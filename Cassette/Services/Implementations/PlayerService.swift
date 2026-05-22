@@ -57,6 +57,13 @@ actor PlayerService: PlayerServiceProtocol {
     /// True while the player is muted for the restore seek window (150 ms).
     /// Ensures volume is restored whether the pause fires or the user taps play first.
     private var isMutedForRestore = false
+    /// Last saved volume from UserDefaults, defaulting to 0.7 when the key was never written.
+    /// setVolume() never persists 0, so a missing key and an intentional-0 are indistinguishable
+    /// here — using 0.7 as the initial default is correct.
+    private var restoredVolume: Float {
+        guard UserDefaults.standard.object(forKey: "cassette.lastVolume") != nil else { return 0.7 }
+        return Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
+    }
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -574,8 +581,7 @@ actor PlayerService: PlayerServiceProtocol {
         restorePauseTask?.cancel()
         restorePauseTask = nil
         if isMutedForRestore {
-            let vol = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
-            audioPlayer.volume = vol
+            audioPlayer.volume = restoredVolume
             isMutedForRestore = false
         }
         isRestoringSession = false
@@ -612,8 +618,7 @@ actor PlayerService: PlayerServiceProtocol {
         restorePauseTask?.cancel()
         restorePauseTask = nil
         if isMutedForRestore {
-            let vol = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
-            audioPlayer.volume = vol
+            audioPlayer.volume = restoredVolume
             isMutedForRestore = false
         }
         liveStreamStallTask?.cancel()
@@ -1173,8 +1178,7 @@ actor PlayerService: PlayerServiceProtocol {
                 guard !Task.isCancelled else { return }
                 self.restorePauseTask = nil
                 self.audioPlayer.pause()
-                let vol = Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
-                self.audioPlayer.volume = vol
+                self.audioPlayer.volume = self.restoredVolume
                 self.isMutedForRestore = false
                 await MainActor.run { self.state.playbackState = .paused }
                 self.stopProgressTimer()
