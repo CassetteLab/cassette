@@ -150,7 +150,7 @@ struct FullPlayerExpandedView: View {
             .clipShape(Capsule())
         }
         .padding(.horizontal, 20)
-        .padding(.top, 8)
+        .padding(.top, 0)
     }
 
     private func wideLayout(_ geo: GeometryProxy) -> some View {
