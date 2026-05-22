@@ -13,6 +13,12 @@ private enum RightPanel { case lyrics, queue }
 struct FullPlayerExpandedView: View {
     @Binding var isPresented: Bool
 
+    init(isPresented: Binding<Bool>) {
+        self._isPresented = isPresented
+        let remembered = UserDefaults.standard.bool(forKey: "cassette.fullPlayerLastPanel")
+        self._selectedPanel = State(initialValue: remembered ? .lyrics : .queue)
+    }
+
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(ArtworkImageCache.self) private var artworkCache
@@ -88,6 +94,9 @@ struct FullPlayerExpandedView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
             selectedPanel = .lyrics
+        }
+        .onChange(of: selectedPanel) { _, newPanel in
+            UserDefaults.standard.set(newPanel == .lyrics, forKey: "cassette.fullPlayerLastPanel")
         }
         .environment(\.colorScheme, .dark)
         .sheet(isPresented: $showAddToPlaylist) {
