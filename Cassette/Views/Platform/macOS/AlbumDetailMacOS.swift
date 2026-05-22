@@ -63,10 +63,10 @@ struct AlbumDetailMacOS: View {
                 },
                 secondaryAction: {
                     Task {
+                        try? await container?.playerService.play(tracks: songs, startIndex: 0)
                         if container?.playerState.isShuffled != true {
                             await container?.playerService.toggleShuffle()
                         }
-                        try? await container?.playerService.play(tracks: songs, startIndex: 0)
                     }
                 }
             )
