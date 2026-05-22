@@ -595,6 +595,8 @@ struct FullPlayerExpandedView: View {
             .font(.system(size: 14))
             .padding(16)
         }
+        .frame(minWidth: 0, maxWidth: .infinity)
+        .clipped()
     }
 
     @ViewBuilder
@@ -698,6 +700,7 @@ private struct ExpandedQueueRow: View {
                         .lineLimit(1)
                 }
             }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
             Spacer()
 
