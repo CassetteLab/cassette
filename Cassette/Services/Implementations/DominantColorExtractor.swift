@@ -16,6 +16,12 @@ import AppKit
 /// Extracts the dominant (average) color from a cover art image using CIAreaAverage.
 /// Results are cached in memory keyed by coverArtId and persisted to UserDefaults as packed
 /// 0xRRGGBB integers so dominant colors are available immediately at cold start.
+///
+/// TODO(v2.0): UserDefaults is used intentionally here for two reasons:
+///   1. Synchronous cold-start hydration in init() — SwiftData requires async context.
+///   2. cachedColors() feeds WidgetSyncService for App Group sharing, which UserDefaults
+///      handles natively across process boundaries. Migrating requires an async init
+///      refactor and a separate widget-sync write path.
 @MainActor
 @Observable
 final class DominantColorExtractor {
