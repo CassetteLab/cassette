@@ -155,7 +155,7 @@ struct FullPlayerExpandedView: View {
     private var wideLayout: some View {
         HStack(spacing: 0) {
             ZStack(alignment: .top) {
-                playerColumn
+                playerColumn()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(40)
 
@@ -170,10 +170,15 @@ struct FullPlayerExpandedView: View {
         }
     }
 
+    private func narrowArtworkSize(for geo: GeometryProxy) -> CGFloat {
+        let available = geo.size.height * 0.55 - 220
+        return max(100, min(260, available))
+    }
+
     private func narrowLayout(_ geo: GeometryProxy) -> some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                playerColumn
+                playerColumn(artworkSize: narrowArtworkSize(for: geo))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .padding(40)
 
@@ -246,11 +251,11 @@ struct FullPlayerExpandedView: View {
 
     // MARK: - Player Column
 
-    private var playerColumn: some View {
+    private func playerColumn(artworkSize: CGFloat = 300) -> some View {
         VStack(spacing: 0) {
             Spacer()
 
-            artworkView
+            artworkView(size: artworkSize)
                 .padding(.bottom, 28)
 
             trackInfo
@@ -275,17 +280,17 @@ struct FullPlayerExpandedView: View {
     }
 
     @ViewBuilder
-    private var artworkView: some View {
+    private func artworkView(size: CGFloat = 300) -> some View {
         let shadowColor = dominantColor == .clear ? Color.black : dominantColor
         ZStack {
             if let track = currentTrack {
-                CoverArtView(id: track.coverArtId ?? track.id, size: 300)
-                    .frame(width: 300, height: 300)
+                CoverArtView(id: track.coverArtId ?? track.id, size: Int(size))
+                    .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.secondary.opacity(0.15))
-                    .frame(width: 300, height: 300)
+                    .frame(width: size, height: size)
                     .overlay {
                         Image(systemName: "music.note")
                             .font(.system(size: 72))
