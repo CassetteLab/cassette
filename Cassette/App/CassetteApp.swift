@@ -132,6 +132,12 @@ struct CassetteApp: App {
             #endif
         }
         .onChange(of: scenePhase) { _, newPhase in
+            #if os(iOS)
+            if newPhase == .inactive, let c = container {
+                Task { await c.playerService.saveCurrentPosition() }
+                Logger.session.info("App inactive — position flushed (iOS kill guard)")
+            }
+            #endif
             guard newPhase == .background, let c = container else { return }
             let snapshot = SessionPayload(
                 currentIndex: c.playerState.currentIndex,

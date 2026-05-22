@@ -51,10 +51,9 @@ actor PlayerService: PlayerServiceProtocol {
     /// deferred seek+pause is confirmed applied. Blocks handleEndOfTrack() during that window
     /// to prevent a spurious eof from the old stream triggering an unwanted skip.
     private var isRestoringSession = false
-    /// Set after the first .playing fires and seek() is dispatched while playing.
-    /// A 150 ms Task reads this flag to pause once processSeekTime() has completed.
-    /// Cleared by resume() if the user taps play before the deferred pause runs.
-    private var pendingPauseAfterSeek = false
+    /// Stored handle for the 150 ms deferred-pause task during session restore.
+    /// Cancelled by resume() if the user taps play before the pause fires.
+    private var restorePauseTask: Task<Void, Never>?
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -559,6 +558,7 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
         stopProgressTimer()
+        stopPositionSaveTimer()
         await saveSession()
         let pauseTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
@@ -568,7 +568,8 @@ actor PlayerService: PlayerServiceProtocol {
 
     func resume() async {
         // User explicitly pressed play — cancel any pending restore auto-pause and lift eof guard.
-        pendingPauseAfterSeek = false
+        restorePauseTask?.cancel()
+        restorePauseTask = nil
         isRestoringSession = false
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -581,6 +582,7 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
         startProgressTimer()
+        startPositionSaveTimer()
         let resumeTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
@@ -598,12 +600,14 @@ actor PlayerService: PlayerServiceProtocol {
         cancelPendingScrobble()
         cancelPendingCacheDownload()
         stopProgressTimer()
+        stopPositionSaveTimer()
+        restorePauseTask?.cancel()
+        restorePauseTask = nil
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         audioPlayer.stop()
         currentSource = nil
         pendingRestoreInfo = nil
-        pendingPauseAfterSeek = false
         isRestoringSession = false
         await MainActor.run {
             state.playbackState = .idle
@@ -825,6 +829,14 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Session persistence
 
+    /// Lightweight position-only flush — called from scenePhase .inactive on iOS
+    /// to protect the current position against a fast process kill.
+    func saveCurrentPosition() async {
+        let pos = audioPlayer.progress
+        guard pos > 0 else { return }
+        await sessionService.savePosition(pos)
+    }
+
     private func saveSession() async {
         let snapshot = await MainActor.run {
             SessionPayload(
@@ -943,10 +955,16 @@ actor PlayerService: PlayerServiceProtocol {
         stopPositionSaveTimer()
         positionSaveTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { break }
-                let position = await MainActor.run { state.position }
-                await sessionService.savePosition(position)
+                guard !isRestoringSession else { continue }
+                let (isPlaying, pos) = await MainActor.run {
+                    (state.playbackState == .playing, state.position)
+                }
+                // Position-only update — queue/track/mode already saved at each state change.
+                // Skip if stream is not seekable (position cannot be restored anyway).
+                guard isPlaying, audioPlayer.isSeekable else { continue }
+                await sessionService.savePosition(pos)
             }
         }
     }
@@ -1120,38 +1138,29 @@ actor PlayerService: PlayerServiceProtocol {
     func handleAudioStateChanged(_ newState: AudioPlayerState) async {
         switch newState {
         case .playing:
-            if let info = pendingRestoreInfo {
-                // Seek while the engine is running so processSource() is not a no-op
-                // (AudioStreaming guards processSource with internalState != .paused).
-                pendingRestoreInfo = nil
+            guard let info = pendingRestoreInfo else { break }
+            pendingRestoreInfo = nil
+            // Seek while engine is running — processSource() is a no-op when paused.
+            // Skip if stream is not seekable (Ogg Vorbis, live radio) or position is at start.
+            if audioPlayer.isSeekable && info.seekTime > 1 {
                 audioPlayer.seek(to: info.seekTime)
-                if info.pause {
-                    pendingPauseAfterSeek = true
-                    // processSeekTime() runs async on sourceQueue. Give it 150 ms to complete
-                    // (clears the render buffer, reopens HTTP at the correct byte offset)
-                    // before pausing. Checking the flag in the Task lets a user-initiated
-                    // play cancel the deferred pause if they tap play during that window.
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(150))
-                        guard self.pendingPauseAfterSeek else { return }
-                        self.pendingPauseAfterSeek = false
-                        self.audioPlayer.pause()
-                        await MainActor.run { self.state.playbackState = .paused }
-                        self.stopProgressTimer()
-                        self.isRestoringSession = false
-                        Logger.player.info("[RESTORE] seek landed — paused at \(self.audioPlayer.progress, format: .fixed(precision: 1))s")
-                    }
-                } else {
-                    isRestoringSession = false
-                }
-            } else if pendingPauseAfterSeek {
-                // User resumed before the 150 ms task fired (engine was never paused).
-                // pendingPauseAfterSeek already cleared by resume() — defensive fallback.
-                pendingPauseAfterSeek = false
+            }
+            guard info.pause else {
                 isRestoringSession = false
-            } else if isRestoringSession {
-                let pos = audioPlayer.progress
-                if pos > 0 { isRestoringSession = false }
+                break
+            }
+            // Give processSeekTime() 150 ms to clear the render buffer and reopen
+            // the HTTP connection at the correct byte offset before pausing.
+            // Stored so resume() can cancel the deferred pause via task.cancel().
+            restorePauseTask = Task {
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled else { return }
+                self.restorePauseTask = nil
+                self.audioPlayer.pause()
+                await MainActor.run { self.state.playbackState = .paused }
+                self.stopProgressTimer()
+                self.isRestoringSession = false
+                Logger.player.info("[RESTORE] seek landed — paused at \(self.audioPlayer.progress, format: .fixed(precision: 1))s")
             }
         case .error:
             Logger.player.error("[PLAYER] AudioStreaming entered error state")
