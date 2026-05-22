@@ -108,21 +108,31 @@ struct AlbumsListView: View {
     #if os(macOS)
     @ViewBuilder
     private func albumsGridMacOS(_ vm: AlbumListViewModel) -> some View {
-        ScrollView {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 160, maximum: 200), spacing: 16)],
-                spacing: 24
-            ) {
-                ForEach(vm.albums) { album in
-                    NavigationLink(value: HomeDestination.album(album)) {
-                        AlbumGridCell(album: album)
+        GeometryReader { geo in
+            let count = Self.gridColumnCount(for: geo.size.width)
+            let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: 24) {
+                    ForEach(vm.albums) { album in
+                        NavigationLink(value: HomeDestination.album(album)) {
+                            AlbumGridCell(album: album)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(24)
             }
-            .padding(24)
+            .refreshable { await vm.load() }
         }
-        .refreshable { await vm.load() }
+    }
+
+    private static func gridColumnCount(for width: CGFloat) -> Int {
+        switch width {
+        case ..<900:  return 3
+        case ..<1200: return 4
+        case ..<1600: return 5
+        default:      return 6
+        }
     }
     #endif
 }

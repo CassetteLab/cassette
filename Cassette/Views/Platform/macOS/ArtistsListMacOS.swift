@@ -11,8 +11,6 @@ struct ArtistsListMacOS: View {
     @Environment(\.appContainer) private var container
     @State private var vm: ArtistListViewModel?
 
-    private let columns = [GridItem(.adaptive(minimum: 160), spacing: 24)]
-
     var body: some View {
         Group {
             if let vm {
@@ -49,22 +47,34 @@ struct ArtistsListMacOS: View {
             )
         } else {
             let allArtists = vm.indexes.flatMap(\.artist)
-            ScrollViewReader { proxy in
-                ScrollView {
-                    // TODO(v1.5.x): Add visible alphabet section headers (jump bar already implemented in v1.5)
-                    LazyVGrid(columns: columns, spacing: 32) {
-                        ForEach(allArtists) { artist in
-                            NavigationLink(value: HomeDestination.artist(artist)) {
-                                ArtistGridCard(artist: artist)
+            GeometryReader { geo in
+                let count = Self.gridColumnCount(for: geo.size.width)
+                let columns = Array(repeating: GridItem(.flexible(), spacing: 24), count: count)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        // TODO(v1.5.x): Add visible alphabet section headers (jump bar already implemented in v1.5)
+                        LazyVGrid(columns: columns, spacing: 32) {
+                            ForEach(allArtists) { artist in
+                                NavigationLink(value: HomeDestination.artist(artist)) {
+                                    ArtistGridCard(artist: artist)
+                                }
+                                .buttonStyle(.plain)
+                                .id(artist.id)
                             }
-                            .buttonStyle(.plain)
-                            .id(artist.id)
                         }
+                        .padding(24)
                     }
-                    .padding(24)
+                    .refreshable { await vm.load() }
                 }
-                .refreshable { await vm.load() }
             }
+        }
+    }
+    private static func gridColumnCount(for width: CGFloat) -> Int {
+        switch width {
+        case ..<900:  return 3
+        case ..<1200: return 4
+        case ..<1600: return 5
+        default:      return 6
         }
     }
 }
