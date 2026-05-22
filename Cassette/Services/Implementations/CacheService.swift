@@ -32,7 +32,11 @@ actor CacheService: CacheServiceProtocol {
         let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         self.cacheDirectory = caches.appendingPathComponent("app.cassette/audio", isDirectory: true)
 
-        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        } catch {
+            Logger.cache.debug("CacheService: failed to create cache directory — \(error)")
+        }
     }
 
     // MARK: - Configuration
@@ -97,7 +101,11 @@ actor CacheService: CacheServiceProtocol {
                     mimeType: mimeType
                 ))
             }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: store save failed — \(error)")
+            }
         }
 
         await evictToFitLimit()
@@ -138,7 +146,11 @@ actor CacheService: CacheServiceProtocol {
         guard !toEvict.isEmpty else { return }
 
         for entry in toEvict {
-            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(entry.filePath))
+            do {
+                try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(entry.filePath))
+            } catch {
+                Logger.cache.debug("CacheService: evict removeItem failed — \(error)")
+            }
         }
 
         let recordIds = toEvict.map(\.recordId)
@@ -146,7 +158,11 @@ actor CacheService: CacheServiceProtocol {
             let context = ModelContext(modelContainer)
             let allTracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
             allTracks.filter { recordIds.contains($0.id) }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: evict save failed — \(error)")
+            }
         }
 
         Logger.cache.info("Evicted \(toEvict.count) cache entries (FIFO, oldest first)")
@@ -160,13 +176,21 @@ actor CacheService: CacheServiceProtocol {
             return tracks.first { $0.serverId == serverId }?.filePath
         }
         if let filePath {
-            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+            do {
+                try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+            } catch {
+                Logger.cache.debug("CacheService: invalidate removeItem failed — \(error)")
+            }
         }
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId }))) ?? []
             tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: invalidate save failed — \(error)")
+            }
         }
         Logger.cache.debug("Invalidated cache for '\(songId, privacy: .public)'")
     }
@@ -179,19 +203,31 @@ actor CacheService: CacheServiceProtocol {
             return tracks.map(\.filePath)
         }
         for filePath in allFilePaths {
-            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+            do {
+                try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+            } catch {
+                Logger.cache.debug("CacheService: clearAll removeItem failed — \(error)")
+            }
         }
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
             tracks.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: clearAll tracks save failed — \(error)")
+            }
         }
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let lyrics = (try? context.fetch(FetchDescriptor<CachedLyrics>())) ?? []
             lyrics.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: clearAll lyrics save failed — \(error)")
+            }
         }
         Logger.cache.info("Cleared all cache entries")
     }
@@ -204,19 +240,31 @@ actor CacheService: CacheServiceProtocol {
             return tracks.filter { $0.serverId == serverId }.map(\.filePath)
         }
         for filePath in filePaths {
-            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+            do {
+                try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
+            } catch {
+                Logger.cache.debug("CacheService: clearAllForServer removeItem failed — \(error)")
+            }
         }
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let tracks = (try? context.fetch(FetchDescriptor<CachedTrack>())) ?? []
             tracks.filter { $0.serverId == serverId }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: clearAllForServer tracks save failed — \(error)")
+            }
         }
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let lyrics = (try? context.fetch(FetchDescriptor<CachedLyrics>())) ?? []
             lyrics.filter { $0.serverId == serverId }.forEach { context.delete($0) }
-            try? context.save()
+            do {
+                try context.save()
+            } catch {
+                Logger.cache.debug("CacheService: clearAllForServer lyrics save failed — \(error)")
+            }
         }
         Logger.cache.info("Cleared cache for server \(serverId.uuidString)")
     }
