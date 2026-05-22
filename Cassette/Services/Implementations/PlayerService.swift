@@ -47,6 +47,10 @@ actor PlayerService: PlayerServiceProtocol {
     #endif
 
     private var isHandlingEndOfTrack = false
+    /// True from the moment audioPlayer.play() is called during session restore until the
+    /// deferred seek+pause is confirmed applied. Blocks handleEndOfTrack() during that window
+    /// to prevent a spurious eof from the old stream triggering an unwanted skip.
+    private var isRestoringSession = false
     private var positionSaveTask: Task<Void, Never>?
     /// Task scheduling the `submission: true` scrobble at +30s after track start.
     /// Cancelled and replaced each time a new track starts via `startPlayback()`.
@@ -589,6 +593,7 @@ actor PlayerService: PlayerServiceProtocol {
         audioPlayer.stop()
         currentSource = nil
         pendingRestoreInfo = nil
+        isRestoringSession = false
         await MainActor.run {
             state.playbackState = .idle
             state.currentTrack = nil
@@ -867,6 +872,7 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
+        isRestoringSession = true
         audioPlayer.play(url: source.url, headers: source.customHeaders)
 
         await MainActor.run { state.isPlaybackAvailable = true }
@@ -1005,6 +1011,10 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - End of track
 
     func handleEndOfTrack() async {
+        guard !isRestoringSession else {
+            Logger.player.warning("[END-OF-TRACK] suppressed — session restore in progress")
+            return
+        }
         guard !isHandlingEndOfTrack else {
             Logger.player.warning("[END-OF-TRACK] already handling — skipping duplicate")
             return
@@ -1095,6 +1105,16 @@ actor PlayerService: PlayerServiceProtocol {
                     audioPlayer.pause()
                     await MainActor.run { state.playbackState = .paused }
                     stopProgressTimer()
+                }
+                // Seek issued; player is paused — eof cannot fire. Lift the restore guard.
+                isRestoringSession = false
+            } else if isRestoringSession {
+                // Seek already applied; this .playing fires after the user resumes.
+                // Confirm position > 0 to verify the seek actually landed before clearing.
+                let pos = audioPlayer.progress
+                if pos > 0 {
+                    isRestoringSession = false
+                    Logger.player.info("[RESTORE] seek confirmed at pos=\(pos, format: .fixed(precision: 1))s — end-of-track guard lifted")
                 }
             }
         case .error:
