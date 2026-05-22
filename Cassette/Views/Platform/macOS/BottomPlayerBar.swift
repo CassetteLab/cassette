@@ -18,8 +18,9 @@ struct BottomPlayerBar: View {
     @State private var showAddToPlaylist = false
     @State private var isFavorite = false
     @State private var isDownloadedLocally = false
-    @State private var isMuted = false
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
+    @State private var showVolumeSlider = false
+    @State private var sliderDismissTask: Task<Void, Never>?
     @State private var barWidth: CGFloat = 800
 
     var onArtworkTap: (() -> Void)? = nil
@@ -70,6 +71,13 @@ struct BottomPlayerBar: View {
         }
         .shadow(color: .black.opacity(0.15), radius: 10, y: 2)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { barWidth = $0 }
+        .onChange(of: isCompact) { _, compact in
+            if compact && showVolumeSlider {
+                withAnimation(.easeInOut(duration: 0.2)) { showVolumeSlider = false }
+                sliderDismissTask?.cancel()
+                sliderDismissTask = nil
+            }
+        }
         .task(id: currentTrack?.id) {
             await refreshFavorite()
             await refreshDownloadState()
@@ -305,9 +313,80 @@ struct BottomPlayerBar: View {
         }
     }
 
+    // MARK: - Volume Slider
+
+    private var volumeSliderPanel: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "speaker.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 14)
+
+            Slider(
+                value: Binding(
+                    get: { localVolume },
+                    set: { newValue in
+                        localVolume = newValue
+                        Task { await container?.playerService.setVolume(Float(newValue)) }
+                        scheduleSliderDismiss()
+                    }
+                ),
+                in: 0...1
+            )
+            .controlSize(.small)
+            .tint(.secondary)
+            .frame(minWidth: 80)
+
+            Image(systemName: "speaker.wave.3.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 14)
+        }
+    }
+
+    private var volumeIcon: String {
+        if localVolume == 0 { return "speaker.slash.fill" }
+        if localVolume < 0.33 { return "speaker.fill" }
+        if localVolume < 0.66 { return "speaker.wave.1.fill" }
+        return "speaker.wave.2.fill"
+    }
+
     // MARK: - Secondary Actions
 
     private var secondaryActions: some View {
+        HStack(spacing: 12) {
+            // Swap between icons and volume slider; volume button stays anchored on the right.
+            ZStack {
+                secondaryIconsGroup
+                    .opacity(showVolumeSlider ? 0 : 1)
+                    .allowsHitTesting(!showVolumeSlider)
+                volumeSliderPanel
+                    .opacity(showVolumeSlider ? 1 : 0)
+                    .allowsHitTesting(showVolumeSlider)
+            }
+            .animation(.easeInOut(duration: 0.2), value: showVolumeSlider)
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showVolumeSlider.toggle()
+                }
+                if showVolumeSlider {
+                    scheduleSliderDismiss()
+                } else {
+                    sliderDismissTask?.cancel()
+                    sliderDismissTask = nil
+                }
+            } label: {
+                Image(systemName: volumeIcon)
+                    .font(.system(size: 12))
+                    .foregroundStyle(showVolumeSlider ? Color.cassetteAccent : .primary.opacity(0.8))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var secondaryIconsGroup: some View {
         HStack(spacing: 12) {
             Button { } label: {
                 Image(systemName: "quote.bubble")
@@ -331,15 +410,6 @@ struct BottomPlayerBar: View {
 
             AirPlayButton()
                 .frame(width: 20, height: 20)
-
-            Button {
-                toggleMute()
-            } label: {
-                Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.primary.opacity(0.8))
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -381,10 +451,15 @@ struct BottomPlayerBar: View {
         }
     }
 
-    private func toggleMute() {
-        isMuted.toggle()
-        let volume = isMuted ? 0.0 : localVolume
-        Task { await container?.playerService.setVolume(Float(volume)) }
+    private func scheduleSliderDismiss() {
+        sliderDismissTask?.cancel()
+        sliderDismissTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showVolumeSlider = false
+            }
+        }
     }
 }
 

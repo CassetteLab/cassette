@@ -12,8 +12,6 @@ struct MiniPlayerWindowView: View {
     @State private var container: AppContainer? = AppContainer.shared
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
-    @State private var isMuted = false
-    @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
 
     private var playerState: PlayerState? { container?.playerState }
     private var currentTrack: DisplayableSong? { playerState?.currentTrack }

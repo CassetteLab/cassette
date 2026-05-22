@@ -462,7 +462,10 @@ actor PlayerService: PlayerServiceProtocol {
     func setVolume(_ volume: Float) async {
         let clamped = max(0, min(1, volume))
         audioPlayer.volume = clamped
-        UserDefaults.standard.set(clamped, forKey: "cassette.lastVolume")
+        // Don't persist 0 — muting should not overwrite the saved restore volume.
+        if clamped > 0 {
+            UserDefaults.standard.set(clamped, forKey: "cassette.lastVolume")
+        }
     }
 
     func setAutoExtendEnabled(_ enabled: Bool) async {
