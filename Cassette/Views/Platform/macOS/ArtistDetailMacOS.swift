@@ -65,6 +65,7 @@ struct ArtistDetailMacOS: View {
                     .padding(.bottom, 16)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .refreshable { await vm.load() }
     }
@@ -132,7 +133,7 @@ struct ArtistDetailMacOS: View {
                 .disabled(vm.isPlayLoading || vm.artist?.album?.isEmpty ?? true)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .frame(height: 240)
     }
 

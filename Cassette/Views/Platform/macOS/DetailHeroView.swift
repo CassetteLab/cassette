@@ -85,7 +85,7 @@ struct DetailHeroView: View {
                 .controlSize(.large)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         .frame(height: CassetteMacOSLayout.heroCoverArtSize)
     }
 }

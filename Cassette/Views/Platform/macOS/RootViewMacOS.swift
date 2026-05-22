@@ -13,13 +13,12 @@ struct RootViewMacOS: View {
     @Query(sort: \PinnedItem.sortOrder) private var pinnedItems: [PinnedItem]
     @State private var selection: SidebarDestination? = .section(.home)
     @State private var searchQuery: String = ""
-    @FocusState private var searchFieldFocused: Bool
     @State private var isShowingFullPlayer = false
     @State private var columnVisibility = NavigationSplitViewVisibility.all
 
     var body: some View {
         ZStack {
-            MainWindowConfigurator()
+            MainWindowConfigurator(isFullPlayerVisible: isShowingFullPlayer)
                 .frame(width: 0, height: 0)
 
             NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -50,7 +49,7 @@ struct RootViewMacOS: View {
                     }
             }
             .navigationSplitViewStyle(.balanced)
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+            .searchable(text: $searchQuery, placement: .sidebar)
 
             if isShowingFullPlayer {
                 FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
@@ -61,7 +60,6 @@ struct RootViewMacOS: View {
             }
         }
         .frame(minWidth: 1100, minHeight: 500)
-        .onChange(of: columnVisibility) { _, _ in columnVisibility = .all }
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }
@@ -73,9 +71,6 @@ struct RootViewMacOS: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipPrevious)) { _ in
             Task { try? await container?.playerService.skipToPrevious() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteFocusSearch)) { _ in
-            searchFieldFocused = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleShuffle)) { _ in
             Task { await container?.playerService.toggleShuffle() }
@@ -133,39 +128,9 @@ struct RootViewMacOS: View {
             }
         }
         .listStyle(.sidebar)
-        .toolbar(removing: .sidebarToggle)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            searchField
-        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             userFooter
         }
-    }
-
-    private var searchField: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(.secondary)
-                .font(.subheadline)
-            TextField("Search your library", text: $searchQuery)
-                .textFieldStyle(.plain)
-                .focused($searchFieldFocused)
-            if !searchQuery.isEmpty {
-                Button {
-                    searchQuery = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 7))
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background(.bar)
     }
 
     private func sidebarRow(_ section: SidebarSection) -> some View {
@@ -329,16 +294,23 @@ struct RootViewMacOS: View {
 // MARK: - Window configurator
 
 private struct MainWindowConfigurator: NSViewRepresentable {
+    let isFullPlayerVisible: Bool
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
         DispatchQueue.main.async {
             guard let window = view.window else { return }
-            window.titlebarAppearsTransparent = true
-            window.isMovableByWindowBackground = true
+            window.setFrameAutosaveName("CassetteMainWindow")
         }
         return view
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async {
+            guard let window = nsView.window else { return }
+            window.titlebarAppearsTransparent = isFullPlayerVisible
+            window.isMovableByWindowBackground = isFullPlayerVisible
+        }
+    }
 }
 #endif
