@@ -10,7 +10,6 @@ struct MiniPlayerAccessoryView: View {
     @Binding var showingFullPlayer: Bool
     @Environment(\.appContainer) private var container
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.tabViewBottomAccessoryPlacement) private var placement: TabViewBottomAccessoryPlacement?
     @State private var dragOffset: CGFloat = 0
     @State private var isAnimatingSwipe = false
 
@@ -22,13 +21,20 @@ struct MiniPlayerAccessoryView: View {
 
     var body: some View {
         if let playerState = container?.playerState {
-            playerContent(playerState)
+            if #available(macOS 26.0, iOS 26.0, *) {
+                MiniPlayerPlacementReader { isInline in
+                    playerContent(playerState, isInline: isInline)
+                }
                 .environment(\.colorScheme, colorScheme)
+            } else {
+                playerContent(playerState, isInline: false)
+                    .environment(\.colorScheme, colorScheme)
+            }
         }
     }
 
     @ViewBuilder
-    private func playerContent(_ playerState: PlayerState) -> some View {
+    private func playerContent(_ playerState: PlayerState, isInline: Bool) -> some View {
         let isLiveStream = playerState.isLiveStream
         let coverArtId = isLiveStream ? (playerState.currentRadio?.coverArt ?? "") : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? "")
         let title = isLiveStream ? (playerState.currentRadio?.name ?? "") : (playerState.currentTrack?.title ?? "")
@@ -38,7 +44,7 @@ struct MiniPlayerAccessoryView: View {
         let isAvailable = playerState.isPlaybackAvailable
 
         Group {
-            if placement == .inline {
+            if isInline {
                 inlineBar(coverArtId: coverArtId, title: title, artist: artist, audioFormat: audioFormat, isPlaying: isPlaying, isAvailable: isAvailable, isLiveStream: isLiveStream)
                     .transition(.opacity)
             } else {
@@ -46,7 +52,7 @@ struct MiniPlayerAccessoryView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: placement == .inline)
+        .animation(.easeInOut(duration: 0.2), value: isInline)
         .offset(x: dragOffset)
         .opacity(1.0 - min(abs(dragOffset) / 200, 0.4))
         .contentShape(Rectangle())
@@ -254,5 +260,17 @@ struct MiniPlayerAccessoryView: View {
             dragOffset = 0
         }
     }
+}
 
+// Reads tabViewBottomAccessoryPlacement from the environment and passes isInline
+// down as a Bool so MiniPlayerAccessoryView doesn't need to declare the
+// unavailable type at struct level.
+@available(macOS 26.0, iOS 26.0, *)
+private struct MiniPlayerPlacementReader<Content: View>: View {
+    @Environment(\.tabViewBottomAccessoryPlacement) private var placement: TabViewBottomAccessoryPlacement?
+    @ViewBuilder let content: (Bool) -> Content
+
+    var body: some View {
+        content(placement == .inline)
+    }
 }

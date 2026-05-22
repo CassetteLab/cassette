@@ -179,7 +179,7 @@ struct PlaylistDetailMacOS: View {
                 .buttonStyle(.borderless)
                 .help("Back")
             }
-            .sharedBackgroundVisibility(.hidden)
+            .cassetteSharedBackgroundVisibility(.hidden)
         }
 
         ToolbarItem(placement: .primaryAction) {
@@ -195,7 +195,7 @@ struct PlaylistDetailMacOS: View {
             .disabled(vm?.isOffline == true || container?.serverState.isOnline != true || vm?.playlistDetail == nil)
             .help("Edit Playlist")
         }
-        .sharedBackgroundVisibility(.hidden)
+        .cassetteSharedBackgroundVisibility(.hidden)
 
         ToolbarItem(placement: .primaryAction) {
             if vm?.isDownloadingPlaylist == true {
@@ -223,7 +223,7 @@ struct PlaylistDetailMacOS: View {
                 .help("Download Playlist")
             }
         }
-        .sharedBackgroundVisibility(.hidden)
+        .cassetteSharedBackgroundVisibility(.hidden)
 
         ToolbarItem(placement: .destructiveAction) {
             Button(role: .destructive) {
@@ -238,7 +238,7 @@ struct PlaylistDetailMacOS: View {
             .disabled(!(vm?.songs.contains { $0.isDownloaded } ?? false))
             .help("Remove Download")
         }
-        .sharedBackgroundVisibility(.hidden)
+        .cassetteSharedBackgroundVisibility(.hidden)
     }
 }
 

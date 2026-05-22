@@ -135,7 +135,7 @@ struct AlbumDetailMacOS: View {
                 .buttonStyle(.borderless)
                 .help("Back")
             }
-            .sharedBackgroundVisibility(.hidden)
+            .cassetteSharedBackgroundVisibility(.hidden)
         }
 
         ToolbarItem(placement: .primaryAction) {
@@ -164,7 +164,7 @@ struct AlbumDetailMacOS: View {
                 .help("Download Album")
             }
         }
-        .sharedBackgroundVisibility(.hidden)
+        .cassetteSharedBackgroundVisibility(.hidden)
     }
 }
 #endif

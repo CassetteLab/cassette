@@ -169,7 +169,7 @@ struct ArtistDetailMacOS: View {
                 .buttonStyle(.borderless)
                 .help("Back")
             }
-            .sharedBackgroundVisibility(.hidden)
+            .cassetteSharedBackgroundVisibility(.hidden)
         }
     }
 }
