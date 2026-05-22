@@ -9,6 +9,7 @@ import OSLog
 /// Pure HTTP actor for ListenBrainz API calls. Stateless — no caching, no persisted config.
 /// Username is never logged; only HTTP status codes and rate-limit headers are logged.
 actor ListenBrainzClient {
+    // force-unwrap safe: compile-time string constant
     private static let baseURL = URL(string: "https://api.listenbrainz.org/1/")!
 
     private let transport: any ListenBrainzTransport
