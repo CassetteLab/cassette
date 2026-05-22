@@ -42,4 +42,6 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Applies the given volume (0.0–1.0) to AVPlayer and persists it to UserDefaults.
     func setVolume(_ volume: Float) async
     func togglePlayPause() async
+    /// Lightweight position-only flush — called from scenePhase .inactive on iOS.
+    func saveCurrentPosition() async
 }
