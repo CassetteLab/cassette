@@ -106,6 +106,14 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             MPNowPlayingInfoCenter.default().playbackState = .stopped
             #endif
         }
+        #if os(macOS)
+        DistributedNotificationCenter.default().postNotificationName(
+            .init("fr.mathieu-dubart.Cassette.playbackStopped"),
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+        #endif
     }
 
     // MARK: - Update
@@ -129,6 +137,20 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 MPNowPlayingInfoCenter.default().playbackState = .playing
                 #endif
             }
+            #if os(macOS)
+            DistributedNotificationCenter.default().postNotificationName(
+                .init("fr.mathieu-dubart.Cassette.nowPlaying"),
+                object: nil,
+                userInfo: [
+                    "title": snapshot.title,
+                    "artist": snapshot.artist ?? "",
+                    "album": snapshot.album ?? "",
+                    "duration": snapshot.duration,
+                    "startedAt": Date().timeIntervalSince1970
+                ],
+                deliverImmediately: true
+            )
+            #endif
 
             // Check ArtworkImageCache — radio coverArtId maps to a server thumbnail when available.
             if let coverArtId = snapshot.coverArtId,
@@ -189,6 +211,20 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
             #endif
         }
+        #if os(macOS)
+        DistributedNotificationCenter.default().postNotificationName(
+            .init("fr.mathieu-dubart.Cassette.nowPlaying"),
+            object: nil,
+            userInfo: [
+                "title": snapshot.title,
+                "artist": snapshot.artist ?? "",
+                "album": snapshot.album ?? "",
+                "duration": snapshot.duration,
+                "startedAt": Date().timeIntervalSince1970
+            ],
+            deliverImmediately: true
+        )
+        #endif
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
         if let coverArtId = snapshot.coverArtId,
