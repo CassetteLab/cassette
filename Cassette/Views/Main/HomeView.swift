@@ -202,6 +202,8 @@ struct HomeView: View {
                     zoomSourceId: id,
                     zoomNamespace: pinnedZoomNamespace
                 )
+            case .artistById(let id, let name, let coverArtId):
+                ArtistDetailView(artist: ArtistID3(id: id, name: name, coverArt: coverArtId))
             case .offlineArtist(let artist):
                 OfflineArtistAlbumsView(artist: artist)
             case .offlineAlbum(let album):
