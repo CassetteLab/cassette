@@ -75,6 +75,15 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         }
         appendToDebugLog("[RCC] start() — registered previousTrackCommand")
 
+        // macOS Control Center may route the previous-track gesture through skipBackwardCommand
+        // instead of previousTrackCommand. Register both so the gesture works on either path.
+        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: 0)]
+        center.skipBackwardCommand.addTarget { [weak self] _ in
+            guard let self else { return .commandFailed }
+            Task { try? await self.playerService.skipToPrevious() }
+            return .success
+        }
+
         center.changePlaybackPositionCommand.addTarget { [playerService] event in
             guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
@@ -218,13 +227,16 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         // play/pause/togglePlayPause remain enabled in both modes (always-on).
         Logger.nowPlaying.debug("[REMOTE] updateRemoteCommandsAvailability — isLiveStream=\(isLiveStream, privacy: .public) nextEnabled=\(!isLiveStream, privacy: .public)")
         Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled BEFORE=\(center.nextTrackCommand.isEnabled, privacy: .public)")
+        Logger.nowPlaying.debug("[REMOTE] previousTrackCommand.isEnabled BEFORE=\(center.previousTrackCommand.isEnabled, privacy: .public)")
         appendToDebugLog("[RCC] updateRemoteCommandsAvailability called — isLiveStream=\(isLiveStream)")
         appendToDebugLog("[RCC] nextTrack BEFORE=\(center.nextTrackCommand.isEnabled)")
         appendToDebugLog("[RCC] previousTrack BEFORE=\(center.previousTrackCommand.isEnabled)")
         center.nextTrackCommand.isEnabled = !isLiveStream
         center.previousTrackCommand.isEnabled = !isLiveStream
+        center.skipBackwardCommand.isEnabled = !isLiveStream
         center.changePlaybackPositionCommand.isEnabled = !isLiveStream
         Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled AFTER=\(center.nextTrackCommand.isEnabled, privacy: .public)")
+        Logger.nowPlaying.debug("[REMOTE] previousTrackCommand.isEnabled AFTER=\(center.previousTrackCommand.isEnabled, privacy: .public)")
         appendToDebugLog("[RCC] nextTrack AFTER=\(center.nextTrackCommand.isEnabled)")
         appendToDebugLog("[RCC] previousTrack AFTER=\(center.previousTrackCommand.isEnabled)")
     }
