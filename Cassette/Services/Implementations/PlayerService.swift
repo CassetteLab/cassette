@@ -633,6 +633,7 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         audioPlayer.stop()
+        await replayGainService?.setEnabled(false, currentTrack: nil)
         currentSource = nil
         pendingRestoreInfo = nil
         isRestoringSession = false
