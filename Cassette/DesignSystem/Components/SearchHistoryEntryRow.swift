@@ -10,7 +10,13 @@ struct SearchHistoryEntryRow: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
-            CoverArtCard(id: entry.coverArtId ?? entry.itemId, size: 44)
+            CoverArtView(id: entry.coverArtId ?? entry.itemId, size: 88)
+                .frame(width: 44, height: 44)
+                .clipShape(
+                    entry.itemType == "artist"
+                        ? AnyShape(Circle())
+                        : AnyShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
+                )
             Text(entry.displayName)
                 .font(.cassetteCellTitle)
                 .lineLimit(1)

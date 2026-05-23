@@ -184,6 +184,13 @@ struct SearchView: View {
                 ForEach(serverHistory) { entry in
                     NavigationLink(value: historyDestination(entry)) {
                         SearchHistoryEntryRow(entry: entry)
+                            .simultaneousGesture(TapGesture().onEnded {
+                                Task { await container?.searchHistoryService.record(
+                                    itemId: entry.itemId, itemType: entry.itemType,
+                                    displayName: entry.displayName, coverArtId: entry.coverArtId,
+                                    serverId: serverId
+                                )}
+                            })
                     }
                 }
             }
