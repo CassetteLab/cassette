@@ -24,6 +24,10 @@ nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable, Codable {
     let isDownloaded: Bool
     let coverArtId: String?
     let audioFormat: String?
+    let replayGainTrackGain: Double?
+    let replayGainTrackPeak: Double?
+    let replayGainAlbumGain: Double?
+    let replayGainAlbumPeak: Double?
 }
 
 extension DisplayableSong {
@@ -40,6 +44,10 @@ extension DisplayableSong {
         self.isDownloaded = isDownloaded
         self.coverArtId = song.coverArt
         self.audioFormat = song.suffix?.uppercased()
+        self.replayGainTrackGain = song.replayGain?.trackGain
+        self.replayGainTrackPeak = song.replayGain?.trackPeak
+        self.replayGainAlbumGain = song.replayGain?.albumGain
+        self.replayGainAlbumPeak = song.replayGain?.albumPeak
     }
 
     @MainActor
@@ -56,5 +64,9 @@ extension DisplayableSong {
         self.isDownloaded = true
         self.coverArtId = track.coverArtId
         self.audioFormat = track.suffix?.uppercased()
+        self.replayGainTrackGain = nil
+        self.replayGainTrackPeak = nil
+        self.replayGainAlbumGain = nil
+        self.replayGainAlbumPeak = nil
     }
 }
