@@ -75,6 +75,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         }
         appendToDebugLog("[RCC] start() — registered previousTrackCommand")
 
+        #if os(macOS)
         // macOS Control Center may route the previous-track gesture through skipBackwardCommand
         // instead of previousTrackCommand. Register both so the gesture works on either path.
         center.skipBackwardCommand.preferredIntervals = [NSNumber(value: 0)]
@@ -83,6 +84,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             Task { try? await self.playerService.skipToPrevious() }
             return .success
         }
+        #endif
 
         center.changePlaybackPositionCommand.addTarget { [playerService] event in
             guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
@@ -100,7 +102,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     func stop() async {
         await MainActor.run {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = .stopped
+            #endif
         }
     }
 
@@ -121,7 +125,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             let baseInfo = info
             await MainActor.run {
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
+                #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = .playing
+                #endif
             }
 
             // Check ArtworkImageCache — radio coverArtId maps to a server thumbnail when available.
@@ -132,7 +138,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                     var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? baseInfo
                     infoWithArt[MPMediaItemPropertyArtwork] = artwork
                     MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                    #if os(macOS)
                     MPNowPlayingInfoCenter.default().playbackState = .playing
+                    #endif
                 }
             }
 
@@ -155,7 +163,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
                 if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
+                #endif
             }
             return
         }
@@ -175,7 +185,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         let baseInfo = info
         await MainActor.run {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
+            #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
+            #endif
         }
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
@@ -187,7 +199,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
+                #endif
             }
             return
         }
@@ -200,7 +214,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
+                #endif
             }
         }
     }
@@ -215,7 +231,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             info[MPNowPlayingInfoPropertyPlaybackRate] = rate
             info[MPMediaItemPropertyPlaybackDuration] = duration
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = .playing
+            #endif
         }
     }
 
@@ -233,7 +251,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         appendToDebugLog("[RCC] previousTrack BEFORE=\(center.previousTrackCommand.isEnabled)")
         center.nextTrackCommand.isEnabled = !isLiveStream
         center.previousTrackCommand.isEnabled = !isLiveStream
+        #if os(macOS)
         center.skipBackwardCommand.isEnabled = !isLiveStream
+        #endif
         center.changePlaybackPositionCommand.isEnabled = !isLiveStream
         Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled AFTER=\(center.nextTrackCommand.isEnabled, privacy: .public)")
         Logger.nowPlaying.debug("[REMOTE] previousTrackCommand.isEnabled AFTER=\(center.previousTrackCommand.isEnabled, privacy: .public)")
