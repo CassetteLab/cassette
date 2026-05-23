@@ -97,7 +97,11 @@ final class PlaylistDetailViewModel {
                 artistId: song.artistId, genre: song.genre,
                 duration: song.duration, trackNumber: song.trackNumber,
                 isDownloaded: downloadedIds.contains(song.id),
-                coverArtId: song.coverArtId, audioFormat: song.audioFormat
+                coverArtId: song.coverArtId, audioFormat: song.audioFormat,
+                replayGainTrackGain: song.replayGainTrackGain,
+                replayGainTrackPeak: song.replayGainTrackPeak,
+                replayGainAlbumGain: song.replayGainAlbumGain,
+                replayGainAlbumPeak: song.replayGainAlbumPeak
             )
         }
         isDownloadingPlaylist = false
@@ -126,7 +130,11 @@ final class PlaylistDetailViewModel {
                 artistId: s.artistId, genre: s.genre,
                 duration: s.duration, trackNumber: s.trackNumber,
                 isDownloaded: allDownloaded.contains(id),
-                coverArtId: s.coverArtId, audioFormat: s.audioFormat
+                coverArtId: s.coverArtId, audioFormat: s.audioFormat,
+                replayGainTrackGain: s.replayGainTrackGain,
+                replayGainTrackPeak: s.replayGainTrackPeak,
+                replayGainAlbumGain: s.replayGainAlbumGain,
+                replayGainAlbumPeak: s.replayGainAlbumPeak
             )
         }
     }
@@ -149,7 +157,11 @@ final class PlaylistDetailViewModel {
                             artistId: $0.artistId, genre: $0.genre,
                             duration: $0.duration, trackNumber: $0.trackNumber,
                             isDownloaded: allDownloaded.contains($0.id),
-                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat)
+                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat,
+                            replayGainTrackGain: $0.replayGainTrackGain,
+                            replayGainTrackPeak: $0.replayGainTrackPeak,
+                            replayGainAlbumGain: $0.replayGainAlbumGain,
+                            replayGainAlbumPeak: $0.replayGainAlbumPeak)
         }
         isDownloadingPlaylist = false
     }
@@ -166,7 +178,11 @@ final class PlaylistDetailViewModel {
                             artistId: $0.artistId, genre: $0.genre,
                             duration: $0.duration, trackNumber: $0.trackNumber,
                             isDownloaded: false,
-                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat)
+                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat,
+                            replayGainTrackGain: $0.replayGainTrackGain,
+                            replayGainTrackPeak: $0.replayGainTrackPeak,
+                            replayGainAlbumGain: $0.replayGainAlbumGain,
+                            replayGainAlbumPeak: $0.replayGainAlbumPeak)
         }
     }
 

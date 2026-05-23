@@ -48,7 +48,11 @@ struct WrappedTopTracksSection: View {
                     trackNumber: nil,
                     isDownloaded: false,
                     coverArtId: track.trackId,
-                    audioFormat: nil
+                    audioFormat: nil,
+                    replayGainTrackGain: nil,
+                    replayGainTrackPeak: nil,
+                    replayGainAlbumGain: nil,
+                    replayGainAlbumPeak: nil
                 )
                 do {
                     try await container.playerService.play(tracks: [song], startIndex: 0)
