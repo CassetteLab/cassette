@@ -265,18 +265,6 @@ private struct TrackInfoSection: View {
                                 AudioFormatBadge(format: format, color: secondaryContentColor)
                             }
                         }
-                        if let albumName = playerState.currentTrack?.albumName,
-                           playerState.currentTrack?.albumId != nil {
-                            Button { showAlbumSheet = true } label: {
-                                Text(albumName)
-                                    .font(.subheadline)
-                                    .foregroundStyle(secondaryContentColor)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(!isOnline)
-                        }
                     }
                 }
             }
