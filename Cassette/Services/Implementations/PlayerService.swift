@@ -25,6 +25,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let cacheSettings: CacheSettings
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
     private var widgetSyncService: WidgetSyncService?
+    private var replayGainService: ReplayGainService?
     private let toastService: ToastService
     private let statsService: StatsService
 
@@ -138,6 +139,11 @@ actor PlayerService: PlayerServiceProtocol {
         widgetSyncService = service
     }
 
+    func setReplayGainService(_ service: ReplayGainService) async {
+        replayGainService = service
+        await service.attach(to: audioPlayer)
+    }
+
     // MARK: - Play
 
     func play(tracks: [DisplayableSong], startIndex: Int) async throws {
@@ -197,6 +203,9 @@ actor PlayerService: PlayerServiceProtocol {
         // Cancel any pending +30s scrobble and cache download from the previous track.
         cancelPendingScrobble()
         cancelPendingCacheDownload()
+
+        let replayEnabled = UserDefaults.standard.bool(forKey: "cassette.replayGainEnabled")
+        await replayGainService?.apply(track: song, enabled: replayEnabled)
 
         let songId = song.id
         Task { [libraryService] in

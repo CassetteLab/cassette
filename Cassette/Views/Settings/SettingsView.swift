@@ -39,6 +39,7 @@ struct SettingsView: View {
         Form {
             DownloadsSectionView(vm: downloadsVM)
             CacheSectionView()
+            playbackSection()
             serverSection()
             integrationsSection()
             aboutSection()
@@ -51,6 +52,29 @@ struct SettingsView: View {
     }
 
     // MARK: - Sections
+
+    private func playbackSection() -> some View {
+        Section("Playback") {
+            Toggle(isOn: Binding(
+                get: { UserDefaults.standard.bool(forKey: "cassette.replayGainEnabled") },
+                set: { newVal in
+                    UserDefaults.standard.set(newVal, forKey: "cassette.replayGainEnabled")
+                    Task {
+                        await container?.replayGainService.setEnabled(
+                            newVal,
+                            currentTrack: container?.playerState.currentTrack
+                        )
+                    }
+                }
+            )) {
+                Label {
+                    Text("ReplayGain")
+                } icon: {
+                    SettingsIcon(systemImage: "speaker.wave.3", color: .purple)
+                }
+            }
+        }
+    }
 
     private func serverSection() -> some View {
         Section("Server") {
