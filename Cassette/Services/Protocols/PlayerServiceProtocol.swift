@@ -44,4 +44,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func togglePlayPause() async
     /// Lightweight position-only flush — called from scenePhase .inactive on iOS.
     func saveCurrentPosition() async
+    /// Stops the audio engine synchronously without going through the actor.
+    /// Only safe to call during app termination (single-threaded, no concurrent access).
+    nonisolated func stopAudioEngineSync()
 }

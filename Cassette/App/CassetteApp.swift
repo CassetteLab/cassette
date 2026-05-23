@@ -126,6 +126,8 @@ struct CassetteApp: App {
             .frame(minHeight: 580)
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                 guard let c = container else { return }
+                // Stop AVAudioEngine synchronously — prevents HALC frame accumulation during teardown.
+                c.playerService.stopAudioEngineSync()
                 let sema = DispatchSemaphore(value: 0)
                 Task {
                     await c.playerService.stop()

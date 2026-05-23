@@ -1325,6 +1325,11 @@ actor PlayerService: PlayerServiceProtocol {
         guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
         await nowPlayingService?.pushPosition(elapsed: elapsed, rate: 1.0, duration: duration)
     }
+
+    // nonisolated: safe — only called during app termination
+    nonisolated func stopAudioEngineSync() {
+        audioPlayer.stop()
+    }
 }
 
 // MARK: - iOS Audio Session
