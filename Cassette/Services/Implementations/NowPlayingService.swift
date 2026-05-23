@@ -89,7 +89,10 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     }
 
     func stop() async {
-        await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = nil }
+        await MainActor.run {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            MPNowPlayingInfoCenter.default().playbackState = .stopped
+        }
     }
 
     // MARK: - Update
@@ -107,7 +110,10 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             ]
             if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
             let baseInfo = info
-            await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo }
+            await MainActor.run {
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
+                MPNowPlayingInfoCenter.default().playbackState = .playing
+            }
 
             // Check ArtworkImageCache — radio coverArtId maps to a server thumbnail when available.
             if let coverArtId = snapshot.coverArtId,
@@ -117,6 +123,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                     var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? baseInfo
                     infoWithArt[MPMediaItemPropertyArtwork] = artwork
                     MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                    MPNowPlayingInfoCenter.default().playbackState = .playing
                 }
             }
 
@@ -139,6 +146,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
                 if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
             }
             return
         }
@@ -156,7 +164,10 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
         let baseInfo = info
-        await MainActor.run { MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo }
+        await MainActor.run {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
+            MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
+        }
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
         if let coverArtId = snapshot.coverArtId,
@@ -167,6 +178,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
             }
             return
         }
@@ -179,6 +191,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
             }
         }
     }
@@ -193,6 +206,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             info[MPNowPlayingInfoPropertyPlaybackRate] = rate
             info[MPMediaItemPropertyPlaybackDuration] = duration
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            MPNowPlayingInfoCenter.default().playbackState = .playing
         }
     }
 
