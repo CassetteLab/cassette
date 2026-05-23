@@ -20,6 +20,7 @@ struct SearchHistoryEntryRow: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(.vertical, CassetteSpacing.xs)
+        .padding(.horizontal, CassetteSpacing.m)
         .contentShape(Rectangle())
     }
 }
