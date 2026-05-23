@@ -23,6 +23,10 @@ struct ArtistDetailView: View {
         _artistFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
 
+    init(artistId: String, artistName: String, coverArtId: String?) {
+        self.init(artist: ArtistID3(id: artistId, name: artistName, coverArt: coverArtId))
+    }
+
     private var isArtistFavorite: Bool { !artistFavoriteMatches.isEmpty }
     private var isOnline: Bool { container?.serverState.isOnline == true }
 

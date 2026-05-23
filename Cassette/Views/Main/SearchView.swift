@@ -13,6 +13,7 @@ struct SearchView: View {
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: SearchViewModel?
+    @State private var navigatingToHistoryEntry: SearchHistoryEntry? = nil
     @Query private var allFavorites: [FavoriteRecord]
     @Query private var historyEntries: [SearchHistoryEntry]
 
@@ -97,72 +98,56 @@ struct SearchView: View {
         .navigationDestination(for: HomeDestination.self) { destination in
             switch destination {
             case .album(let album):
-                HistoryRecordingView {
-                    await container?.searchHistoryService.record(
-                        itemId: album.id, itemType: "album",
-                        displayName: album.name, coverArtId: album.coverArt,
-                        serverId: serverId
-                    )
-                } content: {
-                    #if os(macOS)
-                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                    #else
-                    AlbumDetailView(
-                        album: album,
-                        coverArtId: album.coverArt,
-                        initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
-                    )
-                    #endif
-                }
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                #else
+                AlbumDetailView(
+                    album: album,
+                    coverArtId: album.coverArt,
+                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
+                )
+                #endif
             case .albumById(let id, let name, _, let coverArtId):
-                HistoryRecordingView {
-                    await container?.searchHistoryService.record(
-                        itemId: id, itemType: "album",
-                        displayName: name, coverArtId: coverArtId,
-                        serverId: serverId
-                    )
-                } content: {
-                    #if os(macOS)
-                    AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
-                    #else
-                    AlbumDetailView(
-                        albumId: id,
-                        albumName: name,
-                        coverArtId: coverArtId,
-                        initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
-                    )
-                    #endif
-                }
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
+                #else
+                AlbumDetailView(
+                    albumId: id,
+                    albumName: name,
+                    coverArtId: coverArtId,
+                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
+                )
+                #endif
             case .artist(let artist):
-                HistoryRecordingView {
-                    await container?.searchHistoryService.record(
-                        itemId: artist.id, itemType: "artist",
-                        displayName: artist.name, coverArtId: artist.coverArt,
-                        serverId: serverId
-                    )
-                } content: {
-                    #if os(macOS)
-                    ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                    #else
-                    ArtistDetailView(artist: artist)
-                    #endif
-                }
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                #else
+                ArtistDetailView(artist: artist)
+                #endif
             case .artistById(let id, let name, let coverArtId):
-                HistoryRecordingView {
-                    await container?.searchHistoryService.record(
-                        itemId: id, itemType: "artist",
-                        displayName: name, coverArtId: coverArtId,
-                        serverId: serverId
-                    )
-                } content: {
-                    #if os(macOS)
-                    ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
-                    #else
-                    ArtistDetailView(artist: ArtistID3(id: id, name: name, coverArt: coverArtId))
-                    #endif
-                }
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
+                #else
+                ArtistDetailView(artistId: id, artistName: name, coverArtId: coverArtId)
+                #endif
             default:
                 EmptyView()
+            }
+        }
+        .navigationDestination(item: $navigatingToHistoryEntry) { entry in
+            switch entry.itemType {
+            case "artist":
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: entry.itemId, artistName: entry.displayName, coverArtId: entry.coverArtId)
+                #else
+                ArtistDetailView(artistId: entry.itemId, artistName: entry.displayName, coverArtId: entry.coverArtId)
+                #endif
+            default:
+                #if os(macOS)
+                AlbumDetailMacOS(albumId: entry.itemId, albumName: entry.displayName, coverArtId: entry.coverArtId)
+                #else
+                AlbumDetailView(albumId: entry.itemId, albumName: entry.displayName, coverArtId: entry.coverArtId)
+                #endif
             }
         }
         .onAppear {
@@ -182,9 +167,17 @@ struct SearchView: View {
         Section {
             LazyVStack(spacing: 0) {
                 ForEach(serverHistory) { entry in
-                    NavigationLink(value: historyDestination(entry)) {
+                    Button {
+                        Task { await container?.searchHistoryService.record(
+                            itemId: entry.itemId, itemType: entry.itemType,
+                            displayName: entry.displayName, coverArtId: entry.coverArtId,
+                            serverId: serverId
+                        )}
+                        navigatingToHistoryEntry = entry
+                    } label: {
                         SearchHistoryEntryRow(entry: entry)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .listRowInsets(EdgeInsets())
@@ -203,15 +196,6 @@ struct SearchView: View {
                 .foregroundStyle(Color.cassetteAccent)
             }
             .textCase(nil)
-        }
-    }
-
-    private func historyDestination(_ entry: SearchHistoryEntry) -> HomeDestination {
-        switch entry.itemType {
-        case "artist":
-            return .artistById(id: entry.itemId, name: entry.displayName, coverArtId: entry.coverArtId)
-        default:
-            return .albumById(id: entry.itemId, name: entry.displayName, subtitle: "", coverArtId: entry.coverArtId)
         }
     }
 
