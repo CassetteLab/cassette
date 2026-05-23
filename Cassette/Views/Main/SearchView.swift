@@ -111,7 +111,7 @@ struct SearchView: View {
                 #if os(macOS)
                 ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
                 #else
-                ArtistDetailView(artistId: id, artistName: name, coverArtId: coverArtId)
+                ArtistDetailView(artist: ArtistID3(id: id, name: name, coverArt: coverArtId))
                 #endif
             default:
                 EmptyView()
