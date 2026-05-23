@@ -13,21 +13,34 @@ struct SearchView: View {
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: SearchViewModel?
-    @AppStorage("cassette.recentSearches") private var recentSearchesData = "[]"
     @Query private var allFavorites: [FavoriteRecord]
+    @Query private var historyEntries: [SearchHistoryEntry]
+
+    init(searchQuery: Binding<String>) {
+        self._searchQuery = searchQuery
+        var descriptor = FetchDescriptor<SearchHistoryEntry>(
+            sortBy: [SortDescriptor(\.visitedAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 50
+        self._historyEntries = Query(descriptor)
+    }
 
     private var favoriteSongIds: Set<String> {
         Set(allFavorites.map(\.id))
     }
 
-    private var recentSearches: [String] {
-        (try? JSONDecoder().decode([String].self, from: Data(recentSearchesData.utf8))) ?? []
+    private var serverId: String {
+        container?.serverState.activeServer?.id.uuidString ?? ""
+    }
+
+    private var serverHistory: [SearchHistoryEntry] {
+        historyEntries.filter { $0.serverId == serverId }
     }
 
     var body: some View {
         let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
         Group {
-            if trimmed.isEmpty && recentSearches.isEmpty {
+            if trimmed.isEmpty && serverHistory.isEmpty {
                 EmptyStateView(
                     systemImage: "magnifyingglass",
                     title: "Search your library",
@@ -42,8 +55,8 @@ struct SearchView: View {
                 )
             } else {
                 List {
-                    if trimmed.isEmpty {
-                        recentSearchesSection
+                    if trimmed.isEmpty && !serverHistory.isEmpty {
+                        searchHistorySection
                     } else if let vm = viewModel {
                         activeSearchContent(vm)
                     }
@@ -94,11 +107,16 @@ struct SearchView: View {
                 #else
                 ArtistDetailView(artist: artist)
                 #endif
+            case .artistById(let id, let name, let coverArtId):
+                #if os(macOS)
+                ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
+                #else
+                ArtistDetailView(artistId: id, artistName: name, coverArtId: coverArtId)
+                #endif
             default:
                 EmptyView()
             }
         }
-        .onSubmit(of: .search) { addRecentSearch(searchQuery) }
         .onAppear {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = SearchViewModel(libraryService: svc) }
@@ -109,32 +127,50 @@ struct SearchView: View {
         .cassetteContentWidth()
     }
 
-    // MARK: - Idle state (recent searches)
+    // MARK: - Idle state (search history)
 
     @ViewBuilder
-    private var recentSearchesSection: some View {
+    private var searchHistorySection: some View {
         Section {
-            ForEach(recentSearches, id: \.self) { query in
-                Button {
-                    searchQuery = query
-                } label: {
-                    Label(query, systemImage: "clock")
-                        .font(.cassetteCellTitle)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            LazyVStack(spacing: 0) {
+                ForEach(serverHistory) { entry in
+                    NavigationLink(value: historyDestination(entry)) {
+                        SearchHistoryEntryRow(entry: entry)
+                    }
+                    .simultaneousGesture(TapGesture().onEnded {
+                        Task { await container?.searchHistoryService.record(
+                            itemId: entry.itemId, itemType: entry.itemType,
+                            displayName: entry.displayName, coverArtId: entry.coverArtId,
+                            serverId: serverId
+                        )}
+                    })
                 }
             }
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         } header: {
             HStack {
                 Text("Recent")
                     .font(.cassetteSectionTitle)
                     .foregroundStyle(.primary)
                 Spacer()
-                Button("Clear") { clearRecentSearches() }
-                    .font(.cassetteBody)
-                    .foregroundStyle(Color.cassetteAccent)
+                Button("Clear") {
+                    Task { await container?.searchHistoryService.clear(serverId: serverId) }
+                }
+                .font(.cassetteBody)
+                .foregroundStyle(Color.cassetteAccent)
             }
             .textCase(nil)
+        }
+    }
+
+    private func historyDestination(_ entry: SearchHistoryEntry) -> HomeDestination {
+        switch entry.itemType {
+        case "artist":
+            return .artistById(id: entry.itemId, name: entry.displayName, coverArtId: entry.coverArtId)
+        default:
+            return .albumById(id: entry.itemId, name: entry.displayName, subtitle: "", coverArtId: entry.coverArtId)
         }
     }
 
@@ -177,6 +213,13 @@ struct SearchView: View {
                     NavigationLink(value: artist) {
                         ArtistRow(artist: artist)
                     }
+                    .simultaneousGesture(TapGesture().onEnded {
+                        Task { await container?.searchHistoryService.record(
+                            itemId: artist.id, itemType: "artist",
+                            displayName: artist.name, coverArtId: artist.coverArt,
+                            serverId: serverId
+                        )}
+                    })
                 }
             }
         }
@@ -196,6 +239,13 @@ struct SearchView: View {
                             coverArtId: album.coverArt
                         )
                     }
+                    .simultaneousGesture(TapGesture().onEnded {
+                        Task { await container?.searchHistoryService.record(
+                            itemId: album.id, itemType: "album",
+                            displayName: album.name, coverArtId: album.coverArt,
+                            serverId: serverId
+                        )}
+                    })
                 }
             }
         }
@@ -220,21 +270,5 @@ struct SearchView: View {
                 }
             }
         }
-    }
-
-    // MARK: - Recent searches
-
-    private func addRecentSearch(_ query: String) {
-        let trimmed = query.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        var searches = recentSearches
-        searches.removeAll { $0 == trimmed }
-        searches.insert(trimmed, at: 0)
-        if searches.count > 10 { searches = Array(searches.prefix(10)) }
-        recentSearchesData = (try? String(data: JSONEncoder().encode(searches), encoding: .utf8)) ?? "[]"
-    }
-
-    private func clearRecentSearches() {
-        recentSearchesData = "[]"
     }
 }

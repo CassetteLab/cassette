@@ -47,6 +47,7 @@ final class AppContainer {
     let externalProvidersStore = ExternalProvidersStore()
     let externalArtworkCache = ExternalArtworkCache()
     let externalArtistImageResolver = ExternalArtistImageResolver()
+    let searchHistoryService: SearchHistoryService
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -120,6 +121,8 @@ final class AppContainer {
         let lbProvider = ListenBrainzRecommendationProvider(client: lbClient, service: listenBrainzService, libraryService: library)
         recommendationService = RecommendationService(providers: [lbProvider, subsonicProvider])
 
+        searchHistoryService = SearchHistoryService(container: modelContainer)
+
         Task { await listenBrainzService.loadPersistedState() }
         Task { await externalArtworkCache.runGarbageCollection() }
     }
@@ -151,7 +154,8 @@ extension ModelContainer {
             PinnedItem.self,
             PlaybackSession.self,
             PlaybackEvent.self,
-            CachedLyrics.self
+            CachedLyrics.self,
+            SearchHistoryEntry.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)

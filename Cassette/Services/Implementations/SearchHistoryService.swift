@@ -30,7 +30,7 @@ actor SearchHistoryService {
                 serverId: serverId
             ))
             // Enforce 50-entry cap: delete oldest entries if over limit
-            var all = FetchDescriptor<SearchHistoryEntry>(
+            let all = FetchDescriptor<SearchHistoryEntry>(
                 predicate: #Predicate { $0.serverId == serverId },
                 sortBy: [SortDescriptor(\.visitedAt, order: .forward)]
             )
