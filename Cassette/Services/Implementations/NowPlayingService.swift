@@ -107,12 +107,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             #endif
         }
         #if os(macOS)
-        DistributedNotificationCenter.default().postNotificationName(
-            .init("fr.mathieu-dubart.Cassette.playbackStopped"),
-            object: nil,
-            userInfo: nil,
-            deliverImmediately: true
-        )
+        postDiscordRPC(.stopped)
         #endif
     }
 
@@ -138,18 +133,13 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 #endif
             }
             #if os(macOS)
-            DistributedNotificationCenter.default().postNotificationName(
-                .init("fr.mathieu-dubart.Cassette.nowPlaying"),
-                object: nil,
-                userInfo: [
-                    "title": snapshot.title,
-                    "artist": snapshot.artist ?? "",
-                    "album": snapshot.album ?? "",
-                    "duration": snapshot.duration,
-                    "startedAt": Date().timeIntervalSince1970
-                ],
-                deliverImmediately: true
-            )
+            postDiscordRPC(.nowPlaying(.init(
+                title: snapshot.title,
+                artist: snapshot.artist ?? "",
+                album: snapshot.album ?? "",
+                duration: snapshot.duration,
+                startedAt: Date().timeIntervalSince1970
+            )))
             #endif
 
             // Check ArtworkImageCache — radio coverArtId maps to a server thumbnail when available.
@@ -212,18 +202,13 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             #endif
         }
         #if os(macOS)
-        DistributedNotificationCenter.default().postNotificationName(
-            .init("fr.mathieu-dubart.Cassette.nowPlaying"),
-            object: nil,
-            userInfo: [
-                "title": snapshot.title,
-                "artist": snapshot.artist ?? "",
-                "album": snapshot.album ?? "",
-                "duration": snapshot.duration,
-                "startedAt": Date().timeIntervalSince1970
-            ],
-            deliverImmediately: true
-        )
+        postDiscordRPC(.nowPlaying(.init(
+            title: snapshot.title,
+            artist: snapshot.artist ?? "",
+            album: snapshot.album ?? "",
+            duration: snapshot.duration,
+            startedAt: Date().timeIntervalSince1970
+        )))
         #endif
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
@@ -297,6 +282,33 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         appendToDebugLog("[RCC] previousTrack AFTER=\(center.previousTrackCommand.isEnabled)")
     }
 
+    // MARK: - Discord RPC
+
+    #if os(macOS)
+    private nonisolated func postDiscordRPC(_ event: DiscordRPCEvent) {
+        let port = 47832
+        let urlString: String
+        var body: Data?
+
+        switch event {
+        case .nowPlaying(let info):
+            urlString = "http://localhost:\(port)/now-playing"
+            body = try? JSONEncoder().encode(info)
+        case .stopped:
+            urlString = "http://localhost:\(port)/playback-stopped"
+        }
+
+        guard let url = URL(string: urlString) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 2
+
+        URLSession.shared.dataTask(with: request) { _, _, _ in }.resume()
+    }
+    #endif
+
     private func appendToDebugLog(_ message: String) {
         #if os(iOS)
         guard let docs = FileManager.default.urls(
@@ -316,3 +328,18 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         #endif
     }
 }
+
+#if os(macOS)
+private nonisolated enum DiscordRPCEvent {
+    case nowPlaying(DiscordNowPlayingInfo)
+    case stopped
+}
+
+private nonisolated struct DiscordNowPlayingInfo: Encodable {
+    let title: String
+    let artist: String
+    let album: String
+    let duration: Double
+    let startedAt: Double
+}
+#endif
