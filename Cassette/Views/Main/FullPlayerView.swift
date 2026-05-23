@@ -196,6 +196,7 @@ private struct TrackInfoSection: View {
     let glassTint: Color
 
     @Query private var favoriteMatches: [FavoriteRecord]
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var swipeDragOffset: CGFloat = 0
     @State private var isAnimatingSwipe = false
     @State private var resolvedArtist: ArtistID3?
@@ -375,6 +376,7 @@ private struct TrackInfoSection: View {
         }
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
+                .environment(artworkImageCache)
         }
     }
 

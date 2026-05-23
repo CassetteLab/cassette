@@ -225,6 +225,7 @@ struct SongRow: View {
         }
         .sheet(isPresented: $showAddToPlaylist) {
             AddToPlaylistSheet(song: song)
+                .environment(artworkImageCache)
         }
     }
 }

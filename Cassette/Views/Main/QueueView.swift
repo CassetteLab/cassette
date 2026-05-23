@@ -174,6 +174,7 @@ private struct QueueRow: View {
     let isCurrent: Bool
 
     @Environment(\.appContainer) private var container
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var showAddToPlaylist = false
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
@@ -241,6 +242,7 @@ private struct QueueRow: View {
         }
         .sheet(isPresented: $showAddToPlaylist) {
             AddToPlaylistSheet(song: song)
+                .environment(artworkImageCache)
         }
     }
 }
