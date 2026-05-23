@@ -50,6 +50,7 @@ actor WrappedPlaylistService {
     private let statsService: StatsService
     private let preferences: WrappedPreferences
     private let makeClient: @Sendable () async throws -> any PlaylistSyncClient
+    private let serverService: (any ServerServiceProtocol)?
 
     /// Production init — captures serverService in the client factory closure.
     init(
@@ -59,6 +60,7 @@ actor WrappedPlaylistService {
     ) {
         self.statsService = statsService
         self.preferences = preferences
+        self.serverService = serverService
         self.makeClient = { try await serverService.makeSwiftSonicClient() }
     }
 
@@ -70,6 +72,7 @@ actor WrappedPlaylistService {
     ) {
         self.statsService = statsService
         self.preferences = preferences
+        self.serverService = nil
         self.makeClient = clientFactory
     }
 
@@ -125,6 +128,8 @@ actor WrappedPlaylistService {
             Logger.wrapped.error("[WRAPPED-SYNC] replace playlist failed: \(error, privacy: .public)")
             return .serverError(error.localizedDescription)
         }
+
+        await uploadWrappedCover(year: year, playlistId: pid)
 
         preferences.setLastUpdatedMonth(currentYearMonth, serverId: serverId)
         preferences.setLastWrappedYear(year, serverId: serverId)
@@ -189,6 +194,42 @@ actor WrappedPlaylistService {
     ) async throws {
         _ = try await client.createPlaylist(name: nil, playlistId: playlistId, songIds: trackIds)
         Logger.wrapped.debug("[WRAPPED-SYNC] replaced playlist=\(playlistId, privacy: .public) with \(trackIds.count, privacy: .public) tracks")
+    }
+
+    // MARK: - Cover art upload
+
+    private func uploadWrappedCover(year: Int, playlistId: String) async {
+        guard let serverService else { return }
+        let snapshot = await MainActor.run { serverService.state.activeServer }
+        guard let snapshot, let baseURL = URL(string: snapshot.baseURL) else { return }
+
+        let jpegData = await MainActor.run {
+            WrappedCoverRenderer.generateCoverData(year: year)
+        }
+        guard let jpegData else {
+            Logger.wrapped.warning("[WRAPPED] Cover generation failed for \(year, privacy: .public)")
+            return
+        }
+
+        do {
+            let creds = try await serverService.activeCredentials()
+            let api = NavidromeNativeAPI(transport: CustomHeadersTransport(headers: creds.customHeaders))
+            let token = try await api.authenticate(
+                baseURL: baseURL,
+                username: snapshot.username,
+                password: creds.password
+            )
+            try await api.uploadPlaylistCover(
+                baseURL: baseURL,
+                token: token,
+                playlistId: playlistId,
+                imageData: jpegData,
+                mimeType: "image/jpeg"
+            )
+            Logger.wrapped.info("[WRAPPED] Cover uploaded for \(year, privacy: .public) playlist")
+        } catch {
+            Logger.wrapped.warning("[WRAPPED] Cover upload failed — \(error, privacy: .public)")
+        }
     }
 
     // MARK: - Get-or-create annual playlist

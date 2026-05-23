@@ -29,27 +29,28 @@ struct RootViewMacOS: View {
                     .safeAreaInset(edge: .bottom) {
                         Color.clear.frame(height: 120)
                     }
-                    .overlay(alignment: .bottom) {
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0),
-                                .init(color: Color(nsColor: .windowBackgroundColor).opacity(0.6), location: 0.5),
-                                .init(color: Color(nsColor: .windowBackgroundColor), location: 1),
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 80)
-                        .allowsHitTesting(false)
-                    }
-                    .overlay(alignment: .bottom) {
-                        BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
-                            .frame(maxWidth: 800)
-                            .padding(.horizontal, 24)
-                            .padding(.bottom, 16)
-                    }
             }
             .navigationSplitViewStyle(.balanced)
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+            .overlay(alignment: .bottom) {
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: Color(nsColor: .windowBackgroundColor).opacity(0.6), location: 0.5),
+                        .init(color: Color(nsColor: .windowBackgroundColor), location: 1),
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 80)
+                .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottom) {
+                BottomPlayerBar(onArtworkTap: { withAnimation { isShowingFullPlayer = true } })
+                    .frame(maxWidth: 600)
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 16)
+            }
             .searchable(text: $searchQuery, placement: .sidebar)
 
             if isShowingFullPlayer {

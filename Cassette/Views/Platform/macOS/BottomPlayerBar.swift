@@ -7,6 +7,7 @@
 import SwiftUI
 import AVKit
 import OSLog
+import SwiftSonic
 
 struct BottomPlayerBar: View {
     @Environment(\.appContainer) private var container
@@ -32,11 +33,21 @@ struct BottomPlayerBar: View {
     private var isLoading: Bool { playerState?.playbackState == .loading }
     private var isLiveStream: Bool { playerState?.isLiveStream == true }
     private var noTrack: Bool { currentTrack == nil }
+    private var hasContent: Bool { currentTrack != nil || playerState?.currentRadio != nil }
+    private var displayTitle: String {
+        if let radio = playerState?.currentRadio { return radio.name }
+        return currentTrack?.title ?? "No track playing"
+    }
+    private var displayCoverArtId: String? {
+        if let radio = playerState?.currentRadio { return radio.coverArt ?? radio.id }
+        return currentTrack?.coverArtId ?? currentTrack?.id
+    }
     private var isCompact: Bool { barWidth < 560 }
     private var isNarrow: Bool { barWidth < 400 }
     private var serverId: UUID? { container?.serverState.activeServer?.id }
 
     private var artistAlbumLine: String {
+        guard !isLiveStream else { return " " }
         let parts = [currentTrack?.artist, currentTrack?.albumName].compactMap { $0 }
         return parts.isEmpty ? " " : parts.joined(separator: " — ")
     }
@@ -103,14 +114,18 @@ struct BottomPlayerBar: View {
                 artworkThumbnail
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(currentTrack?.title ?? "No track playing")
+                    Text(displayTitle)
                         .font(.system(size: 12, weight: .semibold))
                         .lineLimit(1)
-                        .foregroundStyle(noTrack ? .secondary : .primary)
-                    Text(artistAlbumLine)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.primary.opacity(0.6))
-                        .lineLimit(1)
+                        .foregroundStyle(!hasContent ? .secondary : .primary)
+                    if isLiveStream {
+                        liveIndicator
+                    } else {
+                        Text(artistAlbumLine)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.primary.opacity(0.6))
+                            .lineLimit(1)
+                    }
                 }
 
                 Spacer(minLength: 0)
@@ -120,9 +135,7 @@ struct BottomPlayerBar: View {
                 }
             }
 
-            if isLiveStream {
-                liveIndicator
-            } else {
+            if !isLiveStream {
                 thinScrubber
             }
         }
@@ -133,8 +146,8 @@ struct BottomPlayerBar: View {
     @ViewBuilder
     private var artworkThumbnail: some View {
         Group {
-            if let track = currentTrack {
-                CoverArtView(id: track.coverArtId ?? track.id, size: 32)
+            if hasContent {
+                CoverArtView(id: displayCoverArtId ?? "", size: 32)
                     .frame(width: 32, height: 32)
                     .clipShape(RoundedRectangle(cornerRadius: 6))
             } else {
@@ -254,10 +267,10 @@ struct BottomPlayerBar: View {
             } label: {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 13))
-                    .foregroundStyle(noTrack ? .quaternary : .primary)
+                    .foregroundStyle(!hasContent ? .quaternary : .primary)
             }
             .buttonStyle(.plain)
-            .disabled(noTrack)
+            .disabled(!hasContent)
 
             playPauseButton
 
@@ -266,10 +279,10 @@ struct BottomPlayerBar: View {
             } label: {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 13))
-                    .foregroundStyle(noTrack ? .quaternary : .primary)
+                    .foregroundStyle(!hasContent ? .quaternary : .primary)
             }
             .buttonStyle(.plain)
-            .disabled(noTrack)
+            .disabled(!hasContent)
 
             if !isNarrow {
                 Button {
@@ -307,12 +320,12 @@ struct BottomPlayerBar: View {
             } label: {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 18))
-                    .foregroundStyle(noTrack ? .secondary : .primary)
+                    .foregroundStyle(!hasContent ? .secondary : .primary)
                     .frame(width: 26, height: 26)
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
-            .disabled(noTrack)
+            .disabled(!hasContent)
         }
     }
 
