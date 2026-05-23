@@ -571,7 +571,11 @@ struct AlbumSongRows: View {
                 trackNumber: song.trackNumber,
                 isDownloaded: liveDownloaded,
                 coverArtId: song.coverArtId,
-                audioFormat: song.audioFormat
+                audioFormat: song.audioFormat,
+                replayGainTrackGain: song.replayGainTrackGain,
+                replayGainTrackPeak: song.replayGainTrackPeak,
+                replayGainAlbumGain: song.replayGainAlbumGain,
+                replayGainAlbumPeak: song.replayGainAlbumPeak
             )
             let isDownloading = downloadingIds.contains(song.id)
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }

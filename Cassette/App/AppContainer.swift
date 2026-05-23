@@ -48,6 +48,7 @@ final class AppContainer {
     let externalArtworkCache = ExternalArtworkCache()
     let externalArtistImageResolver = ExternalArtistImageResolver()
     let searchHistoryService: SearchHistoryService
+    let replayGainService = ReplayGainService()
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -133,6 +134,7 @@ final class AppContainer {
     func setup() async {
         await _player.setNowPlayingService(nowPlayingService)
         await _player.setWidgetSyncService(widgetSyncService)
+        await _player.setReplayGainService(replayGainService)
     }
 }
 
