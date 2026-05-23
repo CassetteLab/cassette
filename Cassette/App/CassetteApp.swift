@@ -131,7 +131,12 @@ struct CassetteApp: App {
                     await c.playerService.stop()
                     sema.signal()
                 }
-                sema.wait()
+                let result = sema.wait(timeout: .now() + 1.5)
+                #if DEBUG
+                if result == .timedOut {
+                    Logger.boot.warning("[APP] Terminate handler timed out after 1.5s")
+                }
+                #endif
             }
             #endif
         }
