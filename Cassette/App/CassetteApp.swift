@@ -131,6 +131,7 @@ struct CassetteApp: App {
                 let sema = DispatchSemaphore(value: 0)
                 Task {
                     await c.playerService.stop()
+                    await c.nowPlayingService.stop()
                     sema.signal()
                 }
                 let result = sema.wait(timeout: .now() + 1.5)
