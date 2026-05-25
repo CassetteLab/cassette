@@ -179,6 +179,11 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
                 #endif
             }
+            #if os(macOS)
+            if snapshot.playbackRate == 0 {
+                postDiscordRPC(.stopped)
+            }
+            #endif
             return
         }
 
