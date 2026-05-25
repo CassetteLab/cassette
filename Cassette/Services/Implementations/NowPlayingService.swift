@@ -15,6 +15,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     private let artworkLoader = ArtworkLoader()
     private let artworkImageCache: ArtworkImageCache
     private var commandsRegistered = false
+    private var currentSong: NowPlayingSnapshot?
 
     init(playerService: any PlayerServiceProtocol, artworkImageCache: ArtworkImageCache) {
         self.playerService = playerService
@@ -182,6 +183,14 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             #if os(macOS)
             if snapshot.playbackRate == 0 {
                 postDiscordRPC(.stopped)
+            } else if let song = currentSong {
+                postDiscordRPC(.nowPlaying(.init(
+                    title: song.title,
+                    artist: song.artist ?? "",
+                    album: song.album ?? "",
+                    duration: song.duration,
+                    startedAt: Date().timeIntervalSince1970
+                )))
             }
             #endif
             return
@@ -199,6 +208,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         ]
         if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
+        currentSong = snapshot
         let baseInfo = info
         await MainActor.run {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
