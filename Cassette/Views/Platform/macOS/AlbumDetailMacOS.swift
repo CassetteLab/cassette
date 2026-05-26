@@ -111,7 +111,7 @@ struct AlbumDetailMacOS: View {
             .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
             .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight)
+                Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight / 2)
             }
         }
     }

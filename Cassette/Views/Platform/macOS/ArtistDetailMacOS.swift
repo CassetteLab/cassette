@@ -80,7 +80,7 @@ struct ArtistDetailMacOS: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
+            .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight / 2)
         }
         .refreshable { await vm.load() }
     }
