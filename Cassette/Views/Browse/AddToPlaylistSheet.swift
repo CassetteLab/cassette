@@ -32,13 +32,19 @@ struct AddToPlaylistSheet: View {
                 }
             }
         }
-        .task {
-            guard vm == nil else { return }
-            guard let svc = container?.playlistService,
+        .onAppear {
+            guard vm == nil,
+                  let svc = container?.playlistService,
                   let toast = container?.toastService else { return }
-            vm = AddToPlaylistViewModel(song: song, playlistService: svc, toastService: toast)
-            await Task.yield()
-            await vm?.load()
+            let newVM = AddToPlaylistViewModel(
+                song: song,
+                playlistService: svc,
+                toastService: toast
+            )
+            vm = newVM
+            Task { @MainActor in
+                await newVM.load()
+            }
         }
         .sheet(isPresented: $showCreateSheet) {
             CreatePlaylistSheet { playlist in
