@@ -33,10 +33,11 @@ struct AddToPlaylistSheet: View {
             }
         }
         .task {
-            guard let svc = container?.playlistService, let toast = container?.toastService else { return }
-            if vm == nil {
-                vm = AddToPlaylistViewModel(song: song, playlistService: svc, toastService: toast)
-            }
+            guard vm == nil else { return }
+            guard let svc = container?.playlistService,
+                  let toast = container?.toastService else { return }
+            vm = AddToPlaylistViewModel(song: song, playlistService: svc, toastService: toast)
+            await Task.yield()
             await vm?.load()
         }
         .sheet(isPresented: $showCreateSheet) {
