@@ -84,6 +84,7 @@ struct AlbumDetailView: View {
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
+    @State private var songToAddToPlaylist: DisplayableSong?
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -190,7 +191,8 @@ struct AlbumDetailView: View {
                             },
                             onRemoveDownload: { songId in
                                 Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
-                            }
+                            },
+                            onAddToPlaylist: { song in songToAddToPlaylist = song }
                         )
                     }
                 }
@@ -202,6 +204,9 @@ struct AlbumDetailView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("The audio files will be deleted from this device.")
+        }
+        .sheet(item: $songToAddToPlaylist) { song in
+            AddToPlaylistSheet(song: song)
         }
         .background(
             LinearGradient(
@@ -527,6 +532,7 @@ struct AlbumSongRows: View {
     let onTap: (Int) -> Void
     let onDownload: ((String) -> Void)?
     let onRemoveDownload: ((String) -> Void)?
+    let onAddToPlaylist: ((DisplayableSong) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
     @Query private var allFavorites: [FavoriteRecord]
@@ -535,7 +541,7 @@ struct AlbumSongRows: View {
         Set(allFavorites.map(\.id))
     }
 
-    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil) {
+    init(songs: [DisplayableSong], albumId: String, serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
@@ -543,6 +549,7 @@ struct AlbumSongRows: View {
         self.onTap = onTap
         self.onDownload = onDownload
         self.onRemoveDownload = onRemoveDownload
+        self.onAddToPlaylist = onAddToPlaylist
         let aid = albumId
         let sid = serverId
         _downloadedTracks = Query(
@@ -581,14 +588,14 @@ struct AlbumSongRows: View {
             let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
             let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
             #if os(macOS)
-            SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+            SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onAddToPlaylist: onAddToPlaylist)
                 .padding(.horizontal, CassetteSpacing.l)
                 .onTapGesture { onTap(index) }
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
             #else
             VStack(spacing: 0) {
-                SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading)
+                SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onAddToPlaylist: onAddToPlaylist)
                     .padding(.horizontal, CassetteSpacing.l)
                     .onTapGesture { onTap(index) }
                 if index < songs.count - 1 {

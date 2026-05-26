@@ -22,6 +22,7 @@ struct AlbumDetailMacOS: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @State private var vm: AlbumDetailViewModel?
+    @State private var songToAddToPlaylist: DisplayableSong?
 
     var body: some View {
         Group {
@@ -103,7 +104,8 @@ struct AlbumDetailMacOS: View {
                         },
                         onRemoveDownload: { songId in
                             Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
-                        }
+                        },
+                        onAddToPlaylist: { song in songToAddToPlaylist = song }
                     )
                 }
             }
@@ -112,6 +114,9 @@ struct AlbumDetailMacOS: View {
             .refreshable { await vm.load() }
             .safeAreaInset(edge: .bottom) {
                 Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight / 2)
+            }
+            .sheet(item: $songToAddToPlaylist) { song in
+                AddToPlaylistSheet(song: song)
             }
         }
     }
