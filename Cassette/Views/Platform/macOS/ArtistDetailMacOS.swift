@@ -81,6 +81,9 @@ struct ArtistDetailMacOS: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight)
+        }
         .refreshable { await vm.load() }
     }
 
