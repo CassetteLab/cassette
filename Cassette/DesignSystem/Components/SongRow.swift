@@ -21,17 +21,17 @@ struct SongRow: View {
     let onRemoveDownload: (() -> Void)?
     var isDownloading: Bool = false
     var onRemoveFromPlaylist: (() -> Void)? = nil
+    var onAddToPlaylist: ((DisplayableSong) -> Void)? = nil
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @Environment(\.colorScheme) private var colorScheme
     @State private var coverImage: PlatformImage?
-    @State private var showAddToPlaylist = false
     #if os(macOS)
     @State private var isHovered = false
     #endif
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
@@ -42,6 +42,7 @@ struct SongRow: View {
         self.onRemoveDownload = onRemoveDownload
         self.isDownloading = isDownloading
         self.onRemoveFromPlaylist = onRemoveFromPlaylist
+        self.onAddToPlaylist = onAddToPlaylist
     }
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
@@ -174,7 +175,7 @@ struct SongRow: View {
             Divider()
 
             Button {
-                showAddToPlaylist = true
+                onAddToPlaylist?(song)
             } label: {
                 Label("Add to Playlist...", systemImage: "music.note.list")
             }
@@ -223,10 +224,6 @@ struct SongRow: View {
             // lifted into RootViewMacOS and threaded through all section views.
         } preview: {
             SongContextPreview(coverImage: coverImage, song: song)
-        }
-        .sheet(isPresented: $showAddToPlaylist) {
-            AddToPlaylistSheet(song: song)
-                .environment(artworkImageCache)
         }
     }
 }
