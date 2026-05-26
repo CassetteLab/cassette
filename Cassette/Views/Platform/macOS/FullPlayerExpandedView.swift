@@ -17,6 +17,7 @@ struct FullPlayerExpandedView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(ArtworkImageCache.self) private var artworkCache
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.colorScheme) private var colorScheme
 
     @State private var isScrubbing = false
     @State private var localScrubPosition: Double = 0
@@ -481,7 +482,7 @@ struct FullPlayerExpandedView: View {
                 Task { await container?.playerService.toggleShuffle() }
             } label: {
                 Image(systemName: "shuffle")
-                    .foregroundStyle(playerState?.isShuffled == true ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
+                    .foregroundStyle(playerState?.isShuffled == true ? (colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)) : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -514,7 +515,7 @@ struct FullPlayerExpandedView: View {
                 }
             } label: {
                 Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
-                    .foregroundStyle(playerState?.repeatMode != .off ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
+                    .foregroundStyle(playerState?.repeatMode != .off ? (colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)) : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -563,7 +564,7 @@ struct FullPlayerExpandedView: View {
                     } label: {
                         Image(systemName: "infinity")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isAutoExtend ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.6))
+                            .foregroundStyle(isAutoExtend ? (colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)) : Color.white.opacity(0.6))
                             .padding(6)
                             .background(isAutoExtend ? CassetteColors.accentBackground : .clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
