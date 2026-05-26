@@ -61,6 +61,7 @@ struct PlaylistDetailView: View {
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
+    @State private var songToAddToPlaylist: DisplayableSong?
 
     // Inline edit mode
     @State private var isEditing = false
@@ -161,7 +162,8 @@ struct PlaylistDetailView: View {
                         } : nil,
                         onContextRemove: !vm.isOffline ? { index in
                             Task { await vm.removeTrack(at: index) }
-                        } : nil
+                        } : nil,
+                        onAddToPlaylist: { song in songToAddToPlaylist = song }
                     )
                 }
             }
@@ -177,6 +179,9 @@ struct PlaylistDetailView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("The audio files will be deleted from this device.")
+        }
+        .sheet(item: $songToAddToPlaylist) { song in
+            AddToPlaylistSheet(song: song)
         }
         .background(
             LinearGradient(
@@ -770,6 +775,7 @@ struct PlaylistSongRows: View {
     let onRemove: ((Int) -> Void)?
     let onReorder: ((IndexSet, Int) -> Void)?
     let onContextRemove: ((Int) -> Void)?
+    let onAddToPlaylist: ((DisplayableSong) -> Void)?
 
     @Query private var downloadedTracks: [DownloadedTrack]
     @Query private var allFavorites: [FavoriteRecord]
@@ -778,7 +784,7 @@ struct PlaylistSongRows: View {
         Set(allFavorites.map(\.id))
     }
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil, onContextRemove: ((Int) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil, onContextRemove: ((Int) -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
@@ -789,6 +795,7 @@ struct PlaylistSongRows: View {
         self.onRemove = onRemove
         self.onReorder = onReorder
         self.onContextRemove = onContextRemove
+        self.onAddToPlaylist = onAddToPlaylist
         let sid = serverId
         _downloadedTracks = Query(
             filter: #Predicate<DownloadedTrack> { track in
@@ -843,7 +850,7 @@ struct PlaylistSongRows: View {
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
-        SongRow(song: liveSong, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onRemoveFromPlaylist: onContextRemove.map { remove in { remove(index) } })
+        SongRow(song: liveSong, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onRemoveFromPlaylist: onContextRemove.map { remove in { remove(index) } }, onAddToPlaylist: onAddToPlaylist)
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
             .listRowBackground(Color.clear)

@@ -26,6 +26,7 @@ struct PlaylistDetailMacOS: View {
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
     @State private var showEditSheet = false
+    @State private var songToAddToPlaylist: DisplayableSong?
 
     var body: some View {
         Group {
@@ -127,13 +128,17 @@ struct PlaylistDetailMacOS: View {
                         },
                         onReorder: vm.isOffline ? nil : { source, dest in
                             Task { await vm.moveTracks(from: source, to: dest) }
-                        }
+                        },
+                        onAddToPlaylist: { song in songToAddToPlaylist = song }
                     )
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
+            .sheet(item: $songToAddToPlaylist) { song in
+                AddToPlaylistSheet(song: song)
+            }
         }
     }
 
