@@ -66,6 +66,7 @@ struct FullPlayerExpandedView: View {
             topLeadingButtons
         }
         .task(id: currentTrack?.id) {
+            artworkImage = nil
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
             await refreshFavorite()
         }
