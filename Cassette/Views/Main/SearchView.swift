@@ -14,6 +14,7 @@ struct SearchView: View {
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: SearchViewModel?
     @State private var navigatingToHistoryEntry: SearchHistoryEntry? = nil
+    @State private var songToAddToPlaylist: DisplayableSong?
     @Query private var allFavorites: [FavoriteRecord]
     @Query private var historyEntries: [SearchHistoryEntry]
 
@@ -157,6 +158,9 @@ struct SearchView: View {
         .task(id: searchQuery) {
             await viewModel?.search(query: searchQuery)
         }
+        .sheet(item: $songToAddToPlaylist) { song in
+            AddToPlaylistSheet(song: song)
+        }
         .cassetteContentWidth()
     }
 
@@ -267,7 +271,7 @@ struct SearchView: View {
         if !songs.isEmpty {
             Section("Songs") {
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"))
+                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"), onAddToPlaylist: { s in songToAddToPlaylist = s })
                         .contentShape(Rectangle())
                         .onTapGesture {
                             Task {
