@@ -67,6 +67,12 @@ final class DominantColorExtractor {
         UserDefaults.standard.dictionary(forKey: Self.userDefaultsKey)?[id] as? Int
     }
 
+    func invalidate(for coverArtId: String?) {
+        guard let coverArtId else { return }
+        cache.removeValue(forKey: coverArtId)
+        removePersistedColor(forKey: coverArtId)
+    }
+
     func clearCache() {
         cache.removeAll()
         UserDefaults.standard.removeObject(forKey: Self.userDefaultsKey)
@@ -85,6 +91,12 @@ final class DominantColorExtractor {
     private func persistColor(_ packed: Int, forKey key: String) {
         var dict = UserDefaults.standard.dictionary(forKey: Self.userDefaultsKey) ?? [:]
         dict[key] = packed
+        UserDefaults.standard.set(dict, forKey: Self.userDefaultsKey)
+    }
+
+    private func removePersistedColor(forKey key: String) {
+        var dict = UserDefaults.standard.dictionary(forKey: Self.userDefaultsKey) ?? [:]
+        dict.removeValue(forKey: key)
         UserDefaults.standard.set(dict, forKey: Self.userDefaultsKey)
     }
 

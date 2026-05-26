@@ -67,6 +67,7 @@ struct FullPlayerExpandedView: View {
             topLeadingButtons
         }
         .task(id: currentTrack?.id) {
+            colorExtractor.invalidate(for: currentTrack?.coverArtId)
             artworkImage = nil
             artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId)
             await refreshFavorite()
