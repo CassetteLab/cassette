@@ -221,7 +221,7 @@ struct SearchView: View {
             )
             .listRowSeparator(.hidden)
         } else if let results = vm.searchResults, hasAnyResults(results) {
-            artistResultsSection(results.artist ?? [])
+            artistResultsSection(visibleArtists(from: results))
             albumResultsSection(results.album ?? [])
             SearchSongResultsSection(
                 songs: (results.song ?? []).map { DisplayableSong(from: $0) },
@@ -230,8 +230,12 @@ struct SearchView: View {
         }
     }
 
+    private func visibleArtists(from results: SearchResult3) -> [ArtistID3] {
+        (results.artist ?? []).filter { ($0.albumCount ?? 0) > 0 }
+    }
+
     private func hasAnyResults(_ results: SearchResult3) -> Bool {
-        !(results.artist?.isEmpty ?? true) || !(results.album?.isEmpty ?? true) || !(results.song?.isEmpty ?? true)
+        !visibleArtists(from: results).isEmpty || !(results.album?.isEmpty ?? true) || !(results.song?.isEmpty ?? true)
     }
 
     @ViewBuilder
