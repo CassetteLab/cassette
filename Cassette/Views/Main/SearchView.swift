@@ -11,20 +11,14 @@ import OSLog
 struct SearchView: View {
     @Binding var searchQuery: String
     @Environment(\.appContainer) private var container
-    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: SearchViewModel?
+    @Namespace private var albumZoomNamespace
     @State private var navigatingToHistoryEntry: SearchHistoryEntry? = nil
     @State private var songToAddToPlaylist: DisplayableSong?
     @Query private var allFavorites: [FavoriteRecord]
-    @Query private var historyEntries: [SearchHistoryEntry]
 
     init(searchQuery: Binding<String>) {
         self._searchQuery = searchQuery
-        var descriptor = FetchDescriptor<SearchHistoryEntry>(
-            sortBy: [SortDescriptor(\.visitedAt, order: .reverse)]
-        )
-        descriptor.fetchLimit = 50
-        self._historyEntries = Query(descriptor)
     }
 
     private var favoriteSongIds: Set<String> {
@@ -35,20 +29,15 @@ struct SearchView: View {
         container?.serverState.activeServer?.id.uuidString ?? ""
     }
 
-    private var serverHistory: [SearchHistoryEntry] {
-        historyEntries.filter { $0.serverId == serverId }
-    }
-
     var body: some View {
         let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
         Group {
-            if trimmed.isEmpty && serverHistory.isEmpty {
-                EmptyStateView(
-                    systemImage: "magnifyingglass",
-                    title: "Search your library",
-                    subtitle: "Find songs, albums, artists, and playlists from your server."
+            if trimmed.isEmpty {
+                SearchHistoryListView(
+                    serverId: serverId,
+                    onNavigate: { entry in navigatingToHistoryEntry = entry }
                 )
-            } else if let vm = viewModel, !trimmed.isEmpty, !vm.isSearching,
+            } else if let vm = viewModel, !vm.isSearching,
                       let results = vm.searchResults, !hasAnyResults(results) {
                 EmptyStateView(
                     systemImage: "magnifyingglass",
@@ -57,9 +46,7 @@ struct SearchView: View {
                 )
             } else {
                 List {
-                    if trimmed.isEmpty && !serverHistory.isEmpty {
-                        searchHistorySection
-                    } else if let vm = viewModel {
+                    if let vm = viewModel {
                         activeSearchContent(vm)
                     }
                 }
@@ -104,8 +91,9 @@ struct SearchView: View {
                 #else
                 AlbumDetailView(
                     album: album,
-                    coverArtId: album.coverArt,
-                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
+                    zoomSourceId: album.id,
+                    zoomNamespace: albumZoomNamespace,
+                    coverArtId: album.coverArt
                 )
                 #endif
             case .albumById(let id, let name, _, let coverArtId):
@@ -115,8 +103,9 @@ struct SearchView: View {
                 AlbumDetailView(
                     albumId: id,
                     albumName: name,
-                    coverArtId: coverArtId,
-                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
+                    zoomSourceId: id,
+                    zoomNamespace: albumZoomNamespace,
+                    coverArtId: coverArtId
                 )
                 #endif
             case .artist(let artist):
@@ -162,45 +151,6 @@ struct SearchView: View {
             AddToPlaylistSheet(song: song)
         }
         .cassetteContentWidth()
-    }
-
-    // MARK: - Idle state (search history)
-
-    @ViewBuilder
-    private var searchHistorySection: some View {
-        Section {
-            LazyVStack(spacing: 0) {
-                ForEach(serverHistory) { entry in
-                    Button {
-                        Task { await container?.searchHistoryService.record(
-                            itemId: entry.itemId, itemType: entry.itemType,
-                            displayName: entry.displayName, coverArtId: entry.coverArtId,
-                            serverId: serverId
-                        )}
-                        navigatingToHistoryEntry = entry
-                    } label: {
-                        SearchHistoryEntryRow(entry: entry)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .listRowInsets(EdgeInsets())
-            .listRowSeparator(.hidden)
-            .listRowBackground(Color.clear)
-        } header: {
-            HStack {
-                Text("Recent")
-                    .font(.cassetteSectionTitle)
-                    .foregroundStyle(.primary)
-                Spacer()
-                Button("Clear") {
-                    Task { await container?.searchHistoryService.clear(serverId: serverId) }
-                }
-                .font(.cassetteBody)
-                .foregroundStyle(Color.cassetteAccent)
-            }
-            .textCase(nil)
-        }
     }
 
     // MARK: - Active search state
@@ -283,6 +233,79 @@ struct SearchView: View {
                             }
                         }
                 }
+            }
+        }
+    }
+
+    // MARK: - Search history list
+
+    private struct SearchHistoryListView: View {
+        let serverId: String
+        let onNavigate: (SearchHistoryEntry) -> Void
+
+        @Environment(\.appContainer) private var container
+        @Query private var historyEntries: [SearchHistoryEntry]
+
+        init(serverId: String, onNavigate: @escaping (SearchHistoryEntry) -> Void) {
+            self.serverId = serverId
+            self.onNavigate = onNavigate
+            var descriptor = FetchDescriptor<SearchHistoryEntry>(
+                sortBy: [SortDescriptor(\.visitedAt, order: .reverse)]
+            )
+            descriptor.fetchLimit = 50
+            _historyEntries = Query(descriptor)
+        }
+
+        private var serverHistory: [SearchHistoryEntry] {
+            historyEntries.filter { $0.serverId == serverId }
+        }
+
+        var body: some View {
+            if serverHistory.isEmpty {
+                EmptyStateView(
+                    systemImage: "magnifyingglass",
+                    title: "Search your library",
+                    subtitle: "Find songs, albums, artists, and playlists from your server."
+                )
+            } else {
+                List {
+                    Section {
+                        LazyVStack(spacing: 0) {
+                            ForEach(serverHistory) { entry in
+                                Button {
+                                    Task {
+                                        await container?.searchHistoryService.record(
+                                            itemId: entry.itemId, itemType: entry.itemType,
+                                            displayName: entry.displayName, coverArtId: entry.coverArtId,
+                                            serverId: serverId
+                                        )
+                                    }
+                                    onNavigate(entry)
+                                } label: {
+                                    SearchHistoryEntryRow(entry: entry)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    } header: {
+                        HStack {
+                            Text("Recent")
+                                .font(.cassetteSectionTitle)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Button("Clear") {
+                                Task { await container?.searchHistoryService.clear(serverId: serverId) }
+                            }
+                            .font(.cassetteBody)
+                            .foregroundStyle(Color.cassetteAccent)
+                        }
+                        .textCase(nil)
+                    }
+                }
+                .listStyle(.plain)
             }
         }
     }

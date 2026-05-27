@@ -79,6 +79,7 @@ struct AlbumDetailView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
@@ -109,6 +110,10 @@ struct AlbumDetailView: View {
         #else
         Color(NSColor.windowBackgroundColor)
         #endif
+    }
+
+    private var effectiveInitialImage: PlatformImage? {
+        initialCoverImage ?? artworkImageCache.cachedImage(for: coverArtId ?? albumId)
     }
 
     // MARK: - Song filtering
@@ -333,14 +338,14 @@ struct AlbumDetailView: View {
         let songs = displaySongs()
         return VStack(spacing: CassetteSpacing.l) {
             Group {
-                if initialCoverImage == nil && vm?.coverArtId == nil && coverArtId == nil {
+                if effectiveInitialImage == nil && vm?.coverArtId == nil && coverArtId == nil {
                     SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
                 } else {
                     CoverArtCard(
                         id: vm?.coverArtId ?? coverArtId ?? albumId,
                         size: 300,
                         cornerRadius: CassetteCornerRadius.large,
-                        initialImage: initialCoverImage
+                        initialImage: effectiveInitialImage
                     )
                 }
             }
