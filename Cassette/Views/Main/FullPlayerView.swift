@@ -95,6 +95,7 @@ struct FullPlayerView: View {
                                 withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
                             }
                             .transition(.opacity)
+                            .trackSkipSwipe(playerState: playerState)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -197,15 +198,10 @@ private struct TrackInfoSection: View {
 
     @Query private var favoriteMatches: [FavoriteRecord]
     @Environment(ArtworkImageCache.self) private var artworkImageCache
-    @State private var swipeDragOffset: CGFloat = 0
-    @State private var isAnimatingSwipe = false
     @State private var resolvedArtist: ArtistID3?
     @State private var showArtistSheet = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
-
-    private let swipeThreshold: CGFloat = 80
-    private let velocityThreshold: CGFloat = 200
 
     init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, glassTint: Color) {
         self.playerState = playerState
@@ -271,10 +267,7 @@ private struct TrackInfoSection: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .offset(x: swipeDragOffset)
-            .opacity(1.0 - min(abs(swipeDragOffset) / 200, 0.4))
-            .gesture(swipeGesture)
-            .onChange(of: playerState.currentTrack?.id) { _, _ in swipeDragOffset = 0 }
+            .trackSkipSwipe(playerState: playerState)
 
             HStack(spacing: CassetteSpacing.s) {
                 if !playerState.isLiveStream {
@@ -378,51 +371,6 @@ private struct TrackInfoSection: View {
             AddToPlaylistSheet(song: song)
                 .environment(artworkImageCache)
         }
-    }
-
-    private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 10)
-            .onChanged { value in
-                guard !isAnimatingSwipe, !playerState.isLiveStream else { return }
-                let h = value.translation.width
-                guard abs(h) > abs(value.translation.height) else { return }
-                withAnimation(.interactiveSpring()) { swipeDragOffset = h }
-            }
-            .onEnded { value in
-                guard !isAnimatingSwipe, !playerState.isLiveStream else { return }
-                let h = value.translation.width
-                let velocity = value.velocity.width
-                guard abs(h) > abs(value.translation.height) else { bounceBack(); return }
-                let triggeredNext = h < -swipeThreshold || velocity < -velocityThreshold
-                let triggeredPrev = h > swipeThreshold || velocity > velocityThreshold
-                if triggeredNext || triggeredPrev {
-                    commitSwipe(goNext: triggeredNext)
-                } else {
-                    bounceBack()
-                }
-            }
-    }
-
-    private func commitSwipe(goNext: Bool) {
-        isAnimatingSwipe = true
-        HapticFeedback.medium.trigger()
-        withAnimation(.easeIn(duration: 0.18)) { swipeDragOffset = goNext ? -300 : 300 }
-        Task {
-            if goNext {
-                try? await container?.playerService.skipToNext()
-            } else {
-                try? await container?.playerService.skipToPrevious()
-            }
-            await MainActor.run {
-                swipeDragOffset = goNext ? 300 : -300
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { swipeDragOffset = 0 }
-                isAnimatingSwipe = false
-            }
-        }
-    }
-
-    private func bounceBack() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { swipeDragOffset = 0 }
     }
 
     private func triggerSmartShuffle() async {

@@ -32,7 +32,9 @@ final class AddToPlaylistViewModel {
 
     func load() async {
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            isLoading = false
+        }
         do {
             playlists = try await playlistService.listPlaylists()
         } catch {

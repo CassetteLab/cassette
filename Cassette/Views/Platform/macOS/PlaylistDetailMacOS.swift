@@ -136,6 +136,9 @@ struct PlaylistDetailMacOS: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .refreshable { await vm.load() }
+            .safeAreaInset(edge: .bottom) {
+                Color.clear.frame(height: CassetteMacOSLayout.playerBarReservedHeight / 2)
+            }
             .sheet(item: $songToAddToPlaylist) { song in
                 AddToPlaylistSheet(song: song)
             }

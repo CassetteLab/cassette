@@ -16,21 +16,27 @@ struct AddToPlaylistSheet: View {
     @State private var pendingDuplicate: DuplicateConfirmation?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if let vm {
-                    content(vm)
-                } else {
-                    ProgressView()
+        Group {
+            #if os(macOS)
+            macOSContent
+            #else
+            NavigationStack {
+                Group {
+                    if let vm {
+                        content(vm)
+                    } else {
+                        ProgressView()
+                    }
+                }
+                .navigationTitle("Add to Playlist")
+                .navigationBarTitleDisplayModeInline()
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                    }
                 }
             }
-            .navigationTitle("Add to Playlist")
-            .navigationBarTitleDisplayModeInline()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-            }
+            #endif
         }
         .onAppear {
             guard vm == nil,
@@ -80,6 +86,29 @@ struct AddToPlaylistSheet: View {
             Text("\"\(dup.songName)\" is already in \"\(dup.playlistName)\". Add it again?")
         }
     }
+
+    #if os(macOS)
+    private var macOSContent: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("Add to Playlist")
+                    .font(.headline)
+                Spacer()
+                Button("Cancel") { dismiss() }
+            }
+            .padding()
+            Divider()
+            Group {
+                if let vm {
+                    content(vm)
+                } else {
+                    ProgressView()
+                }
+            }
+        }
+        .frame(minWidth: 400, minHeight: 380)
+    }
+    #endif
 
     @ViewBuilder
     private func content(_ vm: AddToPlaylistViewModel) -> some View {
