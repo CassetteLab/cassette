@@ -62,8 +62,9 @@ struct AllFreshReleasesView: View {
         }
     }
 
+    @ViewBuilder
     private var scrollContent: some View {
-        ScrollView {
+        let sv = ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
                 ForEach(vm.groupedReleases, id: \.month) { section in
                     Section {
@@ -87,6 +88,14 @@ struct AllFreshReleasesView: View {
                     }
                 }
             }
+        }
+        // The Liquid Glass scroll edge effect renders a soft gradient over the top of the
+        // scroll view, which visually covers the pinned section header. Hiding only the top
+        // edge lets the header pin at the actual top of the visible area without obstruction.
+        if #available(iOS 26.0, macOS 26.0, *) {
+            sv.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            sv
         }
     }
 }
