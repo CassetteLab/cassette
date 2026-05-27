@@ -57,14 +57,15 @@ struct DiscoverView: View {
             await vm?.load()
             isListenBrainzConnected = await container.listenBrainzService.currentSnapshot().isEnabled
             await vm?.loadFreshReleases()
+            radioStations = (try? await container.radioService.listStations(forceRefresh: false)) ?? []
             guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
             yearlyPlaylists = await container.wrappedPlaylistService.fetchYearlyPlaylists(serverId: serverId)
-            radioStations = (try? await container.radioService.listStations(forceRefresh: false)) ?? []
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
             isListenBrainzConnected = await container?.listenBrainzService.currentSnapshot().isEnabled ?? false
             await vm?.loadFreshReleases()
+            radioStations = (try? await container?.radioService.listStations(forceRefresh: true)) ?? []
         }
         #if os(iOS)
         .navigationDestination(for: AlbumRecommendation.self) { release in
