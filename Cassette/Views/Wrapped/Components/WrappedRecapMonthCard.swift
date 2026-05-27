@@ -55,6 +55,7 @@ struct WrappedRecapMonthCard: View {
                 .frame(width: 140, height: 160)
                 .overlay { cardOverlay }
                 .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                .drawingGroup()
         }
         .buttonStyle(.plain)
     }

@@ -27,6 +27,7 @@ struct WrappedCurrentYearCard: View {
                 .frame(width: 140, height: 160)
                 .overlay { cardOverlay }
                 .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                .drawingGroup()
 
             Button {
                 guard isUnlocked else { return }
