@@ -235,26 +235,6 @@ private struct AboutSettingsTab: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Section {
-                VStack(spacing: CassetteSpacing.xs) {
-                    Text("Cassette is free, forever.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
-                    Button {
-                        openURL(CassetteURLs.kofi)
-                    } label: {
-                        Image("kofiButton")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: 220)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, CassetteSpacing.m)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .listRowBackground(Color.clear)
-            }
             Section("Links") {
                 Link(destination: CassetteURLs.cassette) {
                     Label("GitHub Repository", systemImage: "chevron.left.forwardslash.chevron.right")
