@@ -19,13 +19,11 @@ struct AllFreshReleasesView: View {
         return f
     }()
 
+    #if os(macOS)
     private var gridColumns: [GridItem] {
-        #if os(macOS)
         [GridItem(.adaptive(minimum: 130))]
-        #else
-        [GridItem(.adaptive(minimum: 110))]
-        #endif
     }
+    #endif
 
     var body: some View {
         Group {
@@ -45,8 +43,6 @@ struct AllFreshReleasesView: View {
         .navigationTitle("Fresh Releases")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbarBackground(CassetteColors.backgroundPrimary, for: .navigationBar)
         #endif
         .task { await vm.loadReleases() }
         .sheet(isPresented: Binding(
@@ -64,8 +60,25 @@ struct AllFreshReleasesView: View {
         }
     }
 
+    // MARK: - Scroll content
+
     @ViewBuilder
     private var scrollContent: some View {
+        #if os(iOS)
+        List {
+            ForEach(vm.groupedReleases, id: \.month) { section in
+                Section(Self.monthFormatter.string(from: section.month)) {
+                    ForEach(Array(section.items.enumerated()), id: \.offset) { _, release in
+                        FreshReleaseRow(release: release)
+                            .contentShape(Rectangle())
+                            .onTapGesture { selectedRelease = release }
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .refreshable { await vm.loadReleases() }
+        #else
         let sv = ScrollView {
             LazyVStack(alignment: .leading, spacing: 0, pinnedViews: .sectionHeaders) {
                 ForEach(vm.groupedReleases, id: \.month) { section in
@@ -91,7 +104,6 @@ struct AllFreshReleasesView: View {
                 }
             }
         }
-        #if os(macOS)
         // .hiddenTitleBar + fullSizeContentView gives the detail column a top safe-area
         // equal to the toolbar height. With titlebarAppearsTransparent = true the toolbar
         // is invisible, but pinned section headers still stick at the safe-area boundary
@@ -105,12 +117,52 @@ struct AllFreshReleasesView: View {
         } else {
             sv.ignoresSafeArea(.container, edges: .top)
         }
-        #else
-        if #available(iOS 26.0, *) {
-            sv.scrollEdgeEffectHidden(true, for: .top)
-        } else {
-            sv
-        }
         #endif
     }
+
+    // MARK: - iOS row
+
+    #if os(iOS)
+    private struct FreshReleaseRow: View {
+        let release: AlbumRecommendation
+
+        private static let relativeFormatter: RelativeDateTimeFormatter = {
+            let f = RelativeDateTimeFormatter()
+            f.unitsStyle = .full
+            return f
+        }()
+
+        var body: some View {
+            HStack(spacing: CassetteSpacing.m) {
+                Color.clear
+                    .aspectRatio(1, contentMode: .fit)
+                    .overlay {
+                        ExternalCoverView(url: release.coverArtURL) {
+                            Color.secondary.opacity(0.2)
+                        }
+                    }
+                    .cassetteCoverStyle()
+                    .frame(width: 52, height: 52)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(release.title)
+                        .font(.cassetteCellTitle)
+                        .lineLimit(1)
+                    Text(release.artistName)
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                    if let date = release.releaseDate {
+                        Text(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))
+                            .font(.cassetteCaption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+    }
+    #endif
 }
