@@ -77,6 +77,8 @@ struct SearchView: View {
     }
 
     var body: some View {
+        // [DIAG] Measures how often and how quickly body is re-evaluated on search open.
+        let _ = Logger.ui.debug("[SEARCH-OPEN] SearchView.body — query='\(searchQuery, privacy: .public)'")
         let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
         Group {
             if trimmed.isEmpty {
@@ -188,11 +190,25 @@ struct SearchView: View {
             }
         }
         .onAppear {
-            guard let svc = container?.libraryService else { return }
+            // [DIAG] Time the onAppear block (viewModel init is the only work here).
+            let t0 = Date()
+            Logger.ui.debug("[SEARCH-OPEN] SearchView.onAppear start")
+            guard let svc = container?.libraryService else {
+                Logger.ui.debug("[SEARCH-OPEN] SearchView.onAppear — no libraryService, early return")
+                return
+            }
+            let wasNil = viewModel == nil
             if viewModel == nil { viewModel = SearchViewModel(libraryService: svc) }
+            Logger.ui.debug("[SEARCH-OPEN] SearchView.onAppear done — \(Int(Date().timeIntervalSince(t0) * 1000))ms — viewModel \(wasNil ? "created" : "already existed", privacy: .public)")
         }
         .task(id: searchQuery) {
+            // [DIAG] Fires on every searchQuery change including the initial empty-string open.
+            // search("") synchronously sets searchResults = nil on MainActor, which can
+            // trigger a SwiftUI re-render while the search bar animation is in flight.
+            let t0 = Date()
+            Logger.ui.debug("[SEARCH-OPEN] task(id:searchQuery) fired — query='\(searchQuery, privacy: .public)'")
             await viewModel?.search(query: searchQuery)
+            Logger.ui.debug("[SEARCH-OPEN] task(id:searchQuery) done — \(Int(Date().timeIntervalSince(t0) * 1000))ms")
         }
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
@@ -320,6 +336,10 @@ struct SearchView: View {
         @Query private var historyEntries: [SearchHistoryEntry]
 
         init(serverId: String, path: Binding<NavigationPath>) {
+            // [DIAG] Time the Query descriptor construction.
+            // Note: the actual SwiftData fetch executes later on the main thread
+            // when SwiftUI first renders this view — its cost will not appear here.
+            let t0 = Date()
             self.serverId = serverId
             self._path = path
             var descriptor = FetchDescriptor<SearchHistoryEntry>(
@@ -327,6 +347,7 @@ struct SearchView: View {
             )
             descriptor.fetchLimit = 50
             _historyEntries = Query(descriptor)
+            Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView.init done — \(Int(Date().timeIntervalSince(t0) * 1000))ms")
         }
 
         private var serverHistory: [SearchHistoryEntry] {
@@ -334,7 +355,13 @@ struct SearchView: View {
         }
 
         var body: some View {
-            if serverHistory.isEmpty {
+            // [DIAG] Log raw @Query result count and cost of the in-process serverHistory filter.
+            // historyEntries.count > 0 here means the SwiftData fetch already ran (on main thread).
+            // If filter time >> 0ms with large historyEntries, add serverId predicate to @Query.
+            let t0 = Date()
+            let history = serverHistory
+            let _ = Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView.body — @Query:\(historyEntries.count) server-filtered:\(history.count) filter:\(Int(Date().timeIntervalSince(t0) * 1000))ms")
+            if history.isEmpty {
                 EmptyStateView(
                     systemImage: "magnifyingglass",
                     title: "Search your library",
@@ -344,7 +371,7 @@ struct SearchView: View {
                 List {
                     Section {
                         LazyVStack(spacing: 0) {
-                            ForEach(serverHistory) { entry in
+                            ForEach(history) { entry in
                                 Button {
                                     let target = SearchHistoryNavTarget(
                                         itemId: entry.itemId,
@@ -385,6 +412,11 @@ struct SearchView: View {
                     }
                 }
                 .listStyle(.plain)
+                // [DIAG] Fires after the List is on-screen — gap between body log and this
+                // log is the main-thread cost of the @Query fetch + SwiftUI layout pass.
+                .onAppear {
+                    Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView appeared — \(history.count) row(s) visible")
+                }
             }
         }
     }
