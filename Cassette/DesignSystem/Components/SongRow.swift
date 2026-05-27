@@ -57,7 +57,7 @@ struct SongRow: View {
                         if isFavorite {
                             Image(systemName: "heart.fill")
                                 .font(.system(size: 8, weight: .bold))
-                                .foregroundStyle(Color.cassetteAccent)
+                                .foregroundStyle(playingAccent)
                                 .padding(3)
                         }
                     }
@@ -78,7 +78,7 @@ struct SongRow: View {
                         if isFavorite {
                             Image(systemName: "heart.fill")
                                 .font(.caption2)
-                                .foregroundStyle(Color.cassetteAccent)
+                                .foregroundStyle(playingAccent)
                                 .accessibilityLabel("Favorite")
                         }
                     }
