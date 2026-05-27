@@ -168,10 +168,14 @@ extension ModelContainer {
 
 extension AppContainer {
     private static let coverArtCacheVersionKey = "cassette.coverArtCacheVersion"
-    private static let currentCoverArtCacheVersion = 4
+    private static let currentCoverArtCacheVersion = 5
 
-    /// Purges low-resolution cover art files from disk on the first launch after a
-    /// resolution bump, so stale cached files don't shadow higher-quality server fetches.
+    /// Purges cover art files from disk on the first launch after a cache format change,
+    /// so stale files don't shadow the new decode pipeline. Version history:
+    ///   v5 — ArtworkImageCache now decodes at 240 px (thumb) / 1200 px (full) via
+    ///         CGImageSourceCreateThumbnailAtIndex; legacy full-res files cause ~800 ms
+    ///         decodes on cold open even after the code fix — wipe forces a clean re-download.
+    ///   v4 and earlier — previous resolution bumps.
     static func invalidateCoverArtCacheIfNeeded(artworkCache: ArtworkImageCache) {
         let stored = UserDefaults.standard.integer(forKey: coverArtCacheVersionKey)
         guard stored < currentCoverArtCacheVersion else { return }
