@@ -21,7 +21,7 @@ import OSLog
 // existing pushed view and inserts a new one, producing a visual layering bug
 // where the wrong view appears on top during the push animation.
 //
-// This bug has regressed FOUR times. Do not introduce a fifth.
+// This bug has regressed FIVE times. Do not introduce a sixth.
 //
 // Regression 1 — historyEntries @Query in SearchView body
 //   Fix: extract into SearchHistoryListView child view (Option C).
@@ -33,14 +33,21 @@ import OSLog
 //   SwiftData @Model uses ObjectIdentifier-based Hashable; a concurrent
 //   SearchHistoryService write refreshes the managed object and can invalidate the
 //   reference, causing SwiftUI to treat the item as new and re-instantiate the
-//   destination. Fix: SearchHistoryNavTarget (plain value struct) — capture stable
-//   primitive fields before the async write fires; never bind navigation to a @Model.
+//   destination. Fix: SearchHistoryNavTarget (plain value struct).
+// Regression 5 — .navigationDestination(item:) used for a destination that itself
+//   pushes further views. The binding-based modifier is re-evaluated by iOS during
+//   nested pushes, destroying and re-instantiating the source destination view even
+//   when the binding item is a stable value type. Fix: always use
+//   .navigationDestination(for: Type.self) backed by NavigationPath for any
+//   destination that is part of a multi-level flow.
 //
 // The safe pattern:
 // - Observations needed only for search results UI → put them in a child view.
 // - Values needed by destination views → have the destination read them from
 //   its own @Environment, not from a parameter passed through this body.
 // - Navigation binding items → use plain value types (struct / enum), never @Model.
+// - Any destination that can push further → use .navigationDestination(for:) +
+//   NavigationPath, never .navigationDestination(item:).
 
 /// Value-type snapshot of a SearchHistoryEntry used as the navigation binding item.
 /// Using a plain struct (stable Hashable) avoids the ObjectIdentifier instability of
