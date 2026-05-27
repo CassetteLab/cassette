@@ -79,8 +79,12 @@ actor PlayerService: PlayerServiceProtocol {
     private var autoExtendFetchTask: Task<Void, Never>?
     private nonisolated static let autoExtendUserDefaultsKey = "cassette.player.autoExtendEnabled"
 
-    /// Wall-clock time when the current track started playing. Nil before first track.
-    private var trackStartDate: Date?
+    /// Wall-clock time when the current track first started (used as event timestamp). Nil before first track.
+    private var trackPlayStartDate: Date?
+    /// Seconds of actual (non-paused) playback accumulated for the current track.
+    private var accumulatedPlayedSeconds: TimeInterval = 0
+    /// Wall-clock start of the current play segment; nil when paused or stopped.
+    private var currentPlaySegmentStart: Date?
     /// Set to true by handleEndOfTrack before a natural completion transition; reset after recording.
     private var wasTrackCompletedNaturally: Bool = false
 
@@ -196,9 +200,9 @@ actor PlayerService: PlayerServiceProtocol {
 
     private func startPlayback(song: DisplayableSong, source: MediaSource, serverId: UUID) async {
         // Record the previous track before transitioning (state.currentTrack still holds it here).
-        await recordCurrentTrackPlayback()
+        await recordCurrentTrackPlayback(trigger: wasTrackCompletedNaturally ? "track_completed" : "user_skipped")
         wasTrackCompletedNaturally = false
-        trackStartDate = Date()
+        resetTrackAccumulator(isPlaying: true)
 
         // Cancel any pending +30s scrobble and cache download from the previous track.
         cancelPendingScrobble()
@@ -573,6 +577,7 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Pause / Resume
 
     func pause() async {
+        finalizePlaySegment()
         audioPlayer.pause()
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
@@ -597,10 +602,9 @@ actor PlayerService: PlayerServiceProtocol {
         #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
-        // Lazily set trackStartDate for session-restored tracks that resume for the first time.
-        if trackStartDate == nil {
-            trackStartDate = Date()
-        }
+        // Lazily start the accumulator for session-restored tracks that resume for the first time.
+        if trackPlayStartDate == nil { trackPlayStartDate = Date() }
+        if currentPlaySegmentStart == nil { currentPlaySegmentStart = Date() }
         audioPlayer.resume()
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
@@ -633,6 +637,9 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         audioPlayer.stop()
+        accumulatedPlayedSeconds = 0
+        currentPlaySegmentStart = nil
+        trackPlayStartDate = nil
         await replayGainService?.setEnabled(false, currentTrack: nil)
         currentSource = nil
         pendingRestoreInfo = nil
@@ -655,6 +662,12 @@ actor PlayerService: PlayerServiceProtocol {
         guard await MainActor.run(body: { !state.isLiveStream }) else {
             Logger.player.debug("seek ignored — live stream mode")
             return
+        }
+        // Finalize the current segment and start a fresh one so that only
+        // audio actually heard after the seek point is counted in played time.
+        if currentPlaySegmentStart != nil {
+            finalizePlaySegment()
+            currentPlaySegmentStart = Date()
         }
         audioPlayer.seek(to: position)
         await MainActor.run { state.position = position }
@@ -1048,14 +1061,35 @@ actor PlayerService: PlayerServiceProtocol {
         cacheDownloadTask = nil
     }
 
+    // MARK: - Play-time accumulator
+
+    /// Closes the current play segment and adds its duration to the accumulator.
+    /// Safe to call when paused (currentPlaySegmentStart == nil) — no-op in that case.
+    private func finalizePlaySegment() {
+        guard let start = currentPlaySegmentStart else { return }
+        accumulatedPlayedSeconds += Date().timeIntervalSince(start)
+        currentPlaySegmentStart = nil
+    }
+
+    /// Resets all per-track accumulator state for the next track.
+    /// Call immediately after recordCurrentTrackPlayback() in every transition site.
+    private func resetTrackAccumulator(isPlaying: Bool) {
+        accumulatedPlayedSeconds = 0
+        trackPlayStartDate = Date()
+        currentPlaySegmentStart = isPlaying ? Date() : nil
+    }
+
     // MARK: - Stats recording
 
-    private func recordCurrentTrackPlayback() async {
+    private func recordCurrentTrackPlayback(trigger: String = "unknown") async {
         guard let song = await MainActor.run(body: { state.currentTrack }),
-              let startDate = trackStartDate else { return }
+              let startDate = trackPlayStartDate else { return }
         guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else { return }
 
-        let durationListened = Date().timeIntervalSince(startDate)
+        // Tally the in-progress segment without permanently mutating accumulatedPlayedSeconds
+        // (the caller resets the accumulator immediately after this call).
+        let segmentContrib = currentPlaySegmentStart.map { Date().timeIntervalSince($0) } ?? 0
+        let durationListened = accumulatedPlayedSeconds + segmentContrib
         guard durationListened >= 30 else {
             Logger.player.debug("[STATS] Skip — durationListened=\(durationListened, format: .fixed(precision: 1))s < 30s for '\(song.title, privacy: .public)'")
             return
@@ -1076,8 +1110,13 @@ actor PlayerService: PlayerServiceProtocol {
             wasCompleted: wasTrackCompletedNaturally,
             serverId: serverId.uuidString
         )
-        await statsService.recordPlayback(dto)
-        Logger.player.debug("[STATS] Recorded playback: trackId=\(song.id, privacy: .public) duration=\(durationListened, format: .fixed(precision: 1))s completed=\(self.wasTrackCompletedNaturally, privacy: .public)")
+        await statsService.recordPlayback(dto, trigger: trigger)
+        let artistIdForLog = song.artistId ?? "nil"
+        let durationForLog = String(format: "%.1f", durationListened)
+        let trackDurationForLog = String(format: "%.1f", trackDuration)
+        Logger.player.debug(
+            "[STATS] Recorded: trigger=\(trigger, privacy: .public) trackId=\(song.id, privacy: .public) artistId=\(artistIdForLog, privacy: .public) durationListened=\(durationForLog, privacy: .public)s trackDuration=\(trackDurationForLog, privacy: .public)s startedAt=\(startDate, privacy: .public) completed=\(self.wasTrackCompletedNaturally, privacy: .public)"
+        )
     }
 
     // MARK: - End of track
@@ -1097,9 +1136,9 @@ actor PlayerService: PlayerServiceProtocol {
         if repeatMode == .one {
             // Record this completed listen, then restart the same track.
             wasTrackCompletedNaturally = true
-            await recordCurrentTrackPlayback()
+            await recordCurrentTrackPlayback(trigger: "repeat_one")
             wasTrackCompletedNaturally = false
-            trackStartDate = Date()
+            resetTrackAccumulator(isPlaying: true)
             if let source = currentSource {
                 audioPlayer.play(url: source.url, headers: source.customHeaders)
             }
@@ -1116,9 +1155,11 @@ actor PlayerService: PlayerServiceProtocol {
 
     private func rewindToFirstTrackPaused() async {
         // Last track of the queue ended naturally — record it before rewinding.
-        await recordCurrentTrackPlayback()
+        await recordCurrentTrackPlayback(trigger: "end_of_queue")
         wasTrackCompletedNaturally = false
-        trackStartDate = nil
+        accumulatedPlayedSeconds = 0
+        currentPlaySegmentStart = nil
+        trackPlayStartDate = nil
 
         let queue = await MainActor.run { state.queue }
         guard let firstTrack = queue.first else {
