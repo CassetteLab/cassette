@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import OSLog
 
 struct QueueView: View {
@@ -176,9 +177,18 @@ private struct QueueRow: View {
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var showAddToPlaylist = false
+    @Query private var favoriteMatches: [FavoriteRecord]
+
+    init(song: DisplayableSong, isCurrent: Bool) {
+        self.song = song
+        self.isCurrent = isCurrent
+        let cid = "song:\(song.id)"
+        _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
+    }
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
     private var isPlaying: Bool { container?.playerState.playbackState == .playing }
+    private var isFavorite: Bool { !favoriteMatches.isEmpty }
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
@@ -237,6 +247,25 @@ private struct QueueRow: View {
                 showAddToPlaylist = true
             } label: {
                 Label("Add to Playlist...", systemImage: "music.note.list")
+            }
+            .disabled(!isOnline)
+
+            Divider()
+
+            Button {
+                let fav = isFavorite
+                Task {
+                    if fav {
+                        try? await container?.favoritesService.unstar(itemType: .song, itemId: song.id)
+                    } else {
+                        try? await container?.favoritesService.star(itemType: .song, itemId: song.id)
+                    }
+                }
+            } label: {
+                Label(
+                    isFavorite ? "Remove from Favorites" : "Add to Favorites",
+                    systemImage: isFavorite ? "heart.slash" : "heart"
+                )
             }
             .disabled(!isOnline)
         }
