@@ -72,11 +72,11 @@ private actor CoverFetchGate {
 /// Both tiers for the same id can coexist in RAM. LRU eviction is unified across tiers;
 /// maxEntries is sized to accommodate ~100 thumb + ~10 hero images.
 ///
-/// Resolution order per tier: RAM → disk (id@tier) → disk (plain id, offline downloads)
-/// → server fetch + persist to id@tier on disk.
+/// Resolution order per tier: RAM → disk (`id@tier`) → server fetch + persist to `id@tier`.
 ///
-/// Disk files are named `id@thumb` / `id@hero` (streaming cache) or plain `id`
-/// (offline-downloaded by DownloadService). Both share the same coverarts/ directory.
+/// Legacy plain-`id` files (full-res JPEGs written by pre-tier builds) are never read;
+/// decoding them takes ~1100ms/file and starves the audio decode thread. They are cleaned
+/// up on launch by AppContainer.sweepLegacyCoverArtFiles.
 @MainActor
 @Observable
 final class ArtworkImageCache {
@@ -132,17 +132,15 @@ final class ArtworkImageCache {
             return hit
         }
 
-        // 2. Disk hit — try tier-specific file first (streaming cache), then plain id
-        //    (offline-downloaded by DownloadService, which writes without a tier suffix).
+        // 2. Disk hit — tiered file only (`{id}@thumb` / `{id}@hero`).
+        //    Legacy untagged files (`{id}` with no suffix, full-res JPEGs written by
+        //    pre-tier builds) are deliberately not read: decoding a 2000×2000 JPEG at
+        //    240px takes ~1100ms even on a background thread, starving the audio decode
+        //    thread and causing audible crackling. If the tiered file doesn't exist,
+        //    skip directly to the network fetch (step 3). Untagged legacy files are
+        //    cleaned up on launch by AppContainer.sweepLegacyCoverArtFiles.
         let tieredDiskId = "\(coverArtId)@\(tier.rawValue)"
-        let localURL: URL?
-        if let tieredURL = await downloadService.localCoverArtURL(forId: tieredDiskId) {
-            localURL = tieredURL
-        } else {
-            localURL = await downloadService.localCoverArtURL(forId: coverArtId)
-        }
-
-        if let localURL {
+        if let localURL = await downloadService.localCoverArtURL(forId: tieredDiskId) {
             let image = await Task.detached(priority: .userInitiated) {
                 let diskStart = CFAbsoluteTimeGetCurrent()
                 guard let data = try? Data(contentsOf: localURL) else { return nil as PlatformImage? }
