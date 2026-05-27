@@ -46,6 +46,9 @@ struct AllFreshReleasesView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        #if os(macOS)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        #endif
         .task { await vm.loadReleases() }
         .sheet(isPresented: Binding(
             get: { selectedRelease != nil },
