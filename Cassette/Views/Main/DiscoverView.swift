@@ -14,7 +14,11 @@ struct DiscoverView: View {
     @Namespace private var mostPlayedNS
     @State private var yearlyPlaylists: [WrappedYearlyPlaylist] = []
     @State private var radioStations: [InternetRadioStation] = []
+    #if os(iOS)
+    @Namespace private var freshReleaseZoomNamespace
+    #else
     @State private var selectedRelease: AlbumRecommendation?
+    #endif
     @State private var showAllFreshReleases = false
     @State private var allReleasesVM: AllFreshReleasesViewModel?
     @State private var isListenBrainzConnected: Bool = false
@@ -62,16 +66,29 @@ struct DiscoverView: View {
             isListenBrainzConnected = await container?.listenBrainzService.currentSnapshot().isEnabled ?? false
             await vm?.loadFreshReleases()
         }
+        #if os(iOS)
+        .navigationDestination(for: AlbumRecommendation.self) { release in
+            FreshReleaseDetailView(
+                release: release,
+                providers: container?.externalProvidersStore.load() ?? []
+            )
+            .cassetteZoomTransition(
+                sourceID: release.id ?? "\(release.artistName)-\(release.title)",
+                in: freshReleaseZoomNamespace
+            )
+        }
+        #else
         .sheet(isPresented: Binding(
             get: { selectedRelease != nil },
             set: { if !$0 { selectedRelease = nil } }
         )) {
             if let release = selectedRelease {
                 NavigationStack {
-                    FreshReleaseDetailSheet(release: release, providers: container?.externalProvidersStore.load() ?? [])
+                    FreshReleaseDetailView(release: release, providers: container?.externalProvidersStore.load() ?? [])
                 }
             }
         }
+        #endif
         .navigationDestination(isPresented: $showAllFreshReleases) {
             if let vm = allReleasesVM {
                 AllFreshReleasesView(vm: vm)
@@ -81,14 +98,25 @@ struct DiscoverView: View {
 
     // MARK: - Sections
 
+    @ViewBuilder
     private func freshReleasesSection(vm: DiscoverViewModel) -> some View {
+        #if os(iOS)
         FreshReleasesCard(
             releases: vm.freshReleases,
             isLoading: vm.isLoadingFreshReleases,
             isListenBrainzConnected: isListenBrainzConnected,
-            onTap: { release in selectedRelease = release },
-            onSeeAll: { showAllFreshReleases = true }
+            onSeeAll: { showAllFreshReleases = true },
+            zoomNamespace: freshReleaseZoomNamespace
         )
+        #else
+        FreshReleasesCard(
+            releases: vm.freshReleases,
+            isLoading: vm.isLoadingFreshReleases,
+            isListenBrainzConnected: isListenBrainzConnected,
+            onSeeAll: { showAllFreshReleases = true },
+            onTap: { release in selectedRelease = release }
+        )
+        #endif
     }
 
     private func recentlyPlayedSection(vm: DiscoverViewModel) -> some View {

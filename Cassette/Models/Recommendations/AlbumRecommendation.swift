@@ -5,7 +5,7 @@
 
 import Foundation
 
-struct AlbumRecommendation: Sendable, Equatable {
+struct AlbumRecommendation: Sendable, Equatable, Hashable {
     let id: String?
     let title: String
     let artistName: String

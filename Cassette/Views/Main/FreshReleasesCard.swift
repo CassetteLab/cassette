@@ -11,8 +11,11 @@ struct FreshReleasesCard: View {
     let releases: [AlbumRecommendation]
     let isLoading: Bool
     let isListenBrainzConnected: Bool
-    let onTap: (AlbumRecommendation) -> Void
     let onSeeAll: () -> Void
+    /// macOS only — tapped release to present in a sheet.
+    var onTap: ((AlbumRecommendation) -> Void)? = nil
+    /// iOS only — namespace for zoom matched-transition source on each cell.
+    var zoomNamespace: Namespace.ID? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
@@ -37,10 +40,17 @@ struct FreshReleasesCard: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: CassetteSpacing.s) {
                         ForEach(Array(releases.enumerated()), id: \.offset) { _, release in
-                            FreshReleaseAlbumCell(release: release) {
-                                onTap(release)
-                            }
+                            #if os(iOS)
+                            FreshReleaseAlbumCell(
+                                release: release,
+                                zoomSourceId: release.id ?? "\(release.artistName)-\(release.title)",
+                                zoomNamespace: zoomNamespace
+                            )
                             .frame(width: 140)
+                            #else
+                            FreshReleaseAlbumCell(release: release, onTap: { onTap?(release) })
+                                .frame(width: 140)
+                            #endif
                         }
                         seeAllCell
                     }
@@ -125,7 +135,12 @@ struct FreshReleasesCard: View {
 
 struct FreshReleaseAlbumCell: View {
     let release: AlbumRecommendation
-    let onTap: () -> Void
+    /// macOS only — called when the cell is tapped.
+    var onTap: (() -> Void)? = nil
+    /// iOS only — zoom matched-transition source ID.
+    var zoomSourceId: String? = nil
+    /// iOS only — zoom matched-transition namespace.
+    var zoomNamespace: Namespace.ID? = nil
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let f = RelativeDateTimeFormatter()
@@ -134,34 +149,46 @@ struct FreshReleaseAlbumCell: View {
     }()
 
     var body: some View {
-        Button(action: onTap) {
-            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                Color.clear
-                    .aspectRatio(1, contentMode: .fit)
-                    .overlay {
-                        ExternalCoverView(url: release.coverArtURL) {
-                            Color.secondary.opacity(0.2)
-                        }
-                    }
-                    .cassetteCoverStyle()
-
-                Text(release.title)
-                    .font(.cassetteCellTitle)
-                    .lineLimit(1)
-
-                Text(release.artistName)
-                    .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                if let date = release.releaseDate {
-                    Text(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))
-                        .font(.cassetteCaption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
+        #if os(iOS)
+        NavigationLink(value: release) {
+            cellContent
         }
         .buttonStyle(.plain)
+        .cassetteMatchedTransitionSource(id: zoomSourceId, in: zoomNamespace)
+        #else
+        Button(action: { onTap?() }) {
+            cellContent
+        }
+        .buttonStyle(.plain)
+        #endif
+    }
+
+    private var cellContent: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+            Color.clear
+                .aspectRatio(1, contentMode: .fit)
+                .overlay {
+                    ExternalCoverView(url: release.coverArtURL) {
+                        Color.secondary.opacity(0.2)
+                    }
+                }
+                .cassetteCoverStyle()
+
+            Text(release.title)
+                .font(.cassetteCellTitle)
+                .lineLimit(1)
+
+            Text(release.artistName)
+                .font(.cassetteCaption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            if let date = release.releaseDate {
+                Text(Self.relativeFormatter.localizedString(for: date, relativeTo: Date()))
+                    .font(.cassetteCaption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
     }
 }
