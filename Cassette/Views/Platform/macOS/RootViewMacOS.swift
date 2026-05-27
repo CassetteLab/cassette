@@ -31,7 +31,6 @@ struct RootViewMacOS: View {
                     }
             }
             .navigationSplitViewStyle(.balanced)
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
             .overlay(alignment: .bottom) {
                 LinearGradient(
                     stops: [
@@ -62,6 +61,7 @@ struct RootViewMacOS: View {
             }
         }
         .frame(minWidth: 1100, minHeight: 500)
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }
