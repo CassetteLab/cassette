@@ -11,6 +11,13 @@ struct WrappedRecapMonthCard: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private static let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM"
+        f.locale = .current
+        return f
+    }()
+
     private var year: Int {
         switch period {
         case .month(let y, _): return y
@@ -25,9 +32,7 @@ struct WrappedRecapMonthCard: View {
             components.year = y
             components.month = m
             let date = Calendar.current.date(from: components) ?? Date()
-            let formatter = DateFormatter()
-            formatter.dateFormat = "MMMM"
-            return formatter.string(from: date)
+            return Self.monthFormatter.string(from: date)
         case .year(let y):
             return String(y)
         }
@@ -41,12 +46,8 @@ struct WrappedRecapMonthCard: View {
     }
 
     var body: some View {
-        // Force title/subtitle evaluation here so DateFormatter allocation is captured in timing.
-        // cardOverlay will re-evaluate them; that double cost is intentional for diagnostics only.
         let bodyStart = CFAbsoluteTimeGetCurrent()
-        let _ = title
-        let _ = subtitle
-        let _ = { let e = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000); if e > 5 { Logger.ui.warning("[BODY-SLOW] WrappedRecapMonthCard \(e)ms (DateFormatter allocation suspected)") } }()
+        let _ = { let e = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000); if e > 5 { Logger.ui.warning("[BODY-SLOW] WrappedRecapMonthCard \(e)ms") } }()
         NavigationLink {
             WrappedView(initialPeriod: period)
         } label: {
