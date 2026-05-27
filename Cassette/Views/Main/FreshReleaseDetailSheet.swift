@@ -6,12 +6,9 @@
 import SwiftUI
 import OSLog
 
-struct FreshReleaseDetailSheet: View {
+struct FreshReleaseDetailView: View {
     let release: AlbumRecommendation
     let providers: [ExternalReleaseProvider]
-
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -57,11 +54,6 @@ struct FreshReleaseDetailSheet: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Done") { dismiss() }
-            }
-        }
         .task {
             for provider in providers {
                 if provider.buildURL(artistName: release.artistName, albumTitle: release.title) == nil {
@@ -91,7 +83,7 @@ struct FreshReleaseDetailSheet: View {
 
     private func externalLinkButton(title: String, url: URL) -> some View {
         Button {
-            openURL(url)
+            ExternalLinkOpener.open(url)
         } label: {
             HStack {
                 Text(title)
