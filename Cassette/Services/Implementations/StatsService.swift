@@ -21,7 +21,7 @@ actor StatsService {
 
     // MARK: - Public API
 
-    func recordPlayback(_ event: PlaybackEventDTO) async {
+    func recordPlayback(_ event: PlaybackEventDTO, trigger: String = "") async {
         let context = ModelContext(modelContainer)
         let model = PlaybackEvent(
             trackId: event.trackId,
@@ -40,8 +40,10 @@ actor StatsService {
         context.insert(model)
         do {
             try context.save()
+            let artistIdForLog = event.artistId ?? "nil"
+            let durationForLog = String(format: "%.1f", event.durationListened)
             Logger.stats.debug(
-                "Recorded playback: trackId=\(event.trackId, privacy: .public) completed=\(event.wasCompleted, privacy: .public) serverId=\(event.serverId, privacy: .public)"
+                "[INSERT] trigger=\(trigger, privacy: .public) trackId=\(event.trackId, privacy: .public) artistId=\(artistIdForLog, privacy: .public) durationListened=\(durationForLog, privacy: .public)s startedAt=\(event.timestamp, privacy: .public) completed=\(event.wasCompleted, privacy: .public) serverId=\(event.serverId, privacy: .public)"
             )
         } catch {
             Logger.stats.error("Failed to save playback event: \(error, privacy: .public)")
@@ -142,12 +144,13 @@ actor StatsService {
         guard !events.isEmpty else { return [] }
         var groups: [String: (duration: TimeInterval, count: Int, title: String, artist: String, album: String?)] = [:]
         for e in events {
+            let d = effectiveDuration(for: e)
             if var g = groups[e.trackId] {
-                g.duration += e.durationListened
+                g.duration += d
                 g.count += 1
                 groups[e.trackId] = g
             } else {
-                groups[e.trackId] = (e.durationListened, 1, e.trackTitle, e.artistName, e.albumTitle)
+                groups[e.trackId] = (d, 1, e.trackTitle, e.artistName, e.albumTitle)
             }
         }
         let sorted = groups.sorted {
@@ -187,7 +190,7 @@ actor StatsService {
             )
         }
 
-        let totalSecondsListened = events.reduce(0.0) { $0 + $1.durationListened }
+        let totalSecondsListened = events.reduce(0.0) { $0 + effectiveDuration(for: $1) }
         let totalUniqueTracks = Set(events.map(\.trackId)).count
         let totalUniqueArtists = Set(events.compactMap(\.artistId)).count
         let totalUniqueAlbums = Set(events.compactMap(\.albumId)).count
@@ -221,12 +224,13 @@ actor StatsService {
     private func buildTopTracks(from events: [PlaybackEvent]) -> [TopTrackEntry] {
         var groups: [String: (duration: TimeInterval, count: Int, title: String, artist: String, album: String?)] = [:]
         for e in events {
+            let d = effectiveDuration(for: e)
             if var g = groups[e.trackId] {
-                g.duration += e.durationListened
+                g.duration += d
                 g.count += 1
                 groups[e.trackId] = g
             } else {
-                groups[e.trackId] = (e.durationListened, 1, e.trackTitle, e.artistName, e.albumTitle)
+                groups[e.trackId] = (d, 1, e.trackTitle, e.artistName, e.albumTitle)
             }
         }
         // Primary: playCount — reflects actual listening intent; loop time is tiebreaker.
@@ -252,13 +256,14 @@ actor StatsService {
         var groups: [String: (duration: TimeInterval, count: Int, tracks: Set<String>, title: String, artist: String)] = [:]
         for e in events {
             guard let albumId = e.albumId else { continue }
+            let d = effectiveDuration(for: e)
             if var g = groups[albumId] {
-                g.duration += e.durationListened
+                g.duration += d
                 g.count += 1
                 g.tracks.insert(e.trackId)
                 groups[albumId] = g
             } else {
-                groups[albumId] = (e.durationListened, 1, [e.trackId], e.albumTitle ?? "", e.artistName)
+                groups[albumId] = (d, 1, [e.trackId], e.albumTitle ?? "", e.artistName)
             }
         }
         // Primary: playCount; tiebreaker: totalSecondsListened.
@@ -284,13 +289,14 @@ actor StatsService {
         var groups: [String: (duration: TimeInterval, count: Int, tracks: Set<String>, name: String)] = [:]
         for e in events {
             guard let artistId = e.artistId else { continue }
+            let d = effectiveDuration(for: e)
             if var g = groups[artistId] {
-                g.duration += e.durationListened
+                g.duration += d
                 g.count += 1
                 g.tracks.insert(e.trackId)
                 groups[artistId] = g
             } else {
-                groups[artistId] = (e.durationListened, 1, [e.trackId], e.artistName)
+                groups[artistId] = (d, 1, [e.trackId], e.artistName)
             }
         }
         // Primary: totalSecondsListened; tiebreaker: playCount.
@@ -315,7 +321,7 @@ actor StatsService {
         var durations: [String: TimeInterval] = [:]
         for e in events {
             guard let genre = e.genre else { continue }
-            durations[genre, default: 0] += e.durationListened
+            durations[genre, default: 0] += effectiveDuration(for: e)
         }
         guard !durations.isEmpty else { return nil }
         return durations.max {
@@ -350,6 +356,17 @@ actor StatsService {
         return streak
     }
 
+    /// Caps a single event's contribution at its track duration.
+    /// Prevents wall-clock inflation (paused time counted as listened time) from
+    /// distorting Wrapped totals for existing data. Falls back to a 600 s ceiling
+    /// when trackDuration was not recorded (value of 0).
+    private func effectiveDuration(for event: PlaybackEvent) -> TimeInterval {
+        guard event.trackDuration > 0 else {
+            return min(event.durationListened, 600)
+        }
+        return min(event.durationListened, event.trackDuration)
+    }
+
     private func buildFirstLast(from events: [PlaybackEvent]) -> (first: TopTrackEntry?, last: TopTrackEntry?) {
         guard !events.isEmpty,
               let earliest = events.min(by: { $0.timestamp < $1.timestamp }),
@@ -358,12 +375,12 @@ actor StatsService {
         let first = TopTrackEntry(
             rank: 0, trackId: earliest.trackId, title: earliest.trackTitle,
             artistName: earliest.artistName, albumTitle: earliest.albumTitle,
-            totalSecondsListened: earliest.durationListened, playCount: 1
+            totalSecondsListened: effectiveDuration(for: earliest), playCount: 1
         )
         let last = TopTrackEntry(
             rank: 0, trackId: latest.trackId, title: latest.trackTitle,
             artistName: latest.artistName, albumTitle: latest.albumTitle,
-            totalSecondsListened: latest.durationListened, playCount: 1
+            totalSecondsListened: effectiveDuration(for: latest), playCount: 1
         )
         return (first, last)
     }

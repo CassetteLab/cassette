@@ -40,6 +40,7 @@ private func makeDTO(
     genre: String? = nil,
     timestamp: Date,
     durationListened: TimeInterval = 180,
+    trackDuration: TimeInterval? = nil,
     serverId: String = "srv"
 ) -> PlaybackEventDTO {
     PlaybackEventDTO(
@@ -52,7 +53,7 @@ private func makeDTO(
         genre: genre,
         timestamp: timestamp,
         durationListened: durationListened,
-        trackDuration: durationListened + 10,
+        trackDuration: trackDuration ?? durationListened + 10,
         wasCompleted: true,
         serverId: serverId
     )
@@ -334,5 +335,52 @@ struct WrappedAggregationTests {
             .month(year: 2026, month: 3), serverId: "srv", calendar: utcCalendar
         )
         #expect(result == false)
+    }
+
+    // MARK: - Duration cap (wall-clock inflation fix)
+
+    @Test func inflatedDuration_cappedAtTrackDuration() async throws {
+        let service = try makeService()
+        let ts = utcDate(year: 2026, month: 3, day: 10)
+        // Simulate a 3-min track where pause time inflated durationListened to 1 hour.
+        await service.recordPlayback(makeDTO(timestamp: ts, durationListened: 3600, trackDuration: 180))
+        let data = await service.wrappedData(for: .month(year: 2026, month: 3), serverId: "srv", calendar: utcCalendar)
+        #expect(data.totalSecondsListened == 180)
+        #expect(data.topTracks[0].totalSecondsListened == 180)
+        #expect(data.topArtists[0].totalSecondsListened == 180)
+    }
+
+    @Test func zeroDuration_fallbackClampedTo600s() async throws {
+        let service = try makeService()
+        let ts = utcDate(year: 2026, month: 3, day: 10)
+        // trackDuration == 0 means metadata was missing at record time.
+        await service.recordPlayback(makeDTO(timestamp: ts, durationListened: 900, trackDuration: 0))
+        let data = await service.wrappedData(for: .month(year: 2026, month: 3), serverId: "srv", calendar: utcCalendar)
+        #expect(data.totalSecondsListened == 600)
+    }
+
+    @Test func normalDuration_notClipped() async throws {
+        let service = try makeService()
+        let ts = utcDate(year: 2026, month: 3, day: 10)
+        await service.recordPlayback(makeDTO(timestamp: ts, durationListened: 150, trackDuration: 180))
+        let data = await service.wrappedData(for: .month(year: 2026, month: 3), serverId: "srv", calendar: utcCalendar)
+        #expect(data.totalSecondsListened == 150)
+    }
+
+    @Test func multipleInflatedPlays_capAppliedPerEvent() async throws {
+        let service = try makeService()
+        let base = utcDate(year: 2026, month: 3, day: 1)
+        for i in 0..<3 {
+            await service.recordPlayback(makeDTO(
+                timestamp: Calendar.current.date(byAdding: .day, value: i, to: base)!,
+                durationListened: 600,
+                trackDuration: 180
+            ))
+        }
+        let data = await service.wrappedData(for: .month(year: 2026, month: 3), serverId: "srv", calendar: utcCalendar)
+        // Each event capped at 180s; 3 plays → 540s total.
+        #expect(data.totalSecondsListened == 540)
+        #expect(data.topTracks[0].totalSecondsListened == 540)
+        #expect(data.topArtists[0].totalSecondsListened == 540)
     }
 }
