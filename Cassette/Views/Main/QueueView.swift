@@ -10,6 +10,7 @@ import OSLog
 struct QueueView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.cassettePlayingAccent) private var playingAccent
 
     var body: some View {
         #if os(macOS)
@@ -25,7 +26,7 @@ struct QueueView: View {
                     }
                 } label: {
                     Image(systemName: "infinity")
-                        .foregroundStyle(container?.playerState.isAutoExtendEnabled == true ? Color.cassetteAccent : .secondary)
+                        .foregroundStyle(container?.playerState.isAutoExtendEnabled == true ? playingAccent : .secondary)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Auto-extend with Smart Shuffle")
@@ -134,7 +135,7 @@ struct QueueView: View {
             } label: {
                 Image(systemName: "shuffle")
                     .font(.title3)
-                    .foregroundStyle(playerState.isShuffled ? Color.cassetteAccent : Color.secondary)
+                    .foregroundStyle(playerState.isShuffled ? playingAccent : Color.secondary)
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
@@ -146,7 +147,7 @@ struct QueueView: View {
             } label: {
                 Image(systemName: playerState.repeatMode.systemImage)
                     .font(.title3)
-                    .foregroundStyle(playerState.repeatMode != .off ? Color.cassetteAccent : Color.secondary)
+                    .foregroundStyle(playerState.repeatMode != .off ? playingAccent : Color.secondary)
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
@@ -158,7 +159,7 @@ struct QueueView: View {
             } label: {
                 Image(systemName: "infinity")
                     .font(.title3)
-                    .foregroundStyle(playerState.isAutoExtendEnabled ? Color.cassetteAccent : Color.secondary)
+                    .foregroundStyle(playerState.isAutoExtendEnabled ? playingAccent : Color.secondary)
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(.borderless)
@@ -176,6 +177,7 @@ private struct QueueRow: View {
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @Environment(\.cassettePlayingAccent) private var playingAccent
     @State private var showAddToPlaylist = false
     @Query private var favoriteMatches: [FavoriteRecord]
 
@@ -199,7 +201,7 @@ private struct QueueRow: View {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 Text(song.title)
                     .font(.cassetteCellTitle)
-                    .foregroundStyle(isCurrent ? Color.cassetteAccent : Color.primary)
+                    .foregroundStyle(isCurrent ? playingAccent : Color.primary)
                     .lineLimit(1)
                 if let artist = song.artist {
                     Text(artist)

@@ -102,6 +102,7 @@ struct FullPlayerExpandedView: View {
             selectedPanel = remembered ? .lyrics : .queue
         }
         .environment(\.colorScheme, .dark)
+        .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: dominantColor))
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {
                 AddToPlaylistSheet(song: track)
@@ -483,7 +484,7 @@ struct FullPlayerExpandedView: View {
                 Task { await container?.playerService.toggleShuffle() }
             } label: {
                 Image(systemName: "shuffle")
-                    .foregroundStyle(playerState?.isShuffled == true ? (colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)) : Color.white.opacity(0.5))
+                    .foregroundStyle(playerState?.isShuffled == true ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -516,7 +517,7 @@ struct FullPlayerExpandedView: View {
                 }
             } label: {
                 Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
-                    .foregroundStyle(playerState?.repeatMode != .off ? (colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)) : Color.white.opacity(0.5))
+                    .foregroundStyle(playerState?.repeatMode != .off ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -565,7 +566,7 @@ struct FullPlayerExpandedView: View {
                     } label: {
                         Image(systemName: "infinity")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isAutoExtend ? (colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)) : Color.white.opacity(0.6))
+                            .foregroundStyle(isAutoExtend ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.6))
                             .padding(6)
                             .background(isAutoExtend ? CassetteColors.accentBackground : .clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -716,6 +717,7 @@ private struct ExpandedQueueRow: View {
     let isCurrent: Bool
 
     @Environment(\.appContainer) private var container
+    @Environment(\.cassettePlayingAccent) private var playingAccent
 
     private var isPlaying: Bool { container?.playerState.playbackState == .playing }
 
@@ -728,7 +730,7 @@ private struct ExpandedQueueRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(track.title)
                     .font(.system(size: 13, weight: isCurrent ? .semibold : .regular))
-                    .foregroundStyle(isCurrent ? Color.white : .primary)
+                    .foregroundStyle(isCurrent ? playingAccent : .primary)
                     .lineLimit(1)
                 if let artist = track.artist {
                     Text(artist)

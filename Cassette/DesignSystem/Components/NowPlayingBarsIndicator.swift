@@ -8,6 +8,7 @@ import SwiftUI
 struct NowPlayingBarsIndicator: View {
     let isPlaying: Bool
 
+    @Environment(\.cassettePlayingAccent) private var playingAccent
     private let delays: [Double] = [0.0, 0.15, 0.30]
     @State private var heights: [CGFloat] = [4, 8, 4]
 
@@ -15,7 +16,7 @@ struct NowPlayingBarsIndicator: View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(0..<3, id: \.self) { i in
                 RoundedRectangle(cornerRadius: 1.5)
-                    .fill(Color.cassetteAccent)
+                    .fill(playingAccent)
                     .frame(width: 3, height: heights[i])
             }
         }

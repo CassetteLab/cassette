@@ -203,6 +203,7 @@ struct PlaylistDetailView: View {
             .animation(.easeInOut(duration: 0.3), value: dominantColor)
         )
         .cassetteContentWidth()
+        .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: dominantColor))
         .navigationTitle("")
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)

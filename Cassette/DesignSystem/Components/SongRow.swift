@@ -25,7 +25,7 @@ struct SongRow: View {
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
-    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.cassettePlayingAccent) private var playingAccent
     @State private var coverImage: PlatformImage?
     #if os(macOS)
     @State private var isHovered = false
@@ -94,7 +94,7 @@ struct SongRow: View {
                     #else
                     .font(.cassetteCellTitle)
                     #endif
-                    .foregroundStyle(isCurrentTrack ? (colorScheme == .dark ? Color.cassetteAccentSecondary : Color.cassetteAccent) : titleColor)
+                    .foregroundStyle(isCurrentTrack ? playingAccent : titleColor)
                     .lineLimit(1)
                 if let artist = song.artist {
                     Text(artist)

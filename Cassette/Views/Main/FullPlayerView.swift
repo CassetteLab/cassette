@@ -156,6 +156,7 @@ struct FullPlayerView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cassetteContentWidth()
+        .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
         .background {
             ZStack {
                 Color.black
