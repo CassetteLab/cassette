@@ -8,6 +8,25 @@ import SwiftSonic
 import SwiftData
 import OSLog
 
+// MARK: - WARNING — DO NOT add @Observable / @Query / @Bindable observations to SearchView's body
+//
+// SearchView owns the .navigationDestination modifiers for the entire search tab.
+// Any @Observable, @Query, or @Bindable observation read in this view's body
+// (including inside destination closures) will cause SearchView to re-render
+// whenever that observed value mutates — for example when destinations load
+// artwork or when SearchHistoryService writes to the SwiftData container.
+//
+// Each re-render re-evaluates all .navigationDestination closures. If SwiftUI
+// treats the resulting struct change as a view identity change it discards the
+// existing pushed view and inserts a new one, producing a visual layering bug
+// where the wrong view appears on top during the push animation.
+//
+// This bug has regressed three times. The safe pattern:
+// - Observations needed only for search results UI → put them in a child view
+//   (see SearchSongResultsSection and SearchHistoryListView for the pattern).
+// - Values needed by destination views → have the destination read them from
+//   its own @Environment, not from a parameter passed through this body.
+
 struct SearchView: View {
     @Binding var searchQuery: String
     @Environment(\.appContainer) private var container
