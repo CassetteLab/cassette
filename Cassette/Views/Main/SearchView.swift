@@ -21,11 +21,26 @@ import OSLog
 // existing pushed view and inserts a new one, producing a visual layering bug
 // where the wrong view appears on top during the push animation.
 //
-// This bug has regressed three times. The safe pattern:
-// - Observations needed only for search results UI → put them in a child view
-//   (see SearchSongResultsSection and SearchHistoryListView for the pattern).
+// This bug has regressed FOUR times. Do not introduce a fifth.
+//
+// Regression 1 — historyEntries @Query in SearchView body
+//   Fix: extract into SearchHistoryListView child view (Option C).
+// Regression 2 — artworkImageCache @Observable read in destination closures
+//   Fix: AlbumDetailView reads its own @Environment(ArtworkImageCache.self).
+// Regression 3 — allFavorites @Query in SearchView body
+//   Fix: extract into SearchSongResultsSection child view.
+// Regression 4 — @Model SearchHistoryEntry held as .navigationDestination(item:) binding
+//   SwiftData @Model uses ObjectIdentifier-based Hashable; a concurrent
+//   SearchHistoryService write refreshes the managed object and can invalidate the
+//   reference, causing SwiftUI to treat the item as new and re-instantiate the
+//   destination. Fix: SearchHistoryNavTarget (plain value struct) — capture stable
+//   primitive fields before the async write fires; never bind navigation to a @Model.
+//
+// The safe pattern:
+// - Observations needed only for search results UI → put them in a child view.
 // - Values needed by destination views → have the destination read them from
 //   its own @Environment, not from a parameter passed through this body.
+// - Navigation binding items → use plain value types (struct / enum), never @Model.
 
 /// Value-type snapshot of a SearchHistoryEntry used as the navigation binding item.
 /// Using a plain struct (stable Hashable) avoids the ObjectIdentifier instability of
