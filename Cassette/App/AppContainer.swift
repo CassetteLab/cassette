@@ -52,7 +52,7 @@ final class AppContainer {
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
-        sessionService = PlaybackSessionService(modelContainer: modelContainer)
+        sessionService = PlaybackSessionService(modelContainer: try ModelContainer.session(inMemory: inMemory))
 
         let keychain = KeychainService()
         keychainService = keychain
@@ -154,12 +154,31 @@ extension ModelContainer {
             QueueSnapshot.self,
             FavoriteRecord.self,
             PinnedItem.self,
-            PlaybackSession.self,
+            PlaybackSession.self, // kept for schema-mismatch migration safety; see session() below
             PlaybackEvent.self,
             CachedLyrics.self,
             SearchHistoryEntry.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
+        return try ModelContainer(for: schema, configurations: config)
+    }
+
+    /// Isolated container for playback session data.
+    ///
+    /// Separating PlaybackSession from the main container means
+    /// PlaybackSessionService.savePosition() (every 5 s during playback) no longer
+    /// posts change notifications to the main store coordinator. The main context's
+    /// @Query<SearchHistoryEntry> never sees these saves, eliminating the continuous
+    /// 5-second render cascade that previously fired during all active playback.
+    ///
+    /// PlaybackSession.self is retained in cassette() purely to avoid a schema-mismatch
+    /// migration error when opening existing stores from app versions where it lived
+    /// in the main container. That table remains in the main store file but is never
+    /// written to after this change.
+    /// - Parameter inMemory: Pass `true` in tests.
+    static func session(inMemory: Bool = false) throws -> ModelContainer {
+        let schema = Schema([PlaybackSession.self])
+        let config = ModelConfiguration("cassette-session", schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)
     }
 }
