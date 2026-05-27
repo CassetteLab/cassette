@@ -143,9 +143,9 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             )))
             #endif
 
-            // Check ArtworkImageCache — radio coverArtId maps to a server thumbnail when available.
+            // Check ArtworkImageCache — use hero tier for lock screen / Control Center quality.
             if let coverArtId = snapshot.coverArtId,
-               let cachedImage = await artworkImageCache.cached(for: coverArtId) {
+               let cachedImage = await artworkImageCache.cached(for: coverArtId, tier: .hero) {
                 let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in cachedImage }
                 await MainActor.run {
                     var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? baseInfo
@@ -228,7 +228,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
 
         // Fast path: image already in ArtworkImageCache (pre-loaded when the card was visible).
         if let coverArtId = snapshot.coverArtId,
-           let cachedImage = await artworkImageCache.cached(for: coverArtId) {
+           let cachedImage = await artworkImageCache.cached(for: coverArtId, tier: .hero) {
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 600, height: 600)) { _ in cachedImage }
             let fallback = baseInfo
             await MainActor.run {

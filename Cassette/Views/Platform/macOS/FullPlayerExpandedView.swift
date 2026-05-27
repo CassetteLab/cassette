@@ -69,7 +69,7 @@ struct FullPlayerExpandedView: View {
         .task(id: currentTrack?.id) {
             colorExtractor.invalidate(for: currentTrack?.coverArtId)
             artworkImage = nil
-            artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId, targetPixelSize: 1200)
+            artworkImage = await artworkCache.load(coverArtId: currentTrack?.coverArtId, tier: .hero)
             await refreshFavorite()
         }
         .task(id: currentTrack?.id) {

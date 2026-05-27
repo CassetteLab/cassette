@@ -12,6 +12,28 @@ import UIKit
 import AppKit
 #endif
 
+// MARK: - ArtworkTier
+
+/// Named decode resolution tier for cover art.
+///
+/// Tier determines both the pixel dimension passed to CGImageSourceCreateThumbnailAtIndex
+/// and the disk/RAM cache key suffix (`id@thumb`, `id@hero`).
+nonisolated enum ArtworkTier: String, Sendable {
+    /// 240 px — list rows, grid cells, queue rows, mini player, Wrapped cards.
+    case thumb
+    /// 1200 px — detail view heroes, full-player cover, lock screen artwork.
+    case hero
+
+    var decodePixels: Int {
+        switch self {
+        case .thumb: return 240
+        case .hero: return 1200
+        }
+    }
+}
+
+// MARK: - CoverFetchGate
+
 /// Limits concurrent server cover fetches so they cannot saturate the TCP connection pool
 /// shared with the active audio stream. Uses a continuation-based semaphore so callers
 /// are suspended (not blocked) while waiting for a slot.
@@ -39,17 +61,22 @@ private actor CoverFetchGate {
     }
 }
 
-/// Shared in-memory cache for cover art PlatformImages, keyed by coverArtId + size tier.
+// MARK: - ArtworkImageCache
+
+/// Shared in-memory cache for cover art PlatformImages, keyed by `"\(coverArtId)@\(tier)"`.
 ///
 /// Two decode tiers keep memory and decode cost proportional to display context:
-///   • thumb  (targetPixelSize < 480) → decoded at 240 px  — list rows, grid cells
-///   • full   (targetPixelSize ≥ 480) → decoded at 1200 px — full-player hero, macOS detail
+///   • thumb (240 px) — list rows, grid cells, Wrapped cards, mini player
+///   • hero  (1200 px) — detail view heroes, full-player cover, lock screen artwork
 ///
-/// Cache keys use the suffix "@thumb" / "@full" so both tiers can coexist in RAM for
-/// the same coverArtId. LRU eviction is unified across tiers; maxEntries is sized to
-/// accommodate ~100 thumb + ~10 full images without excessive memory pressure.
+/// Both tiers for the same id can coexist in RAM. LRU eviction is unified across tiers;
+/// maxEntries is sized to accommodate ~100 thumb + ~10 hero images.
 ///
-/// Resolution order per tier: RAM → disk (Documents/coverarts/) → server fetch + persist.
+/// Resolution order per tier: RAM → disk (id@tier) → disk (plain id, offline downloads)
+/// → server fetch + persist to id@tier on disk.
+///
+/// Disk files are named `id@thumb` / `id@hero` (streaming cache) or plain `id`
+/// (offline-downloaded by DownloadService). Both share the same coverarts/ directory.
 @MainActor
 @Observable
 final class ArtworkImageCache {
@@ -60,13 +87,8 @@ final class ArtworkImageCache {
     private let downloadService: any DownloadServiceProtocol
     private let libraryService: any LibraryServiceProtocol
     private let session: URLSession
+    // Caps in-flight server cover fetches to prevent saturating the TCP connection pool.
     private let fetchGate = CoverFetchGate(limit: 4)
-
-    // Decode pixel dimensions per tier.
-    private let thumbDecodePixels = 240
-    private let fullDecodePixels = 1200
-    // Threshold (in requested pixels) below which a request is served from the thumb tier.
-    private let fullTierThreshold = 480
 
     init(downloadService: any DownloadServiceProtocol, libraryService: any LibraryServiceProtocol) {
         self.downloadService = downloadService
@@ -80,32 +102,29 @@ final class ArtworkImageCache {
 
     // MARK: - Public API
 
-    /// Returns the thumb-tier cached image synchronously, or nil if not yet loaded.
-    /// Does not trigger a fetch — call load(coverArtId:) for that.
-    func cached(for coverArtId: String?) -> PlatformImage? {
+    /// Returns the cached image for the given tier synchronously, or nil if not yet loaded.
+    /// Does not trigger a fetch — call load(coverArtId:tier:) for that.
+    func cached(for coverArtId: String?, tier: ArtworkTier = .thumb) -> PlatformImage? {
         guard let coverArtId else { return nil }
-        let key = thumbKey(coverArtId)
+        let key = cacheKey(id: coverArtId, tier: tier)
         guard let image = cache[key] else { return nil }
         touch(key)
         return image
     }
 
     /// Read-only sync lookup — no LRU touch, no fetch.
-    /// Uses the thumb tier by default; pass `pixelSize ≥ 480` to look up the full tier.
-    func cachedImage(for id: String, pixelSize: Int = 240) -> PlatformImage? {
-        cache[cacheKey(id: id, pixelSize: pixelSize)]
+    func cachedImage(for id: String, tier: ArtworkTier = .thumb) -> PlatformImage? {
+        cache[cacheKey(id: id, tier: tier)]
     }
 
     /// Returns the image from cache if available; otherwise fetches from disk or server.
-    /// `targetPixelSize` determines the decode resolution and cache tier:
-    ///   < 480 → thumb tier (240 px decode) — suitable for list rows and grid cells.
-    ///   ≥ 480 → full tier (1200 px decode) — suitable for full-player and detail views.
+    /// The `tier` determines both decode resolution and which disk/RAM bucket is checked.
     @discardableResult
-    func load(coverArtId: String?, targetPixelSize: Int = 240) async -> PlatformImage? {
+    func load(coverArtId: String?, tier: ArtworkTier = .thumb) async -> PlatformImage? {
         guard let coverArtId else { return nil }
 
-        let key = cacheKey(id: coverArtId, pixelSize: targetPixelSize)
-        let maxDim = decodePixels(for: targetPixelSize)
+        let key = cacheKey(id: coverArtId, tier: tier)
+        let maxDim = tier.decodePixels
 
         // 1. RAM hit.
         if let hit = cache[key] {
@@ -113,9 +132,17 @@ final class ArtworkImageCache {
             return hit
         }
 
-        // 2. Disk hit — dispatch read + decode to a background thread so the main actor
-        //    stays free. Previously these ran on main, causing ~25ms freeze per image.
-        if let localURL = await downloadService.localCoverArtURL(forId: coverArtId) {
+        // 2. Disk hit — try tier-specific file first (streaming cache), then plain id
+        //    (offline-downloaded by DownloadService, which writes without a tier suffix).
+        let tieredDiskId = "\(coverArtId)@\(tier.rawValue)"
+        let localURL: URL?
+        if let tieredURL = await downloadService.localCoverArtURL(forId: tieredDiskId) {
+            localURL = tieredURL
+        } else {
+            localURL = await downloadService.localCoverArtURL(forId: coverArtId)
+        }
+
+        if let localURL {
             let image = await Task.detached(priority: .userInitiated) {
                 let diskStart = CFAbsoluteTimeGetCurrent()
                 guard let data = try? Data(contentsOf: localURL) else { return nil as PlatformImage? }
@@ -124,28 +151,29 @@ final class ArtworkImageCache {
                 let image = ArtworkImageCache.thumbnailImage(from: data, maxDimension: maxDim)
                 let decodeMs = Int((CFAbsoluteTimeGetCurrent() - decodeStart) * 1000)
                 if diskMs + decodeMs > 50 {
-                    Logger.artworkCache.warning("[DISK-SLOW] id=\(coverArtId, privacy: .public) size=\(maxDim)px disk=\(diskMs)ms decode=\(decodeMs)ms (background thread)")
+                    Logger.artworkCache.warning("[DISK-SLOW] id=\(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) disk=\(diskMs)ms decode=\(decodeMs)ms (background thread)")
                 } else {
-                    Logger.artworkCache.debug("[DISK] id=\(coverArtId, privacy: .public) size=\(maxDim)px disk=\(diskMs)ms decode=\(decodeMs)ms")
+                    Logger.artworkCache.debug("[DISK] id=\(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) disk=\(diskMs)ms decode=\(decodeMs)ms")
                 }
                 return image
             }.value
             if let image {
                 store(image: image, forKey: key)
-                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(key, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
+                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
                 return image
             }
         }
 
         // 3. Server fetch — gated to cap concurrency and protect the audio buffer.
         await fetchGate.acquire()
-        Logger.artworkCache.debug("[NET-COVER] start id=\(coverArtId, privacy: .public) size=\(maxDim)px")
-        let result = await serverFetch(coverArtId: coverArtId, key: key, maxDim: maxDim)
+        Logger.artworkCache.debug("[NET-COVER] start id=\(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) size=\(maxDim)px")
+        let result = await serverFetch(coverArtId: coverArtId, key: key, tier: tier)
         await fetchGate.release()
         return result
     }
 
-    private func serverFetch(coverArtId: String, key: String, maxDim: Int) async -> PlatformImage? {
+    private func serverFetch(coverArtId: String, key: String, tier: ArtworkTier) async -> PlatformImage? {
+        let maxDim = tier.decodePixels
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: maxDim) else { return nil }
         let t0 = Date()
         guard let (data, _) = try? await session.data(from: serverURL) else {
@@ -160,19 +188,20 @@ final class ArtworkImageCache {
             Logger.artworkCache.warning("[NET-COVER] failed (decode) id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms")
             return nil
         }
-        Logger.artworkCache.debug("[NET-COVER] done id=\(coverArtId, privacy: .public) size=\(maxDim)px duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms bytes=\(data.count, privacy: .public)")
+        Logger.artworkCache.debug("[NET-COVER] done id=\(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms bytes=\(data.count, privacy: .public)")
         store(image: image, forKey: key)
-        await downloadService.persistCover(data, forId: coverArtId)
+        // Persist using the tier-suffixed filename so each tier has its own disk file.
+        await downloadService.persistCover(data, forId: "\(coverArtId)@\(tier.rawValue)")
         return image
     }
 
     func invalidate(for coverArtId: String) async {
-        for tier in ["thumb", "full"] {
-            let key = "\(coverArtId)@\(tier)"
+        // Remove both tier RAM entries and their disk files, plus the plain-id offline file.
+        for key in ["\(coverArtId)@thumb", "\(coverArtId)@hero", coverArtId] {
             cache.removeValue(forKey: key)
             accessOrder.removeAll { $0 == key }
+            await downloadService.removeCover(forId: key)
         }
-        await downloadService.removeCover(forId: coverArtId)
         Logger.artworkCache.debug("ArtworkImageCache: invalidated \(coverArtId, privacy: .public) (RAM + disk)")
     }
 
@@ -183,14 +212,8 @@ final class ArtworkImageCache {
 
     // MARK: - Private
 
-    private func thumbKey(_ id: String) -> String { "\(id)@thumb" }
-
-    private func cacheKey(id: String, pixelSize: Int) -> String {
-        pixelSize < fullTierThreshold ? "\(id)@thumb" : "\(id)@full"
-    }
-
-    private func decodePixels(for pixelSize: Int) -> Int {
-        pixelSize < fullTierThreshold ? thumbDecodePixels : fullDecodePixels
+    private func cacheKey(id: String, tier: ArtworkTier) -> String {
+        "\(id)@\(tier.rawValue)"
     }
 
     private func store(image: PlatformImage, forKey key: String) {

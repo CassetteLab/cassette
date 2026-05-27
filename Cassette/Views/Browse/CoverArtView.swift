@@ -24,9 +24,17 @@ import SwiftUI
 /// Async cover art loader. Resolves via ArtworkImageCache (RAM → disk → network).
 /// Falls back to the URL/AsyncImage path only if ArtworkImageCache fails entirely.
 /// Use `CoverArtCard` in views — it wraps this with clip, shadow, and border handling.
+///
+/// - Parameters:
+///   - size: Requested pixel size, used for the AsyncImage fallback URL only.
+///           Tier is auto-detected: `size >= 480` → `.hero` (1200 px decode);
+///           `size < 480` → `.thumb` (240 px decode).
+///   - tier: Optional explicit tier override. Pass `.hero` for detail-view hero images
+///           whose pixel size is below 480 (e.g. macOS DetailHeroView at 280 px).
 struct CoverArtView: View {
     let id: String
     let size: Int?
+    var tier: ArtworkTier? = nil
     var cornerRadius: CGFloat = 0
     var placeholderSystemImage: String = "music.note"
     var initialImage: PlatformImage? = nil
@@ -38,6 +46,7 @@ struct CoverArtView: View {
         CoverArtViewContent(
             id: id,
             size: size,
+            tier: tier,
             cornerRadius: cornerRadius,
             placeholderSystemImage: placeholderSystemImage,
             initialImage: initialImage
@@ -50,6 +59,7 @@ struct CoverArtView: View {
 private struct CoverArtViewContent: View {
     let id: String
     let size: Int?
+    let tier: ArtworkTier?
     let cornerRadius: CGFloat
     let placeholderSystemImage: String
 
@@ -58,12 +68,17 @@ private struct CoverArtViewContent: View {
     @State private var cachedImage: PlatformImage?
     @State private var url: URL?
 
-    init(id: String, size: Int?, cornerRadius: CGFloat, placeholderSystemImage: String, initialImage: PlatformImage?) {
+    init(id: String, size: Int?, tier: ArtworkTier?, cornerRadius: CGFloat, placeholderSystemImage: String, initialImage: PlatformImage?) {
         self.id = id
         self.size = size
+        self.tier = tier
         self.cornerRadius = cornerRadius
         self.placeholderSystemImage = placeholderSystemImage
         _cachedImage = State(initialValue: initialImage)
+    }
+
+    private var resolvedTier: ArtworkTier {
+        tier ?? ((size ?? 0) >= 480 ? .hero : .thumb)
     }
 
     var body: some View {
@@ -99,19 +114,19 @@ private struct CoverArtViewContent: View {
         .task(id: id) {
             url = nil
 
-            let pixelSize = size ?? 240
+            let t = resolvedTier
 
             // 1. Sync RAM hit in .task (not in body) — safe: reads in task closures are
             //    not tracked by @Observable, so this does NOT create an observation on the
             //    global cache dictionary.
-            if let ram = artworkCache.cachedImage(for: id, pixelSize: pixelSize) {
+            if let ram = artworkCache.cachedImage(for: id, tier: t) {
                 cachedImage = ram
                 return
             }
 
             // 2. Async load via artworkCache (disk → network → populates RAM).
             //    cachedImage is NOT cleared — init image stays visible while loading.
-            if let image = await artworkCache.load(coverArtId: id, targetPixelSize: pixelSize) {
+            if let image = await artworkCache.load(coverArtId: id, tier: t) {
                 cachedImage = image
                 return
             }

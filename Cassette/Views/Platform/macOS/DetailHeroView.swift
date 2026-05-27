@@ -27,7 +27,7 @@ struct DetailHeroView: View {
     private var coverSection: some View {
         Group {
             if let id = coverArtId {
-                CoverArtView(id: id, size: Int(CassetteMacOSLayout.heroCoverArtSize))
+                CoverArtView(id: id, size: Int(CassetteMacOSLayout.heroCoverArtSize), tier: .hero)
             } else {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.secondary.opacity(0.15))

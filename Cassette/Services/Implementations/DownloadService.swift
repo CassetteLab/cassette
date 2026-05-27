@@ -112,7 +112,11 @@ actor DownloadService: DownloadServiceProtocol {
         }
         var deletedCount = 0
         for fileURL in entries {
-            let coverArtId = fileURL.lastPathComponent
+            let filename = fileURL.lastPathComponent
+            // Skip tier-suffixed files (id@thumb, id@hero) — those are streaming cache
+            // managed by ArtworkImageCache's own eviction, not offline-download GC.
+            guard !filename.contains("@") else { continue }
+            let coverArtId = filename
             if !referencedIds.contains(coverArtId) {
                 do {
                     try fm.removeItem(at: fileURL)

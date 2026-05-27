@@ -138,6 +138,7 @@ struct ArtistDetailView: View {
             CoverArtView(
                 id: vm.artist?.coverArt ?? artist.id,
                 size: 240,
+                tier: .hero,
                 placeholderSystemImage: "person.fill"
             )
             .frame(width: 100, height: 100)
