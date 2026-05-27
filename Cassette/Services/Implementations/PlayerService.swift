@@ -1497,6 +1497,11 @@ final class AudioStreamingDelegate: AudioPlayerDelegate, @unchecked Sendable {
         with newState: AudioPlayerState,
         previous: AudioPlayerState
     ) {
+        // [DIAG] Correlate with [NET-COVER] logs: underrun while cover fetches are in flight
+        // confirms bandwidth starvation; underrun with no concurrent covers points elsewhere.
+        if newState == .bufferring && previous == .playing {
+            Logger.player.warning("[NET-AUDIO] buffer underrun — state: playing → bufferring")
+        }
         guard let service else { return }
         Task { await service.handleAudioStateChanged(newState) }
     }

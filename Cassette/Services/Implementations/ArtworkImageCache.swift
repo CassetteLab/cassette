@@ -15,13 +15,15 @@ import AppKit
 /// shared with the active audio stream. Uses a continuation-based semaphore so callers
 /// are suspended (not blocked) while waiting for a slot.
 private actor CoverFetchGate {
+    private let limit: Int
     private var available: Int
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    init(limit: Int) { available = limit }
+    init(limit: Int) { self.limit = limit; available = limit }
 
     func acquire() async {
         if available > 0 { available -= 1; return }
+        Logger.artworkCache.debug("[NET-COVER] gate: queued (limit=\(self.limit) busy, waiters=\(self.waiters.count + 1))")
         await withCheckedContinuation { waiters.append($0) }
     }
 
@@ -110,6 +112,7 @@ final class ArtworkImageCache {
 
         // 3. Server fetch — gated to cap concurrency and protect the audio buffer.
         await fetchGate.acquire()
+        Logger.artworkCache.debug("[NET-COVER] start id=\(coverArtId, privacy: .public)")
         let result = await serverFetch(coverArtId: coverArtId)
         await fetchGate.release()
         return result
@@ -117,14 +120,15 @@ final class ArtworkImageCache {
 
     private func serverFetch(coverArtId: String) async -> PlatformImage? {
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 600) else { return nil }
+        let t0 = Date()
         guard let (data, _) = try? await session.data(from: serverURL),
               let image = PlatformImage(data: data) else {
-            Logger.artworkCache.warning("ArtworkImageCache: failed to fetch \(coverArtId, privacy: .public) from server")
+            Logger.artworkCache.warning("[NET-COVER] failed id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms")
             return nil
         }
+        Logger.artworkCache.debug("[NET-COVER] done id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms bytes=\(data.count, privacy: .public)")
         store(image: image, for: coverArtId)
         await downloadService.persistCover(data, forId: coverArtId)
-        Logger.artworkCache.debug("ArtworkImageCache: server fetch + persisted \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
         return image
     }
 
