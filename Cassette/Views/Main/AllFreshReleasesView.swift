@@ -89,13 +89,26 @@ struct AllFreshReleasesView: View {
                 }
             }
         }
-        // The Liquid Glass scroll edge effect renders a soft gradient over the top of the
-        // scroll view, which visually covers the pinned section header. Hiding only the top
-        // edge lets the header pin at the actual top of the visible area without obstruction.
-        if #available(iOS 26.0, macOS 26.0, *) {
+        #if os(macOS)
+        // .hiddenTitleBar + fullSizeContentView gives the detail column a top safe-area
+        // equal to the toolbar height. With titlebarAppearsTransparent = true the toolbar
+        // is invisible, but pinned section headers still stick at the safe-area boundary
+        // (bottom of the invisible toolbar) rather than at the true window top.
+        // ignoresSafeArea(.container, edges: .top) extends the scroll view frame to y = 0
+        // so pinned headers pin at the actual visible top of the detail column.
+        if #available(macOS 26.0, *) {
+            sv
+                .ignoresSafeArea(.container, edges: .top)
+                .scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            sv.ignoresSafeArea(.container, edges: .top)
+        }
+        #else
+        if #available(iOS 26.0, *) {
             sv.scrollEdgeEffectHidden(true, for: .top)
         } else {
             sv
         }
+        #endif
     }
 }
