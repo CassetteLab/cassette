@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import ImageIO
 import OSLog
 #if canImport(UIKit)
 import UIKit
@@ -101,26 +102,27 @@ final class ArtworkImageCache {
             return hit
         }
 
-        // 2. Disk hit (downloads or previously-persisted streaming covers).
-        // WARNING: Data(contentsOf:) and PlatformImage(data:) both run synchronously on the
-        // main thread because load() is @MainActor. 13 concurrent hits × ~25ms each = ~325ms freeze.
-        // [DISK-SLOW] logs confirm this; the fix is off-thread decode (tracked separately).
+        // 2. Disk hit — dispatch read + decode to a background thread so the main actor
+        //    stays free. Previously these ran on main, causing ~25ms freeze per image.
         if let localURL = await downloadService.localCoverArtURL(forId: coverArtId) {
-            let diskStart = CFAbsoluteTimeGetCurrent()
-            let data = try? Data(contentsOf: localURL)
-            let diskMs = Int((CFAbsoluteTimeGetCurrent() - diskStart) * 1000)
-            if let data {
+            let image = await Task.detached(priority: .userInitiated) {
+                let diskStart = CFAbsoluteTimeGetCurrent()
+                guard let data = try? Data(contentsOf: localURL) else { return nil as PlatformImage? }
+                let diskMs = Int((CFAbsoluteTimeGetCurrent() - diskStart) * 1000)
                 let decodeStart = CFAbsoluteTimeGetCurrent()
-                let image = PlatformImage(data: data)
+                let image = ArtworkImageCache.thumbnailImage(from: data, maxDimension: 600)
                 let decodeMs = Int((CFAbsoluteTimeGetCurrent() - decodeStart) * 1000)
-                if diskMs > 5 || decodeMs > 10 {
-                    Logger.artworkCache.warning("[DISK-SLOW] id=\(coverArtId, privacy: .public) disk=\(diskMs)ms decode=\(decodeMs)ms — main thread blocking")
+                if diskMs + decodeMs > 50 {
+                    Logger.artworkCache.warning("[DISK-SLOW] id=\(coverArtId, privacy: .public) disk=\(diskMs)ms decode=\(decodeMs)ms (background thread)")
+                } else {
+                    Logger.artworkCache.debug("[DISK] id=\(coverArtId, privacy: .public) disk=\(diskMs)ms decode=\(decodeMs)ms")
                 }
-                if let image {
-                    store(image: image, for: coverArtId)
-                    Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
-                    return image
-                }
+                return image
+            }.value
+            if let image {
+                store(image: image, for: coverArtId)
+                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
+                return image
             }
         }
 
@@ -135,9 +137,16 @@ final class ArtworkImageCache {
     private func serverFetch(coverArtId: String) async -> PlatformImage? {
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 600) else { return nil }
         let t0 = Date()
-        guard let (data, _) = try? await session.data(from: serverURL),
-              let image = PlatformImage(data: data) else {
+        guard let (data, _) = try? await session.data(from: serverURL) else {
             Logger.artworkCache.warning("[NET-COVER] failed id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms")
+            return nil
+        }
+        // Decode off main thread — handles high-res outliers the server may return.
+        let image = await Task.detached(priority: .userInitiated) {
+            ArtworkImageCache.thumbnailImage(from: data, maxDimension: 600)
+        }.value
+        guard let image else {
+            Logger.artworkCache.warning("[NET-COVER] failed (decode) id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms")
             return nil
         }
         Logger.artworkCache.debug("[NET-COVER] done id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms bytes=\(data.count, privacy: .public)")
@@ -172,5 +181,29 @@ final class ArtworkImageCache {
     private func touch(_ coverArtId: String) {
         accessOrder.removeAll { $0 == coverArtId }
         accessOrder.append(coverArtId)
+    }
+
+    /// Decodes `data` using `CGImageSourceCreateThumbnailAtIndex`, which only reads the DCT
+    /// data needed for the target resolution — dramatically faster than full decode for
+    /// high-res covers. Falls back to `PlatformImage(data:)` if ImageIO cannot produce
+    /// a thumbnail (e.g. unsupported format).
+    ///
+    /// `nonisolated` so it is callable from `Task.detached` without hopping to MainActor.
+    private nonisolated static func thumbnailImage(from data: Data, maxDimension: Int) -> PlatformImage? {
+        let options: [CFString: Any] = [
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension,
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return PlatformImage(data: data)
+        }
+        #if canImport(UIKit)
+        return UIImage(cgImage: cgImage)
+        #else
+        return NSImage(cgImage: cgImage, size: NSSize(width: CGFloat(cgImage.width), height: CGFloat(cgImage.height)))
+        #endif
     }
 }
