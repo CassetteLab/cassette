@@ -23,6 +23,28 @@ import OSLog
 //
 // This bug has regressed FIVE times. Do not introduce a sixth.
 //
+// AUDIT (2026-05-27) — SearchHistoryListView @Query cascade: confirmed root cause.
+//
+// SearchHistoryListView owns @Query<SearchHistoryEntry>. SwiftData's @Query
+// re-evaluates whenever mainContext (modelContainer.mainContext) saves, regardless
+// of which entity type changed. Two confirmed background drivers:
+//
+//   Driver 1 — PinService.modelContext IS mainContext. Every pin/unpin anywhere
+//   in the app saves mainContext → @Query re-evaluates → SwiftData re-applies
+//   all SearchHistoryEntry property values from store through @Model's @Observable
+//   setters → coverArtId/serverId fire as "changed" for EVERY in-memory entry.
+//
+//   Driver 2 — PlaybackSessionService.savePosition() fires every 5 s during
+//   playback on an actor-isolated background context. SwiftData auto-merges that
+//   save into mainContext → same cascade as Driver 1.
+//
+// Additionally, SearchHistoryService.record() for a NEW entry merges the insert
+// into mainContext, setting all @Model properties via their setters for the first
+// time → observation fires once per new history entry (user-triggered).
+//
+// Fix direction (not applied here): isolate SearchHistoryListView from mainContext
+// saves by moving it to a dedicated background context (see planned fix).
+//
 // Regression 1 — historyEntries @Query in SearchView body
 //   Fix: extract into SearchHistoryListView child view (Option C).
 // Regression 2 — artworkImageCache @Observable read in destination closures
