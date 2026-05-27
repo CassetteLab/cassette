@@ -77,6 +77,7 @@ struct SearchView: View {
     }
 
     var body: some View {
+        let _ = Self._printChanges()
         // [DIAG] Measures how often and how quickly body is re-evaluated on search open.
         let _ = Logger.ui.debug("[SEARCH-OPEN] SearchView.body — query='\(searchQuery, privacy: .public)'")
         let trimmed = searchQuery.trimmingCharacters(in: .whitespaces)
@@ -355,6 +356,7 @@ struct SearchView: View {
         }
 
         var body: some View {
+            let _ = Self._printChanges()
             // [DIAG] Log raw @Query result count and cost of the in-process serverHistory filter.
             // historyEntries.count > 0 here means the SwiftData fetch already ran (on main thread).
             // If filter time >> 0ms with large historyEntries, add serverId predicate to @Query.

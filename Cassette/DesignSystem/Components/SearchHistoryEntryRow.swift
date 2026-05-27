@@ -9,6 +9,7 @@ struct SearchHistoryEntryRow: View {
     let entry: SearchHistoryEntry
 
     var body: some View {
+        let _ = Self._printChanges()
         HStack(spacing: CassetteSpacing.m) {
             CoverArtView(id: entry.coverArtId ?? entry.itemId, size: 88)
                 .frame(width: 44, height: 44)
