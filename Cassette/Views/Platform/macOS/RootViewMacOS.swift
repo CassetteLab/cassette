@@ -360,7 +360,11 @@ private struct MainWindowConfigurator: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async {
             guard let window = nsView.window else { return }
-            window.titlebarAppearsTransparent = isFullPlayerVisible
+            // titlebarAppearsTransparent must be true unconditionally: on macOS 26 (Liquid Glass)
+            // the titlebar material bleeds a frosted-glass overlay into scrolled content when
+            // this is false, and no SwiftUI modifier can suppress it. The full-player overlay
+            // sets it to true anyway, so keeping it true at all times is consistent.
+            window.titlebarAppearsTransparent = true
             window.isMovableByWindowBackground = isFullPlayerVisible
         }
     }
