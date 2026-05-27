@@ -45,6 +45,8 @@ struct AllFreshReleasesView: View {
         .navigationTitle("Fresh Releases")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(CassetteColors.backgroundPrimary, for: .navigationBar)
         #endif
         .task { await vm.loadReleases() }
         .sheet(isPresented: Binding(
