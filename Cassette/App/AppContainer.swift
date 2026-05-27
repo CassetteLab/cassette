@@ -211,6 +211,51 @@ extension AppContainer {
     }
 }
 
+// MARK: - Legacy cover art sweep
+
+extension AppContainer {
+    private static let artworkLegacySweepKey = "cassette.artworkLegacySweep_v2"
+
+    /// One-shot background sweep that deletes untagged cover art files written by
+    /// pre-tier builds (plain `{id}` filenames with no `@thumb` / `@hero` suffix).
+    ///
+    /// These full-res JPEGs can be 2–4 MB each; decoding them at the 240px thumb
+    /// size took ~1100ms per file on a background thread, starving the audio decode
+    /// thread and causing audible crackling during queue load. ArtworkImageCache no
+    /// longer reads them (since the legacy fallback was removed), but they still
+    /// waste disk space and could confuse future disk-hit logic. Deleting them here
+    /// forces a clean re-download at the correct tier size.
+    static func sweepLegacyCoverArtFiles() {
+        guard !UserDefaults.standard.bool(forKey: artworkLegacySweepKey) else { return }
+
+        Task.detached(priority: .utility) {
+            let fm = FileManager.default
+            guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+            let coverArtsDir = docs.appendingPathComponent("app.cassette/coverarts", isDirectory: true)
+
+            guard let items = try? fm.contentsOfDirectory(at: coverArtsDir, includingPropertiesForKeys: nil) else { return }
+
+            var deletedCount = 0
+            for fileURL in items {
+                let name = fileURL.lastPathComponent
+                // Keep files that have a tier suffix; delete untagged legacy files.
+                guard !name.contains("@thumb") && !name.contains("@hero") else { continue }
+                do {
+                    try fm.removeItem(at: fileURL)
+                    deletedCount += 1
+                } catch {
+                    Logger.artworkCache.warning("[SWEEP] Failed to delete legacy cover '\(name, privacy: .public)': \(error, privacy: .public)")
+                }
+            }
+
+            await MainActor.run {
+                UserDefaults.standard.set(true, forKey: artworkLegacySweepKey)
+            }
+            Logger.artworkCache.info("[SWEEP] Legacy cover art sweep complete: \(deletedCount) files deleted")
+        }
+    }
+}
+
 // MARK: - Audio extension migration
 
 extension AppContainer {
