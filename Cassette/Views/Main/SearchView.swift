@@ -27,12 +27,22 @@ import OSLog
 // - Values needed by destination views → have the destination read them from
 //   its own @Environment, not from a parameter passed through this body.
 
+/// Value-type snapshot of a SearchHistoryEntry used as the navigation binding item.
+/// Using a plain struct (stable Hashable) avoids the ObjectIdentifier instability of
+/// holding a @Model reference in .navigationDestination(item:) — see guard comment above.
+struct SearchHistoryNavTarget: Hashable {
+    let itemId: String
+    let itemType: String
+    let displayName: String
+    let coverArtId: String?
+}
+
 struct SearchView: View {
     @Binding var searchQuery: String
     @Environment(\.appContainer) private var container
     @State private var viewModel: SearchViewModel?
     @Namespace private var albumZoomNamespace
-    @State private var navigatingToHistoryEntry: SearchHistoryEntry? = nil
+    @State private var navigatingToHistoryEntry: SearchHistoryNavTarget? = nil
     @State private var songToAddToPlaylist: DisplayableSong?
 
     init(searchQuery: Binding<String>) {
@@ -277,12 +287,12 @@ struct SearchView: View {
 
     private struct SearchHistoryListView: View {
         let serverId: String
-        let onNavigate: (SearchHistoryEntry) -> Void
+        let onNavigate: (SearchHistoryNavTarget) -> Void
 
         @Environment(\.appContainer) private var container
         @Query private var historyEntries: [SearchHistoryEntry]
 
-        init(serverId: String, onNavigate: @escaping (SearchHistoryEntry) -> Void) {
+        init(serverId: String, onNavigate: @escaping (SearchHistoryNavTarget) -> Void) {
             self.serverId = serverId
             self.onNavigate = onNavigate
             var descriptor = FetchDescriptor<SearchHistoryEntry>(
@@ -309,6 +319,12 @@ struct SearchView: View {
                         LazyVStack(spacing: 0) {
                             ForEach(serverHistory) { entry in
                                 Button {
+                                    let target = SearchHistoryNavTarget(
+                                        itemId: entry.itemId,
+                                        itemType: entry.itemType,
+                                        displayName: entry.displayName,
+                                        coverArtId: entry.coverArtId
+                                    )
                                     Task {
                                         await container?.searchHistoryService.record(
                                             itemId: entry.itemId, itemType: entry.itemType,
@@ -316,7 +332,7 @@ struct SearchView: View {
                                             serverId: serverId
                                         )
                                     }
-                                    onNavigate(entry)
+                                    onNavigate(target)
                                 } label: {
                                     SearchHistoryEntryRow(entry: entry)
                                 }
