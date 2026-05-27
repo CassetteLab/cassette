@@ -5,6 +5,22 @@
 
 import SwiftUI
 
+// MARK: - WARNING — do NOT read from ArtworkImageCache in CoverArtView.body
+//
+// ArtworkImageCache is @Observable. Any property access in a view's body creates
+// an observation dependency on the WHOLE cache dictionary — not just the one key
+// being read. When any cover arrives (i.e., cache[key] = image), every CoverArtView
+// whose body observed the dictionary is invalidated and re-evaluated.
+//
+// With N history rows × M covers loading = N×M body re-evaluations. At 13 rows ×
+// 13 covers = 169 redundant body calls on search open, cascading into parent list
+// re-renders. Measured as ~20 consecutive SearchHistoryListView.body re-renders.
+//
+// The fix: never read artworkCache in CoverArtView.body. CoverArtViewContent owns
+// @State private var cachedImage and a .task that loads exactly one id. Only THAT
+// view's body re-renders when its own @State changes — cache mutations for other ids
+// are invisible to it.
+
 /// Async cover art loader. Resolves via ArtworkImageCache (RAM → disk → network).
 /// Falls back to the URL/AsyncImage path only if ArtworkImageCache fails entirely.
 /// Use `CoverArtCard` in views — it wraps this with clip, shadow, and border handling.
@@ -15,19 +31,16 @@ struct CoverArtView: View {
     var placeholderSystemImage: String = "music.note"
     var initialImage: PlatformImage? = nil
 
-    @Environment(ArtworkImageCache.self) private var artworkCache
-
     var body: some View {
-        // Sync RAM lookup happens in body where @Environment is available.
-        // Caller-supplied initialImage takes precedence; RAM cache fills the gap.
-        // The result is passed as initialValue so CoverArtViewContent's @State
-        // is non-nil on frame 0 when the cache is warm.
+        // No artworkCache read here — see guard comment above.
+        // CoverArtViewContent's .task handles the initial RAM check without creating
+        // an @Observable observation dependency.
         CoverArtViewContent(
             id: id,
             size: size,
             cornerRadius: cornerRadius,
             placeholderSystemImage: placeholderSystemImage,
-            initialImage: initialImage ?? artworkCache.cachedImage(for: id)
+            initialImage: initialImage
         )
     }
 }
@@ -86,15 +99,19 @@ private struct CoverArtViewContent: View {
         .task(id: id) {
             url = nil
 
-            // 1. Sync RAM hit — refreshes cachedImage on id changes without clearing first.
-            if let ram = artworkCache.cachedImage(for: id) {
+            let pixelSize = size ?? 240
+
+            // 1. Sync RAM hit in .task (not in body) — safe: reads in task closures are
+            //    not tracked by @Observable, so this does NOT create an observation on the
+            //    global cache dictionary.
+            if let ram = artworkCache.cachedImage(for: id, pixelSize: pixelSize) {
                 cachedImage = ram
                 return
             }
 
             // 2. Async load via artworkCache (disk → network → populates RAM).
             //    cachedImage is NOT cleared — init image stays visible while loading.
-            if let image = await artworkCache.load(coverArtId: id) {
+            if let image = await artworkCache.load(coverArtId: id, targetPixelSize: pixelSize) {
                 cachedImage = image
                 return
             }
