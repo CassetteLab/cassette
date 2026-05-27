@@ -384,6 +384,7 @@ struct SearchView: View {
             // If filter time >> 0ms with large historyEntries, add serverId predicate to @Query.
             let bodyStart = CFAbsoluteTimeGetCurrent()
             let history = serverHistory
+            let rowsData = history.map(SearchHistoryRowData.init)
             let filterMs = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000)
             let _ = Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView.body — @Query:\(historyEntries.count) server-filtered:\(history.count) filter:\(filterMs)ms")
             let _ = { if filterMs > 16 { Logger.ui.warning("[BODY-SLOW] SearchHistoryListView filter=\(filterMs)ms (main thread)") } }()
@@ -397,24 +398,24 @@ struct SearchView: View {
                 List {
                     Section {
                         LazyVStack(spacing: 0) {
-                            ForEach(history) { entry in
+                            ForEach(rowsData) { rowData in
                                 Button {
                                     let target = SearchHistoryNavTarget(
-                                        itemId: entry.itemId,
-                                        itemType: entry.itemType,
-                                        displayName: entry.displayName,
-                                        coverArtId: entry.coverArtId
+                                        itemId: rowData.itemId,
+                                        itemType: rowData.itemType,
+                                        displayName: rowData.displayName,
+                                        coverArtId: rowData.coverArtId
                                     )
                                     Task {
                                         await container?.searchHistoryService.record(
-                                            itemId: entry.itemId, itemType: entry.itemType,
-                                            displayName: entry.displayName, coverArtId: entry.coverArtId,
+                                            itemId: rowData.itemId, itemType: rowData.itemType,
+                                            displayName: rowData.displayName, coverArtId: rowData.coverArtId,
                                             serverId: serverId
                                         )
                                     }
                                     path.append(target)
                                 } label: {
-                                    SearchHistoryEntryRow(entry: entry)
+                                    SearchHistoryEntryRow(data: rowData)
                                 }
                                 .buttonStyle(.plain)
                             }
