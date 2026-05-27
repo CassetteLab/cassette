@@ -14,7 +14,16 @@ final class PinService: PinServiceProtocol {
     private var widgetSyncService: WidgetSyncService?
 
     init(modelContainer: ModelContainer) {
-        self.modelContext = modelContainer.mainContext
+        // Isolated background context — NOT mainContext. Using mainContext here
+        // caused every pin/unpin to call mainContext.save(), which triggered
+        // @Query<SearchHistoryEntry> to re-evaluate and re-apply all @Model
+        // property setters, producing a cascade of 40+ observation fires per
+        // pin action. Background context saves notify the store coordinator
+        // but do not directly flush the main context, decoupling pin writes
+        // from the search history @Query.
+        let ctx = ModelContext(modelContainer)
+        ctx.autosaveEnabled = false
+        self.modelContext = ctx
     }
 
     func setWidgetSyncService(_ service: WidgetSyncService) {
