@@ -264,7 +264,6 @@ struct OutOfLibraryArtistSheet: View {
     let providers: [ExternalReleaseProvider]
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
@@ -336,7 +335,7 @@ struct OutOfLibraryArtistSheet: View {
 
     private func externalLinkButton(title: String, url: URL, secondary: Bool) -> some View {
         Button {
-            openURL(url)
+            ExternalLinkOpener.open(url)
         } label: {
             HStack {
                 Text(title)

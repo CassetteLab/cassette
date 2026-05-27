@@ -8,7 +8,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.appContainer) private var container
-    @Environment(\.openURL) private var openURL
     @State private var downloadsVM: DownloadsViewModel?
 
     var body: some View {
@@ -130,7 +129,7 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity)
                 Button {
                     Logger.settings.debug("Ko-fi support button tapped")
-                    openURL(CassetteURLs.kofi)
+                    ExternalLinkOpener.open(CassetteURLs.kofi)
                 } label: {
                     Image("kofiButton")
                         .resizable()
@@ -166,9 +165,15 @@ struct SettingsView: View {
                 Text("MIT License — MathieuDubart")
             }
             LabeledContent("AudioStreaming") {
-                Link("MIT License — dimitris-c", destination: CassetteURLs.audioStreaming)
+                Button("MIT License — dimitris-c") {
+                    ExternalLinkOpener.open(CassetteURLs.audioStreaming)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
             }
-            Link("View on GitHub", destination: CassetteURLs.cassette)
+            Button("View on GitHub") {
+                ExternalLinkOpener.open(CassetteURLs.cassette)
+            }
             Link("Send Feedback / Report a Bug", destination: URL(string: "mailto:support@getcassette.app?subject=Feedback%20%2F%20Bug%20Report")!)
         }
     }

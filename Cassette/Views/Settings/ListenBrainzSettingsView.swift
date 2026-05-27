@@ -48,8 +48,12 @@ struct ListenBrainzSettingsView: View {
             Text("ListenBrainz is an open-source music recommendation service by the MetaBrainz Foundation. Cassette uses it (read-only) to surface fresh releases and similar artists. Your listening history is **not** sent from Cassette — scrobbling stays on your Navidrome server.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-            Link("Visit ListenBrainz →", destination: CassetteURLs.listenBrainz)
-                .font(.footnote)
+            Button("Visit ListenBrainz →") {
+                ExternalLinkOpener.open(CassetteURLs.listenBrainz)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .font(.footnote)
         } header: {
             Text("About ListenBrainz")
         }
