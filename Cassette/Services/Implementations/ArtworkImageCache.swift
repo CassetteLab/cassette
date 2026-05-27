@@ -11,6 +11,31 @@ import UIKit
 import AppKit
 #endif
 
+/// Limits concurrent server cover fetches so they cannot saturate the TCP connection pool
+/// shared with the active audio stream. Uses a continuation-based semaphore so callers
+/// are suspended (not blocked) while waiting for a slot.
+private actor CoverFetchGate {
+    private var available: Int
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    init(limit: Int) { available = limit }
+
+    func acquire() async {
+        if available > 0 { available -= 1; return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func release() {
+        if let waiter = waiters.first {
+            waiters.removeFirst()
+            waiter.resume()
+            // available unchanged — slot transferred directly to the waiter
+        } else {
+            available += 1
+        }
+    }
+}
+
 /// Shared in-memory cache for cover art PlatformImages, keyed by coverArtId.
 ///
 /// Follows the DominantColorExtractor pattern (@MainActor @Observable) so it is
@@ -31,6 +56,10 @@ final class ArtworkImageCache {
     private let downloadService: any DownloadServiceProtocol
     private let libraryService: any LibraryServiceProtocol
     private let session: URLSession
+    // Caps in-flight server cover fetches to prevent saturating the TCP connection pool
+    // that the audio stream shares. 4 slots ≈ fast sequential loading; 2-connection limit
+    // on the session ensures covers never hold more than 2 TCP connections to the same host.
+    private let fetchGate = CoverFetchGate(limit: 4)
 
     init(downloadService: any DownloadServiceProtocol, libraryService: any LibraryServiceProtocol) {
         self.downloadService = downloadService
@@ -38,6 +67,7 @@ final class ArtworkImageCache {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 30
+        config.httpMaximumConnectionsPerHost = 2
         self.session = URLSession(configuration: config)
     }
 
@@ -78,7 +108,14 @@ final class ArtworkImageCache {
             return image
         }
 
-        // 3. Server fetch → RAM + disk persist.
+        // 3. Server fetch — gated to cap concurrency and protect the audio buffer.
+        await fetchGate.acquire()
+        let result = await serverFetch(coverArtId: coverArtId)
+        await fetchGate.release()
+        return result
+    }
+
+    private func serverFetch(coverArtId: String) async -> PlatformImage? {
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: 600) else { return nil }
         guard let (data, _) = try? await session.data(from: serverURL),
               let image = PlatformImage(data: data) else {
