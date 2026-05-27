@@ -15,14 +15,9 @@ struct SearchView: View {
     @Namespace private var albumZoomNamespace
     @State private var navigatingToHistoryEntry: SearchHistoryEntry? = nil
     @State private var songToAddToPlaylist: DisplayableSong?
-    @Query private var allFavorites: [FavoriteRecord]
 
     init(searchQuery: Binding<String>) {
         self._searchQuery = searchQuery
-    }
-
-    private var favoriteSongIds: Set<String> {
-        Set(allFavorites.map(\.id))
     }
 
     private var serverId: String {
@@ -176,7 +171,10 @@ struct SearchView: View {
         } else if let results = vm.searchResults, hasAnyResults(results) {
             artistResultsSection(results.artist ?? [])
             albumResultsSection(results.album ?? [])
-            songResultsSection((results.song ?? []).map { DisplayableSong(from: $0) })
+            SearchSongResultsSection(
+                songs: (results.song ?? []).map { DisplayableSong(from: $0) },
+                onAddToPlaylist: { s in songToAddToPlaylist = s }
+            )
         }
     }
 
@@ -216,12 +214,30 @@ struct SearchView: View {
         }
     }
 
-    @ViewBuilder
-    private func songResultsSection(_ songs: [DisplayableSong]) -> some View {
-        if !songs.isEmpty {
-            Section("Songs") {
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"), onAddToPlaylist: { s in songToAddToPlaylist = s })
+    // MARK: - Song results section (isolated to prevent @Query re-renders in SearchView body)
+
+    private struct SearchSongResultsSection: View {
+        let songs: [DisplayableSong]
+        let onAddToPlaylist: (DisplayableSong) -> Void
+
+        @Environment(\.appContainer) private var container
+        @Query private var allFavorites: [FavoriteRecord]
+
+        private var favoriteSongIds: Set<String> {
+            Set(allFavorites.map(\.id))
+        }
+
+        var body: some View {
+            if !songs.isEmpty {
+                Section("Songs") {
+                    ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                        SongRow(
+                            song: song,
+                            index: index + 1,
+                            showCoverArt: true,
+                            isFavorite: favoriteSongIds.contains("song:\(song.id)"),
+                            onAddToPlaylist: { s in onAddToPlaylist(s) }
+                        )
                         .contentShape(Rectangle())
                         .onTapGesture {
                             Task {
@@ -232,6 +248,7 @@ struct SearchView: View {
                                 }
                             }
                         }
+                    }
                 }
             }
         }
