@@ -233,7 +233,7 @@ struct RootViewMacOS: View {
         NavigationStack(path: $navigationPath) {
             Group {
                 if !searchQuery.isEmpty {
-                    SearchView(searchQuery: $searchQuery)
+                    SearchView(searchQuery: $searchQuery, path: $navigationPath)
                 } else {
                     detailView(for: selection ?? .section(.home))
                 }

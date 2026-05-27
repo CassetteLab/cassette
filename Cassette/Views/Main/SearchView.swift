@@ -54,14 +54,15 @@ struct SearchHistoryNavTarget: Hashable {
 
 struct SearchView: View {
     @Binding var searchQuery: String
+    @Binding var path: NavigationPath
     @Environment(\.appContainer) private var container
     @State private var viewModel: SearchViewModel?
     @Namespace private var albumZoomNamespace
-    @State private var navigatingToHistoryEntry: SearchHistoryNavTarget? = nil
     @State private var songToAddToPlaylist: DisplayableSong?
 
-    init(searchQuery: Binding<String>) {
+    init(searchQuery: Binding<String>, path: Binding<NavigationPath>) {
         self._searchQuery = searchQuery
+        self._path = path
     }
 
     private var serverId: String {
@@ -74,7 +75,7 @@ struct SearchView: View {
             if trimmed.isEmpty {
                 SearchHistoryListView(
                     serverId: serverId,
-                    onNavigate: { entry in navigatingToHistoryEntry = entry }
+                    path: $path
                 )
             } else if let vm = viewModel, !vm.isSearching,
                       let results = vm.searchResults, !hasAnyResults(results) {
@@ -163,7 +164,7 @@ struct SearchView: View {
                 EmptyView()
             }
         }
-        .navigationDestination(item: $navigatingToHistoryEntry) { entry in
+        .navigationDestination(for: SearchHistoryNavTarget.self) { entry in
             switch entry.itemType {
             case "artist":
                 #if os(macOS)
@@ -302,14 +303,14 @@ struct SearchView: View {
 
     private struct SearchHistoryListView: View {
         let serverId: String
-        let onNavigate: (SearchHistoryNavTarget) -> Void
+        @Binding var path: NavigationPath
 
         @Environment(\.appContainer) private var container
         @Query private var historyEntries: [SearchHistoryEntry]
 
-        init(serverId: String, onNavigate: @escaping (SearchHistoryNavTarget) -> Void) {
+        init(serverId: String, path: Binding<NavigationPath>) {
             self.serverId = serverId
-            self.onNavigate = onNavigate
+            self._path = path
             var descriptor = FetchDescriptor<SearchHistoryEntry>(
                 sortBy: [SortDescriptor(\.visitedAt, order: .reverse)]
             )
@@ -347,7 +348,7 @@ struct SearchView: View {
                                             serverId: serverId
                                         )
                                     }
-                                    onNavigate(target)
+                                    path.append(target)
                                 } label: {
                                     SearchHistoryEntryRow(entry: entry)
                                 }

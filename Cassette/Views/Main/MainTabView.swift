@@ -9,6 +9,7 @@ struct MainTabView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
+    @State private var searchPath = NavigationPath()
     @State private var showingFullPlayer = false
 
     private var hasTrack: Bool {
@@ -57,8 +58,8 @@ struct MainTabView: View {
             }
 
             Tab(role: .search) {
-                NavigationStack {
-                    SearchView(searchQuery: $searchText)
+                NavigationStack(path: $searchPath) {
+                    SearchView(searchQuery: $searchText, path: $searchPath)
                         .navigationTitle("Search")
                 }
                 .searchable(text: $searchText, prompt: "Artists, albums, songs\u{2026}")
