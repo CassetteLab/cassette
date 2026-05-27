@@ -384,7 +384,7 @@ struct SearchView: View {
             // If filter time >> 0ms with large historyEntries, add serverId predicate to @Query.
             let bodyStart = CFAbsoluteTimeGetCurrent()
             let history = serverHistory
-            let rowsData = history.map(SearchHistoryRowData.init)
+            let rowsData = history.map { SearchHistoryRowData(entry: $0) }
             let filterMs = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000)
             let _ = Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView.body — @Query:\(historyEntries.count) server-filtered:\(history.count) filter:\(filterMs)ms")
             let _ = { if filterMs > 16 { Logger.ui.warning("[BODY-SLOW] SearchHistoryListView filter=\(filterMs)ms (main thread)") } }()
