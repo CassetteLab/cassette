@@ -358,9 +358,11 @@ struct SearchView: View {
             // [DIAG] Log raw @Query result count and cost of the in-process serverHistory filter.
             // historyEntries.count > 0 here means the SwiftData fetch already ran (on main thread).
             // If filter time >> 0ms with large historyEntries, add serverId predicate to @Query.
-            let t0 = Date()
+            let bodyStart = CFAbsoluteTimeGetCurrent()
             let history = serverHistory
-            let _ = Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView.body — @Query:\(historyEntries.count) server-filtered:\(history.count) filter:\(Int(Date().timeIntervalSince(t0) * 1000))ms")
+            let filterMs = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000)
+            let _ = Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView.body — @Query:\(historyEntries.count) server-filtered:\(history.count) filter:\(filterMs)ms")
+            let _ = { if filterMs > 16 { Logger.ui.warning("[BODY-SLOW] SearchHistoryListView filter=\(filterMs)ms (main thread)") } }()
             if history.isEmpty {
                 EmptyStateView(
                     systemImage: "magnifyingglass",

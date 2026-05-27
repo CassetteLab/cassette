@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 /// Discover carousel card for the current Wrapped year when no playlist exists yet.
 ///
@@ -19,6 +20,8 @@ struct WrappedCurrentYearCard: View {
     private var isUnlocked: Bool { WrappedStoryAvailability.isStoryAvailable(forYear: year) }
 
     var body: some View {
+        let bodyStart = CFAbsoluteTimeGetCurrent()
+        let _ = { let e = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000); if e > 16 { Logger.ui.warning("[BODY-SLOW] WrappedCurrentYearCard \(e)ms") } }()
         ZStack(alignment: .bottomTrailing) {
             MeshGradientBackground(palette: palette, animated: !reduceMotion)
                 .frame(width: 140, height: 160)

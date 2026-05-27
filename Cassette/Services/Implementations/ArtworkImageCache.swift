@@ -102,12 +102,26 @@ final class ArtworkImageCache {
         }
 
         // 2. Disk hit (downloads or previously-persisted streaming covers).
-        if let localURL = await downloadService.localCoverArtURL(forId: coverArtId),
-           let data = try? Data(contentsOf: localURL),
-           let image = PlatformImage(data: data) {
-            store(image: image, for: coverArtId)
-            Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
-            return image
+        // WARNING: Data(contentsOf:) and PlatformImage(data:) both run synchronously on the
+        // main thread because load() is @MainActor. 13 concurrent hits × ~25ms each = ~325ms freeze.
+        // [DISK-SLOW] logs confirm this; the fix is off-thread decode (tracked separately).
+        if let localURL = await downloadService.localCoverArtURL(forId: coverArtId) {
+            let diskStart = CFAbsoluteTimeGetCurrent()
+            let data = try? Data(contentsOf: localURL)
+            let diskMs = Int((CFAbsoluteTimeGetCurrent() - diskStart) * 1000)
+            if let data {
+                let decodeStart = CFAbsoluteTimeGetCurrent()
+                let image = PlatformImage(data: data)
+                let decodeMs = Int((CFAbsoluteTimeGetCurrent() - decodeStart) * 1000)
+                if diskMs > 5 || decodeMs > 10 {
+                    Logger.artworkCache.warning("[DISK-SLOW] id=\(coverArtId, privacy: .public) disk=\(diskMs)ms decode=\(decodeMs)ms — main thread blocking")
+                }
+                if let image {
+                    store(image: image, for: coverArtId)
+                    Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
+                    return image
+                }
+            }
         }
 
         // 3. Server fetch — gated to cap concurrency and protect the audio buffer.

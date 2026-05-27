@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 struct WrappedYearlyCard: View {
     let playlist: WrappedYearlyPlaylist
@@ -16,6 +17,8 @@ struct WrappedYearlyCard: View {
     }
 
     var body: some View {
+        let bodyStart = CFAbsoluteTimeGetCurrent()
+        let _ = { let e = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000); if e > 16 { Logger.ui.warning("[BODY-SLOW] WrappedYearlyCard \(e)ms") } }()
         ZStack(alignment: .bottomTrailing) {
             NavigationLink {
                 PlaylistDetailView(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArtId)

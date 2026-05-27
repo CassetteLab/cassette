@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import OSLog
 
 struct WrappedRecapMonthCard: View {
     let period: WrappedPeriod
@@ -40,6 +41,12 @@ struct WrappedRecapMonthCard: View {
     }
 
     var body: some View {
+        // Force title/subtitle evaluation here so DateFormatter allocation is captured in timing.
+        // cardOverlay will re-evaluate them; that double cost is intentional for diagnostics only.
+        let bodyStart = CFAbsoluteTimeGetCurrent()
+        let _ = title
+        let _ = subtitle
+        let _ = { let e = Int((CFAbsoluteTimeGetCurrent() - bodyStart) * 1000); if e > 5 { Logger.ui.warning("[BODY-SLOW] WrappedRecapMonthCard \(e)ms (DateFormatter allocation suspected)") } }()
         NavigationLink {
             WrappedView(initialPeriod: period)
         } label: {
