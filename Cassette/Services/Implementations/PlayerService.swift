@@ -45,12 +45,14 @@ actor PlayerService: PlayerServiceProtocol {
     #if os(iOS)
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
+    /// Stored so pause()/stop() can cancel it before calling setActive(false),
+    /// preventing a stale retry from reactivating the session after the user stops.
+    private var sessionActivationRetryTask: Task<Void, Never>?
     #endif
 
     private var isHandlingEndOfTrack = false
-    /// True from the moment audioPlayer.play() is called during session restore until the
-    /// deferred seek+pause is confirmed applied. Blocks handleEndOfTrack() during that window
-    /// to prevent a spurious eof from the old stream triggering an unwanted skip.
+    /// True during the URL-resolution phase of session restore (prepareCurrentTrackForRestoration).
+    /// Blocks handleEndOfTrack() and handleNetworkRestored() during that window.
     private var isRestoringSession = false
     /// Stored handle for the 150 ms deferred-pause task during session restore.
     /// Cancelled by resume() if the user taps play before the pause fires.
@@ -579,6 +581,11 @@ actor PlayerService: PlayerServiceProtocol {
     func pause() async {
         finalizePlaySegment()
         audioPlayer.pause()
+        #if os(iOS)
+        sessionActivationRetryTask?.cancel()
+        sessionActivationRetryTask = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
         await MainActor.run { state.playbackState = .paused }
         await pushPositionSnapshot(rate: 0.0)
         stopProgressTimer()
@@ -605,7 +612,16 @@ actor PlayerService: PlayerServiceProtocol {
         // Lazily start the accumulator for session-restored tracks that resume for the first time.
         if trackPlayStartDate == nil { trackPlayStartDate = Date() }
         if currentPlaySegmentStart == nil { currentPlaySegmentStart = Date() }
-        audioPlayer.resume()
+        // Cold-restore path: session activation was deferred at launch, so the player was never
+        // started. Start fresh now that the user has explicitly triggered playback.
+        if audioPlayer.state == .ready, let source = currentSource {
+            if let info = pendingRestoreInfo, info.pause {
+                pendingRestoreInfo = (seekTime: info.seekTime, pause: false)
+            }
+            audioPlayer.play(url: source.url, headers: source.customHeaders)
+        } else {
+            audioPlayer.resume()
+        }
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
         startProgressTimer()
@@ -637,6 +653,11 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         audioPlayer.stop()
+        #if os(iOS)
+        sessionActivationRetryTask?.cancel()
+        sessionActivationRetryTask = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
         accumulatedPlayedSeconds = 0
         currentPlaySegmentStart = nil
         trackPlayStartDate = nil
@@ -934,22 +955,16 @@ actor PlayerService: PlayerServiceProtocol {
 
         stopProgressTimer()
         currentSource = source
-        // Seek to saved position then pause once buffering completes.
+        // Seek to saved position on first play; pause flag cleared in resume() when user
+        // explicitly starts playback, or kept if user hasn't tapped play yet.
         pendingRestoreInfo = (seekTime: position, pause: true)
 
-        #if os(iOS)
-        configureAudioSessionIfNeeded()
-        #endif
-
-        // Mute before play to prevent audible audio during the seek window.
-        // Volume is restored in the 150 ms pause task, or in resume() if the
-        // user taps play before the task fires.
-        isMutedForRestore = true
-        audioPlayer.volume = 0
-        audioPlayer.play(url: source.url, headers: source.customHeaders)
+        // Session activation is intentionally deferred to the first user-triggered play.
+        // Activating here would grab the audio route from other devices (e.g. Mac+AirPods)
+        // before the user has indicated intent to listen.
 
         await MainActor.run { state.isPlaybackAvailable = true }
-        Logger.player.info("Session restore: '\(track.title)' queued at \(position, format: .fixed(precision: 1))s")
+        Logger.player.info("Session restore: '\(track.title)' queued at \(position, format: .fixed(precision: 1))s (playback deferred)")
 
         // Populate MPNowPlayingInfoCenter in paused state so lock screen controls appear
         // immediately when the user resumes — resume() only sends a position-only update
@@ -976,6 +991,7 @@ actor PlayerService: PlayerServiceProtocol {
             isLiveStream: false,
             radioStationName: nil
         ))
+        isRestoringSession = false
     }
 
     func handleNetworkRestored() async {
@@ -1394,8 +1410,9 @@ extension PlayerService {
             if error.code == -50 {
                 // Code=-50: another app holds the session — retry after short delay.
                 Logger.player.warning("AVAudioSession setActive Code=-50, retrying in 0.5s")
-                Task {
+                sessionActivationRetryTask = Task {
                     try? await Task.sleep(for: .seconds(0.5))
+                    guard !Task.isCancelled else { return }
                     try? AVAudioSession.sharedInstance().setActive(true)
                 }
             } else {
