@@ -39,15 +39,45 @@ actor ListenBrainzService {
     /// Avoids a Keychain round-trip for every track change when scrobbling is not configured.
     private var hasScrobblingToken: Bool = false
 
+    // MARK: - Offline queue
+
+    private let queueFileURL: URL
+    private var pendingQueue: [PendingListen] = []
+
+    /// Number of listens waiting for a successful flush. Exposed for diagnostics and tests.
+    var pendingListenCount: Int { pendingQueue.count }
+
     init(
         client: ListenBrainzClient,
         keychain: any KeychainServiceProtocol,
-        userDefaults: UserDefaults = .standard
+        userDefaults: UserDefaults = .standard,
+        queueFileURL: URL? = nil
     ) {
         self.client = client
         self.keychain = keychain
         self.userDefaults = userDefaults
         self.isEnabled = userDefaults.bool(forKey: Self.isEnabledDefaultsKey)
+        self.queueFileURL = queueFileURL ?? Self.makeDefaultQueueFileURL()
+    }
+
+    /// Resolves the default queue file path in Application Support, creating the subdirectory if needed.
+    /// Falls back to the temporary directory on unexpected filesystem errors.
+    private static func makeDefaultQueueFileURL() -> URL {
+        do {
+            let appSupport = try FileManager.default.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+            let dir = appSupport.appendingPathComponent("app.cassette", isDirectory: true)
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir.appendingPathComponent("listenbrainz-queue.json")
+        } catch {
+            Logger.listenBrainz.error("Failed to resolve Application Support path: \(error, privacy: .public)")
+            return URL(fileURLWithPath: NSTemporaryDirectory())
+                .appendingPathComponent("app.cassette.listenbrainz-queue.json")
+        }
     }
 
     /// Loads persisted state for both recommendations and scrobbling.
@@ -70,6 +100,9 @@ actor ListenBrainzService {
         let storedToken = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey)
         hasScrobblingToken = storedToken != nil
         Logger.listenBrainz.debug("Scrobbling state loaded — enabled=\(self.scrobblingEnabled, privacy: .public) hasToken=\(self.hasScrobblingToken, privacy: .public)")
+
+        // Offline queue — load persisted listens
+        loadQueue()
     }
 
     // MARK: - Recommendations public interface
@@ -186,12 +219,15 @@ actor ListenBrainzService {
         Logger.listenBrainz.info("Scrobbling disabled")
     }
 
-    /// Purges scrobbling token, username, and all related config.
+    /// Purges scrobbling token, username, all related config, and the offline queue.
+    /// The queue belongs to the removed account — it must never flush to a different future account.
     func clearScrobblingToken() async {
         scrobblingEnabled = false
         scrobblingUsername = nil
         scrobblingValidationStatus = .unknown
         hasScrobblingToken = false
+        pendingQueue = []
+        try? FileManager.default.removeItem(at: queueFileURL)
         userDefaults.set(false, forKey: Self.scrobblingEnabledDefaultsKey)
         try? await keychain.delete(forKey: Self.scrobblingTokenKeychainKey)
         try? await keychain.delete(forKey: Self.scrobblingUsernameKeychainKey)
@@ -202,6 +238,7 @@ actor ListenBrainzService {
 
     /// Submits a playing_now notification to ListenBrainz. No-op when scrobbling is disabled or
     /// no token is stored. The 3-second delay and still-playing guard are applied by the caller.
+    /// playing_now failures are NEVER queued — they are ephemeral and stale by flush time.
     func notifyTrackStarted(song: DisplayableSong) async {
         guard scrobblingEnabled, hasScrobblingToken else { return }
         guard let token = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey) else { return }
@@ -215,21 +252,67 @@ actor ListenBrainzService {
         }
     }
 
-    /// Submits a single-listen scrobble to ListenBrainz. No-op when scrobbling is disabled or
-    /// no token is stored.
+    /// Submits a single completed listen to ListenBrainz. On transient failure the listen is
+    /// persisted to the offline queue. On permanent failure (auth/4xx) it is dropped.
     func notifyScrobbleThreshold(song: DisplayableSong, startDate: Date) async {
         guard scrobblingEnabled, hasScrobblingToken else { return }
         guard let token = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey) else { return }
         let rootURLString = userDefaults.string(forKey: Self.scrobblingServerURLDefaultsKey) ?? Self.defaultScrobblingServerURL
         guard let rootURL = URL(string: rootURLString) else { return }
         let listenedAt = Int(startDate.timeIntervalSince1970)
+        let meta = LBTrackMetadata(from: song)
         do {
-            try await client.submitListen(track: LBTrackMetadata(from: song), listenedAt: listenedAt, rootURL: rootURL, token: token)
+            try await client.submitListen(track: meta, listenedAt: listenedAt, rootURL: rootURL, token: token)
             Logger.listenBrainz.debug("single listen submitted")
         } catch {
-            Logger.listenBrainz.debug("single listen failed: \(error, privacy: .public)")
+            let isTransient = (error as? ListenBrainzError)?.isTransient ?? true
+            if isTransient {
+                enqueue(PendingListen(
+                    listenedAt: listenedAt,
+                    trackName: meta.trackName,
+                    artistName: meta.artistName,
+                    releaseName: meta.releaseName,
+                    durationMs: meta.durationMs
+                ))
+                Logger.listenBrainz.debug("single listen queued after transient error")
+            } else {
+                Logger.listenBrainz.debug("single listen dropped (permanent error)")
+            }
         }
     }
+
+    // MARK: - Offline queue — persistence helpers
+
+    private func loadQueue() {
+        guard FileManager.default.fileExists(atPath: queueFileURL.path) else { return }
+        do {
+            let data = try Data(contentsOf: queueFileURL)
+            pendingQueue = try JSONDecoder().decode([PendingListen].self, from: data)
+            Logger.listenBrainz.debug("Loaded \(self.pendingQueue.count, privacy: .public) pending listens from queue")
+        } catch {
+            Logger.listenBrainz.error("Pending listens queue is corrupt, starting empty: \(error, privacy: .public)")
+            pendingQueue = []
+        }
+    }
+
+    private func saveQueue() {
+        let dir = queueFileURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        do {
+            let data = try JSONEncoder().encode(pendingQueue)
+            try data.write(to: queueFileURL, options: .atomic)
+        } catch {
+            Logger.listenBrainz.error("Failed to save pending listens queue: \(error, privacy: .public)")
+        }
+    }
+
+    private func enqueue(_ listen: PendingListen) {
+        pendingQueue.append(listen)
+        saveQueue()
+        Logger.listenBrainz.debug("Enqueued pending listen; queue size=\(self.pendingQueue.count, privacy: .public)")
+    }
+
+    // MARK: - Helpers
 
     /// Trims whitespace and strips trailing slashes for consistent path joining.
     nonisolated static func normalizeServerURL(_ raw: String) -> String {

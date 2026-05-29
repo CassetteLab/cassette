@@ -265,7 +265,8 @@ actor ListenBrainzClient {
                 trackMetadata: LBEncodableTrackMetadata(
                     trackName: track.trackName,
                     artistName: track.artistName,
-                    releaseName: track.releaseName
+                    releaseName: track.releaseName,
+                    additionalInfo: LBAdditionalInfo(durationMs: track.durationMs)
                 )
             )]
         )
@@ -281,7 +282,8 @@ actor ListenBrainzClient {
                 trackMetadata: LBEncodableTrackMetadata(
                     trackName: track.trackName,
                     artistName: track.artistName,
-                    releaseName: track.releaseName
+                    releaseName: track.releaseName,
+                    additionalInfo: LBAdditionalInfo(durationMs: track.durationMs)
                 )
             )]
         )

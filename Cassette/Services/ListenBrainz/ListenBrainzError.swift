@@ -54,6 +54,7 @@ extension ListenBrainzError {
     nonisolated var isTransient: Bool {
         switch self {
         case .network, .rateLimited: return true
+        case .httpError(let code) where (500...599).contains(code): return true
         default: return false
         }
     }

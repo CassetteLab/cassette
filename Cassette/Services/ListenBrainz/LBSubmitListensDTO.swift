@@ -10,11 +10,21 @@ nonisolated struct LBTrackMetadata: Sendable {
     let trackName: String
     let artistName: String
     let releaseName: String?
+    /// Duration in milliseconds derived from DisplayableSong.duration (seconds × 1000).
+    let durationMs: Int?
 
     init(from song: DisplayableSong) {
         trackName = song.title
         artistName = song.artist ?? ""
         releaseName = song.albumName
+        durationMs = song.duration > 0 ? Int(song.duration * 1000) : nil
+    }
+
+    init(trackName: String, artistName: String, releaseName: String?, durationMs: Int?) {
+        self.trackName = trackName
+        self.artistName = artistName
+        self.releaseName = releaseName
+        self.durationMs = durationMs
     }
 }
 
@@ -44,20 +54,41 @@ nonisolated struct LBListenPayload: Encodable {
     }
 }
 
+/// Constant additional_info fields sent with every submission.
+/// duration_ms is included when known; submission_client and media_player are always "Cassette".
+nonisolated struct LBAdditionalInfo: Encodable {
+    enum CodingKeys: String, CodingKey {
+        case durationMs = "duration_ms"
+        case submissionClient = "submission_client"
+        case mediaPlayer = "media_player"
+    }
+    let durationMs: Int?
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if let d = durationMs { try container.encode(d, forKey: .durationMs) }
+        try container.encode("Cassette", forKey: .submissionClient)
+        try container.encode("Cassette", forKey: .mediaPlayer)
+    }
+}
+
 nonisolated struct LBEncodableTrackMetadata: Encodable {
     enum CodingKeys: String, CodingKey {
         case trackName = "track_name"
         case artistName = "artist_name"
         case releaseName = "release_name"
+        case additionalInfo = "additional_info"
     }
     let trackName: String
     let artistName: String
     let releaseName: String?
+    let additionalInfo: LBAdditionalInfo
 
     func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(trackName, forKey: .trackName)
         try container.encode(artistName, forKey: .artistName)
         if let rn = releaseName { try container.encode(rn, forKey: .releaseName) }
+        try container.encode(additionalInfo, forKey: .additionalInfo)
     }
 }
