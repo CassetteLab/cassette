@@ -20,7 +20,7 @@ nonisolated struct LBTrackMetadata: Sendable {
 
 // MARK: - Internal Encodable request bodies (module-internal; used by ListenBrainzClient)
 
-struct LBSubmitListensBody: Encodable {
+nonisolated struct LBSubmitListensBody: Encodable {
     enum CodingKeys: String, CodingKey {
         case listenType = "listen_type"
         case payload
@@ -29,7 +29,7 @@ struct LBSubmitListensBody: Encodable {
     let payload: [LBListenPayload]
 }
 
-struct LBListenPayload: Encodable {
+nonisolated struct LBListenPayload: Encodable {
     enum CodingKeys: String, CodingKey {
         case listenedAt = "listened_at"
         case trackMetadata = "track_metadata"
@@ -44,7 +44,7 @@ struct LBListenPayload: Encodable {
     }
 }
 
-struct LBEncodableTrackMetadata: Encodable {
+nonisolated struct LBEncodableTrackMetadata: Encodable {
     enum CodingKeys: String, CodingKey {
         case trackName = "track_name"
         case artistName = "artist_name"

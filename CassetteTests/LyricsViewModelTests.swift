@@ -39,6 +39,8 @@ final class MockPlayerService: PlayerServiceProtocol {
     func setAutoExtendEnabled(_ enabled: Bool) async {}
     func setVolume(_ volume: Float) async {}
     func togglePlayPause() async {}
+    func saveCurrentPosition() async {}
+    nonisolated func stopAudioEngineSync() {}
 }
 
 // MARK: - Helpers
