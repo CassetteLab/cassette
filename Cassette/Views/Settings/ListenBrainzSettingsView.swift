@@ -10,6 +10,7 @@ struct ListenBrainzSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var viewModel: ListenBrainzSettingsViewModel?
     @State private var showForgetAlert = false
+    @State private var showForgetScrobblingAlert = false
 
     var body: some View {
         Group {
@@ -17,6 +18,8 @@ struct ListenBrainzSettingsView: View {
                 Form {
                     aboutSection()
                     connectionSection(vm: vm)
+                    scrobblingToggleSection(vm: vm)
+                    scrobblingConfigSection(vm: vm)
                 }
                 .formStyle(.grouped)
             } else {
@@ -38,6 +41,7 @@ struct ListenBrainzSettingsView: View {
                 viewModel = ListenBrainzSettingsViewModel(service: container.listenBrainzService)
             }
             await viewModel?.refreshSnapshot()
+            await viewModel?.refreshScrobblingSnapshot()
         }
     }
 
@@ -45,7 +49,7 @@ struct ListenBrainzSettingsView: View {
 
     private func aboutSection() -> some View {
         Section {
-            Text("ListenBrainz is an open-source music recommendation service by the MetaBrainz Foundation. Cassette uses it (read-only) to surface fresh releases and similar artists. Your listening history is **not** sent from Cassette — scrobbling stays on your Navidrome server.")
+            Text("ListenBrainz is an open-source music scrobbling and recommendation service by the MetaBrainz Foundation. Cassette can submit your listening history and surface personalized fresh releases and similar artists.")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             Button("Visit ListenBrainz →") {
@@ -59,7 +63,7 @@ struct ListenBrainzSettingsView: View {
         }
     }
 
-    // MARK: - Connection
+    // MARK: - Recommendations connection
 
     @ViewBuilder
     private func connectionSection(vm: ListenBrainzSettingsViewModel) -> some View {
@@ -107,7 +111,7 @@ struct ListenBrainzSettingsView: View {
                     .foregroundStyle(.red)
             }
         } header: {
-            Text("Connection")
+            Text("Recommendations Account")
         } footer: {
             if let error = vm.usernameInputValidationError {
                 Text(error).foregroundStyle(.red)
@@ -145,7 +149,7 @@ struct ListenBrainzSettingsView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         } header: {
-            Text("Connection")
+            Text("Recommendations Account")
         }
 
         Section {
@@ -200,13 +204,114 @@ struct ListenBrainzSettingsView: View {
                 Text(error).font(.footnote).foregroundStyle(.red)
             }
         } header: {
-            Text("Connection")
+            Text("Recommendations Account")
         }
         .alert("Forget ListenBrainz Account?", isPresented: $showForgetAlert) {
             Button("Forget", role: .destructive) { Task { await vm.resetCredentials() } }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your username will be removed. You can reconnect anytime.")
+        }
+    }
+
+    // MARK: - Scrobbling
+
+    private func scrobblingToggleSection(vm: ListenBrainzSettingsViewModel) -> some View {
+        Section {
+            Toggle(
+                "Submit listens to ListenBrainz",
+                isOn: Binding(
+                    get: { vm.isScrobblingToggleOn },
+                    set: { on in Task { await vm.toggleScrobbling(on) } }
+                )
+            )
+        } header: {
+            Text("Scrobbling")
+        } footer: {
+            Text("If your server already relays listens to ListenBrainz, leave this disabled to avoid duplicate scrobbles.")
+        }
+    }
+
+    @ViewBuilder
+    private func scrobblingConfigSection(vm: ListenBrainzSettingsViewModel) -> some View {
+        if case .connected(let username) = vm.scrobblingConnectionState {
+            scrobblingConnectedSection(vm: vm, username: username)
+        } else if vm.isScrobblingToggleOn {
+            scrobblingInputSection(vm: vm)
+        }
+    }
+
+    private func scrobblingInputSection(vm: ListenBrainzSettingsViewModel) -> some View {
+        @Bindable var vm = vm
+        return Section {
+            SecureField("User token", text: $vm.tokenInput)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textContentType(.password)
+                #endif
+
+            TextField("Server URL", text: $vm.serverURLInput)
+                .autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+                #endif
+
+            Button {
+                Task { await vm.validateScrobblingToken() }
+            } label: {
+                HStack(spacing: CassetteSpacing.s) {
+                    if case .validating = vm.scrobblingConnectionState {
+                        ProgressView().scaleEffect(0.8)
+                    }
+                    Text("Validate")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(CassetteColors.accent)
+            .disabled(vm.tokenInput.isEmpty || vm.isScrobblingProcessing)
+
+            if case .failed(let message) = vm.scrobblingConnectionState {
+                Text(message)
+                    .font(.footnote)
+                    .foregroundStyle(.red)
+            }
+        } header: {
+            Text("Token")
+        } footer: {
+            Text("Find your user token at listenbrainz.org → Profile → Music Services & API.")
+        }
+    }
+
+    @ViewBuilder
+    private func scrobblingConnectedSection(vm: ListenBrainzSettingsViewModel, username: String?) -> some View {
+        Section {
+            LabeledContent("Connected as") {
+                Text(username ?? "ListenBrainz").fontWeight(.medium)
+            }
+            LabeledContent("Scrobbling") {
+                Text(vm.scrobblingSnapshot.isEnabled ? "Active" : "Paused")
+                    .foregroundStyle(vm.scrobblingSnapshot.isEnabled ? .green : .secondary)
+            }
+            Button("Replace token") {
+                vm.startTokenReplacement()
+            }
+        } header: {
+            Text("Token")
+        }
+
+        Section {
+            Button("Forget credentials", role: .destructive) {
+                showForgetScrobblingAlert = true
+            }
+            .disabled(vm.isScrobblingProcessing)
+        }
+        .alert("Forget Scrobbling Credentials?", isPresented: $showForgetScrobblingAlert) {
+            Button("Forget", role: .destructive) { Task { await vm.resetScrobblingToken() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your token will be removed and scrobbling disabled. You can reconnect anytime.")
         }
     }
 
