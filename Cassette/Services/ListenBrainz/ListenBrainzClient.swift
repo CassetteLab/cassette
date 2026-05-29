@@ -7,7 +7,7 @@ import Foundation
 import OSLog
 
 /// Pure HTTP actor for ListenBrainz API calls. Stateless — no caching, no persisted config.
-/// Username is never logged; only HTTP status codes and rate-limit headers are logged.
+/// Username and tokens are never logged; only HTTP status codes and rate-limit headers are logged.
 actor ListenBrainzClient {
     // force-unwrap safe: compile-time string constant
     private static let baseURL = URL(string: "https://api.listenbrainz.org/1/")!
@@ -16,6 +16,60 @@ actor ListenBrainzClient {
 
     init(transport: any ListenBrainzTransport) {
         self.transport = transport
+    }
+
+    // MARK: - Token validation
+
+    /// Validates `token` against `rootURL` using the /1/validate-token endpoint.
+    ///
+    /// Both 200-with-valid:false and 401 return `isValid: false` without throwing —
+    /// they are user-correctable conditions ("wrong token"), not errors.
+    /// Token is never logged or included in any error message.
+    func validateToken(_ token: String, rootURL: URL) async throws -> ListenBrainzValidation {
+        guard var components = URLComponents(url: rootURL, resolvingAgainstBaseURL: false) else {
+            throw ListenBrainzError.network(URLError(.badURL))
+        }
+        let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
+        components.path = basePath + "/1/validate-token"
+        guard let url = components.url else {
+            throw ListenBrainzError.network(URLError(.badURL))
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        // Token is secret — value is set but never logged.
+        request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response): (Data, HTTPURLResponse)
+        do {
+            (data, response) = try await transport.send(request)
+        } catch let error as ListenBrainzError {
+            throw error
+        } catch {
+            throw ListenBrainzError.network(error)
+        }
+
+        Logger.listenBrainz.debug("validateToken HTTP \(response.statusCode, privacy: .public)")
+
+        switch response.statusCode {
+        case 200:
+            do {
+                let decoded = try JSONDecoder().decode(LBValidateTokenResponse.self, from: data)
+                return ListenBrainzValidation(isValid: decoded.valid, username: decoded.userName)
+            } catch {
+                throw ListenBrainzError.decoding(error)
+            }
+        case 401:
+            // "Wrong token" — not a thrown error per spec.
+            return ListenBrainzValidation(isValid: false, username: nil)
+        case 429:
+            let delay = response.value(forHTTPHeaderField: "Retry-After").flatMap { TimeInterval($0) }
+            throw ListenBrainzError.rateLimited(retryAfter: delay)
+        case 500...599:
+            throw ListenBrainzError.httpError(statusCode: response.statusCode)
+        default:
+            throw ListenBrainzError.httpError(statusCode: response.statusCode)
+        }
     }
 
     // MARK: - Username validation
@@ -206,5 +260,15 @@ actor ListenBrainzClient {
         guard (1...40).contains(username.count) else { return false }
         let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
         return username.unicodeScalars.allSatisfy { allowed.contains($0) }
+    }
+
+    private struct LBValidateTokenResponse: Decodable {
+        let valid: Bool
+        let userName: String?
+
+        enum CodingKeys: String, CodingKey {
+            case valid
+            case userName = "user_name"
+        }
     }
 }
