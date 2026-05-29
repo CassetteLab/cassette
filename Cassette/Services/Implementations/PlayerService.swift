@@ -68,9 +68,9 @@ actor PlayerService: PlayerServiceProtocol {
         return Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
     }
     private var positionSaveTask: Task<Void, Never>?
-    /// Task scheduling the `submission: true` scrobble at +30s after track start.
-    /// Cancelled and replaced each time a new track starts via `startPlayback()`.
-    private var scrobbleSubmissionTask: Task<Void, Never>?
+    /// Task reserved for the playing-now notification. Cancelled on track change.
+    private var playingNowTask: Task<Void, Never>?
+    private var detector = ScrobbleThresholdDetector()
     /// Task scheduled to download and cache the current track at +30s of playback.
     /// Cancelled when track changes via cancelPendingCacheDownload().
     private var cacheDownloadTask: Task<Void, Never>?
@@ -217,12 +217,6 @@ actor PlayerService: PlayerServiceProtocol {
         Task { [libraryService] in
             await libraryService.scrobble(songId: songId, submission: false)
         }
-        scrobbleSubmissionTask = Task { [libraryService] in
-            try? await Task.sleep(for: .seconds(30))
-            guard !Task.isCancelled else { return }
-            await libraryService.scrobble(songId: songId, submission: true)
-        }
-
         // Schedule cache download for stream sources only. Same +30s threshold as scrobble.
         // Phase 3: reads cacheSettings for format and cellular policy.
         if case .stream(let streamURL, let customHeaders) = source {
@@ -1054,6 +1048,7 @@ actor PlayerService: PlayerServiceProtocol {
                     }
                 }
                 await self.periodicNowPlayingPush(elapsed: progress)
+                await self.checkScrobbleThreshold()
             }
         }
     }
@@ -1065,11 +1060,29 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Scrobble
 
-    /// Cancels any pending `submission: true` scrobble. Called when switching tracks,
+    /// Cancels any pending playing-now task. Called when switching tracks,
     /// switching to radio, or stopping. Safe to call when no task is scheduled.
     private func cancelPendingScrobble() {
-        scrobbleSubmissionTask?.cancel()
-        scrobbleSubmissionTask = nil
+        playingNowTask?.cancel()
+        playingNowTask = nil
+    }
+
+    private func checkScrobbleThreshold() async {
+        guard let song = await MainActor.run(body: { state.currentTrack }) else { return }
+        fireScrobbleIfThresholdMet(song: song)
+    }
+
+    // Synchronous split required by Swift 6: mutating a struct property (`detector`)
+    // is only legal in a non-async actor method (no suspension points → no reentrancy window).
+    private func fireScrobbleIfThresholdMet(song: DisplayableSong) {
+        let duration = song.duration
+        let songId = song.id
+        let segmentContrib = currentPlaySegmentStart.map { Date().timeIntervalSince($0) } ?? 0
+        let accumulated = accumulatedPlayedSeconds + segmentContrib
+        guard detector.check(duration: duration, accumulated: accumulated) else { return }
+        Task { [libraryService] in
+            await libraryService.scrobble(songId: songId, submission: true)
+        }
     }
 
     private func cancelPendingCacheDownload() {
@@ -1093,6 +1106,7 @@ actor PlayerService: PlayerServiceProtocol {
         accumulatedPlayedSeconds = 0
         trackPlayStartDate = Date()
         currentPlaySegmentStart = isPlaying ? Date() : nil
+        detector.reset()
     }
 
     // MARK: - Stats recording
