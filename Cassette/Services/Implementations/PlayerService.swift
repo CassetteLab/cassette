@@ -28,6 +28,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var replayGainService: ReplayGainService?
     private let toastService: ToastService
     private let statsService: StatsService
+    private let listenBrainzService: ListenBrainzService
 
     // AudioStreaming — single instance for the session lifetime.
     // nonisolated(unsafe): constant references; AudioPlayer has its own internal queue.
@@ -101,7 +102,8 @@ actor PlayerService: PlayerServiceProtocol {
         downloadService: any DownloadServiceProtocol,
         cacheSettings: CacheSettings,
         toastService: ToastService,
-        statsService: StatsService
+        statsService: StatsService,
+        listenBrainzService: ListenBrainzService
     ) {
         self.state = state
         self.mediaResolver = mediaResolver
@@ -114,6 +116,7 @@ actor PlayerService: PlayerServiceProtocol {
         self.cacheSettings = cacheSettings
         self.toastService = toastService
         self.statsService = statsService
+        self.listenBrainzService = listenBrainzService
         let cacheConfig = URLSessionConfiguration.default
         cacheConfig.timeoutIntervalForRequest = 30
         cacheConfig.timeoutIntervalForResource = 30
@@ -216,6 +219,13 @@ actor PlayerService: PlayerServiceProtocol {
         let songId = song.id
         Task { [libraryService] in
             await libraryService.scrobble(songId: songId, submission: false)
+        }
+        playingNowTask = Task { [listenBrainzService, weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, let self else { return }
+            let stillActive = await MainActor.run { self.state.playbackState == .playing && self.state.currentTrack?.id == song.id }
+            guard stillActive else { return }
+            await listenBrainzService.notifyTrackStarted(song: song)
         }
         // Schedule cache download for stream sources only. Same +30s threshold as scrobble.
         // Phase 3: reads cacheSettings for format and cellular policy.
@@ -1080,8 +1090,12 @@ actor PlayerService: PlayerServiceProtocol {
         let segmentContrib = currentPlaySegmentStart.map { Date().timeIntervalSince($0) } ?? 0
         let accumulated = accumulatedPlayedSeconds + segmentContrib
         guard detector.check(duration: duration, accumulated: accumulated) else { return }
+        let startDate = trackPlayStartDate ?? Date()
         Task { [libraryService] in
             await libraryService.scrobble(songId: songId, submission: true)
+        }
+        Task { [listenBrainzService] in
+            await listenBrainzService.notifyScrobbleThreshold(song: song, startDate: startDate)
         }
     }
 

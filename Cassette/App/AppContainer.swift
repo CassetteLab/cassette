@@ -85,7 +85,11 @@ final class AppContainer {
         )
         mediaResolver = resolver
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, toastService: toastService, statsService: stats)
+        let lbClient = ListenBrainzClient(transport: URLSessionListenBrainzTransport())
+        let lb = ListenBrainzService(client: lbClient, keychain: keychain)
+        listenBrainzService = lb
+
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, toastService: toastService, statsService: stats, listenBrainzService: lb)
         _player = player
         playerService = player
 
@@ -115,11 +119,8 @@ final class AppContainer {
         NowPlayingBridge.performTogglePlayPause = { [weak player] in await player?.togglePlayPause() }
         Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
 
-        let lbClient = ListenBrainzClient(transport: URLSessionListenBrainzTransport())
-        listenBrainzService = ListenBrainzService(client: lbClient, keychain: keychain)
-
         let subsonicProvider = SubsonicRecommendationProvider(libraryService: library)
-        let lbProvider = ListenBrainzRecommendationProvider(client: lbClient, service: listenBrainzService, libraryService: library)
+        let lbProvider = ListenBrainzRecommendationProvider(client: lbClient, service: lb, libraryService: library)
         recommendationService = RecommendationService(providers: [lbProvider, subsonicProvider])
 
         searchHistoryService = SearchHistoryService(container: modelContainer)

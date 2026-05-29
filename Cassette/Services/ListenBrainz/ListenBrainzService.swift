@@ -35,6 +35,9 @@ actor ListenBrainzService {
     private var scrobblingEnabled: Bool = false
     private var scrobblingUsername: String?
     private var scrobblingValidationStatus: ValidationStatus = .unknown
+    /// True when a token is present in the Keychain. Set in loadPersistedState and on token store/clear.
+    /// Avoids a Keychain round-trip for every track change when scrobbling is not configured.
+    private var hasScrobblingToken: Bool = false
 
     init(
         client: ListenBrainzClient,
@@ -64,7 +67,9 @@ actor ListenBrainzService {
         if scrobblingUsername != nil {
             scrobblingValidationStatus = .valid
         }
-        Logger.listenBrainz.debug("Scrobbling state loaded — enabled=\(self.scrobblingEnabled, privacy: .public) hasUsername=\(self.scrobblingUsername != nil, privacy: .public)")
+        let storedToken = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey)
+        hasScrobblingToken = storedToken != nil
+        Logger.listenBrainz.debug("Scrobbling state loaded — enabled=\(self.scrobblingEnabled, privacy: .public) hasToken=\(self.hasScrobblingToken, privacy: .public)")
     }
 
     // MARK: - Recommendations public interface
@@ -153,6 +158,7 @@ actor ListenBrainzService {
             throw ListenBrainzError.unauthorized
         }
         try await keychain.store(token, forKey: Self.scrobblingTokenKeychainKey)
+        hasScrobblingToken = true
         if let username = result.username {
             try await keychain.store(username, forKey: Self.scrobblingUsernameKeychainKey)
             scrobblingUsername = username
@@ -185,10 +191,44 @@ actor ListenBrainzService {
         scrobblingEnabled = false
         scrobblingUsername = nil
         scrobblingValidationStatus = .unknown
+        hasScrobblingToken = false
         userDefaults.set(false, forKey: Self.scrobblingEnabledDefaultsKey)
         try? await keychain.delete(forKey: Self.scrobblingTokenKeychainKey)
         try? await keychain.delete(forKey: Self.scrobblingUsernameKeychainKey)
         Logger.listenBrainz.info("Scrobbling credentials cleared")
+    }
+
+    // MARK: - Scrobbling notifications (called by PlayerService)
+
+    /// Submits a playing_now notification to ListenBrainz. No-op when scrobbling is disabled or
+    /// no token is stored. The 3-second delay and still-playing guard are applied by the caller.
+    func notifyTrackStarted(song: DisplayableSong) async {
+        guard scrobblingEnabled, hasScrobblingToken else { return }
+        guard let token = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey) else { return }
+        let rootURLString = userDefaults.string(forKey: Self.scrobblingServerURLDefaultsKey) ?? Self.defaultScrobblingServerURL
+        guard let rootURL = URL(string: rootURLString) else { return }
+        do {
+            try await client.submitPlayingNow(track: LBTrackMetadata(from: song), rootURL: rootURL, token: token)
+            Logger.listenBrainz.debug("playing_now submitted")
+        } catch {
+            Logger.listenBrainz.debug("playing_now failed: \(error, privacy: .public)")
+        }
+    }
+
+    /// Submits a single-listen scrobble to ListenBrainz. No-op when scrobbling is disabled or
+    /// no token is stored.
+    func notifyScrobbleThreshold(song: DisplayableSong, startDate: Date) async {
+        guard scrobblingEnabled, hasScrobblingToken else { return }
+        guard let token = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey) else { return }
+        let rootURLString = userDefaults.string(forKey: Self.scrobblingServerURLDefaultsKey) ?? Self.defaultScrobblingServerURL
+        guard let rootURL = URL(string: rootURLString) else { return }
+        let listenedAt = Int(startDate.timeIntervalSince1970)
+        do {
+            try await client.submitListen(track: LBTrackMetadata(from: song), listenedAt: listenedAt, rootURL: rootURL, token: token)
+            Logger.listenBrainz.debug("single listen submitted")
+        } catch {
+            Logger.listenBrainz.debug("single listen failed: \(error, privacy: .public)")
+        }
     }
 
     /// Trims whitespace and strips trailing slashes for consistent path joining.

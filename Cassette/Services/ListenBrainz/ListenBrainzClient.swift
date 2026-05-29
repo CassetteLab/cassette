@@ -254,6 +254,80 @@ actor ListenBrainzClient {
         }
     }
 
+    // MARK: - Submit listens
+
+    /// Submits a playing_now notification. Does not include a listened_at timestamp.
+    func submitPlayingNow(track: LBTrackMetadata, rootURL: URL, token: String) async throws {
+        let body = LBSubmitListensBody(
+            listenType: "playing_now",
+            payload: [LBListenPayload(
+                listenedAt: nil,
+                trackMetadata: LBEncodableTrackMetadata(
+                    trackName: track.trackName,
+                    artistName: track.artistName,
+                    releaseName: track.releaseName
+                )
+            )]
+        )
+        try await sendSubmitListens(body: body, rootURL: rootURL, token: token)
+    }
+
+    /// Submits a single completed listen with a Unix timestamp.
+    func submitListen(track: LBTrackMetadata, listenedAt: Int, rootURL: URL, token: String) async throws {
+        let body = LBSubmitListensBody(
+            listenType: "single",
+            payload: [LBListenPayload(
+                listenedAt: listenedAt,
+                trackMetadata: LBEncodableTrackMetadata(
+                    trackName: track.trackName,
+                    artistName: track.artistName,
+                    releaseName: track.releaseName
+                )
+            )]
+        )
+        try await sendSubmitListens(body: body, rootURL: rootURL, token: token)
+    }
+
+    private func sendSubmitListens(body: LBSubmitListensBody, rootURL: URL, token: String) async throws {
+        guard var components = URLComponents(url: rootURL, resolvingAgainstBaseURL: false) else {
+            throw ListenBrainzError.network(URLError(.badURL))
+        }
+        let basePath = components.path.hasSuffix("/") ? String(components.path.dropLast()) : components.path
+        components.path = basePath + "/1/submit-listens"
+        guard let url = components.url else {
+            throw ListenBrainzError.network(URLError(.badURL))
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Token \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(body)
+
+        let (_, response): (Data, HTTPURLResponse)
+        do {
+            (_, response) = try await transport.send(request)
+        } catch let error as ListenBrainzError {
+            throw error
+        } catch {
+            throw ListenBrainzError.network(error)
+        }
+
+        Logger.listenBrainz.debug("submitListens HTTP \(response.statusCode, privacy: .public)")
+
+        switch response.statusCode {
+        case 200:
+            return
+        case 401:
+            throw ListenBrainzError.unauthorized
+        case 429:
+            let delay = response.value(forHTTPHeaderField: "Retry-After").flatMap { TimeInterval($0) }
+            throw ListenBrainzError.rateLimited(retryAfter: delay)
+        default:
+            throw ListenBrainzError.httpError(statusCode: response.statusCode)
+        }
+    }
+
     // MARK: - Helpers
 
     private static func isValidUsernameFormat(_ username: String) -> Bool {
