@@ -290,6 +290,24 @@ actor ListenBrainzClient {
         try await sendSubmitListens(body: body, rootURL: rootURL, token: token)
     }
 
+    /// Submits a batch of completed listens as a single "import" request.
+    /// Used to flush the offline queue — each item keeps its original listened_at timestamp.
+    func submitImport(listens: [(listenedAt: Int, track: LBTrackMetadata)], rootURL: URL, token: String) async throws {
+        let payload = listens.map { item in
+            LBListenPayload(
+                listenedAt: item.listenedAt,
+                trackMetadata: LBEncodableTrackMetadata(
+                    trackName: item.track.trackName,
+                    artistName: item.track.artistName,
+                    releaseName: item.track.releaseName,
+                    additionalInfo: LBAdditionalInfo(durationMs: item.track.durationMs)
+                )
+            )
+        }
+        let body = LBSubmitListensBody(listenType: "import", payload: payload)
+        try await sendSubmitListens(body: body, rootURL: rootURL, token: token)
+    }
+
     private func sendSubmitListens(body: LBSubmitListensBody, rootURL: URL, token: String) async throws {
         guard var components = URLComponents(url: rootURL, resolvingAgainstBaseURL: false) else {
             throw ListenBrainzError.network(URLError(.badURL))

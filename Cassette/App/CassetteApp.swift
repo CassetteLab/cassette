@@ -122,6 +122,7 @@ struct CassetteApp: App {
             .task(id: container?.serverState.isOnline) {
                 guard let c = container, c.serverState.isOnline else { return }
                 await c.playerService.handleNetworkRestored()
+                await c.listenBrainzService.flushOfflineQueue()
             }
             #if os(macOS)
             .frame(minHeight: 580)

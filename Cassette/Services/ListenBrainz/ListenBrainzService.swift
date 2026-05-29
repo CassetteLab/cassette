@@ -43,6 +43,9 @@ actor ListenBrainzService {
 
     private let queueFileURL: URL
     private var pendingQueue: [PendingListen] = []
+    /// Guards against two concurrent flushes re-POSTing the same batch.
+    /// Set synchronously before the first await in flushOfflineQueue; reset via defer.
+    private var isFlushing: Bool = false
 
     /// Number of listens waiting for a successful flush. Exposed for diagnostics and tests.
     var pendingListenCount: Int { pendingQueue.count }
@@ -101,8 +104,9 @@ actor ListenBrainzService {
         hasScrobblingToken = storedToken != nil
         Logger.listenBrainz.debug("Scrobbling state loaded — enabled=\(self.scrobblingEnabled, privacy: .public) hasToken=\(self.hasScrobblingToken, privacy: .public)")
 
-        // Offline queue — load persisted listens
+        // Offline queue — load persisted listens then attempt an immediate flush
         loadQueue()
+        await flushOfflineQueue()
     }
 
     // MARK: - Recommendations public interface
@@ -264,6 +268,7 @@ actor ListenBrainzService {
         do {
             try await client.submitListen(track: meta, listenedAt: listenedAt, rootURL: rootURL, token: token)
             Logger.listenBrainz.debug("single listen submitted")
+            await flushOfflineQueue()
         } catch {
             let isTransient = (error as? ListenBrainzError)?.isTransient ?? true
             if isTransient {
@@ -278,6 +283,50 @@ actor ListenBrainzService {
             } else {
                 Logger.listenBrainz.debug("single listen dropped (permanent error)")
             }
+        }
+    }
+
+    // MARK: - Offline queue — flush
+
+    /// Attempts to POST all pending listens as a single "import" batch.
+    /// Triggers: reconnect (CassetteApp .task), app launch (loadPersistedState),
+    /// after any successful live single submit (free online signal).
+    ///
+    /// Re-entrancy: isFlushing is set synchronously before the first await, preventing
+    /// two concurrent callers from both building and posting the same batch. On confirmed
+    /// 200 only the submitted batch is dropped; listens enqueued during the POST are kept.
+    func flushOfflineQueue() async {
+        guard !pendingQueue.isEmpty else { return }
+        guard scrobblingEnabled, hasScrobblingToken else { return }
+        guard !isFlushing else { return }
+        isFlushing = true
+        defer { isFlushing = false }
+
+        guard let token = try? await keychain.retrieve(String.self, forKey: Self.scrobblingTokenKeychainKey) else { return }
+        let rootURLString = userDefaults.string(forKey: Self.scrobblingServerURLDefaultsKey) ?? Self.defaultScrobblingServerURL
+        guard let rootURL = URL(string: rootURLString) else { return }
+
+        let batch = pendingQueue
+        let listens = batch.map { listen in
+            (
+                listenedAt: listen.listenedAt,
+                track: LBTrackMetadata(
+                    trackName: listen.trackName,
+                    artistName: listen.artistName,
+                    releaseName: listen.releaseName,
+                    durationMs: listen.durationMs
+                )
+            )
+        }
+
+        do {
+            try await client.submitImport(listens: listens, rootURL: rootURL, token: token)
+            // dropFirst is safe if clearScrobblingToken() raced and emptied the queue.
+            pendingQueue = Array(pendingQueue.dropFirst(batch.count))
+            saveQueue()
+            Logger.listenBrainz.info("Offline queue flushed: \(batch.count, privacy: .public) listens")
+        } catch {
+            Logger.listenBrainz.debug("Offline queue flush failed, will retry: \(error, privacy: .public)")
         }
     }
 
