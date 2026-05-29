@@ -7,8 +7,9 @@ import Foundation
 
 /// One scrobble that failed to submit online and is waiting to be flushed.
 /// Stored as a JSON array in Application Support — never in Documents or Caches.
-/// Plain struct (no nonisolated) — actor-serialised by ListenBrainzService.
-struct PendingListen: Codable, Sendable, Equatable {
+/// nonisolated so Codable conformances are usable from actor methods and test code
+/// without hitting the SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor isolation barrier.
+nonisolated struct PendingListen: Codable, Sendable, Equatable {
     let listenedAt: Int
     let trackName: String
     let artistName: String

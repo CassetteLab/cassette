@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Helpers
 
-private actor RecordingTransport: ListenBrainzTransport {
+actor RecordingTransport: ListenBrainzTransport {
     private(set) var requests: [URLRequest] = []
     private let status: Int
     private let body: Data
@@ -26,7 +26,7 @@ private actor RecordingTransport: ListenBrainzTransport {
     }
 }
 
-private actor SubmitMockKeychain: KeychainServiceProtocol {
+actor SubmitMockKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
 
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
@@ -203,7 +203,8 @@ struct LBSubmissionGatingTests {
     private func makeService(transport: any ListenBrainzTransport) -> (ListenBrainzService, SubmitMockKeychain, UserDefaults) {
         let keychain = SubmitMockKeychain()
         let defaults = UserDefaults(suiteName: "test.submit.\(UUID().uuidString)")!
-        let service = ListenBrainzService(client: ListenBrainzClient(transport: transport), keychain: keychain, userDefaults: defaults)
+        let tmpURL = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(UUID().uuidString + ".json")
+        let service = ListenBrainzService(client: ListenBrainzClient(transport: transport), keychain: keychain, userDefaults: defaults, queueFileURL: tmpURL)
         return (service, keychain, defaults)
     }
 
