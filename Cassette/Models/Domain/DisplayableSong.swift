@@ -28,6 +28,10 @@ nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable, Codable {
     let replayGainTrackPeak: Double?
     let replayGainAlbumGain: Double?
     let replayGainAlbumPeak: Double?
+    /// OpenSubsonic: always added to the selected mode's gain when present.
+    let replayGainBaseGain: Double?
+    /// OpenSubsonic: used as fallback when the selected mode's gain is absent.
+    let replayGainFallbackGain: Double?
 }
 
 extension DisplayableSong {
@@ -48,6 +52,8 @@ extension DisplayableSong {
         self.replayGainTrackPeak = song.replayGain?.trackPeak
         self.replayGainAlbumGain = song.replayGain?.albumGain
         self.replayGainAlbumPeak = song.replayGain?.albumPeak
+        self.replayGainBaseGain = song.replayGain?.baseGain
+        self.replayGainFallbackGain = song.replayGain?.fallbackGain
     }
 
     @MainActor
@@ -68,5 +74,7 @@ extension DisplayableSong {
         self.replayGainTrackPeak = nil
         self.replayGainAlbumGain = nil
         self.replayGainAlbumPeak = nil
+        self.replayGainBaseGain = nil
+        self.replayGainFallbackGain = nil
     }
 }

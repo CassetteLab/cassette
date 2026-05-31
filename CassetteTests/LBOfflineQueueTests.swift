@@ -43,7 +43,8 @@ private func makeSong(duration: TimeInterval = 300) -> DisplayableSong {
         genre: nil, duration: duration, trackNumber: 10, isDownloaded: false,
         coverArtId: nil, audioFormat: nil,
         replayGainTrackGain: nil, replayGainTrackPeak: nil,
-        replayGainAlbumGain: nil, replayGainAlbumPeak: nil
+        replayGainAlbumGain: nil, replayGainAlbumPeak: nil,
+        replayGainBaseGain: nil, replayGainFallbackGain: nil
     )
 }
 

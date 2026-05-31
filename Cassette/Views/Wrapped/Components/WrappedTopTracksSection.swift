@@ -52,7 +52,9 @@ struct WrappedTopTracksSection: View {
                     replayGainTrackGain: nil,
                     replayGainTrackPeak: nil,
                     replayGainAlbumGain: nil,
-                    replayGainAlbumPeak: nil
+                    replayGainAlbumPeak: nil,
+                    replayGainBaseGain: nil,
+                    replayGainFallbackGain: nil
                 )
                 do {
                     try await container.playerService.play(tracks: [song], startIndex: 0)

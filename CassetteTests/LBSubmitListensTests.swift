@@ -50,7 +50,8 @@ private func makeSong() -> DisplayableSong {
         genre: nil, duration: 360, trackNumber: 2, isDownloaded: false,
         coverArtId: nil, audioFormat: nil,
         replayGainTrackGain: nil, replayGainTrackPeak: nil,
-        replayGainAlbumGain: nil, replayGainAlbumPeak: nil
+        replayGainAlbumGain: nil, replayGainAlbumPeak: nil,
+        replayGainBaseGain: nil, replayGainFallbackGain: nil
     )
 }
 
@@ -80,7 +81,8 @@ struct LBTrackMetadataTests {
             artistId: nil, genre: nil, duration: 300, trackNumber: nil,
             isDownloaded: false, coverArtId: nil, audioFormat: nil,
             replayGainTrackGain: nil, replayGainTrackPeak: nil,
-            replayGainAlbumGain: nil, replayGainAlbumPeak: nil
+            replayGainAlbumGain: nil, replayGainAlbumPeak: nil,
+            replayGainBaseGain: nil, replayGainFallbackGain: nil
         )
         let meta = LBTrackMetadata(from: song)
         #expect(meta.artistName == "")
@@ -179,7 +181,8 @@ struct LBSubmitListenTests {
             artistId: nil, genre: nil, duration: 300, trackNumber: nil,
             isDownloaded: false, coverArtId: nil, audioFormat: nil,
             replayGainTrackGain: nil, replayGainTrackPeak: nil,
-            replayGainAlbumGain: nil, replayGainAlbumPeak: nil
+            replayGainAlbumGain: nil, replayGainAlbumPeak: nil,
+            replayGainBaseGain: nil, replayGainFallbackGain: nil
         )
         try await client.submitListen(
             track: LBTrackMetadata(from: noAlbumSong),

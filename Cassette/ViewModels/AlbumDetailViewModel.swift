@@ -106,7 +106,9 @@ final class AlbumDetailViewModel {
                 replayGainTrackGain: song.replayGainTrackGain,
                 replayGainTrackPeak: song.replayGainTrackPeak,
                 replayGainAlbumGain: song.replayGainAlbumGain,
-                replayGainAlbumPeak: song.replayGainAlbumPeak
+                replayGainAlbumPeak: song.replayGainAlbumPeak,
+                replayGainBaseGain: song.replayGainBaseGain,
+                replayGainFallbackGain: song.replayGainFallbackGain
             )
         }
         isDownloadingAlbum = false
@@ -139,7 +141,9 @@ final class AlbumDetailViewModel {
                 replayGainTrackGain: s.replayGainTrackGain,
                 replayGainTrackPeak: s.replayGainTrackPeak,
                 replayGainAlbumGain: s.replayGainAlbumGain,
-                replayGainAlbumPeak: s.replayGainAlbumPeak
+                replayGainAlbumPeak: s.replayGainAlbumPeak,
+                replayGainBaseGain: s.replayGainBaseGain,
+                replayGainFallbackGain: s.replayGainFallbackGain
             )
         }
     }
@@ -166,7 +170,9 @@ final class AlbumDetailViewModel {
                             replayGainTrackGain: $0.replayGainTrackGain,
                             replayGainTrackPeak: $0.replayGainTrackPeak,
                             replayGainAlbumGain: $0.replayGainAlbumGain,
-                            replayGainAlbumPeak: $0.replayGainAlbumPeak)
+                            replayGainAlbumPeak: $0.replayGainAlbumPeak,
+                            replayGainBaseGain: $0.replayGainBaseGain,
+                            replayGainFallbackGain: $0.replayGainFallbackGain)
         }
         isDownloadingAlbum = false
     }
@@ -184,7 +190,9 @@ final class AlbumDetailViewModel {
                             replayGainTrackGain: $0.replayGainTrackGain,
                             replayGainTrackPeak: $0.replayGainTrackPeak,
                             replayGainAlbumGain: $0.replayGainAlbumGain,
-                            replayGainAlbumPeak: $0.replayGainAlbumPeak)
+                            replayGainAlbumPeak: $0.replayGainAlbumPeak,
+                            replayGainBaseGain: $0.replayGainBaseGain,
+                            replayGainFallbackGain: $0.replayGainFallbackGain)
         }
     }
 }
