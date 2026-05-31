@@ -26,6 +26,13 @@ final class DownloadedTrack {
     var coverArtId: String?
     var suffix: String?
     var genre: String?
+    // ReplayGain metadata — captured at download time for offline normalization.
+    var replayGainTrackGain: Double?
+    var replayGainTrackPeak: Double?
+    var replayGainAlbumGain: Double?
+    var replayGainAlbumPeak: Double?
+    var replayGainBaseGain: Double?
+    var replayGainFallbackGain: Double?
 
     init(
         id: UUID = UUID(),
@@ -44,7 +51,13 @@ final class DownloadedTrack {
         durationSeconds: Int? = nil,
         coverArtId: String? = nil,
         suffix: String? = nil,
-        genre: String? = nil
+        genre: String? = nil,
+        replayGainTrackGain: Double? = nil,
+        replayGainTrackPeak: Double? = nil,
+        replayGainAlbumGain: Double? = nil,
+        replayGainAlbumPeak: Double? = nil,
+        replayGainBaseGain: Double? = nil,
+        replayGainFallbackGain: Double? = nil
     ) {
         self.id = id
         self.songId = songId
@@ -63,5 +76,11 @@ final class DownloadedTrack {
         self.coverArtId = coverArtId
         self.suffix = suffix
         self.genre = genre
+        self.replayGainTrackGain = replayGainTrackGain
+        self.replayGainTrackPeak = replayGainTrackPeak
+        self.replayGainAlbumGain = replayGainAlbumGain
+        self.replayGainAlbumPeak = replayGainAlbumPeak
+        self.replayGainBaseGain = replayGainBaseGain
+        self.replayGainFallbackGain = replayGainFallbackGain
     }
 }

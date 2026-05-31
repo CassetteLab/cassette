@@ -70,11 +70,11 @@ extension DisplayableSong {
         self.isDownloaded = true
         self.coverArtId = track.coverArtId
         self.audioFormat = track.suffix?.uppercased()
-        self.replayGainTrackGain = nil
-        self.replayGainTrackPeak = nil
-        self.replayGainAlbumGain = nil
-        self.replayGainAlbumPeak = nil
-        self.replayGainBaseGain = nil
-        self.replayGainFallbackGain = nil
+        self.replayGainTrackGain = track.replayGainTrackGain
+        self.replayGainTrackPeak = track.replayGainTrackPeak
+        self.replayGainAlbumGain = track.replayGainAlbumGain
+        self.replayGainAlbumPeak = track.replayGainAlbumPeak
+        self.replayGainBaseGain = track.replayGainBaseGain
+        self.replayGainFallbackGain = track.replayGainFallbackGain
     }
 }

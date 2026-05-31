@@ -237,6 +237,12 @@ actor DownloadService: DownloadServiceProtocol {
         let coverArtId = song.coverArt
         let suffix = song.suffix
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
+        let rgTrackGain    = song.replayGain?.trackGain
+        let rgTrackPeak    = song.replayGain?.trackPeak
+        let rgAlbumGain    = song.replayGain?.albumGain
+        let rgAlbumPeak    = song.replayGain?.albumPeak
+        let rgBaseGain     = song.replayGain?.baseGain
+        let rgFallbackGain = song.replayGain?.fallbackGain
 
         // Best-effort: persist cover art so it's available offline (compilations, playlist tracks).
         // song.coverArt may differ from album.coverArt on some servers — download it per track.
@@ -266,7 +272,13 @@ actor DownloadService: DownloadServiceProtocol {
                 durationSeconds: duration,
                 coverArtId: coverArtId,
                 suffix: suffix,
-                genre: genre
+                genre: genre,
+                replayGainTrackGain: rgTrackGain,
+                replayGainTrackPeak: rgTrackPeak,
+                replayGainAlbumGain: rgAlbumGain,
+                replayGainAlbumPeak: rgAlbumPeak,
+                replayGainBaseGain: rgBaseGain,
+                replayGainFallbackGain: rgFallbackGain
             )
             modelContainer.mainContext.insert(record)
             do {
