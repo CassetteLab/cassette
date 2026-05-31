@@ -216,8 +216,8 @@ actor PlayerService: PlayerServiceProtocol {
         cancelPendingScrobble()
         cancelPendingCacheDownload()
 
-        let replayEnabled = UserDefaults.standard.bool(forKey: "cassette.replayGainEnabled")
-        await replayGainService?.apply(track: song, enabled: replayEnabled)
+        let config = await MainActor.run { replayGainSettings.config }
+        await replayGainService?.apply(track: song, config: config)
 
         let songId = song.id
         Task { [libraryService] in
@@ -503,6 +503,11 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
+    func replayGainSettingsDidChange() async {
+        let (track, config) = await MainActor.run { (state.currentTrack, replayGainSettings.config) }
+        await replayGainService?.apply(currentTrack: track, config: config)
+    }
+
     func setAutoExtendEnabled(_ enabled: Bool) async {
         await MainActor.run { state.isAutoExtendEnabled = enabled }
         UserDefaults.standard.set(enabled, forKey: Self.autoExtendUserDefaultsKey)
@@ -668,7 +673,7 @@ actor PlayerService: PlayerServiceProtocol {
         accumulatedPlayedSeconds = 0
         currentPlaySegmentStart = nil
         trackPlayStartDate = nil
-        await replayGainService?.setEnabled(false, currentTrack: nil)
+        await replayGainService?.resetGain()
         currentSource = nil
         pendingRestoreInfo = nil
         isRestoringSession = false

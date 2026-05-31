@@ -55,15 +55,10 @@ struct SettingsView: View {
     private func playbackSection() -> some View {
         Section("Playback") {
             Toggle(isOn: Binding(
-                get: { UserDefaults.standard.bool(forKey: "cassette.replayGainEnabled") },
+                get: { container?.replayGainSettings.enabled ?? false },
                 set: { newVal in
-                    UserDefaults.standard.set(newVal, forKey: "cassette.replayGainEnabled")
-                    Task {
-                        await container?.replayGainService.setEnabled(
-                            newVal,
-                            currentTrack: container?.playerState.currentTrack
-                        )
-                    }
+                    container?.replayGainSettings.enabled = newVal
+                    Task { await container?.playerService.replayGainSettingsDidChange() }
                 }
             )) {
                 Label {

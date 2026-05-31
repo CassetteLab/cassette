@@ -40,6 +40,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     func setVolume(_ volume: Float) async {}
     func togglePlayPause() async {}
     func saveCurrentPosition() async {}
+    func replayGainSettingsDidChange() async {}
     nonisolated func stopAudioEngineSync() {}
 }
 
