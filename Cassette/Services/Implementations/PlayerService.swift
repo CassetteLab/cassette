@@ -971,6 +971,13 @@ actor PlayerService: PlayerServiceProtocol {
         // explicitly starts playback, or kept if user hasn't tapped play yet.
         pendingRestoreInfo = (seekTime: position, pause: true)
 
+        // Apply ReplayGain after restore state is fully committed (no suspension between
+        // currentSource and pendingRestoreInfo above). globalGain is set on the EQ node
+        // and takes effect when audio flows, so applying while paused is correct.
+        let config = await MainActor.run { replayGainSettings.config }
+        await replayGainService?.apply(track: track, config: config)
+        Logger.player.debug("[RESTORE] ReplayGain applied for '\(track.title, privacy: .public)'")
+
         // Session activation is intentionally deferred to the first user-triggered play.
         // Activating here would grab the audio route from other devices (e.g. Mac+AirPods)
         // before the user has indicated intent to listen.
