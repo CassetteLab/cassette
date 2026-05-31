@@ -24,6 +24,8 @@ actor PlayerService: PlayerServiceProtocol {
     private let downloadService: any DownloadServiceProtocol
     private let cacheSettings: CacheSettings
     private let replayGainSettings: ReplayGainSettings
+    private let crossfadeSettings: CrossfadeSettings
+    private var crossfadeConfig = CrossfadeConfig(duration: 0)
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
     private var widgetSyncService: WidgetSyncService?
     private var replayGainService: ReplayGainService?
@@ -77,6 +79,11 @@ actor PlayerService: PlayerServiceProtocol {
     /// Cancelled when track changes via cancelPendingCacheDownload().
     private var cacheDownloadTask: Task<Void, Never>?
     private let cacheSession: URLSession
+    /// Task that prefetches the next queued track into cache ahead of the crossfade window.
+    /// Cancelled on every track transition via cancelPendingPrefetch().
+    private var prefetchTask: Task<Void, Never>?
+    private var prefetchScheduled = false
+    private let prefetchSession: URLSession
     // Saved before a shuffle activation; nil when shuffle is off.
     private var originalQueueOrder: [DisplayableSong]?
     /// Single-slot guard preventing concurrent auto-extend fetches.
@@ -103,6 +110,7 @@ actor PlayerService: PlayerServiceProtocol {
         downloadService: any DownloadServiceProtocol,
         cacheSettings: CacheSettings,
         replayGainSettings: ReplayGainSettings,
+        crossfadeSettings: CrossfadeSettings,
         toastService: ToastService,
         statsService: StatsService,
         listenBrainzService: ListenBrainzService
@@ -117,6 +125,7 @@ actor PlayerService: PlayerServiceProtocol {
         self.downloadService = downloadService
         self.cacheSettings = cacheSettings
         self.replayGainSettings = replayGainSettings
+        self.crossfadeSettings = crossfadeSettings
         self.toastService = toastService
         self.statsService = statsService
         self.listenBrainzService = listenBrainzService
@@ -124,6 +133,11 @@ actor PlayerService: PlayerServiceProtocol {
         cacheConfig.timeoutIntervalForRequest = 30
         cacheConfig.timeoutIntervalForResource = 30
         self.cacheSession = URLSession(configuration: cacheConfig)
+
+        let prefetchConfig = URLSessionConfiguration.default
+        prefetchConfig.timeoutIntervalForRequest = 30
+        prefetchConfig.timeoutIntervalForResource = 300
+        self.prefetchSession = URLSession(configuration: prefetchConfig)
 
         let playerConfig = AudioPlayerConfiguration(
             flushQueueOnSeek: true,
@@ -212,9 +226,10 @@ actor PlayerService: PlayerServiceProtocol {
         wasTrackCompletedNaturally = false
         resetTrackAccumulator(isPlaying: true)
 
-        // Cancel any pending +30s scrobble and cache download from the previous track.
+        // Cancel any pending +30s scrobble, cache download, and prefetch from the previous track.
         cancelPendingScrobble()
         cancelPendingCacheDownload()
+        cancelPendingPrefetch()
 
         let config = await MainActor.run { replayGainSettings.config }
         await replayGainService?.apply(track: song, config: config)
@@ -250,7 +265,7 @@ actor PlayerService: PlayerServiceProtocol {
             }
 
             if let cacheStreamURL {
-                cacheDownloadTask = Task { [cacheService, downloadService, serverService, weak self] in
+                cacheDownloadTask = Task { [cacheService, downloadService, serverService, cacheSession, weak self] in
                     try? await Task.sleep(for: .seconds(30))
                     guard !Task.isCancelled else { return }
                     if await cacheService.cachedURL(forSongId: songId, serverId: serverId) != nil { return }
@@ -261,11 +276,13 @@ actor PlayerService: PlayerServiceProtocol {
                         return
                     }
                     do {
+                        // TODO(crossfade-followup): cacheSession 30s resource timeout caps large-file caching on slow links
                         try await self?.downloadAndCache(
                             songId: songId,
                             serverId: serverId,
                             streamURL: cacheStreamURL,
-                            customHeaders: customHeaders
+                            customHeaders: customHeaders,
+                            using: cacheSession
                         )
                     } catch {
                         Logger.player.debug("Cache download failed for '\(songId, privacy: .public)': \(error, privacy: .public)")
@@ -508,6 +525,10 @@ actor PlayerService: PlayerServiceProtocol {
         await replayGainService?.apply(currentTrack: track, config: config)
     }
 
+    func crossfadeSettingsDidChange() async {
+        crossfadeConfig = await MainActor.run { crossfadeSettings.config }
+    }
+
     func setAutoExtendEnabled(_ enabled: Bool) async {
         await MainActor.run { state.isAutoExtendEnabled = enabled }
         UserDefaults.standard.set(enabled, forKey: Self.autoExtendUserDefaultsKey)
@@ -654,6 +675,7 @@ actor PlayerService: PlayerServiceProtocol {
     func stop() async {
         cancelPendingScrobble()
         cancelPendingCacheDownload()
+        cancelPendingPrefetch()
         stopProgressTimer()
         stopPositionSaveTimer()
         restorePauseTask?.cancel()
@@ -1074,6 +1096,7 @@ actor PlayerService: PlayerServiceProtocol {
                 }
                 await self.periodicNowPlayingPush(elapsed: progress)
                 await self.checkScrobbleThreshold()
+                await self.checkPrefetchThreshold()
             }
         }
     }
@@ -1117,6 +1140,98 @@ actor PlayerService: PlayerServiceProtocol {
     private func cancelPendingCacheDownload() {
         cacheDownloadTask?.cancel()
         cacheDownloadTask = nil
+    }
+
+    // MARK: - Crossfade prefetch
+
+    private func cancelPendingPrefetch() {
+        prefetchTask?.cancel()
+        prefetchTask = nil
+        prefetchScheduled = false
+    }
+
+    nonisolated static func shouldSchedulePrefetch(crossfadeDuration: Double, remaining: Double) -> Bool {
+        guard crossfadeDuration > 0 else { return false }
+        return remaining <= crossfadeDuration + 15.0
+    }
+
+    nonisolated static func shouldProceedWithPrefetch(isExpensive: Bool, allowCellular: Bool) -> Bool {
+        if isExpensive && !allowCellular { return false }
+        return true
+    }
+
+    private func checkPrefetchThreshold() async {
+        guard !prefetchScheduled else { return }
+        let (queue, currentIndex, duration, position) = await MainActor.run {
+            (state.queue, state.currentIndex, state.duration, state.position)
+        }
+        guard duration > 0 else { return }
+        let remaining = duration - position
+        guard PlayerService.shouldSchedulePrefetch(crossfadeDuration: crossfadeConfig.duration, remaining: remaining) else { return }
+
+        let nextIndex = currentIndex + 1
+        guard queue.indices.contains(nextIndex) else { return }
+        let nextSong = queue[nextIndex]
+
+        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else { return }
+
+        prefetchScheduled = true
+        Logger.player.debug("[PREFETCH] scheduling prefetch for '\(nextSong.title, privacy: .public)' (remaining=\(String(format: "%.1f", remaining))s)")
+        await prefetchNextTrack(nextSong: nextSong, serverId: serverId)
+    }
+
+    private func prefetchNextTrack(nextSong: DisplayableSong, serverId: UUID) async {
+        let songId = nextSong.id
+
+        if await cacheService.cachedURL(forSongId: songId, serverId: serverId) != nil {
+            Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' already cached — skip")
+            return
+        }
+        if await downloadService.isDownloaded(songId: songId, serverId: serverId) {
+            Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' already downloaded — skip")
+            return
+        }
+
+        let (isExpensive, allowCellular) = await MainActor.run {
+            (serverService.state.isExpensive, cacheSettings.cacheOverCellular)
+        }
+        guard PlayerService.shouldProceedWithPrefetch(isExpensive: isExpensive, allowCellular: allowCellular) else {
+            Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' skipped — cellular guard")
+            return
+        }
+
+        guard let streamURL = (try? await serverService.makeSwiftSonicClient())?.streamURL(
+            id: songId,
+            maxBitRate: 0,
+            format: nil
+        ) else {
+            Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' no stream URL — skip")
+            return
+        }
+
+        let customHeaders: [String: String]
+        do {
+            customHeaders = try await serverService.activeCredentials().customHeaders
+        } catch {
+            Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' credentials unavailable — skip")
+            return
+        }
+
+        prefetchTask = Task { [prefetchSession, weak self] in
+            guard !Task.isCancelled else { return }
+            do {
+                try await self?.downloadAndCache(
+                    songId: songId,
+                    serverId: serverId,
+                    streamURL: streamURL,
+                    customHeaders: customHeaders,
+                    using: prefetchSession
+                )
+                Logger.player.info("[PREFETCH] '\(songId, privacy: .public)' prefetch complete")
+            } catch {
+                Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' prefetch failed: \(error, privacy: .public)")
+            }
+        }
     }
 
     // MARK: - Play-time accumulator
@@ -1349,14 +1464,15 @@ actor PlayerService: PlayerServiceProtocol {
         songId: String,
         serverId: UUID,
         streamURL: URL,
-        customHeaders: [String: String]
+        customHeaders: [String: String],
+        using session: URLSession
     ) async throws {
         var request = URLRequest(url: streamURL)
         for (key, value) in customHeaders {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
-        let (tempURL, response) = try await cacheSession.download(for: request)
+        let (tempURL, response) = try await session.download(for: request)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
