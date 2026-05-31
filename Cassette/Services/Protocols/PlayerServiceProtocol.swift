@@ -47,6 +47,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Re-reads ReplayGainSettings and reapplies gain to the current track.
     /// Call this whenever the user changes any ReplayGain setting.
     func replayGainSettingsDidChange() async
+    /// Updates the stored CrossfadeConfig snapshot from CrossfadeSettings.
+    /// Call whenever the user changes any crossfade setting.
+    func crossfadeSettingsDidChange() async
     /// Stops the audio engine synchronously without going through the actor.
     /// Only safe to call during app termination (single-threaded, no concurrent access).
     nonisolated func stopAudioEngineSync()

@@ -41,6 +41,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     func togglePlayPause() async {}
     func saveCurrentPosition() async {}
     func replayGainSettingsDidChange() async {}
+    func crossfadeSettingsDidChange() async {}
     nonisolated func stopAudioEngineSync() {}
 }
 
