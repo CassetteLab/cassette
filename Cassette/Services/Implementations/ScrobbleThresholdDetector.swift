@@ -8,7 +8,7 @@ import Foundation
 /// Pure value type that tracks whether the scrobble threshold has been crossed for one track.
 /// Threshold: duration ≥ 30 s AND accumulated play time ≥ min(240 s, 0.5 × duration).
 /// One-shot per track: `check` returns true exactly once; call `reset()` on every track change.
-struct ScrobbleThresholdDetector {
+nonisolated struct ScrobbleThresholdDetector {
     private(set) var fired: Bool = false
 
     /// Evaluates the threshold. Returns true the first time it is crossed, false thereafter.
