@@ -49,6 +49,7 @@ final class AppContainer {
     let externalArtistImageResolver = ExternalArtistImageResolver()
     let searchHistoryService: SearchHistoryService
     let replayGainService = ReplayGainService()
+    let replayGainSettings = ReplayGainSettings()
 
     init(inMemory: Bool = false) throws {
         modelContainer = try ModelContainer.cassette(inMemory: inMemory)
@@ -89,7 +90,7 @@ final class AppContainer {
         let lb = ListenBrainzService(client: lbClient, keychain: keychain)
         listenBrainzService = lb
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, toastService: toastService, statsService: stats, listenBrainzService: lb)
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, replayGainSettings: replayGainSettings, toastService: toastService, statsService: stats, listenBrainzService: lb)
         _player = player
         playerService = player
 

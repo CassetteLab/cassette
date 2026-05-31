@@ -23,6 +23,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let cacheService: any CacheServiceProtocol
     private let downloadService: any DownloadServiceProtocol
     private let cacheSettings: CacheSettings
+    private let replayGainSettings: ReplayGainSettings
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
     private var widgetSyncService: WidgetSyncService?
     private var replayGainService: ReplayGainService?
@@ -101,6 +102,7 @@ actor PlayerService: PlayerServiceProtocol {
         cacheService: any CacheServiceProtocol,
         downloadService: any DownloadServiceProtocol,
         cacheSettings: CacheSettings,
+        replayGainSettings: ReplayGainSettings,
         toastService: ToastService,
         statsService: StatsService,
         listenBrainzService: ListenBrainzService
@@ -114,6 +116,7 @@ actor PlayerService: PlayerServiceProtocol {
         self.cacheService = cacheService
         self.downloadService = downloadService
         self.cacheSettings = cacheSettings
+        self.replayGainSettings = replayGainSettings
         self.toastService = toastService
         self.statsService = statsService
         self.listenBrainzService = listenBrainzService
