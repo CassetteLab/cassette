@@ -317,11 +317,20 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
-        if shouldFadeIn {
+        let fadingInAllowed: Bool
+        #if os(iOS)
+        fadingInAllowed = shouldFadeIn && !PlayerService.isProblematicRoute(
+            portTypes: AVAudioSession.sharedInstance().currentRoute.outputs.map { $0.portType }
+        )
+        #else
+        fadingInAllowed = shouldFadeIn
+        #endif
+
+        if fadingInAllowed {
             audioPlayer.volume = 0
         }
         audioPlayer.play(url: source.url, headers: source.customHeaders)
-        if shouldFadeIn {
+        if fadingInAllowed {
             performFadeIn(targetVolume: restoredVolume, duration: crossfadeConfig.duration)
         }
 
@@ -1301,6 +1310,14 @@ actor PlayerService: PlayerServiceProtocol {
             hasNext: hasNext,
             trackDuration: duration
         ) else { return }
+        #if os(iOS)
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map { $0.portType }
+        guard !PlayerService.isProblematicRoute(portTypes: outputs) else {
+            Logger.player.debug("[CROSSFADE] fade-out skipped — problematic output route")
+            return
+        }
+        #endif
+
         isFadingOut = true
         Logger.player.debug("[CROSSFADE] fade-out start, remaining=\(String(format: "%.2f", remaining))s")
         performFadeOut(duration: remaining)
@@ -1339,6 +1356,15 @@ actor PlayerService: PlayerServiceProtocol {
             }
         }
     }
+
+    #if os(iOS)
+    /// Returns true for routes where crossfade volume ramping sounds wrong or causes artefacts.
+    /// `.airPlay` is the initial entry; add `.bluetoothA2DP` or `.carAudio` here when needed.
+    nonisolated static func isProblematicRoute(portTypes: [AVAudioSession.Port]) -> Bool {
+        let problematic: Set<AVAudioSession.Port> = [.airPlay]
+        return portTypes.contains(where: { problematic.contains($0) })
+    }
+    #endif
 
     // MARK: - Play-time accumulator
 
