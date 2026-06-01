@@ -43,28 +43,44 @@ struct ShouldSchedulePrefetchTests {
 @Suite("PlayerService.shouldStartFadeOut")
 struct ShouldStartFadeOutTests {
 
+    // 120 s: never hits the short-track guard (2 * 5 = 10)
     @Test func dormantWhenDurationIsZero() {
-        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 0, remaining: 0.5, hasNext: true) == false)
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 0, remaining: 0.5, hasNext: true, trackDuration: 120) == false)
     }
 
     @Test func dormantWhenNoNextTrack() {
-        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: false) == false)
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: false, trackDuration: 120) == false)
     }
 
     @Test func dormantWhenRemainingIsZero() {
-        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 0, hasNext: true) == false)
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 0, hasNext: true, trackDuration: 120) == false)
     }
 
     @Test func firesWhenWithinWindow() {
-        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 4, hasNext: true) == true)
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 4, hasNext: true, trackDuration: 120) == true)
     }
 
     @Test func firesAtExactBoundary() {
-        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 5, hasNext: true) == true)
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 5, hasNext: true, trackDuration: 120) == true)
     }
 
     @Test func doesNotFireBeyondWindow() {
-        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 5.1, hasNext: true) == false)
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 5.1, hasNext: true, trackDuration: 120) == false)
+    }
+
+    @Test func shortTrackSkipsFade() {
+        // trackDuration=8 <= 2*5=10 → skip regardless of remaining
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: true, trackDuration: 8) == false)
+    }
+
+    @Test func exactlyDoubleSkipsFade() {
+        // trackDuration == 2*duration is still "not long enough"
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: true, trackDuration: 10) == false)
+    }
+
+    @Test func justOverDoubleAllowsFade() {
+        // trackDuration=10.1 > 10 → allow
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: true, trackDuration: 10.1) == true)
     }
 }
 

@@ -1276,9 +1276,12 @@ actor PlayerService: PlayerServiceProtocol {
     nonisolated static func shouldStartFadeOut(
         crossfadeDuration: Double,
         remaining: Double,
-        hasNext: Bool
+        hasNext: Bool,
+        trackDuration: Double
     ) -> Bool {
         guard crossfadeDuration > 0, hasNext else { return false }
+        // Skip on short tracks to avoid starting a fade immediately after playback begins.
+        guard trackDuration > 2 * crossfadeDuration else { return false }
         return remaining > 0 && remaining <= crossfadeDuration
     }
 
@@ -1295,7 +1298,8 @@ actor PlayerService: PlayerServiceProtocol {
         guard PlayerService.shouldStartFadeOut(
             crossfadeDuration: crossfadeConfig.duration,
             remaining: remaining,
-            hasNext: hasNext
+            hasNext: hasNext,
+            trackDuration: duration
         ) else { return }
         isFadingOut = true
         Logger.player.debug("[CROSSFADE] fade-out start, remaining=\(String(format: "%.2f", remaining))s")
