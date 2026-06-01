@@ -25,7 +25,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let cacheSettings: CacheSettings
     private let replayGainSettings: ReplayGainSettings
     private let crossfadeSettings: CrossfadeSettings
-    private var crossfadeConfig = CrossfadeConfig(duration: 0)
+    private var crossfadeConfig = CrossfadeConfig(duration: 0, disableForGapless: true)
     private var nowPlayingService: (any NowPlayingServiceProtocol)?
     private var widgetSyncService: WidgetSyncService?
     private var replayGainService: ReplayGainService?
@@ -1282,6 +1282,21 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
+    /// Returns true when the current and next track form a gapless pair (same album, consecutive track numbers).
+    /// Nil albumId or track number → not a pair, so crossfade proceeds.
+    nonisolated static func isGaplessPair(
+        currentAlbumId: String?,
+        currentTrackNumber: Int?,
+        nextAlbumId: String?,
+        nextTrackNumber: Int?
+    ) -> Bool {
+        guard let cAlbum = currentAlbumId,
+              let nAlbum = nextAlbumId,
+              let cTrack = currentTrackNumber,
+              let nTrack = nextTrackNumber else { return false }
+        return cAlbum == nAlbum && nTrack == cTrack + 1
+    }
+
     nonisolated static func shouldStartFadeOut(
         crossfadeDuration: Double,
         remaining: Double,
@@ -1310,6 +1325,23 @@ actor PlayerService: PlayerServiceProtocol {
             hasNext: hasNext,
             trackDuration: duration
         ) else { return }
+        if crossfadeConfig.disableForGapless {
+            let (currentSong, nextSong): (DisplayableSong?, DisplayableSong?) = await MainActor.run {
+                let nextIndex = state.currentIndex + 1
+                return (state.currentTrack, state.queue.indices.contains(nextIndex) ? state.queue[nextIndex] : nil)
+            }
+            if let current = currentSong, let next = nextSong,
+               PlayerService.isGaplessPair(
+                   currentAlbumId: current.albumId,
+                   currentTrackNumber: current.trackNumber,
+                   nextAlbumId: next.albumId,
+                   nextTrackNumber: next.trackNumber
+               ) {
+                Logger.player.debug("[CROSSFADE] fade-out skipped — gapless pair")
+                return
+            }
+        }
+
         #if os(iOS)
         let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map { $0.portType }
         guard !PlayerService.isProblematicRoute(portTypes: outputs) else {

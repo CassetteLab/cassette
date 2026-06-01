@@ -107,3 +107,48 @@ struct ShouldProceedWithPrefetchTests {
         #expect(PlayerService.shouldProceedWithPrefetch(isExpensive: false, allowCellular: false) == true)
     }
 }
+
+// MARK: - isGaplessPair
+
+@Suite("PlayerService.isGaplessPair")
+struct IsGaplessPairTests {
+
+    @Test func sameAlbumConsecutiveIsGapless() {
+        #expect(PlayerService.isGaplessPair(
+            currentAlbumId: "A", currentTrackNumber: 3,
+            nextAlbumId: "A", nextTrackNumber: 4
+        ) == true)
+    }
+
+    @Test func differentAlbumIsNotGapless() {
+        #expect(PlayerService.isGaplessPair(
+            currentAlbumId: "A", currentTrackNumber: 3,
+            nextAlbumId: "B", nextTrackNumber: 4
+        ) == false)
+    }
+
+    @Test func nonConsecutiveIsNotGapless() {
+        #expect(PlayerService.isGaplessPair(
+            currentAlbumId: "A", currentTrackNumber: 3,
+            nextAlbumId: "A", nextTrackNumber: 5
+        ) == false)
+    }
+
+    @Test func nilAlbumIdIsNotGapless() {
+        #expect(PlayerService.isGaplessPair(
+            currentAlbumId: nil, currentTrackNumber: 3,
+            nextAlbumId: "A", nextTrackNumber: 4
+        ) == false)
+        #expect(PlayerService.isGaplessPair(
+            currentAlbumId: "A", currentTrackNumber: 3,
+            nextAlbumId: nil, nextTrackNumber: 4
+        ) == false)
+    }
+
+    @Test func nilTrackNumberIsNotGapless() {
+        #expect(PlayerService.isGaplessPair(
+            currentAlbumId: "A", currentTrackNumber: nil,
+            nextAlbumId: "A", nextTrackNumber: 4
+        ) == false)
+    }
+}
