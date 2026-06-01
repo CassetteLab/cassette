@@ -1283,7 +1283,9 @@ actor PlayerService: PlayerServiceProtocol {
         fadeInTask = nil
         isFadingOut = false
         if wasActive {
-            audioPlayer.volume = restoredVolume
+            let vol = restoredVolume
+            audioPlayer.volume = vol
+            Logger.crossfade.info("fade cancelled — volume restored to \(vol, format: .fixed(precision: 2))")
         }
     }
 
@@ -1317,19 +1319,32 @@ actor PlayerService: PlayerServiceProtocol {
     private func checkFadeOutThreshold() async {
         guard !isFadingOut else { return }
         guard crossfadeConfig.duration > 0 else { return }
-        let (duration, position, isPlaying, currentIndex, queueCount, repeatMode) = await MainActor.run {
+        let (duration, position, isPlaying, currentIndex, queueCount, repeatMode, title) = await MainActor.run {
             (state.duration, state.position, state.playbackState == .playing,
-             state.currentIndex, state.queue.count, state.repeatMode)
+             state.currentIndex, state.queue.count, state.repeatMode,
+             state.currentTrack?.title ?? "?")
         }
         guard isPlaying, duration > 0 else { return }
         let remaining = duration - position
+        let D = crossfadeConfig.duration
         let hasNext = currentIndex + 1 < queueCount || repeatMode != .off
+
+        // Log skip reasons only while inside the crossfade window (avoids per-tick spam).
+        if remaining > 0 && remaining <= D {
+            if !hasNext {
+                Logger.crossfade.debug("skip — no-next track (remaining=\(String(format:"%.2f",remaining))s)")
+            } else if duration <= 2 * D {
+                Logger.crossfade.debug("skip — short track (duration=\(String(format:"%.1f",duration))s, 2D=\(String(format:"%.1f",2*D))s)")
+            }
+        }
+
         guard PlayerService.shouldStartFadeOut(
-            crossfadeDuration: crossfadeConfig.duration,
+            crossfadeDuration: D,
             remaining: remaining,
             hasNext: hasNext,
             trackDuration: duration
         ) else { return }
+
         if crossfadeConfig.disableForGapless {
             let (currentSong, nextSong): (DisplayableSong?, DisplayableSong?) = await MainActor.run {
                 let nextIndex = state.currentIndex + 1
@@ -1342,7 +1357,7 @@ actor PlayerService: PlayerServiceProtocol {
                    nextAlbumId: next.albumId,
                    nextTrackNumber: next.trackNumber
                ) {
-                Logger.player.debug("[CROSSFADE] fade-out skipped — gapless pair")
+                Logger.crossfade.debug("skip — gapless pair (track='\(title, privacy: .public)')")
                 return
             }
         }
@@ -1350,13 +1365,14 @@ actor PlayerService: PlayerServiceProtocol {
         #if os(iOS)
         let outputs = AVAudioSession.sharedInstance().currentRoute.outputs.map { $0.portType }
         guard !PlayerService.isProblematicRoute(portTypes: outputs) else {
-            Logger.player.debug("[CROSSFADE] fade-out skipped — problematic output route")
+            Logger.crossfade.debug("skip — AirPlay route (track='\(title, privacy: .public)')")
             return
         }
         #endif
 
         isFadingOut = true
-        Logger.player.debug("[CROSSFADE] fade-out start, remaining=\(String(format: "%.2f", remaining))s")
+        let userVol = restoredVolume
+        Logger.crossfade.info("fade-out START — track='\(title, privacy: .public)' remaining=\(String(format:"%.2f",remaining))s D=\(String(format:"%.1f",D))s targetVol=\(String(format:"%.2f",userVol))->0")
         performFadeOut(duration: remaining)
     }
 
@@ -1390,6 +1406,7 @@ actor PlayerService: PlayerServiceProtocol {
         let fadeDuration = max(duration, 0.05)
         fadeInTask = Task { [weak self] in
             guard let self else { return }
+            Logger.crossfade.info("fade-in START vol=0->target=\(self.restoredVolume, format: .fixed(precision: 2))")
             let startTime = Date()
             while !Task.isCancelled {
                 let elapsed = Date().timeIntervalSince(startTime)
@@ -1400,7 +1417,9 @@ actor PlayerService: PlayerServiceProtocol {
                 try? await Task.sleep(for: .milliseconds(30))
             }
             if !Task.isCancelled {
-                self.audioPlayer.volume = self.restoredVolume
+                let final = self.restoredVolume
+                self.audioPlayer.volume = final
+                Logger.crossfade.info("fade-in DONE vol=\(final, format: .fixed(precision: 2))")
             }
         }
     }
