@@ -6,6 +6,45 @@
 import Testing
 @testable import Cassette
 
+// MARK: - crossfadeVolume (equal-power curve)
+
+@Suite("PlayerService.crossfadeVolume")
+struct CrossfadeVolumeTests {
+
+    @Test func fadeOutStartsAtBase() {
+        #expect(PlayerService.crossfadeVolume(base: 1.0, progress: 0, phase: .fadeOut) == 1.0)
+    }
+
+    @Test func fadeOutEndsAtZero() {
+        #expect(PlayerService.crossfadeVolume(base: 1.0, progress: 1, phase: .fadeOut) < 0.001)
+    }
+
+    @Test func fadeInStartsAtZero() {
+        #expect(PlayerService.crossfadeVolume(base: 1.0, progress: 0, phase: .fadeIn) < 0.001)
+    }
+
+    @Test func fadeInEndsAtBase() {
+        #expect(PlayerService.crossfadeVolume(base: 1.0, progress: 1, phase: .fadeIn) > 0.999)
+    }
+
+    @Test func midpointSumGreaterThanLinear() {
+        // Equal-power: cos²(45°) + sin²(45°) = 1, each ≈ 0.707 vs 0.5 linear
+        let out = PlayerService.crossfadeVolume(base: 1.0, progress: 0.5, phase: .fadeOut)
+        let inV = PlayerService.crossfadeVolume(base: 1.0, progress: 0.5, phase: .fadeIn)
+        #expect(Double(out) > 0.7 && Double(inV) > 0.7)
+    }
+
+    @Test func progressClampedBelow() {
+        let v = PlayerService.crossfadeVolume(base: 0.8, progress: -1.0, phase: .fadeOut)
+        #expect(v == PlayerService.crossfadeVolume(base: 0.8, progress: 0, phase: .fadeOut))
+    }
+
+    @Test func progressClampedAbove() {
+        let v = PlayerService.crossfadeVolume(base: 0.8, progress: 2.0, phase: .fadeIn)
+        #expect(v == PlayerService.crossfadeVolume(base: 0.8, progress: 1, phase: .fadeIn))
+    }
+}
+
 // MARK: - shouldSchedulePrefetch
 
 @Suite("PlayerService.shouldSchedulePrefetch")

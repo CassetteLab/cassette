@@ -12,6 +12,11 @@ import OSLog
 import AVFAudio
 #endif
 
+nonisolated enum CrossfadePhase: Sendable {
+    case fadeOut
+    case fadeIn
+}
+
 actor PlayerService: PlayerServiceProtocol {
     nonisolated let state: PlayerState
 
@@ -1355,6 +1360,14 @@ actor PlayerService: PlayerServiceProtocol {
         performFadeOut(duration: remaining)
     }
 
+    nonisolated static func crossfadeVolume(base: Float, progress: Double, phase: CrossfadePhase) -> Float {
+        let p = max(0.0, min(1.0, progress))
+        switch phase {
+        case .fadeOut: return base * Float(cos(p * .pi / 2))
+        case .fadeIn:  return base * Float(sin(p * .pi / 2))
+        }
+    }
+
     private func performFadeOut(duration: Double) {
         let startVolume = audioPlayer.volume
         let fadeDuration = max(duration, 0.05)
@@ -1364,7 +1377,7 @@ actor PlayerService: PlayerServiceProtocol {
             while !Task.isCancelled {
                 let elapsed = Date().timeIntervalSince(startTime)
                 let progress = min(elapsed / fadeDuration, 1.0)
-                self.audioPlayer.volume = startVolume * Float(1.0 - progress)
+                self.audioPlayer.volume = PlayerService.crossfadeVolume(base: startVolume, progress: progress, phase: .fadeOut)
                 if progress >= 1.0 { break }
                 try? await Task.sleep(for: .milliseconds(30))
             }
@@ -1379,7 +1392,7 @@ actor PlayerService: PlayerServiceProtocol {
             while !Task.isCancelled {
                 let elapsed = Date().timeIntervalSince(startTime)
                 let progress = min(elapsed / fadeDuration, 1.0)
-                self.audioPlayer.volume = targetVolume * Float(progress)
+                self.audioPlayer.volume = PlayerService.crossfadeVolume(base: targetVolume, progress: progress, phase: .fadeIn)
                 if progress >= 1.0 { break }
                 try? await Task.sleep(for: .milliseconds(30))
             }
