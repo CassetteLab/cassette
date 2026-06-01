@@ -739,6 +739,9 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.debug("seek ignored — live stream mode")
             return
         }
+        // Cancel any active fade and restore volume — repositioning during a fade
+        // would otherwise leave the player stuck at a low volume.
+        cancelFadeTasks()
         // Finalize the current segment and start a fresh one so that only
         // audio actually heard after the seek point is counted in played time.
         if currentPlaySegmentStart != nil {
@@ -1709,6 +1712,8 @@ extension PlayerService {
         case .began:
             let isPlaying = await MainActor.run { state.playbackState == .playing }
             guard isPlaying else { return }
+            // Cancel any active crossfade before the OS steals audio focus.
+            cancelFadeTasks()
             audioPlayer.pause()
             await MainActor.run { state.playbackState = .paused }
             stopProgressTimer()
