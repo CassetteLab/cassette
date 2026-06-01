@@ -38,6 +38,36 @@ struct ShouldSchedulePrefetchTests {
     }
 }
 
+// MARK: - shouldStartFadeOut
+
+@Suite("PlayerService.shouldStartFadeOut")
+struct ShouldStartFadeOutTests {
+
+    @Test func dormantWhenDurationIsZero() {
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 0, remaining: 0.5, hasNext: true) == false)
+    }
+
+    @Test func dormantWhenNoNextTrack() {
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: false) == false)
+    }
+
+    @Test func dormantWhenRemainingIsZero() {
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 0, hasNext: true) == false)
+    }
+
+    @Test func firesWhenWithinWindow() {
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 4, hasNext: true) == true)
+    }
+
+    @Test func firesAtExactBoundary() {
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 5, hasNext: true) == true)
+    }
+
+    @Test func doesNotFireBeyondWindow() {
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 5.1, hasNext: true) == false)
+    }
+}
+
 // MARK: - shouldProceedWithPrefetch
 
 @Suite("PlayerService.shouldProceedWithPrefetch")

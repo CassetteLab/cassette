@@ -84,6 +84,12 @@ actor PlayerService: PlayerServiceProtocol {
     private var prefetchTask: Task<Void, Never>?
     private var prefetchScheduled = false
     private let prefetchSession: URLSession
+    /// Fade-out task running during the crossfade window at the end of the current track.
+    private var fadeOutTask: Task<Void, Never>?
+    /// Fade-in task running at the start of the next track after a crossfade.
+    private var fadeInTask: Task<Void, Never>?
+    /// True while a crossfade fade-out is in progress; guards checkFadeOutThreshold against re-entry.
+    private var isFadingOut = false
     // Saved before a shuffle activation; nil when shuffle is off.
     private var originalQueueOrder: [DisplayableSong]?
     /// Single-slot guard preventing concurrent auto-extend fetches.
@@ -230,6 +236,12 @@ actor PlayerService: PlayerServiceProtocol {
         cancelPendingScrobble()
         cancelPendingCacheDownload()
         cancelPendingPrefetch()
+        // Capture crossfade intent before cancelling fade tasks.
+        // Manual cancel here (without volume restore) — volume is set explicitly below.
+        let shouldFadeIn = isFadingOut && crossfadeConfig.duration > 0
+        fadeOutTask?.cancel(); fadeOutTask = nil
+        fadeInTask?.cancel(); fadeInTask = nil
+        isFadingOut = false
 
         let config = await MainActor.run { replayGainSettings.config }
         await replayGainService?.apply(track: song, config: config)
@@ -305,7 +317,13 @@ actor PlayerService: PlayerServiceProtocol {
         configureAudioSessionIfNeeded()
         #endif
 
+        if shouldFadeIn {
+            audioPlayer.volume = 0
+        }
         audioPlayer.play(url: source.url, headers: source.customHeaders)
+        if shouldFadeIn {
+            performFadeIn(targetVolume: restoredVolume, duration: crossfadeConfig.duration)
+        }
 
         let duration = song.duration
         await MainActor.run {
@@ -358,6 +376,7 @@ actor PlayerService: PlayerServiceProtocol {
     func playRadio(_ station: InternetRadioStation) async throws {
         cancelPendingScrobble()
         cancelPendingCacheDownload()
+        cancelFadeTasks()
         let source = try await mediaResolver.resolveRadio(station)
 
         let codecResult = await checkCodecSupport(url: source.url, headers: source.customHeaders)
@@ -612,6 +631,7 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Pause / Resume
 
     func pause() async {
+        cancelFadeTasks()
         finalizePlaySegment()
         audioPlayer.pause()
         #if os(iOS)
@@ -676,6 +696,7 @@ actor PlayerService: PlayerServiceProtocol {
         cancelPendingScrobble()
         cancelPendingCacheDownload()
         cancelPendingPrefetch()
+        cancelFadeTasks()
         stopProgressTimer()
         stopPositionSaveTimer()
         restorePauseTask?.cancel()
@@ -1097,6 +1118,7 @@ actor PlayerService: PlayerServiceProtocol {
                 await self.periodicNowPlayingPush(elapsed: progress)
                 await self.checkScrobbleThreshold()
                 await self.checkPrefetchThreshold()
+                await self.checkFadeOutThreshold()
             }
         }
     }
@@ -1230,6 +1252,83 @@ actor PlayerService: PlayerServiceProtocol {
                 Logger.player.info("[PREFETCH] '\(songId, privacy: .public)' prefetch complete")
             } catch {
                 Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' prefetch failed: \(error, privacy: .public)")
+            }
+        }
+    }
+
+    // MARK: - Crossfade fade engine
+
+    private func cancelFadeTasks() {
+        let wasActive = fadeOutTask != nil || fadeInTask != nil || isFadingOut
+        fadeOutTask?.cancel()
+        fadeOutTask = nil
+        fadeInTask?.cancel()
+        fadeInTask = nil
+        isFadingOut = false
+        if wasActive {
+            audioPlayer.volume = restoredVolume
+        }
+    }
+
+    nonisolated static func shouldStartFadeOut(
+        crossfadeDuration: Double,
+        remaining: Double,
+        hasNext: Bool
+    ) -> Bool {
+        guard crossfadeDuration > 0, hasNext else { return false }
+        return remaining > 0 && remaining <= crossfadeDuration
+    }
+
+    private func checkFadeOutThreshold() async {
+        guard !isFadingOut else { return }
+        guard crossfadeConfig.duration > 0 else { return }
+        let (duration, position, isPlaying, currentIndex, queueCount, repeatMode) = await MainActor.run {
+            (state.duration, state.position, state.playbackState == .playing,
+             state.currentIndex, state.queue.count, state.repeatMode)
+        }
+        guard isPlaying, duration > 0 else { return }
+        let remaining = duration - position
+        let hasNext = currentIndex + 1 < queueCount || repeatMode != .off
+        guard PlayerService.shouldStartFadeOut(
+            crossfadeDuration: crossfadeConfig.duration,
+            remaining: remaining,
+            hasNext: hasNext
+        ) else { return }
+        isFadingOut = true
+        Logger.player.debug("[CROSSFADE] fade-out start, remaining=\(String(format: "%.2f", remaining))s")
+        performFadeOut(duration: remaining)
+    }
+
+    private func performFadeOut(duration: Double) {
+        let startVolume = audioPlayer.volume
+        let fadeDuration = max(duration, 0.05)
+        fadeOutTask = Task { [weak self] in
+            guard let self else { return }
+            let startTime = Date()
+            while !Task.isCancelled {
+                let elapsed = Date().timeIntervalSince(startTime)
+                let progress = min(elapsed / fadeDuration, 1.0)
+                self.audioPlayer.volume = startVolume * Float(1.0 - progress)
+                if progress >= 1.0 { break }
+                try? await Task.sleep(for: .milliseconds(30))
+            }
+        }
+    }
+
+    private func performFadeIn(targetVolume: Float, duration: Double) {
+        let fadeDuration = max(duration, 0.05)
+        fadeInTask = Task { [weak self] in
+            guard let self else { return }
+            let startTime = Date()
+            while !Task.isCancelled {
+                let elapsed = Date().timeIntervalSince(startTime)
+                let progress = min(elapsed / fadeDuration, 1.0)
+                self.audioPlayer.volume = targetVolume * Float(progress)
+                if progress >= 1.0 { break }
+                try? await Task.sleep(for: .milliseconds(30))
+            }
+            if !Task.isCancelled {
+                self.audioPlayer.volume = targetVolume
             }
         }
     }
