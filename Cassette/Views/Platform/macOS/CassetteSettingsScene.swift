@@ -34,7 +34,7 @@ struct CassetteSettingsScene: Scene {
 // MARK: - Tab container
 
 private enum SettingsTab: Int {
-    case general, server, cache, integrations, about
+    case general, playback, server, cache, integrations, about
 }
 
 struct MacOSSettingsView: View {
@@ -45,6 +45,10 @@ struct MacOSSettingsView: View {
             GeneralSettingsTab()
                 .tabItem { Label("General", systemImage: "gearshape") }
                 .tag(SettingsTab.general)
+
+            PlaybackSettingsTab()
+                .tabItem { Label("Playback", systemImage: "play.circle") }
+                .tag(SettingsTab.playback)
 
             ServerSettingsTab()
                 .tabItem { Label("Server", systemImage: "server.rack") }
@@ -63,6 +67,19 @@ struct MacOSSettingsView: View {
                 .tag(SettingsTab.about)
         }
         .frame(minWidth: 480, minHeight: 320)
+    }
+}
+
+// MARK: - Playback tab
+
+private struct PlaybackSettingsTab: View {
+    var body: some View {
+        Form {
+            ReplayGainSettingsSection()
+            CrossfadeSettingsSection()
+        }
+        .formStyle(.grouped)
+        .frame(maxWidth: 480)
     }
 }
 
