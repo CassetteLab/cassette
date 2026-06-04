@@ -153,7 +153,7 @@ actor PlayerService: PlayerServiceProtocol {
 
         let playerConfig = AudioPlayerConfiguration(
             flushQueueOnSeek: true,
-            bufferSizeInSeconds: 10,
+            bufferSizeInSeconds: 20,
             secondsRequiredToStartPlaying: 1,
             gracePeriodAfterSeekInSeconds: 0.5,
             secondsRequiredToStartPlayingAfterBufferUnderrun: 1,
