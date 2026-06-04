@@ -148,6 +148,7 @@ actor PlayerService: PlayerServiceProtocol {
         let prefetchConfig = URLSessionConfiguration.default
         prefetchConfig.timeoutIntervalForRequest = 30
         prefetchConfig.timeoutIntervalForResource = 300
+        prefetchConfig.networkServiceType = .background
         self.prefetchSession = URLSession(configuration: prefetchConfig)
 
         let playerConfig = AudioPlayerConfiguration(
