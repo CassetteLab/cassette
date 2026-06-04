@@ -1309,9 +1309,13 @@ actor PlayerService: PlayerServiceProtocol {
         crossfadeDuration: Double,
         remaining: Double,
         hasNext: Bool,
-        trackDuration: Double
+        trackDuration: Double,
+        repeatOne: Bool = false
     ) -> Bool {
         guard crossfadeDuration > 0, hasNext else { return false }
+        // Repeat-one loops the same track on the same player; there's no second source
+        // to mix into, so a fade-out would just produce a silent gap.
+        guard !repeatOne else { return false }
         // Skip on short tracks to avoid starting a fade immediately after playback begins.
         guard trackDuration > 2 * crossfadeDuration else { return false }
         return remaining > 0 && remaining <= crossfadeDuration
@@ -1334,6 +1338,8 @@ actor PlayerService: PlayerServiceProtocol {
         if remaining > 0 && remaining <= D {
             if !hasNext {
                 Logger.crossfade.debug("skip — no-next track (remaining=\(String(format:"%.2f",remaining))s)")
+            } else if repeatMode == .one {
+                Logger.crossfade.debug("skip — repeat-one (track='\(title, privacy: .public)')")
             } else if duration <= 2 * D {
                 Logger.crossfade.debug("skip — short track (duration=\(String(format:"%.1f",duration))s, 2D=\(String(format:"%.1f",2*D))s)")
             }
@@ -1343,7 +1349,8 @@ actor PlayerService: PlayerServiceProtocol {
             crossfadeDuration: D,
             remaining: remaining,
             hasNext: hasNext,
-            trackDuration: duration
+            trackDuration: duration,
+            repeatOne: repeatMode == .one
         ) else { return }
 
         if crossfadeConfig.disableForGapless {
@@ -1514,6 +1521,14 @@ actor PlayerService: PlayerServiceProtocol {
             wasTrackCompletedNaturally = false
             resetTrackAccumulator(isPlaying: true)
             if let source = currentSource {
+                // Defensive: repeat-one was likely toggled on after fade-out had already started.
+                // Stop any in-flight fade tasks and restore volume on the same audioPlayer before
+                // restarting, so the looped track isn't silent. Inline cancel (not cancelFadeTasks)
+                // to skip the redundant restore log path.
+                fadeOutTask?.cancel(); fadeOutTask = nil
+                fadeInTask?.cancel(); fadeInTask = nil
+                isFadingOut = false
+                audioPlayer.volume = restoredVolume
                 audioPlayer.play(url: source.url, headers: source.customHeaders)
             }
         } else {

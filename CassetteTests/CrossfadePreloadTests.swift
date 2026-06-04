@@ -121,6 +121,11 @@ struct ShouldStartFadeOutTests {
         // trackDuration=10.1 > 10 → allow
         #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: true, trackDuration: 10.1) == true)
     }
+
+    @Test func repeatOneSkipsFade() {
+        // repeat-one loops the same track on the same player — no second source to mix into.
+        #expect(PlayerService.shouldStartFadeOut(crossfadeDuration: 5, remaining: 3, hasNext: true, trackDuration: 120, repeatOne: true) == false)
+    }
 }
 
 // MARK: - shouldProceedWithPrefetch
