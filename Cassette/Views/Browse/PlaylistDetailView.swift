@@ -224,7 +224,9 @@ struct PlaylistDetailView: View {
             }
         }
         #endif
-        .task {
+        // Keyed on connectivity so the list re-loads from the right source when
+        // NWPathMonitor flips isOnline — same pattern as PlaylistDetailMacOS.
+        .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
             if viewModel == nil {
                 viewModel = PlaylistDetailViewModel(

@@ -51,6 +51,7 @@ final class PlaylistDetailViewModel {
         if serverState.isOnline {
             await loadFromAPI()
         } else {
+            isOffline = true
             await loadFromLocal()
         }
         isLoading = false
@@ -69,20 +70,26 @@ final class PlaylistDetailViewModel {
             songs = (apiPlaylist.entry ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
             isOffline = false
         } catch {
+            // Server unreachable (airplane mode with stale isOnline, VPN-satisfied path,
+            // server down): fall back to the downloaded copy before surfacing an error.
+            if await loadFromLocal() { return }
             self.error = UserFacingError.from(error)
         }
     }
 
-    private func loadFromLocal() async {
-        guard let serverId = serverState.activeServer?.id else { return }
-        if let data = await downloadService.localPlaylistData(playlistId: playlistId, serverId: serverId) {
-            name = data.name
-            coverArtId = data.coverArtId
-            songs = data.songs
-            isOffline = true
-        } else {
-            isOffline = true
-        }
+    /// Returns true when a downloaded copy with at least one track was loaded.
+    /// Sets isOffline only on success — a transient online failure must not flip
+    /// the UI into offline mode while songs from a previous load are still shown.
+    @discardableResult
+    private func loadFromLocal() async -> Bool {
+        guard let serverId = serverState.activeServer?.id,
+              let data = await downloadService.localPlaylistData(playlistId: playlistId, serverId: serverId),
+              !data.songs.isEmpty else { return false }
+        name = data.name
+        coverArtId = data.coverArtId
+        songs = data.songs
+        isOffline = true
+        return true
     }
 
     func downloadPlaylist() async {
