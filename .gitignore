@@ -6,3 +6,4 @@ INVESTIGATION_amperfy_comparison.md
 CACHE_AUDIT.md
 xcuserdata/
 *.xcuserstate
+build/
