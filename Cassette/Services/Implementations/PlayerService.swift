@@ -1696,6 +1696,10 @@ actor PlayerService: PlayerServiceProtocol {
             throw CacheDownloadError(statusCode: code)
         }
 
+        // Never commit a poisoned payload (Subsonic error-as-200 envelope, empty or
+        // truncated body) — a broken cache file plays as silence through FileAudioSource.
+        try AudioResponseValidator.validate(fileAt: tempURL, response: response, songId: songId, logger: Logger.cache)
+
         let data = try Data(contentsOf: tempURL)
         let ext = streamURL.pathExtension
         let mimeType = response.mimeType ?? (ext.isEmpty ? "audio/mpeg" : "audio/\(ext)")

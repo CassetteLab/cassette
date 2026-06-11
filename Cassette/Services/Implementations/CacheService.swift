@@ -51,17 +51,20 @@ actor CacheService: CacheServiceProtocol {
     // MARK: - Lookup
 
     func cachedURL(forSongId songId: String, serverId: UUID) async -> URL? {
-        let filePath: String? = await MainActor.run {
+        let entry: (filePath: String, fileSize: Int64)? = await MainActor.run {
             let context = ModelContext(modelContainer)
             var descriptor = FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId })
             descriptor.fetchLimit = 1
             let tracks = (try? context.fetch(descriptor)) ?? []
-            return tracks.first { $0.serverId == serverId }?.filePath
+            return tracks.first { $0.serverId == serverId }.map { ($0.filePath, $0.fileSize) }
         }
-        guard let filePath else { return nil }
-        let url = cacheDirectory.appendingPathComponent(filePath)
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            Logger.cache.warning("Cache record exists but file missing: \(filePath, privacy: .public)")
+        guard let entry else { return nil }
+        let url = cacheDirectory.appendingPathComponent(entry.filePath)
+        // Self-healing covers missing, empty, and size-mismatched files — a partial or
+        // corrupt cache file must fall through to stream, never reach the player.
+        let diskSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+        guard diskSize > 0, diskSize == entry.fileSize else {
+            Logger.cache.warning("Cache record exists but file missing or invalid (disk \(diskSize) bytes, record \(entry.fileSize)): \(entry.filePath, privacy: .public)")
             await invalidate(songId: songId, serverId: serverId)
             return nil
         }
