@@ -318,6 +318,15 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask = nil
         currentSource = source
         pendingRestoreInfo = nil
+        // Starting a new track can interrupt a muted parking play (end-of-queue rewind)
+        // without going through resume()/stop() — cancel the deferred pause and unmute,
+        // otherwise the new track would start silent or get paused 150 ms in.
+        restorePauseTask?.cancel()
+        restorePauseTask = nil
+        if isMutedForRestore {
+            audioPlayer.volume = restoredVolume
+            isMutedForRestore = false
+        }
 
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -412,6 +421,14 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask = nil
         currentSource = source
         pendingRestoreInfo = nil
+        // Same recovery as startPlayback(): a radio start can interrupt a muted
+        // parking play — cancel the deferred pause and unmute before playing.
+        restorePauseTask?.cancel()
+        restorePauseTask = nil
+        if isMutedForRestore {
+            audioPlayer.volume = restoredVolume
+            isMutedForRestore = false
+        }
 
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -1576,6 +1593,11 @@ actor PlayerService: PlayerServiceProtocol {
         currentSource = source
         // Start playing, seek to 0, then pause once the player reaches .playing.
         pendingRestoreInfo = (seekTime: 0, pause: true)
+
+        // Mute the parking play — the engine must reach .playing before restorePauseTask
+        // can pause it; that window would otherwise leak an audible fragment of track 1.
+        audioPlayer.volume = 0
+        isMutedForRestore = true
 
         audioPlayer.play(url: source.url, headers: source.customHeaders)
 
