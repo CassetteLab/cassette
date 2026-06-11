@@ -370,3 +370,4 @@ private struct MainWindowConfigurator: NSViewRepresentable {
     }
 }
 #endif
+
