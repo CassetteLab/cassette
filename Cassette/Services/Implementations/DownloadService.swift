@@ -49,16 +49,21 @@ actor DownloadService: DownloadServiceProtocol {
     // MARK: - Lookup
 
     func downloadedURL(forSongId songId: String, serverId: UUID) async -> URL? {
-        let filePath: String? = await MainActor.run {
+        let entry: (filePath: String, fileSize: Int64)? = await MainActor.run {
             let context = ModelContext(modelContainer)
             let predicate = #Predicate<DownloadedTrack> { $0.songId == songId }
             let tracks = (try? context.fetch(FetchDescriptor(predicate: predicate))) ?? []
-            return tracks.first(where: { $0.serverId == serverId })?.filePath
+            return tracks.first(where: { $0.serverId == serverId }).map { ($0.filePath, $0.fileSize) }
         }
-        guard let filePath else { return nil }
-        let url = downloadsDirectory.appendingPathComponent(filePath)
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            Logger.download.warning("Downloaded track record exists but file missing: \(filePath, privacy: .public)")
+        guard let entry else { return nil }
+        let url = downloadsDirectory.appendingPathComponent(entry.filePath)
+        // A missing, empty, or size-mismatched file must fall through to cache/stream —
+        // never hand a broken local file to the player. The file is NOT deleted here
+        // (permanent downloads are user data); the record's size 0 means a legacy entry
+        // whose size read failed at write time, where only non-emptiness can be checked.
+        let diskSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+        guard diskSize > 0, entry.fileSize == 0 || diskSize == entry.fileSize else {
+            Logger.download.warning("Downloaded track record exists but file missing or invalid (disk \(diskSize) bytes, record \(entry.fileSize)): \(entry.filePath, privacy: .public)")
             return nil
         }
         return url
@@ -209,6 +214,15 @@ actor DownloadService: DownloadServiceProtocol {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             struct HTTPError: Error & Sendable { let statusCode: Int }
             throw CassetteError.downloadFailed(songId: song.id, underlying: HTTPError(statusCode: code))
+        }
+
+        // Never save a poisoned payload as a permanent download (Subsonic error-as-200
+        // envelope, empty or truncated body) — unlike the cache it is never evicted,
+        // so a broken file would play as silence forever.
+        do {
+            try AudioResponseValidator.validate(fileAt: tempURL, response: response, songId: song.id, logger: Logger.download)
+        } catch {
+            throw CassetteError.downloadFailed(songId: song.id, underlying: error)
         }
 
         let mimeType = response.mimeType ?? "audio/mpeg"

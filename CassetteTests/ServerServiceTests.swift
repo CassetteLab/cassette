@@ -10,7 +10,8 @@ import SwiftData
 
 // MARK: - Mock
 
-final actor MockKeychain: KeychainServiceProtocol {
+@MainActor
+final class MockKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
     private var failOnStore = false
 
@@ -31,7 +32,8 @@ final actor MockKeychain: KeychainServiceProtocol {
     }
 }
 
-final actor MockCacheService: CacheServiceProtocol {
+@MainActor
+final class MockCacheService: CacheServiceProtocol {
     var usedBytes: Int64 = 0
     var trackCount: Int = 0
     func cachedURL(forSongId songId: String, serverId: UUID) async -> URL? { nil }
@@ -51,7 +53,10 @@ final actor MockCacheService: CacheServiceProtocol {
 @MainActor
 struct ServerServiceTests {
 
-    private func makeService(keychain: MockKeychain = MockKeychain()) throws -> (ServerService, ServerState) {
+    private func makeService(keychain: MockKeychain? = nil) throws -> (ServerService, ServerState) {
+        // Default argument expressions are nonisolated — resolve the @MainActor
+        // mock inside the MainActor method body instead.
+        let keychain = keychain ?? MockKeychain()
         let container = try ModelContainer.cassette(inMemory: true)
         let state = ServerState()
         let service = ServerService(state: state, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
@@ -103,7 +108,7 @@ struct ServerServiceTests {
 
     @Test func addServer_keychainFailure_stateUnchanged() async throws {
         let keychain = MockKeychain()
-        await keychain.setShouldFailOnStore(true)
+        keychain.setShouldFailOnStore(true)
         let (service, state) = try makeService(keychain: keychain)
 
         try? await service.addServer(

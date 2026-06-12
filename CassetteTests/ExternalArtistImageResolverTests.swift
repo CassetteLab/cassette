@@ -35,7 +35,8 @@ private func wdResponse(qid: String, filename: String) -> Data {
 
 // MARK: - Stub HTTP client
 
-private actor StubHTTPClient: ArtistImageHTTPClient {
+@MainActor
+private final class StubHTTPClient: ArtistImageHTTPClient {
     typealias Handler = @Sendable (URLRequest) async throws -> (Data, URLResponse)
 
     private(set) var callCount = 0
@@ -83,7 +84,7 @@ struct ExternalArtistImageResolverTests {
 
         #expect(url?.absoluteString.contains("Special:FilePath/Test_Artist.jpg") == true)
         #expect(url?.absoluteString.contains("width=500") == true)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 2)
     }
 
@@ -121,7 +122,7 @@ struct ExternalArtistImageResolverTests {
         let url2 = await resolver.resolveImageURL(forArtistMBID: testMBID)
 
         #expect(url1 == url2)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 2)
     }
 
@@ -136,7 +137,7 @@ struct ExternalArtistImageResolverTests {
 
         let (u1, u2, u3) = await (r1, r2, r3)
         #expect(u1 == u2 && u2 == u3)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 1)
     }
 
@@ -176,7 +177,7 @@ struct ExternalArtistImageResolverTests {
         let url = await resolver.resolveImageURL(forArtistName: "Test Artist")
 
         #expect(url?.absoluteString.contains("Special:FilePath") == true)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 3)
     }
 
@@ -190,7 +191,7 @@ struct ExternalArtistImageResolverTests {
         let url = await resolver.resolveImageURL(forArtistName: "Unknown Artist XYZ123")
 
         #expect(url == nil)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 1)
     }
 
@@ -205,7 +206,7 @@ struct ExternalArtistImageResolverTests {
         _ = await resolver.resolveImageURL(forArtistName: "Test Artist")
 
         // Score 83 with exact name match → pipeline proceeds → MB artist call happens
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 2)
     }
 
@@ -221,7 +222,7 @@ struct ExternalArtistImageResolverTests {
         let url2 = await resolver.resolveImageURL(forArtistName: "Test Artist")
 
         #expect(url1 == url2)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 2)
     }
 
@@ -241,7 +242,7 @@ struct ExternalArtistImageResolverTests {
 
         let results = await [r1, r2, r3, r4, r5]
         #expect(results.allSatisfy { $0 == nil })
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 1)
     }
 
@@ -255,7 +256,7 @@ struct ExternalArtistImageResolverTests {
         let url = await resolver.resolveImageURL(forArtistMBID: "")
 
         #expect(url == nil)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 0)
     }
 
@@ -267,7 +268,7 @@ struct ExternalArtistImageResolverTests {
         let url = await resolver.resolveImageURL(forArtistMBID: "   ")
 
         #expect(url == nil)
-        let count = await client.callCount
+        let count = client.callCount
         #expect(count == 0)
     }
 }

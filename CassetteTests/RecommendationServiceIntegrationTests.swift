@@ -10,7 +10,8 @@ import SwiftSonic
 
 // MARK: - Integration mock infrastructure
 
-private actor RSITransport: ListenBrainzTransport {
+@MainActor
+private final class RSITransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(data: Data = Data(), status: Int) {
@@ -29,7 +30,8 @@ private actor RSITransport: ListenBrainzTransport {
     }
 }
 
-private actor RSIKeychain: KeychainServiceProtocol {
+@MainActor
+private final class RSIKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
 
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
@@ -76,7 +78,8 @@ private let integrationJSON = Data("""
 
 private let artistStubInt = SimilarArtistRecommendation(id: "sub-a1", name: "Subsonic Artist", coverArt: nil, inLibrary: true, mbid: nil)
 
-private actor RSILibraryNullStub: LibraryServiceProtocol {
+@MainActor
+private final class RSILibraryNullStub: LibraryServiceProtocol {
     func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
     func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
     func album(id: String) async throws -> AlbumID3 { throw URLError(.unknown) }
@@ -121,9 +124,9 @@ struct RecommendationServiceIntegrationTests {
     @Test("LB enabled: freshReleases returns LB data, Subsonic not consulted")
     func lbEnabledFreshReleasesFromLB() async throws {
         let svcTransport = RSITransport()
-        await svcTransport.enqueue(data: Data(#"{"payload":{"count":0}}"#.utf8), status: 200)  // enable() validation
+        svcTransport.enqueue(data: Data(#"{"payload":{"count":0}}"#.utf8), status: 200)  // enable() validation
         let provTransport = RSITransport()
-        await provTransport.enqueue(data: integrationJSON, status: 200)
+        provTransport.enqueue(data: integrationJSON, status: 200)
 
         let (lbProvider, service) = makeLBComponents(serviceTransport: svcTransport, providerTransport: provTransport)
         try await service.enable(username: "testuser")

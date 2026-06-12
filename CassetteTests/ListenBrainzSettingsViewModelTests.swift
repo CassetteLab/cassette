@@ -9,7 +9,8 @@ import Foundation
 
 // MARK: - Helpers
 
-private actor VMTransport: ListenBrainzTransport {
+@MainActor
+private final class VMTransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(status: Int, for username: String = "user") {
@@ -29,7 +30,8 @@ private actor VMTransport: ListenBrainzTransport {
     }
 }
 
-private actor VMKeychain: KeychainServiceProtocol {
+@MainActor
+private final class VMKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
 
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
@@ -109,7 +111,7 @@ struct ListenBrainzSettingsViewModelTests {
     @Test("connect with 200 enables integration")
     @MainActor func connectSucceeds() async {
         let (vm, transport, _) = makeComponents()
-        await transport.enqueue(status: 200)
+        transport.enqueue(status: 200)
 
         vm.usernameInput = "user"
         await vm.connect()
@@ -122,7 +124,7 @@ struct ListenBrainzSettingsViewModelTests {
     @Test("connect with 404 sets userFacingError and leaves disabled")
     @MainActor func connectUserNotFound() async {
         let (vm, transport, _) = makeComponents()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
 
         vm.usernameInput = "ghost"
         await vm.connect()
@@ -137,7 +139,7 @@ struct ListenBrainzSettingsViewModelTests {
     @Test("disconnect disables after a successful connect")
     @MainActor func disconnectDisables() async {
         let (vm, transport, _) = makeComponents()
-        await transport.enqueue(status: 200)
+        transport.enqueue(status: 200)
 
         vm.usernameInput = "user"
         await vm.connect()
@@ -152,7 +154,7 @@ struct ListenBrainzSettingsViewModelTests {
     @Test("resetCredentials wipes username and snapshot")
     @MainActor func resetCredentialsClearsState() async {
         let (vm, transport, _) = makeComponents()
-        await transport.enqueue(status: 200)
+        transport.enqueue(status: 200)
 
         vm.usernameInput = "user"
         await vm.connect()
@@ -170,7 +172,7 @@ struct ListenBrainzSettingsViewModelTests {
     @MainActor func canaryNotInUserNotFoundError() async {
         let canary = "CANARY_USER_DO_NOT_LEAK_42"
         let (vm, transport, _) = makeComponents()
-        await transport.enqueue(status: 404, for: canary)
+        transport.enqueue(status: 404, for: canary)
 
         vm.usernameInput = canary
         await vm.connect()
@@ -184,7 +186,7 @@ struct ListenBrainzSettingsViewModelTests {
     @MainActor func canaryNotInHttpError() async {
         let canary = "CANARY_USER_DO_NOT_LEAK_42"
         let (vm, transport, _) = makeComponents()
-        await transport.enqueue(status: 500, for: canary)
+        transport.enqueue(status: 500, for: canary)
 
         vm.usernameInput = canary
         await vm.connect()
