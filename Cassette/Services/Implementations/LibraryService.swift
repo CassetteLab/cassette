@@ -220,35 +220,11 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     private func onlineSmartShuffle(targetSize: Int) async throws -> [DisplayableSong] {
-        let pool = try await client().getRandomSongs(size: 200)
-        guard !pool.isEmpty else { return [] }
-
-        let now = Date()
-        let windows: [TimeInterval] = [30 * 86_400, 60 * 86_400, 90 * 86_400]
-
-        for window in windows {
-            let cutoff = now.addingTimeInterval(-window)
-            let filtered = pool.filter { song in
-                guard let played = song.played else { return true }
-                return played < cutoff
-            }
-            if filtered.count >= 10 {
-                Logger.library.debug("Smart shuffle online: \(filtered.count) tracks after filter (window: \(Int(window / 86_400))d)")
-                return Array(filtered.shuffled().prefix(targetSize)).map { DisplayableSong(from: $0) }
-            }
-        }
-
-        // Last resort: sort by played asc (nil first = never played), take target.
-        let sorted = pool.sorted { lhs, rhs in
-            switch (lhs.played, rhs.played) {
-            case (nil, nil): return false
-            case (nil, _):   return true
-            case (_, nil):   return false
-            case (let l?, let r?): return l < r
-            }
-        }
-        Logger.library.debug("Smart shuffle online: pool fully recent, falling back to oldest-played first (\(sorted.count) tracks)")
-        return Array(sorted.prefix(targetSize)).map { DisplayableSong(from: $0) }
+        // Product rule: rediscover is TRULY random — no recency weighting,
+        // no `played` filtering. The server picks uniformly across the library.
+        let songs = try await client().getRandomSongs(size: targetSize)
+        Logger.library.debug("Smart shuffle online: \(songs.count) random tracks (target \(targetSize))")
+        return songs.map { DisplayableSong(from: $0) }
     }
 
     // MARK: - Similar artists support

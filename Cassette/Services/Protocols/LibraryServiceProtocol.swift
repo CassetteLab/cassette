@@ -50,14 +50,12 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Server has no "exclude recently played" filter — filtering is done client-side by the consumer.
     func randomSongs(size: Int) async throws -> [Song]
 
-    /// Builds a queue of tracks for Smart Shuffle (v1.3 Discover feature).
+    /// Builds a queue of tracks for Smart Shuffle ("Rediscover Your Library").
     ///
-    /// Online: fetches a 200-song random pool, filters out tracks played in the last 30 days,
-    /// relaxing to 60 then 90 days if the pool is too small, falling back to oldest-played
-    /// first if the entire pool is recent. Returns up to `targetSize` tracks.
+    /// Online: TRULY random — `getRandomSongs(targetSize)`, no recency weighting,
+    /// no `played` filtering (product rule since the queue-modes rework).
     ///
     /// Offline: returns a pure shuffle over downloaded tracks for the active server.
-    /// No play-date filtering — DownloadedTrack has no local play-date field (roadmap item).
     ///
     /// May return fewer than `targetSize` tracks or an empty array if the library is too small.
     /// Throws only on network/auth failures in the online path.
