@@ -29,7 +29,8 @@ private struct DVMockProvider: RecommendationProvider {
 
 // MARK: - Capturing provider (records params for assertion)
 
-private actor DVCapturingProvider: RecommendationProvider {
+@MainActor
+private final class DVCapturingProvider: RecommendationProvider {
     private(set) var capturedLimit: Int?
     private(set) var capturedDaysWindow: Int?
 
@@ -42,7 +43,8 @@ private actor DVCapturingProvider: RecommendationProvider {
 
 // MARK: - Library stub (never called in fresh releases tests)
 
-private actor DVLibraryStub: LibraryServiceProtocol {
+@MainActor
+private final class DVLibraryStub: LibraryServiceProtocol {
     func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
     func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
     func album(id: String) async throws -> AlbumID3 { throw URLError(.unknown) }
@@ -131,8 +133,8 @@ struct DiscoverViewModelFreshReleasesTests {
         let service = RecommendationService(providers: [capturing])
         let vm = DiscoverViewModel(libraryService: DVLibraryStub(), recommendationService: service)
         await vm.loadFreshReleases()
-        let limit = await capturing.capturedLimit
-        let window = await capturing.capturedDaysWindow
+        let limit = capturing.capturedLimit
+        let window = capturing.capturedDaysWindow
         #expect(limit == 10)
         #expect(window == 7)
     }
