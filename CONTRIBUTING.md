@@ -142,6 +142,24 @@ xcodebuild -scheme Cassette \
 #   | grep -E "warning:|error:" \
 #   | grep -v "/SourcePackages/" \
 #   | grep -v "appintentsmetadataprocessor"
+
+# Test target (required) — the app-only gate let the test target rot unseen.
+# CLEAN on purpose: incremental builds only re-emit diagnostics for recompiled
+# files and have repeatedly hidden real warnings. Two quirks force this shape:
+# the CassetteTests scheme has no buildables for the `clean` action (any
+# invocation containing `clean` fails with "no destinations"), hence the Build
+# dir wipe; and build-for-testing rejects generic destinations, hence the
+# simctl-derived simulator id.
+rm -rf ~/Library/Developer/Xcode/DerivedData/Cassette-*/Build
+UDID=$(xcrun simctl list devices available \
+  | grep -m1 "iPhone" \
+  | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
+xcodebuild -scheme CassetteTests \
+  -destination "platform=iOS Simulator,id=$UDID" \
+  build-for-testing 2>&1 \
+  | grep -E "warning:|error:" \
+  | grep -v "/SourcePackages/" \
+  | grep -v "appintentsmetadataprocessor"
 ```
 
 Any new warning must be fixed or explicitly added to the "Known acceptable
