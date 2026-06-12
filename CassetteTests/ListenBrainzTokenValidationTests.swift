@@ -17,7 +17,8 @@ private struct TokenMockTransport: ListenBrainzTransport {
     }
 }
 
-private func stubResponse(status: Int, body: String = "") -> (Data, HTTPURLResponse) {
+// nonisolated: called from the @Sendable transport handler off the main actor.
+private nonisolated func stubResponse(status: Int, body: String = "") -> (Data, HTTPURLResponse) {
     let resp = HTTPURLResponse(
         url: URL(string: "https://api.listenbrainz.org/1/validate-token")!,
         statusCode: status,
@@ -28,6 +29,13 @@ private func stubResponse(status: Int, body: String = "") -> (Data, HTTPURLRespo
 }
 
 private let defaultRoot = URL(string: "https://api.listenbrainz.org")!
+
+/// MainActor capture box — @Sendable transport handlers cannot mutate captured
+/// locals; they hop to the main actor and store here instead.
+@MainActor
+private final class CapturedBox<Value> {
+    var value: Value?
+}
 
 // MARK: - validateToken decoding
 
@@ -110,29 +118,29 @@ struct ListenBrainzTokenValidationTests {
 
     @Test("Authorization header contains token, token absent from URL")
     func authorizationHeaderSet() async throws {
-        var capturedRequest: URLRequest?
+        let captured = CapturedBox<URLRequest>()
         let body = #"{"valid":true,"user_name":"alice"}"#
         let client = ListenBrainzClient(transport: TokenMockTransport { req in
-            capturedRequest = req
+            await MainActor.run { captured.value = req }
             return stubResponse(status: 200, body: body)
         })
         _ = try await client.validateToken("my_secret_token", rootURL: defaultRoot)
-        #expect(capturedRequest?.value(forHTTPHeaderField: "Authorization") == "Token my_secret_token")
-        let urlString = capturedRequest?.url?.absoluteString ?? ""
+        #expect(captured.value?.value(forHTTPHeaderField: "Authorization") == "Token my_secret_token")
+        let urlString = captured.value?.url?.absoluteString ?? ""
         #expect(!urlString.contains("my_secret_token"))
     }
 
     @Test("custom rootURL path component preserved")
     func customRootURLPathPreserved() async throws {
-        var capturedURL: URL?
+        let captured = CapturedBox<URL>()
         let body = #"{"valid":true,"user_name":"bob"}"#
         let customRoot = URL(string: "https://myhost.example.com/lb")!
         let client = ListenBrainzClient(transport: TokenMockTransport { req in
-            capturedURL = req.url
+            await MainActor.run { captured.value = req.url }
             return stubResponse(status: 200, body: body)
         })
         _ = try await client.validateToken("tok", rootURL: customRoot)
-        #expect(capturedURL?.absoluteString == "https://myhost.example.com/lb/1/validate-token")
+        #expect(captured.value?.absoluteString == "https://myhost.example.com/lb/1/validate-token")
     }
 }
 

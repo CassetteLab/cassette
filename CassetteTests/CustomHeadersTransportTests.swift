@@ -47,7 +47,7 @@ struct CustomHeadersTransportTests {
             headers: ["CF-Access-Client-Id": "id-123", "X-Custom": "hello"]
         )
 
-        var req = URLRequest(url: URL(string: "https://sub.example.com/api")!)
+        let req = URLRequest(url: URL(string: "https://sub.example.com/api")!)
         _ = try await transport.data(for: req)
 
         let recorded = await mock.state.lastRequest
