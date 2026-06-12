@@ -50,6 +50,7 @@ final class AlbumDetailViewModel {
         if serverState.isOnline {
             await loadFromAPI()
         } else {
+            isOffline = true
             await loadFromLocal()
         }
         isLoading = false
@@ -72,22 +73,28 @@ final class AlbumDetailViewModel {
             songs = (apiAlbum.song ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
             isOffline = false
         } catch {
+            // Server unreachable (airplane mode with stale isOnline, VPN-satisfied path,
+            // server down): fall back to the downloaded copy before surfacing an error.
+            if await loadFromLocal() { return }
             self.error = UserFacingError.from(error)
         }
     }
 
-    private func loadFromLocal() async {
-        guard let serverId = serverState.activeServer?.id else { return }
-        if let data = await downloadService.localAlbumData(albumId: albumId, serverId: serverId) {
-            albumName = data.albumName
-            artistName = data.artistName
-            coverArtId = data.coverArtId
-            songCount = data.songs.count
-            songs = data.songs
-            isOffline = true
-        } else {
-            isOffline = true
-        }
+    /// Returns true when a downloaded copy with at least one track was loaded.
+    /// Sets isOffline only on success — a transient online failure must not flip
+    /// the UI into offline mode while songs from a previous load are still shown.
+    @discardableResult
+    private func loadFromLocal() async -> Bool {
+        guard let serverId = serverState.activeServer?.id,
+              let data = await downloadService.localAlbumData(albumId: albumId, serverId: serverId),
+              !data.songs.isEmpty else { return false }
+        albumName = data.albumName
+        artistName = data.artistName
+        coverArtId = data.coverArtId
+        songCount = data.songs.count
+        songs = data.songs
+        isOffline = true
+        return true
     }
 
     func downloadAlbum() async {

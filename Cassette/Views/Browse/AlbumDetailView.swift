@@ -266,7 +266,10 @@ struct AlbumDetailView: View {
                 .disabled(!isOnline)
             }
         }
-        .task {
+        // Keyed on connectivity so the list re-loads from the right source when
+        // NWPathMonitor flips isOnline — same pattern as AlbumDetailMacOS and
+        // PlaylistDetailView.
+        .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
             if viewModel == nil {
                 viewModel = AlbumDetailViewModel(
