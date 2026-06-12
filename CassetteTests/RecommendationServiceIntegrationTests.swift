@@ -99,6 +99,7 @@ private final class RSILibraryNullStub: LibraryServiceProtocol {
     func mostPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
     func randomSongs(size: Int) async throws -> [Song] { throw URLError(.unknown) }
     func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong] { throw URLError(.unknown) }
+    func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong] { throw URLError(.unknown) }
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {}
     func getPlayQueue() async throws -> SavedPlayQueue? { nil }
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo { throw URLError(.unknown) }

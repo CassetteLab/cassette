@@ -58,6 +58,34 @@ actor StatsService {
         return (try? context.fetchCount(descriptor)) ?? 0
     }
 
+    /// Most recent playback events (≥30s listens, as recorded), newest first.
+    /// Returns Sendable DTOs — PlaybackEvent instances never leave this actor.
+    func recentEvents(limit: Int, serverId: String) async -> [PlaybackEventDTO] {
+        let context = ModelContext(modelContainer)
+        var descriptor = FetchDescriptor<PlaybackEvent>(
+            predicate: #Predicate { $0.serverId == serverId },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        let events = (try? context.fetch(descriptor)) ?? []
+        return events.map { event in
+            PlaybackEventDTO(
+                trackId: event.trackId,
+                trackTitle: event.trackTitle,
+                albumId: event.albumId,
+                albumTitle: event.albumTitle,
+                artistId: event.artistId,
+                artistName: event.artistName,
+                genre: event.genre,
+                timestamp: event.timestamp,
+                durationListened: event.durationListened,
+                trackDuration: event.trackDuration,
+                wasCompleted: event.wasCompleted,
+                serverId: event.serverId
+            )
+        }
+    }
+
     func deleteAllEvents(forServer serverId: String) async {
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<PlaybackEvent>(

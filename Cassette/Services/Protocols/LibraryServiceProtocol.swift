@@ -50,18 +50,26 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Server has no "exclude recently played" filter — filtering is done client-side by the consumer.
     func randomSongs(size: Int) async throws -> [Song]
 
-    /// Builds a queue of tracks for Smart Shuffle (v1.3 Discover feature).
+    /// Builds a queue of tracks for Smart Shuffle ("Rediscover Your Library").
     ///
-    /// Online: fetches a 200-song random pool, filters out tracks played in the last 30 days,
-    /// relaxing to 60 then 90 days if the pool is too small, falling back to oldest-played
-    /// first if the entire pool is recent. Returns up to `targetSize` tracks.
+    /// Online: TRULY random — `getRandomSongs(targetSize)`, no recency weighting,
+    /// no `played` filtering (product rule since the queue-modes rework).
     ///
     /// Offline: returns a pure shuffle over downloaded tracks for the active server.
-    /// No play-date filtering — DownloadedTrack has no local play-date field (roadmap item).
     ///
     /// May return fewer than `targetSize` tracks or an empty array if the library is too small.
     /// Throws only on network/auth failures in the online path.
     func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong]
+
+    /// Builds the queue auto-extend backfill: tracks SIMILAR to the last 20 played
+    /// (≥30s listens), via an artist/genre heuristic that works on any self-hosted
+    /// server — artist discographies (getArtist→albums) + getSongsByGenre, never
+    /// popularity-backed endpoints.
+    ///
+    /// `excludedIds` (current queue) and the recent-20 track ids are never returned.
+    /// Degrades to pure random with no listening history or a thin pool; offline
+    /// falls back to downloaded tracks only.
+    func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong]
 
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
