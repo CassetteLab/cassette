@@ -20,7 +20,8 @@ private let testURL = URL(string: "https://coverartarchive.org/release/test/cove
 
 // MARK: - Mock fetchers
 
-private actor CountingFetcher: ExternalArtworkFetcher {
+@MainActor
+private final class CountingFetcher: ExternalArtworkFetcher {
     private(set) var callCount = 0
     let result: Result<Data, Error>
 
