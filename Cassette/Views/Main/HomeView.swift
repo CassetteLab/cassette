@@ -308,7 +308,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Smart Shuffle")
                         .font(.cassetteCellTitle)
-                    Text("Rediscover your library — tracks you haven't heard recently")
+                    Text("A random mix from your library")
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }

@@ -191,7 +191,7 @@ struct DiscoverView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Rediscover Your Library")
                             .font(.cassetteCellTitle)
-                        Text("Tracks you haven't heard recently")
+                        Text("A random mix from your library")
                             .font(.cassetteCaption)
                             .foregroundStyle(.secondary)
                     }
