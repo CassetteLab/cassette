@@ -582,9 +582,9 @@ actor PlayerService: PlayerServiceProtocol {
     /// parallel fetches when tracks advance rapidly. Errors are swallowed — natural queue
     /// end is the graceful fallback.
     private func evaluateAutoExtend() async {
-        let (isEnabled, repeatMode, currentRadio, remaining) = await MainActor.run {
+        let (isEnabled, repeatMode, currentRadio, remaining, queueIds) = await MainActor.run {
             let remaining = state.queue.count - state.currentIndex - 1
-            return (state.isAutoExtendEnabled, state.repeatMode, state.currentRadio, remaining)
+            return (state.isAutoExtendEnabled, state.repeatMode, state.currentRadio, remaining, Set(state.queue.map(\.id)))
         }
         guard isEnabled else { return }
         guard repeatMode == .off else { return }
@@ -594,12 +594,12 @@ actor PlayerService: PlayerServiceProtocol {
         // and starting from the last track of an album).
         guard remaining <= 15 else { return }
 
-        Logger.player.info("Auto-extend triggered: \(remaining) tracks remaining, fetching 50 more")
+        Logger.player.info("Auto-extend triggered: \(remaining) tracks remaining, fetching 50 similar")
 
         autoExtendFetchTask = Task { [libraryService, weak self] in
             defer { Task { await self?.clearAutoExtendFetchTask() } }
             do {
-                let tracks = try await libraryService.smartShuffleQueue(targetSize: 50)
+                let tracks = try await libraryService.similarBackfillQueue(targetSize: 50, excludedIds: queueIds)
                 guard !tracks.isEmpty else {
                     Logger.player.debug("Auto-extend fetch returned empty — library exhausted or offline without downloads")
                     return

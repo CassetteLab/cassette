@@ -74,7 +74,7 @@ final class AppContainer {
         let download = DownloadService(serverService: server, modelContainer: modelContainer, toastService: toastService)
         downloadService = download
 
-        let library = LibraryService(serverService: server, modelContainer: modelContainer, downloadService: download)
+        let library = LibraryService(serverService: server, modelContainer: modelContainer, downloadService: download, statsService: stats)
         libraryService = library
 
         artworkImageCache = ArtworkImageCache(downloadService: download, libraryService: library)

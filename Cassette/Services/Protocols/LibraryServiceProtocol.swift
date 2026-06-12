@@ -61,6 +61,16 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Throws only on network/auth failures in the online path.
     func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong]
 
+    /// Builds the queue auto-extend backfill: tracks SIMILAR to the last 20 played
+    /// (≥30s listens), via an artist/genre heuristic that works on any self-hosted
+    /// server — artist discographies (getArtist→albums) + getSongsByGenre, never
+    /// popularity-backed endpoints.
+    ///
+    /// `excludedIds` (current queue) and the recent-20 track ids are never returned.
+    /// Degrades to pure random with no listening history or a thin pool; offline
+    /// falls back to downloaded tracks only.
+    func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong]
+
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
     func getPlayQueue() async throws -> SavedPlayQueue?

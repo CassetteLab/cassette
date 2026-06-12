@@ -12,15 +12,22 @@ actor LibraryService: LibraryServiceProtocol {
     private let serverService: any ServerServiceProtocol
     private let modelContainer: ModelContainer
     private let downloadService: any DownloadServiceProtocol
+    private let statsService: StatsService
     private var cachedClient: SwiftSonicClient?
     private var artistNameIndex: [String: ArtistID3]?
     private var indexBuildTask: Task<Void, Never>?
     private var artistInfoCache: [String: ArtistInfo] = [:]
 
-    init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer, downloadService: any DownloadServiceProtocol) {
+    init(
+        serverService: any ServerServiceProtocol,
+        modelContainer: ModelContainer,
+        downloadService: any DownloadServiceProtocol,
+        statsService: StatsService
+    ) {
         self.serverService = serverService
         self.modelContainer = modelContainer
         self.downloadService = downloadService
+        self.statsService = statsService
     }
 
     private func client() async throws -> SwiftSonicClient {
@@ -225,6 +232,104 @@ actor LibraryService: LibraryServiceProtocol {
         let songs = try await client().getRandomSongs(size: targetSize)
         Logger.library.debug("Smart shuffle online: \(songs.count) random tracks (target \(targetSize))")
         return songs.map { DisplayableSong(from: $0) }
+    }
+
+    // MARK: - Auto-extend similar backfill
+
+    /// Most recent distinct seed values win; bounds keep the candidate fan-out cheap
+    /// (each artist seed costs one discography fetch, each genre one getSongsByGenre).
+    nonisolated static let backfillMaxSeedArtists = 5
+    nonisolated static let backfillMaxSeedGenres = 3
+    nonisolated static let backfillGenreFetchCount = 100
+
+    /// Extracts distinct artist ids and genres from recent plays, newest first.
+    nonisolated static func similaritySeeds(
+        from events: [PlaybackEventDTO],
+        maxArtists: Int = backfillMaxSeedArtists,
+        maxGenres: Int = backfillMaxSeedGenres
+    ) -> (artistIds: [String], genres: [String]) {
+        var artistIds: [String] = []
+        var genres: [String] = []
+        for event in events {
+            if let id = event.artistId, !id.isEmpty, artistIds.count < maxArtists, !artistIds.contains(id) {
+                artistIds.append(id)
+            }
+            if let genre = event.genre, !genre.isEmpty, genres.count < maxGenres, !genres.contains(genre) {
+                genres.append(genre)
+            }
+        }
+        return (artistIds, genres)
+    }
+
+    /// Shuffles the candidate pool, drops excluded and duplicate ids, and caps at
+    /// `targetSize`. Pure — the network-facing caller assembles the inputs.
+    nonisolated static func assembleBackfill(
+        pool: [DisplayableSong],
+        excludedIds: Set<String>,
+        targetSize: Int
+    ) -> [DisplayableSong] {
+        var seen = excludedIds
+        var result: [DisplayableSong] = []
+        for song in pool.shuffled() where !seen.contains(song.id) {
+            seen.insert(song.id)
+            result.append(song)
+            if result.count == targetSize { break }
+        }
+        return result
+    }
+
+    func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong] {
+        let isOnline = await MainActor.run { serverService.state.isOnline }
+        guard isOnline else {
+            // Offline: keep the downloads-only fallback, still honoring exclusions.
+            let downloads = await offlineSmartShuffle(targetSize: targetSize + excludedIds.count)
+            return Self.assembleBackfill(pool: downloads, excludedIds: excludedIds, targetSize: targetSize)
+        }
+        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
+            return []
+        }
+
+        let recent = await statsService.recentEvents(limit: 20, serverId: serverId.uuidString)
+        // Never re-serve what the user just heard.
+        var excluded = excludedIds
+        for event in recent { excluded.insert(event.trackId) }
+
+        // No ≥30s listening history yet → degrade to pure random.
+        let seeds = Self.similaritySeeds(from: recent)
+        var pool: [DisplayableSong] = []
+        if !recent.isEmpty {
+            // Artist candidates: full discographies via the existing bounded fetcher.
+            // Deliberately NOT getTopSongs — popularity-backed per spec, empty on bare
+            // self-hosted servers; kept out so the heuristic works everywhere.
+            for artistId in seeds.artistIds {
+                if let tracks = try? await fetchAllTracks(forArtistID: artistId) {
+                    pool.append(contentsOf: tracks)
+                }
+            }
+            // Genre candidates from local tags.
+            for genre in seeds.genres {
+                if let songs = try? await client().getSongsByGenre(genre, count: Self.backfillGenreFetchCount) {
+                    pool.append(contentsOf: songs.map { DisplayableSong(from: $0) })
+                }
+            }
+        }
+
+        var result = Self.assembleBackfill(pool: pool, excludedIds: excluded, targetSize: targetSize)
+
+        // Thin pool (small library, empty genres) or no history: top up with random.
+        if result.count < targetSize {
+            let randomSongs = (try? await client().getRandomSongs(size: targetSize + excluded.count)) ?? []
+            excluded.formUnion(result.map(\.id))
+            let topUp = Self.assembleBackfill(
+                pool: randomSongs.map { DisplayableSong(from: $0) },
+                excludedIds: excluded,
+                targetSize: targetSize - result.count
+            )
+            result.append(contentsOf: topUp)
+        }
+
+        Logger.library.debug("Similar backfill: \(result.count)/\(targetSize) tracks (seeds: \(seeds.artistIds.count) artists, \(seeds.genres.count) genres, recent: \(recent.count))")
+        return result
     }
 
     // MARK: - Similar artists support
