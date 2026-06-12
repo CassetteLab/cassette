@@ -43,7 +43,8 @@ private let emptyReleasesJSON = Data("""
 
 // MARK: - Mock transport
 
-private actor FRTransport: ListenBrainzTransport {
+@MainActor
+private final class FRTransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(data: Data = Data(), status: Int, headers: [String: String]? = nil, url: String = "https://api.listenbrainz.org") {
@@ -74,7 +75,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("happy path: parses two releases with correct field mapping")
     func happyPathTwoReleases() async throws {
         let transport = FRTransport()
-        await transport.enqueue(data: twoReleasesJSON, status: 200)
+        transport.enqueue(data: twoReleasesJSON, status: 200)
         let client = makeClient(transport: transport)
 
         let releases = try await client.freshReleases(forUser: "testuser")
@@ -94,7 +95,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("empty releases array parses without error")
     func emptyReleasesArray() async throws {
         let transport = FRTransport()
-        await transport.enqueue(data: emptyReleasesJSON, status: 200)
+        transport.enqueue(data: emptyReleasesJSON, status: 200)
         let client = makeClient(transport: transport)
 
         let releases = try await client.freshReleases(forUser: "testuser")
@@ -104,7 +105,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("unknown JSON fields are silently ignored")
     func unknownFieldsIgnored() async throws {
         let transport = FRTransport()
-        await transport.enqueue(data: twoReleasesJSON, status: 200)
+        transport.enqueue(data: twoReleasesJSON, status: 200)
         let client = makeClient(transport: transport)
 
         let releases = try await client.freshReleases(forUser: "testuser")
@@ -116,7 +117,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("404 response throws userNotFound")
     func notFoundThrows() async throws {
         let transport = FRTransport()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
         let client = makeClient(transport: transport)
 
         var caught: Error?
@@ -134,7 +135,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("429 with Retry-After header throws rateLimited with parsed delay")
     func rateLimitedWithRetryAfter() async throws {
         let transport = FRTransport()
-        await transport.enqueue(status: 429, headers: ["Retry-After": "30"])
+        transport.enqueue(status: 429, headers: ["Retry-After": "30"])
         let client = makeClient(transport: transport)
 
         var caught: Error?
@@ -153,7 +154,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("429 without Retry-After header throws rateLimited(retryAfter: nil)")
     func rateLimitedNoHeader() async throws {
         let transport = FRTransport()
-        await transport.enqueue(status: 429)
+        transport.enqueue(status: 429)
         let client = makeClient(transport: transport)
 
         var caught: Error?
@@ -172,7 +173,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("500 response throws httpError")
     func serverErrorThrows() async throws {
         let transport = FRTransport()
-        await transport.enqueue(status: 500)
+        transport.enqueue(status: 500)
         let client = makeClient(transport: transport)
 
         var caught: Error?
@@ -191,7 +192,7 @@ struct ListenBrainzClientFreshReleasesTests {
     @Test("malformed JSON throws decoding error")
     func malformedJSONThrows() async throws {
         let transport = FRTransport()
-        await transport.enqueue(data: malformedJSON, status: 200)
+        transport.enqueue(data: malformedJSON, status: 200)
         let client = makeClient(transport: transport)
 
         var caught: Error?
@@ -228,7 +229,7 @@ struct ListenBrainzClientFreshReleasesTests {
     func canaryUsernameNotInErrors() async throws {
         let canary = "CANARY_USER_DO_NOT_LEAK_42"
         let transport = FRTransport()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
         let client = makeClient(transport: transport)
 
         do {

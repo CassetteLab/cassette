@@ -9,7 +9,8 @@ import Foundation
 
 // MARK: - Helpers
 
-actor RecordingTransport: ListenBrainzTransport {
+@MainActor
+final class RecordingTransport: ListenBrainzTransport {
     private(set) var requests: [URLRequest] = []
     private let status: Int
     private let body: Data
@@ -26,7 +27,8 @@ actor RecordingTransport: ListenBrainzTransport {
     }
 }
 
-actor SubmitMockKeychain: KeychainServiceProtocol {
+@MainActor
+final class SubmitMockKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
 
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
@@ -101,7 +103,7 @@ struct LBSubmitPlayingNowTests {
         let client = ListenBrainzClient(transport: transport)
         try await client.submitPlayingNow(track: LBTrackMetadata(from: makeSong()), rootURL: defaultRoot, token: "tok")
 
-        let req = try #require(await transport.requests.first)
+        let req = try #require(transport.requests.first)
         #expect(req.httpMethod == "POST")
         #expect(req.url?.path == "/1/submit-listens")
 
@@ -118,7 +120,7 @@ struct LBSubmitPlayingNowTests {
         let client = ListenBrainzClient(transport: transport)
         try await client.submitPlayingNow(track: LBTrackMetadata(from: makeSong()), rootURL: defaultRoot, token: "secret_token")
 
-        let req = try #require(await transport.requests.first)
+        let req = try #require(transport.requests.first)
         #expect(req.value(forHTTPHeaderField: "Authorization") == "Token secret_token")
         #expect(req.value(forHTTPHeaderField: "Content-Type") == "application/json")
     }
@@ -129,7 +131,7 @@ struct LBSubmitPlayingNowTests {
         let client = ListenBrainzClient(transport: transport)
         try await client.submitPlayingNow(track: LBTrackMetadata(from: makeSong()), rootURL: defaultRoot, token: "tok")
 
-        let req = try #require(await transport.requests.first)
+        let req = try #require(transport.requests.first)
         let dict = try JSONSerialization.jsonObject(with: req.httpBody ?? Data()) as? [String: Any]
         let meta = (dict?["payload"] as? [[String: Any]])?.first?["track_metadata"] as? [String: Any]
         #expect(meta?["track_name"] as? String == "Paranoid Android")
@@ -144,7 +146,7 @@ struct LBSubmitPlayingNowTests {
         let selfHosted = URL(string: "https://my.server/lb")!
         try await client.submitPlayingNow(track: LBTrackMetadata(from: makeSong()), rootURL: selfHosted, token: "tok")
 
-        let req = try #require(await transport.requests.first)
+        let req = try #require(transport.requests.first)
         #expect(req.url?.absoluteString == "https://my.server/lb/1/submit-listens")
     }
 }
@@ -165,7 +167,7 @@ struct LBSubmitListenTests {
             token: "tok"
         )
 
-        let req = try #require(await transport.requests.first)
+        let req = try #require(transport.requests.first)
         let dict = try JSONSerialization.jsonObject(with: req.httpBody ?? Data()) as? [String: Any]
         #expect(dict?["listen_type"] as? String == "single")
         let payload = (dict?["payload"] as? [[String: Any]])?.first
@@ -191,7 +193,7 @@ struct LBSubmitListenTests {
             token: "tok"
         )
 
-        let req = try #require(await transport.requests.first)
+        let req = try #require(transport.requests.first)
         let dict = try JSONSerialization.jsonObject(with: req.httpBody ?? Data()) as? [String: Any]
         let meta = (dict?["payload"] as? [[String: Any]])?.first?["track_metadata"] as? [String: Any]
         #expect(meta?["release_name"] == nil)
@@ -216,7 +218,7 @@ struct LBSubmissionGatingTests {
         let transport = RecordingTransport(status: 200)
         let (service, _, _) = makeService(transport: transport)
         await service.notifyTrackStarted(song: makeSong())
-        let count = await transport.requests.count
+        let count = transport.requests.count
         #expect(count == 0)
     }
 
@@ -225,7 +227,7 @@ struct LBSubmissionGatingTests {
         let transport = RecordingTransport(status: 200)
         let (service, _, _) = makeService(transport: transport)
         await service.notifyScrobbleThreshold(song: makeSong(), startDate: Date())
-        let count = await transport.requests.count
+        let count = transport.requests.count
         #expect(count == 0)
     }
 
@@ -235,9 +237,9 @@ struct LBSubmissionGatingTests {
         let (service, _, _) = makeService(transport: transport)
         try await service.validateAndSaveScrobblingToken("tok", rootURL: defaultRoot)
         await service.disableScrobbling()
-        let countBeforeNotify = await transport.requests.count
+        let countBeforeNotify = transport.requests.count
         await service.notifyTrackStarted(song: makeSong())
-        let countAfterNotify = await transport.requests.count
+        let countAfterNotify = transport.requests.count
         // Only the validateToken call was made; notifyTrackStarted added nothing.
         #expect(countAfterNotify == countBeforeNotify)
     }
@@ -248,7 +250,7 @@ struct LBSubmissionGatingTests {
         let (service, _, _) = makeService(transport: transport)
         try await service.validateAndSaveScrobblingToken("tok", rootURL: defaultRoot)
         await service.notifyTrackStarted(song: makeSong())
-        let requests = await transport.requests
+        let requests = transport.requests
         // requests[0] = validateToken, requests[1] = submitPlayingNow
         #expect(requests.count == 2)
         #expect(requests.last?.url?.path.hasSuffix("/1/submit-listens") == true)

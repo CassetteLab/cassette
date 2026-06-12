@@ -10,7 +10,8 @@ import Foundation
 // MARK: - Flexible mock transport
 
 /// Queue-based transport: enqueue responses in order. Throws URLError if queue is empty.
-private actor FlexibleTransport: ListenBrainzTransport {
+@MainActor
+private final class FlexibleTransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(status: Int, headers: [String: String]? = nil) {
@@ -32,7 +33,8 @@ private actor FlexibleTransport: ListenBrainzTransport {
 
 // MARK: - Mock keychain (LB-specific to avoid collision with ServerServiceTests.MockKeychain)
 
-private actor LBMockKeychain: KeychainServiceProtocol {
+@MainActor
+private final class LBMockKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
 
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
@@ -70,7 +72,7 @@ struct ListenBrainzServiceEnableTests {
     @Test("happy path: transitions to .valid, persists username, flips isEnabled")
     func enableHappyPath() async throws {
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 200)
+        transport.enqueue(status: 200)
         let (service, keychain, defaults) = makeComponents(transport: transport)
 
         let initial = await service.currentSnapshot()
@@ -92,7 +94,7 @@ struct ListenBrainzServiceEnableTests {
     @Test("user not found: stays disabled, username not persisted, status .invalid")
     func enableUserNotFound() async throws {
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
         let (service, keychain, defaults) = makeComponents(transport: transport)
 
         do {
@@ -124,7 +126,7 @@ struct ListenBrainzServiceDisableTests {
     @Test("isEnabled flips to false; username remains in Keychain")
     func disableKeepsKeychain() async throws {
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 200)
+        transport.enqueue(status: 200)
         let (service, keychain, _) = makeComponents(transport: transport)
 
         try await service.enable(username: "keepme")
@@ -147,7 +149,7 @@ struct ListenBrainzServiceClearTests {
     @Test("purges username, isEnabled, and validationStatus")
     func clearCredentialsPurgesAll() async throws {
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 200)
+        transport.enqueue(status: 200)
         let (service, keychain, defaults) = makeComponents(transport: transport)
 
         try await service.enable(username: "clearme")
@@ -180,8 +182,8 @@ struct ListenBrainzServiceRevalidateTests {
     @Test("with stored username: re-validates via network, transitions to .valid")
     func revalidateWithUsername() async throws {
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 200) // for enable
-        await transport.enqueue(status: 200) // for revalidate
+        transport.enqueue(status: 200) // for enable
+        transport.enqueue(status: 200) // for revalidate
         let (service, _, _) = makeComponents(transport: transport)
 
         try await service.enable(username: "myuser")
@@ -194,8 +196,8 @@ struct ListenBrainzServiceRevalidateTests {
     @Test("with stored username and network failure: transitions to .invalid")
     func revalidateNetworkFailure() async throws {
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 200) // for enable
-        await transport.enqueue(status: 404) // user disappeared
+        transport.enqueue(status: 200) // for enable
+        transport.enqueue(status: 404) // user disappeared
         let (service, _, _) = makeComponents(transport: transport)
 
         try await service.enable(username: "myuser")
@@ -223,7 +225,7 @@ struct ListenBrainzServiceCanaryTests {
     func usernameNotLeakedInDescriptions() async throws {
         let canary = "CANARY_USER_DO_NOT_LEAK_42"
         let transport = FlexibleTransport()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
         let (service, _, _) = makeComponents(transport: transport)
 
         var caughtError: (any Error)?

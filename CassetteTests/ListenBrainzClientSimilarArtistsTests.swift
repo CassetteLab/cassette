@@ -33,7 +33,8 @@ private let malformedEntryJSON = Data("""
 
 // MARK: - Transports
 
-private actor CLCountingTransport: ListenBrainzTransport {
+@MainActor
+private final class CLCountingTransport: ListenBrainzTransport {
     private(set) var callCount = 0
     private(set) var lastRequest: URLRequest?
     private var queue: [(Data, HTTPURLResponse)] = []
@@ -64,7 +65,7 @@ struct ListenBrainzClientSimilarArtistsTests {
     @Test("200 response with valid JSON returns parsed artist list")
     func happyPathReturnsParsedArtists() async throws {
         let transport = CLCountingTransport()
-        await transport.enqueue(data: validSimilarArtistsJSON, status: 200)
+        transport.enqueue(data: validSimilarArtistsJSON, status: 200)
         let client = ListenBrainzClient(transport: transport)
 
         let artists = try await client.similarArtists(mbid: "bowie-mbid")
@@ -74,13 +75,13 @@ struct ListenBrainzClientSimilarArtistsTests {
         #expect(artists[0].artistMbid == "mb-brian")
         #expect(artists[0].score == 3389)
         #expect(artists[1].name == "Iggy Pop")
-        #expect(await transport.callCount == 1)
+        #expect(transport.callCount == 1)
     }
 
     @Test("404 returns empty array without throwing")
     func notFoundReturnsEmpty() async throws {
         let transport = CLCountingTransport()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
         let client = ListenBrainzClient(transport: transport)
 
         let artists = try await client.similarArtists(mbid: "unknown-mbid")
@@ -90,7 +91,7 @@ struct ListenBrainzClientSimilarArtistsTests {
     @Test("429 throws rateLimited error")
     func rateLimitedThrows() async throws {
         let transport = CLCountingTransport()
-        await transport.enqueue(status: 429)
+        transport.enqueue(status: 429)
         let client = ListenBrainzClient(transport: transport)
 
         var caught: Error?
@@ -107,7 +108,7 @@ struct ListenBrainzClientSimilarArtistsTests {
     @Test("500 throws httpError")
     func serverErrorThrows() async throws {
         let transport = CLCountingTransport()
-        await transport.enqueue(status: 500)
+        transport.enqueue(status: 500)
         let client = ListenBrainzClient(transport: transport)
 
         var caught: Error?
@@ -124,7 +125,7 @@ struct ListenBrainzClientSimilarArtistsTests {
     @Test("malformed entry in array is silently skipped; valid sibling preserved")
     func malformedEntrySkippedValidPreserved() async throws {
         let transport = CLCountingTransport()
-        await transport.enqueue(data: malformedEntryJSON, status: 200)
+        transport.enqueue(data: malformedEntryJSON, status: 200)
         let client = ListenBrainzClient(transport: transport)
 
         let artists = try await client.similarArtists(mbid: "some-mbid")
@@ -138,12 +139,12 @@ struct ListenBrainzClientSimilarArtistsTests {
     func requestSentToCorrectHost() async throws {
         let mbid = "5441c29d-3602-4898-b1a1-b77fa23b8e50"
         let transport = CLCountingTransport()
-        await transport.enqueue(data: validSimilarArtistsJSON, status: 200)
+        transport.enqueue(data: validSimilarArtistsJSON, status: 200)
         let client = ListenBrainzClient(transport: transport)
 
         _ = try await client.similarArtists(mbid: mbid)
 
-        let req = await transport.lastRequest
+        let req = transport.lastRequest
         let urlString = req?.url?.absoluteString ?? ""
         #expect(urlString.contains("listenbrainz.org"))
         #expect(urlString.contains(mbid))

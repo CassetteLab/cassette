@@ -11,7 +11,8 @@ import Foundation
 
 /// Transport whose responses are consumed in declaration order.
 /// Remaining calls after the list is exhausted fall back to `fallbackStatus`.
-private actor ProgrammableTransport: ListenBrainzTransport {
+@MainActor
+private final class ProgrammableTransport: ListenBrainzTransport {
     private var scheduled: [(status: Int, body: Data)]
     private(set) var requests: [URLRequest] = []
     let fallbackStatus: Int
@@ -245,7 +246,7 @@ struct QueueFlushTests {
         await service.flushOfflineQueue()
         #expect(await service.pendingListenCount == 0)
 
-        let reqs = await transport.requests
+        let reqs = transport.requests
         let flushReq = try #require(reqs.last)
         let body = try JSONSerialization.jsonObject(with: flushReq.httpBody ?? Data()) as? [String: Any]
         #expect(body?["listen_type"] as? String == "import")
@@ -268,7 +269,7 @@ struct QueueFlushTests {
         await service.notifyScrobbleThreshold(song: makeSong(duration: 154), startDate: Date())
         await service.flushOfflineQueue()
 
-        let reqs = await transport.requests
+        let reqs = transport.requests
         let body = try JSONSerialization.jsonObject(with: reqs.last?.httpBody ?? Data()) as? [String: Any]
         let meta = (body?["payload"] as? [[String: Any]])?.first?["track_metadata"] as? [String: Any]
         let info = meta?["additional_info"] as? [String: Any]
@@ -308,7 +309,7 @@ struct QueueFlushTests {
         let transport = ProgrammableTransport([(200, validTokenBody)])
         let service = try await configuredService(validateTransport: transport, queueFileURL: fileURL)
         await service.flushOfflineQueue()
-        let reqs = await transport.requests
+        let reqs = transport.requests
         // Only the validateToken call should exist; no submitImport request.
         #expect(reqs.count == 1)
     }
@@ -325,7 +326,7 @@ struct QueueFlushTests {
         // Queue unchanged — flush was gated; no submitImport request made.
         let count = await service.pendingListenCount
         #expect(count == 1)
-        let reqCount = await transport.requests.count
+        let reqCount = transport.requests.count
         #expect(reqCount == 2)  // validateToken + failed submitListen
     }
 }

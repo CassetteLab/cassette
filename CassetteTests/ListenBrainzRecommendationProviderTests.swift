@@ -11,7 +11,8 @@ import SwiftSonic
 // MARK: - Shared mock infrastructure
 
 // Transport that counts calls and serves a queue of (Data, HTTPURLResponse) pairs.
-private actor PRCountingTransport: ListenBrainzTransport {
+@MainActor
+private final class PRCountingTransport: ListenBrainzTransport {
     private(set) var callCount = 0
     private var queue: [(Data, HTTPURLResponse)] = []
 
@@ -33,7 +34,8 @@ private actor PRCountingTransport: ListenBrainzTransport {
 }
 
 // Separate transport for the service client used by `enable()` calls.
-private actor PRServiceTransport: ListenBrainzTransport {
+@MainActor
+private final class PRServiceTransport: ListenBrainzTransport {
     private var queue: [(Data, HTTPURLResponse)] = []
 
     func enqueue(status: Int) {
@@ -53,7 +55,8 @@ private actor PRServiceTransport: ListenBrainzTransport {
     }
 }
 
-private actor PRKeychain: KeychainServiceProtocol {
+@MainActor
+private final class PRKeychain: KeychainServiceProtocol {
     private var storage: [String: Data] = [:]
 
     func store<T: Codable & Sendable>(_ value: T, forKey key: String) async throws {
@@ -79,7 +82,8 @@ private struct PRNeverCalledTransport: ListenBrainzTransport {
 }
 
 // Null library stub — safe defaults, never actually called in fresh releases tests.
-private actor PRLibraryNullStub: LibraryServiceProtocol {
+@MainActor
+private final class PRLibraryNullStub: LibraryServiceProtocol {
     func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
     func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
     func album(id: String) async throws -> AlbumID3 { throw URLError(.unknown) }
@@ -107,7 +111,8 @@ private actor PRLibraryNullStub: LibraryServiceProtocol {
 }
 
 // Configurable library stub for similar artists tests.
-private actor PRLibraryConfigurableStub: LibraryServiceProtocol {
+@MainActor
+private final class PRLibraryConfigurableStub: LibraryServiceProtocol {
     private var mbidResult: Result<String?, Error> = .success(nil)
     private var artistsByName: [String: ArtistID3] = [:]
 
@@ -284,12 +289,12 @@ struct LBProviderHappyPathTests {
     @Test("enabled service with username returns mapped AlbumRecommendations")
     func happyPathReturnsResults() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)  // for enable() validation
+        serviceTransport.enqueue(status: 200)  // for enable() validation
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 10, daysWindow: 90)
@@ -301,19 +306,19 @@ struct LBProviderHappyPathTests {
         #expect(results[0].id == "rrrrrrrr-gggg-mmmm-bbbb-iiiiiiiiiiii")
         let expectedURL = URL(string: "https://coverartarchive.org/release/cccccccc-aaaa-bbbb-cccc-aaaaaaaaaaaa/111222333-250.jpg")
         #expect(results[0].coverArtURL == expectedURL)
-        #expect(await providerTransport.callCount == 1)
+        #expect(providerTransport.callCount == 1)
     }
 
     @Test("limit keeps most recent releases, not arrival order")
     func limitKeepsMostRecent() async throws {
         // LB returns 5 releases oldest-first. With limit=3 we must get the 3 newest.
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: fiveReleasesOldestFirstJSON, status: 200)
+        providerTransport.enqueue(data: fiveReleasesOldestFirstJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 3, daysWindow: 90)
@@ -327,12 +332,12 @@ struct LBProviderHappyPathTests {
     func nilDateSortedLastCutByLimit() async throws {
         // 3 releases: May (dated), nil (no date), Apr (dated). limit=2 must drop the nil one.
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: twoDatedOneNilJSON, status: 200)
+        providerTransport.enqueue(data: twoDatedOneNilJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 2, daysWindow: 90)
@@ -345,7 +350,7 @@ struct LBProviderHappyPathTests {
     @Test("limit parameter trims results")
     func limitTrimsResults() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
@@ -360,7 +365,7 @@ struct LBProviderHappyPathTests {
         }
         """.utf8)
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: twoReleasesJSON, status: 200)
+        providerTransport.enqueue(data: twoReleasesJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 1, daysWindow: 90)
@@ -376,30 +381,30 @@ struct LBProviderCacheTests {
     @Test("cache hit within TTL makes only one network call for two requests")
     func cacheHitOneNetworkCall() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service, cacheTTL: 3600)
 
         _ = try await provider.freshReleases(limit: 10, daysWindow: 90)
         _ = try await provider.freshReleases(limit: 10, daysWindow: 90)
 
-        #expect(await providerTransport.callCount == 1)
+        #expect(providerTransport.callCount == 1)
     }
 
     @Test("cache miss after TTL expiry makes two network calls")
     func cacheMissAfterExpiry() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)
         // TTL of 0.01s (10ms)
         let provider = makeProvider(providerTransport: providerTransport, service: service, cacheTTL: 0.01)
 
@@ -407,19 +412,19 @@ struct LBProviderCacheTests {
         try await Task.sleep(nanoseconds: 50_000_000)  // 50ms — lets the 10ms TTL expire
         _ = try await provider.freshReleases(limit: 10, daysWindow: 90)
 
-        #expect(await providerTransport.callCount == 2)
+        #expect(providerTransport.callCount == 2)
     }
 
     @Test("username change invalidates cache and triggers a new network call")
     func usernameChangeInvalidatesCache() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)  // enable user1
-        await serviceTransport.enqueue(status: 200)  // enable user2
+        serviceTransport.enqueue(status: 200)  // enable user1
+        serviceTransport.enqueue(status: 200)  // enable user2
         let service = makeService(serviceTransport: serviceTransport)
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // first freshReleases
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // second freshReleases
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // first freshReleases
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // second freshReleases
         let provider = makeProvider(providerTransport: providerTransport, service: service, cacheTTL: 3600)
 
         try await service.enable(username: "user1")
@@ -428,7 +433,7 @@ struct LBProviderCacheTests {
         try await service.enable(username: "user2")
         _ = try await provider.freshReleases(limit: 10, daysWindow: 90)
 
-        #expect(await providerTransport.callCount == 2)
+        #expect(providerTransport.callCount == 2)
     }
 }
 
@@ -440,12 +445,12 @@ struct LBProviderErrorTests {
     @Test("userNotFound from client returns empty gracefully without rethrowing")
     func userNotFoundGraceful() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(status: 404)  // simulates stale username on LB side
+        providerTransport.enqueue(status: 404)  // simulates stale username on LB side
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 10, daysWindow: 90)
@@ -455,7 +460,7 @@ struct LBProviderErrorTests {
     @Test("network error from client is rethrown")
     func networkErrorPropagates() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
@@ -484,7 +489,7 @@ struct LBProviderMappingTests {
     @Test("cover URL uses CAA when caaId and caaReleaseMbid are present")
     func coverURLWithCAA() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "u")
 
@@ -499,7 +504,7 @@ struct LBProviderMappingTests {
         }
         """.utf8)
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: json, status: 200)
+        providerTransport.enqueue(data: json, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 10, daysWindow: 90)
@@ -509,7 +514,7 @@ struct LBProviderMappingTests {
     @Test("cover URL falls back to release-group when caaId is absent")
     func coverURLFallbackToReleaseGroup() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "u")
 
@@ -522,7 +527,7 @@ struct LBProviderMappingTests {
         }
         """.utf8)
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: json, status: 200)
+        providerTransport.enqueue(data: json, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 10, daysWindow: 90)
@@ -532,12 +537,12 @@ struct LBProviderMappingTests {
     @Test("cover URL is nil when no mbid or caa fields are present")
     func coverURLNilWhenNoIds() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "u")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: noMbidJSON, status: 200)
+        providerTransport.enqueue(data: noMbidJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 10, daysWindow: 90)
@@ -547,12 +552,12 @@ struct LBProviderMappingTests {
     @Test("malformed release_date yields nil releaseDate; valid entry in same response is preserved")
     func malformedDateNilOtherPreserved() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "u")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: twoReleasesWithBadDateJSON, status: 200)
+        providerTransport.enqueue(data: twoReleasesWithBadDateJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service)
 
         let results = try await provider.freshReleases(limit: 10, daysWindow: 90)
@@ -572,36 +577,36 @@ struct LBProviderWindowTests {
     @Test("two different daysWindow values produce two network calls (cache not shared)")
     func differentWindowsMakeTwoNetworkCalls() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // daysWindow: 7
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // daysWindow: 90
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // daysWindow: 7
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)  // daysWindow: 90
         let provider = makeProvider(providerTransport: providerTransport, service: service, cacheTTL: 3600)
 
         _ = try await provider.freshReleases(limit: 10, daysWindow: 7)
         _ = try await provider.freshReleases(limit: 10, daysWindow: 90)
 
-        #expect(await providerTransport.callCount == 2)
+        #expect(providerTransport.callCount == 2)
     }
 
     @Test("same daysWindow used twice hits cache and makes only one network call")
     func sameWindowTwiceUsesCache() async throws {
         let serviceTransport = PRServiceTransport()
-        await serviceTransport.enqueue(status: 200)
+        serviceTransport.enqueue(status: 200)
         let service = makeService(serviceTransport: serviceTransport)
         try await service.enable(username: "testuser")
 
         let providerTransport = PRCountingTransport()
-        await providerTransport.enqueue(data: singleReleaseJSON, status: 200)
+        providerTransport.enqueue(data: singleReleaseJSON, status: 200)
         let provider = makeProvider(providerTransport: providerTransport, service: service, cacheTTL: 3600)
 
         _ = try await provider.freshReleases(limit: 10, daysWindow: 7)
         _ = try await provider.freshReleases(limit: 10, daysWindow: 7)
 
-        #expect(await providerTransport.callCount == 1)
+        #expect(providerTransport.callCount == 1)
     }
 }
 
@@ -624,7 +629,7 @@ struct LBProviderSimilarArtistsTests {
     @Test("nil MBID returns empty without LB network call")
     func noMBIDReturnsEmptyNoNetworkCall() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .success(nil))
+        stub.set(mbidResult: .success(nil))
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: PRNeverCalledTransport(), service: service, libraryService: stub)
 
@@ -635,7 +640,7 @@ struct LBProviderSimilarArtistsTests {
     @Test("MBID lookup throws returns empty without LB network call")
     func mbidLookupThrowsReturnsEmpty() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .failure(URLError(.cannotConnectToHost)))
+        stub.set(mbidResult: .failure(URLError(.cannotConnectToHost)))
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: PRNeverCalledTransport(), service: service, libraryService: stub)
 
@@ -646,9 +651,9 @@ struct LBProviderSimilarArtistsTests {
     @Test("LB 404 (artist unknown to LB) returns empty")
     func artistNotInLBReturnsEmpty() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .success("some-mbid"))
+        stub.set(mbidResult: .success("some-mbid"))
         let transport = PRCountingTransport()
-        await transport.enqueue(status: 404)
+        transport.enqueue(status: 404)
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: transport, service: service, libraryService: stub)
 
@@ -659,9 +664,9 @@ struct LBProviderSimilarArtistsTests {
     @Test("happy path maps artists correctly")
     func happyPathMapsCorrectly() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .success("bowie-mbid"))
+        stub.set(mbidResult: .success("bowie-mbid"))
         let transport = PRCountingTransport()
-        await transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
+        transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: transport, service: service, libraryService: stub)
 
@@ -672,17 +677,17 @@ struct LBProviderSimilarArtistsTests {
         #expect(results[0].mbid == "mb-brian")
         #expect(results[1].name == "Roger Waters")
         #expect(results[1].mbid == "mb-roger")
-        #expect(await transport.callCount == 1)
+        #expect(transport.callCount == 1)
     }
 
     @Test("artist found in library is marked inLibrary with Subsonic ID and coverArt")
     func inLibraryEnrichment() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .success("bowie-mbid"))
-        await stub.set(artistsByName: ["Brian May": ArtistID3(id: "ar-brian", name: "Brian May", coverArt: "ca-brian")])
+        stub.set(mbidResult: .success("bowie-mbid"))
+        stub.set(artistsByName: ["Brian May": ArtistID3(id: "ar-brian", name: "Brian May", coverArt: "ca-brian")])
 
         let transport = PRCountingTransport()
-        await transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
+        transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: transport, service: service, libraryService: stub)
 
@@ -698,10 +703,10 @@ struct LBProviderSimilarArtistsTests {
     @Test("artist not in library uses MBID as id and inLibrary is false")
     func notInLibraryEnrichment() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .success("bowie-mbid"))
+        stub.set(mbidResult: .success("bowie-mbid"))
 
         let transport = PRCountingTransport()
-        await transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
+        transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: transport, service: service, libraryService: stub)
 
@@ -717,9 +722,9 @@ struct LBProviderSimilarArtistsTests {
     @Test("limit parameter trims results")
     func limitApplied() async throws {
         let stub = PRLibraryConfigurableStub()
-        await stub.set(mbidResult: .success("bowie-mbid"))
+        stub.set(mbidResult: .success("bowie-mbid"))
         let transport = PRCountingTransport()
-        await transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
+        transport.enqueue(data: twoSimilarArtistsJSON, status: 200)
         let service = makeService(serviceTransport: PRNeverCalledTransport())
         let provider = makeProvider(providerTransport: transport, service: service, libraryService: stub)
 
