@@ -16,6 +16,10 @@ enum CassetteSpacing {
     static let xxl: CGFloat   = 24   // between sections
     static let xxxl: CGFloat  = 32
     static let xxxxl: CGFloat = 48
+
+    /// Bottom scroll margin reserved for the iOS tabViewBottomAccessory mini player,
+    /// which floats over tab content without extending the safe area.
+    static let miniPlayerBottomMargin: CGFloat = 80
 }
 
 // MARK: - Corner radius scale

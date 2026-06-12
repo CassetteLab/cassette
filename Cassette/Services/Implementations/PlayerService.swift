@@ -57,6 +57,10 @@ actor PlayerService: PlayerServiceProtocol {
     /// Stored so pause()/stop() can cancel it before calling setActive(false),
     /// preventing a stale retry from reactivating the session after the user stops.
     private var sessionActivationRetryTask: Task<Void, Never>?
+    /// True when the current interruption began because the output route was disconnected
+    /// (AirPods in case). Per Apple guidance, never auto-resume after such an interruption
+    /// — resuming would route playback to the built-in speaker.
+    private var interruptionWasRouteDisconnect = false
     #endif
 
     private var isHandlingEndOfTrack = false
@@ -318,6 +322,15 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask = nil
         currentSource = source
         pendingRestoreInfo = nil
+        // Starting a new track can interrupt a muted parking play (end-of-queue rewind)
+        // without going through resume()/stop() — cancel the deferred pause and unmute,
+        // otherwise the new track would start silent or get paused 150 ms in.
+        restorePauseTask?.cancel()
+        restorePauseTask = nil
+        if isMutedForRestore {
+            audioPlayer.volume = restoredVolume
+            isMutedForRestore = false
+        }
 
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -412,6 +425,14 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask = nil
         currentSource = source
         pendingRestoreInfo = nil
+        // Same recovery as startPlayback(): a radio start can interrupt a muted
+        // parking play — cancel the deferred pause and unmute before playing.
+        restorePauseTask?.cancel()
+        restorePauseTask = nil
+        if isMutedForRestore {
+            audioPlayer.volume = restoredVolume
+            isMutedForRestore = false
+        }
 
         #if os(iOS)
         configureAudioSessionIfNeeded()
@@ -1439,6 +1460,16 @@ actor PlayerService: PlayerServiceProtocol {
         let problematic: Set<AVAudioSession.Port> = [.airPlay]
         return portTypes.contains(where: { problematic.contains($0) })
     }
+
+    /// Returns true when the route outputs represent a personal listening device whose
+    /// disconnection must auto-pause playback (never continue on the built-in speaker).
+    /// Includes AirPlay/CarPlay so their disconnects keep today's pause behavior.
+    nonisolated static func isPersonalAudioRoute(portTypes: [AVAudioSession.Port]) -> Bool {
+        let personal: Set<AVAudioSession.Port> = [
+            .headphones, .bluetoothA2DP, .bluetoothLE, .bluetoothHFP, .airPlay, .carAudio
+        ]
+        return portTypes.contains(where: { personal.contains($0) })
+    }
     #endif
 
     // MARK: - Play-time accumulator
@@ -1576,6 +1607,11 @@ actor PlayerService: PlayerServiceProtocol {
         currentSource = source
         // Start playing, seek to 0, then pause once the player reaches .playing.
         pendingRestoreInfo = (seekTime: 0, pause: true)
+
+        // Mute the parking play — the engine must reach .playing before restorePauseTask
+        // can pause it; that window would otherwise leak an audible fragment of track 1.
+        audioPlayer.volume = 0
+        isMutedForRestore = true
 
         audioPlayer.play(url: source.url, headers: source.customHeaders)
 
@@ -1816,7 +1852,11 @@ extension PlayerService {
                 guard let self else { return }
                 guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                       let changeReason = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
-                Task { await self.handleRouteChange(changeReason) }
+                // AVAudioSessionRouteDescription is not Sendable — extract the previous
+                // route's port types here on the main queue before hopping to the actor.
+                let previousOutputs = (notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey]
+                    as? AVAudioSessionRouteDescription)?.outputs.map(\.portType) ?? []
+                Task { await self.handleRouteChange(changeReason, previousOutputs: previousOutputs) }
             }
         }
     }
@@ -1827,6 +1867,10 @@ extension PlayerService {
 
         switch type {
         case .began:
+            // Record route-disconnect interruptions (AirPods in case) before any early
+            // return — .ended must never auto-resume those onto the built-in speaker.
+            interruptionWasRouteDisconnect = (notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt)
+                .flatMap(AVAudioSession.InterruptionReason.init(rawValue:)) == .routeDisconnected
             let isPlaying = await MainActor.run { state.playbackState == .playing }
             guard isPlaying else { return }
             // Cancel any active crossfade before the OS steals audio focus.
@@ -1845,11 +1889,13 @@ extension PlayerService {
             let shouldResume = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
                 .flatMap { AVAudioSession.InterruptionOptions(rawValue: $0) }
                 .map { $0.contains(.shouldResume) } ?? false
-            Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public)")
-            if shouldResume {
+            let wasRouteDisconnect = interruptionWasRouteDisconnect
+            interruptionWasRouteDisconnect = false
+            Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public) routeDisconnect=\(wasRouteDisconnect, privacy: .public)")
+            if shouldResume && !wasRouteDisconnect {
                 await resume()
             } else {
-                Logger.player.info("[INTERRUPTION] ended — shouldResume false, staying paused")
+                Logger.player.info("[INTERRUPTION] ended — staying paused")
             }
 
         @unknown default:
@@ -1858,7 +1904,10 @@ extension PlayerService {
     }
 
     // internal: accessible from tests via @testable import
-    func handleRouteChange(_ reason: AVAudioSession.RouteChangeReason) async {
+    func handleRouteChange(
+        _ reason: AVAudioSession.RouteChangeReason,
+        previousOutputs: [AVAudioSession.Port] = []
+    ) async {
         let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
             .map { $0.portType.rawValue }
             .joined(separator: ",")
@@ -1866,8 +1915,17 @@ extension PlayerService {
 
         switch reason {
         case .oldDeviceUnavailable:
-            let isPlaying = await MainActor.run { state.playbackState == .playing }
-            if isPlaying { await pause() }
+            // Personal listening device went away (AirPods in case, headphones unplugged).
+            // Do NOT gate on .playing — the routeDisconnected interruption (iOS 17+) may
+            // already have flipped playbackState to .paused while the engine and session
+            // are still primed to resume on the speaker. pause() is idempotent and also
+            // deactivates the session, which is what actually prevents speaker playback.
+            guard previousOutputs.isEmpty
+                || PlayerService.isPersonalAudioRoute(portTypes: previousOutputs) else { break }
+            let hasActiveTrack = await MainActor.run {
+                state.currentTrack != nil && state.playbackState != .idle
+            }
+            if hasActiveTrack { await pause() }
 
         case .newDeviceAvailable, .routeConfigurationChange:
             try? AVAudioSession.sharedInstance().setActive(true)

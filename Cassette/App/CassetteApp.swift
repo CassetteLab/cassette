@@ -94,6 +94,9 @@ struct CassetteApp: App {
                 guard let newContainer = try? AppContainer() else { return }
                 Logger.boot.notice("🟡 setup() start")
                 await newContainer.setup()
+                // Start reachability before the UI is interactive so serverState.isOnline
+                // is corrected from its optimistic default before any view loads data.
+                newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 Logger.boot.notice("🟡 setup() done — nowPlayingService.start()")
                 await newContainer.nowPlayingService.start()
                 AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
@@ -107,7 +110,6 @@ struct CassetteApp: App {
                 await newContainer.serverService.loadPersistedState()
                 Logger.boot.notice("🟡 loadPersistedState() done — activeServer = \(String(describing: newContainer.serverState.activeServer?.baseURL), privacy: .public)")
                 await newContainer.playerService.restoreSession()
-                newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 Task { await runCoverArtGarbageCollection(container: newContainer) }
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.

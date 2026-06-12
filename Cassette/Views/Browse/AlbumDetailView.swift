@@ -204,6 +204,7 @@ struct AlbumDetailView: View {
             }
         }
         .refreshable { await viewModel?.load() }
+        .miniPlayerBottomMargin()
         .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await viewModel?.deleteDownload() } }
             Button("Cancel", role: .cancel) { }
