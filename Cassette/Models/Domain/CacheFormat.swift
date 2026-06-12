@@ -21,7 +21,7 @@ nonisolated enum CacheFormat: String, CaseIterable, Identifiable, Sendable {
     var displayName: String {
         switch self {
         case .matchStream:  return "Match stream format"
-        case .flacOriginal: return "FLAC (original quality)"
+        case .flacOriginal: return "FLAC"
         case .mp3_320:      return "MP3 320 kbps"
         case .mp3_192:      return "MP3 192 kbps"
         case .opus_128:     return "Opus 128 kbps"
