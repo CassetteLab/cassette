@@ -72,7 +72,7 @@ struct ExternalArtworkCacheTests {
         _ = await cache.image(for: testURL)   // network fetch + memory store
         _ = await cache.image(for: testURL)   // memory hit
 
-        #expect(await fetcher.callCount == 1)
+        #expect(fetcher.callCount == 1)
     }
 
     // MARK: Disk cache
@@ -85,7 +85,7 @@ struct ExternalArtworkCacheTests {
         let fetcher1 = CountingFetcher(data: validImageData)
         let cache1 = makeCache(dir: dir, fetcher: fetcher1)
         _ = await cache1.image(for: testURL)
-        #expect(await fetcher1.callCount == 1)
+        #expect(fetcher1.callCount == 1)
 
         // New instance = fresh memory cache, same dir, failing fetcher
         let fetcher2 = CountingFetcher(throwing: URLError(.timedOut))
@@ -93,7 +93,7 @@ struct ExternalArtworkCacheTests {
         let result = await cache2.image(for: testURL)
 
         #expect(result != nil)
-        #expect(await fetcher2.callCount == 0)
+        #expect(fetcher2.callCount == 0)
     }
 
     @Test("expired disk entry triggers re-fetch and re-writes disk")
@@ -110,7 +110,7 @@ struct ExternalArtworkCacheTests {
         let cache2 = makeCache(dir: dir, fetcher: fetcher2, ttl: 0)
         _ = await cache2.image(for: testURL)
 
-        #expect(await fetcher2.callCount == 1)
+        #expect(fetcher2.callCount == 1)
     }
 
     // MARK: Fetch failure
