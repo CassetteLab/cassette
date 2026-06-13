@@ -135,11 +135,22 @@ struct AlbumDetailView: View {
     }
 
     private func displaySongs() -> [DisplayableSong] {
-        guard mode == .downloadedOnly else { return viewModel?.songs ?? [] }
-        if let vm = viewModel, vm.error == nil, !vm.songs.isEmpty {
-            return filteredSongs(vm.songs)
+        switch mode {
+        case .downloadedOnly:
+            if let vm = viewModel, vm.error == nil, !vm.songs.isEmpty {
+                return filteredSongs(vm.songs)
+            }
+            return offlineFallbackSongs
+        case .full:
+            // Prefer the VM's catalog list, but back-stop with downloaded tracks whenever
+            // the VM produced nothing — whether it errored OR returned an empty-success
+            // payload (captive proxy / Cloudflare-WARP). This is the view-level safety net
+            // that keeps a downloaded album readable through normal nav, not just Downloads.
+            if let vm = viewModel, !vm.songs.isEmpty {
+                return vm.songs
+            }
+            return offlineFallbackSongs
         }
-        return offlineFallbackSongs
     }
 
     var body: some View {

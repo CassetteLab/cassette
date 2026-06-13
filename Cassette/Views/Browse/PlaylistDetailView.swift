@@ -25,6 +25,8 @@ struct PlaylistDetailView: View {
         self.initialCoverImage = initialCoverImage
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
+        let pid = playlist.id
+        _downloadedPlaylistMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
         _dominantColor = State(initialValue: initialDominantColor)
         _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
@@ -37,6 +39,8 @@ struct PlaylistDetailView: View {
         self.initialCoverImage = initialCoverImage
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
+        let pid = playlist.playlistId
+        _downloadedPlaylistMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
         _dominantColor = State(initialValue: initialDominantColor)
         _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
@@ -49,6 +53,8 @@ struct PlaylistDetailView: View {
         self.initialCoverImage = initialCoverImage
         self.zoomSourceId = zoomSourceId
         self.zoomNamespace = zoomNamespace
+        let pid = playlistId
+        _downloadedPlaylistMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
         _dominantColor = State(initialValue: initialDominantColor)
         _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
@@ -70,6 +76,14 @@ struct PlaylistDetailView: View {
     @State private var isSaving = false
     @State private var coverRefreshID = UUID()
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
+
+    // View-level offline backstop: sources the song list straight from SwiftData when the
+    // view model produced nothing (empty-success or error). Mirrors AlbumDetailView's
+    // downloaded fallback so a downloaded playlist stays readable independent of the
+    // network, the VM, and connectivity detection. Keyed on playlistId here; serverId is
+    // applied at read time since it isn't known at init.
+    @Query private var downloadedPlaylistMatches: [DownloadedPlaylist]
+    @Query private var allDownloadedTracks: [DownloadedTrack]
 
     #if os(iOS)
     private enum CoverPickerSource: Identifiable {
@@ -102,6 +116,25 @@ struct PlaylistDetailView: View {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
 
+    /// Downloaded tracks reconstructed from SwiftData in playlist order, independent of the
+    /// view model. Used as the offline backstop when `viewModel.songs` is empty.
+    private var downloadedFallbackSongs: [DisplayableSong] {
+        guard let serverId = container?.serverState.activeServer?.id,
+              let record = downloadedPlaylistMatches.first(where: { $0.serverId == serverId })
+        else { return [] }
+        let bySongId = Dictionary(
+            allDownloadedTracks.filter { $0.serverId == serverId }.map { ($0.songId, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        return record.songIds.compactMap { bySongId[$0] }.map { DisplayableSong(from: $0) }
+    }
+
+    /// Prefer the view model's list; fall back to the downloaded copy when it is empty.
+    private func resolvedSongs(_ vm: PlaylistDetailViewModel?) -> [DisplayableSong] {
+        if let songs = vm?.songs, !songs.isEmpty { return songs }
+        return downloadedFallbackSongs
+    }
+
     var body: some View {
         // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove).
         // ScrollView + LazyVStack refactor is deferred until that interaction is re-implemented outside List.
@@ -114,7 +147,8 @@ struct PlaylistDetailView: View {
             if isLoadingSkeleton {
                 skeletonRows
             } else if let vm = viewModel {
-                if let error = vm.error, vm.songs.isEmpty {
+                let songs = resolvedSongs(vm)
+                if songs.isEmpty, let error = vm.error {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Playlist",
@@ -123,7 +157,7 @@ struct PlaylistDetailView: View {
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                } else if vm.songs.isEmpty {
+                } else if songs.isEmpty {
                     EmptyStateView(
                         systemImage: "music.note.list",
                         title: "Empty Playlist",
@@ -134,7 +168,7 @@ struct PlaylistDetailView: View {
                 } else {
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
                     PlaylistSongRows(
-                        songs: vm.songs,
+                        songs: songs,
                         serverId: serverId,
                         downloadingIds: vm.downloadingIds,
                         titleColor: headerTextColor,
@@ -142,7 +176,7 @@ struct PlaylistDetailView: View {
                         onTap: { index in
                             Task {
                                 do {
-                                    try await container?.playerService.play(tracks: vm.songs, startIndex: index)
+                                    try await container?.playerService.play(tracks: songs, startIndex: index)
                                 } catch {
                                     Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
                                 }
@@ -560,8 +594,9 @@ struct PlaylistDetailView: View {
                     }
                     if vm == nil {
                         SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
-                    } else if let vm {
-                        Text("\(vm.songs.count) track\(vm.songs.count == 1 ? "" : "s")")
+                    } else if vm != nil {
+                        let count = resolvedSongs(vm).count
+                        Text("\(count) track\(count == 1 ? "" : "s")")
                             .font(.cassetteCaption)
                             .foregroundStyle(headerSecondaryColor.opacity(0.8))
                     }
@@ -574,7 +609,7 @@ struct PlaylistDetailView: View {
                     Button {
                         HapticFeedback.medium.trigger()
                         Task {
-                            let shuffled = vm?.songs.shuffled() ?? []
+                            let shuffled = resolvedSongs(vm).shuffled()
                             guard !shuffled.isEmpty else { return }
                             try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
                         }
@@ -584,15 +619,16 @@ struct PlaylistDetailView: View {
                             .foregroundStyle(heroIconColor)
                             .cassetteGlassButton(size: 44)
                     }
-                    .disabled(vm?.songs.isEmpty != false)
+                    .disabled(resolvedSongs(vm).isEmpty)
                     .opacity(vm == nil ? 0.4 : 1)
 
                     PlayButton(action: {
                         Task {
-                            guard let songs = vm?.songs, !songs.isEmpty else { return }
+                            let songs = resolvedSongs(vm)
+                            guard !songs.isEmpty else { return }
                             try? await container?.playerService.play(tracks: songs, startIndex: 0)
                         }
-                    }, isDisabled: (vm?.songs.isEmpty == true) || (vm?.isDownloadingPlaylist == true), accentColor: heroIconColor)
+                    }, isDisabled: resolvedSongs(vm).isEmpty || (vm?.isDownloadingPlaylist == true), accentColor: heroIconColor)
                     .frame(maxWidth: 400)
 
                     if vm?.isOffline != true {
