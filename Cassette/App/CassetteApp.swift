@@ -102,6 +102,7 @@ struct CassetteApp: App {
                 AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
                 AppContainer.sweepLegacyCoverArtFiles()
                 Task { await AppContainer.migrateAudioExtensionsIfNeeded(modelContainer: newContainer.modelContainer, cacheService: newContainer.cacheService) }
+                Task { await AppContainer.migrateM4AFaststartIfNeeded(modelContainer: newContainer.modelContainer) }
                 Logger.boot.notice("🟡 container = newContainer (views will render)")
                 container = newContainer
                 Logger.boot.notice("🟡 loadPersistedState() start")

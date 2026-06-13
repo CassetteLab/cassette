@@ -334,6 +334,44 @@ extension AppContainer {
         Logger.migration.info("[ExtMigration] Complete: \(renamedCount) renamed, \(skippedCount) skipped")
     }
 
+    private static let m4aFaststartMigrationKey = "cassette.m4aFaststartMigration_v1"
+
+    /// One-shot migration that faststart-remuxes already-downloaded m4a tracks so they play
+    /// offline through AudioStreaming (which cannot open non-faststart M4A). Idempotent,
+    /// versioned, fire-and-forget at boot — mirrors `migrateAudioExtensionsIfNeeded`.
+    ///
+    /// CRITICAL difference from the .mpeg rename migration: a remux REWRITES the file bytes,
+    /// so `DownloadedTrack.fileSize` MUST be refreshed from the remuxed file. Otherwise
+    /// `downloadedURL`'s `diskSize == fileSize` validity guard rejects the remuxed file and the
+    /// track becomes unplayable. Scope: DownloadedTrack only (ephemeral CachedTrack is Phase 2).
+    static func migrateM4AFaststartIfNeeded(modelContainer: ModelContainer) async {
+        guard !UserDefaults.standard.bool(forKey: m4aFaststartMigrationKey) else { return }
+
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let downloadsDir = docs.appendingPathComponent("app.cassette/downloads", isDirectory: true)
+
+        let ctx = ModelContext(modelContainer)
+        let tracks = (try? ctx.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+        let remuxer = AudioFaststartRemuxer()
+
+        var remuxedCount = 0
+        for track in tracks {
+            let fileURL = downloadsDir.appendingPathComponent(track.filePath)
+            guard ["m4a", "mp4", "m4b"].contains(fileURL.pathExtension.lowercased()) else { continue }
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
+            if case .remuxed = await remuxer.remuxToFaststartIfNeeded(at: fileURL) {
+                // Bytes changed — keep fileSize in sync with the validity guard.
+                let newSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? track.fileSize
+                track.fileSize = newSize
+                remuxedCount += 1
+            }
+        }
+
+        try? ctx.save()
+        UserDefaults.standard.set(true, forKey: m4aFaststartMigrationKey)
+        Logger.migration.info("[M4AFaststart] Complete: \(remuxedCount) remuxed of \(tracks.count) track(s)")
+    }
+
     private static func audioExtFromMime(_ mimeType: String) -> String {
         switch mimeType.lowercased() {
         case "audio/mpeg", "audio/mp3":        return "mp3"
