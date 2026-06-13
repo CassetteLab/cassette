@@ -238,6 +238,14 @@ actor DownloadService: DownloadServiceProtocol {
         }
         try FileManager.default.moveItem(at: tempURL, to: fileURL)
 
+        // Faststart-remux non-faststart m4a in place so AudioStreaming can play it offline
+        // (lossless passthrough; no-op for every other format). MUST run before the fileSize
+        // read below so DownloadedTrack.fileSize matches the on-disk (remuxed) file — otherwise
+        // downloadedURL's size-validity guard would reject the remuxed file as a mismatch.
+        if case .remuxed = await AudioFaststartRemuxer().remuxToFaststartIfNeeded(at: fileURL) {
+            Logger.download.info("Faststart-remuxed m4a download '\(song.id, privacy: .public)'")
+        }
+
         // Capture only Sendable values for the MainActor closure.
         let songId = song.id
         let albumId = song.albumId
