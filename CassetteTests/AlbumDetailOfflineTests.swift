@@ -14,7 +14,13 @@ import SwiftSonic
 /// reach the server; loadFromAPI's failure is the trigger under test.
 @MainActor
 private final class ADLibraryStub: LibraryServiceProtocol {
-    func album(id: String) async throws -> AlbumID3 { throw URLError(.notConnectedToInternet) }
+    /// When set, `album(id:)` returns this instead of throwing — used to drive the
+    /// empty-but-successful (200, no songs) path that the catch block can't catch.
+    var albumResult: AlbumID3?
+    func album(id: String) async throws -> AlbumID3 {
+        if let albumResult { return albumResult }
+        throw URLError(.notConnectedToInternet)
+    }
     func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
     func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
     func fetchAllTracks(forArtistID artistID: String) async throws -> [DisplayableSong] { throw URLError(.unknown) }
@@ -86,7 +92,7 @@ struct AlbumDetailOfflineTests {
         )
     }
 
-    private func makeVM(albumData: LocalAlbumData?, isOnline: Bool) -> AlbumDetailViewModel {
+    private func makeVM(albumData: LocalAlbumData?, isOnline: Bool, apiAlbum: AlbumID3? = nil) -> AlbumDetailViewModel {
         let state = ServerState()
         state.isOnline = isOnline
         state.activeServer = ServerSnapshot(from: ServerConfig(
@@ -94,13 +100,31 @@ struct AlbumDetailOfflineTests {
         ))
         let download = ADDownloadStub()
         download.albumData = albumData
+        let library = ADLibraryStub()
+        library.albumResult = apiAlbum
         return AlbumDetailViewModel(
             albumId: "album-1",
-            libraryService: ADLibraryStub(),
+            libraryService: library,
             downloadService: download,
             toastService: ToastService(),
             serverState: state
         )
+    }
+
+    /// Builds a genuine, empty `AlbumID3` (200 OK, no songs) through SwiftSonic's real
+    /// decoder driven by the canned-response transport — the WARP/Cloudflare edge case.
+    private func emptySuccessAlbum() async throws -> AlbumID3 {
+        let json = Data(#"""
+        {"subsonic-response":{"status":"ok","version":"1.16.1","album":{"id":"album-1","name":"Album","artist":"Artist","artistId":"ar-1","songCount":0,"duration":0,"created":"2024-01-01T00:00:00.000Z","coverArt":"al-1","song":[]}}}
+        """#.utf8)
+        let client = SwiftSonicClient(
+            configuration: ServerConfiguration(
+                serverURL: URL(string: "https://stub.example.com")!, username: "u", password: "p"
+            ),
+            transport: StubHTTPTransport(outcome: .response(data: json, statusCode: 200)),
+            retryPolicy: .none
+        )
+        return try await client.getAlbum(id: "album-1")
     }
 
     private var downloadedAlbum: LocalAlbumData {
@@ -145,5 +169,26 @@ struct AlbumDetailOfflineTests {
         #expect(vm.songs.isEmpty)
         #expect(vm.error == nil)
         #expect(vm.isOffline == true)
+    }
+
+    // MARK: - Empty-success (WARP / Cloudflare edge) — the case the throw-only stubs missed
+
+    @Test("empty-success album response with a downloaded copy loads local, not empty")
+    func emptySuccessAlbumFallsBackToLocal() async throws {
+        let empty = try await emptySuccessAlbum()
+        let vm = makeVM(albumData: downloadedAlbum, isOnline: true, apiAlbum: empty)
+        await vm.load()
+        #expect(vm.songs.count == 2)
+        #expect(vm.error == nil)
+        #expect(vm.isOffline == true)
+    }
+
+    @Test("empty-success album with NO downloaded copy stays empty, no error")
+    func emptySuccessAlbumNoLocalStaysEmpty() async throws {
+        let empty = try await emptySuccessAlbum()
+        let vm = makeVM(albumData: nil, isOnline: true, apiAlbum: empty)
+        await vm.load()
+        #expect(vm.songs.isEmpty)
+        #expect(vm.error == nil)
     }
 }
