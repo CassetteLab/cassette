@@ -74,6 +74,13 @@ final class PlaylistDetailViewModel {
             coverArtId = apiPlaylist.coverArt
             songs = (apiPlaylist.entry ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
             isOffline = false
+            // Self-heal: if this playlist was downloaded before songIds existed (or with an
+            // empty list), repair it now from the authoritative order so it reads offline next time.
+            await downloadService.backfillPlaylistSongIds(
+                playlistId: playlistId,
+                serverId: serverId,
+                orderedSongIds: (apiPlaylist.entry ?? []).map(\.id)
+            )
         } catch {
             // Server unreachable (airplane mode with stale isOnline, VPN-satisfied path,
             // server down): fall back to the downloaded copy before surfacing an error.

@@ -167,11 +167,42 @@ actor DownloadService: DownloadServiceProtocol {
             let context = ModelContext(modelContainer)
             let allPlaylists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
             guard let playlist = allPlaylists.first(where: { $0.playlistId == playlistId && $0.serverId == serverId }) else { return nil }
-            let allTracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
-            let songs = playlist.songIds.compactMap { songId in
-                allTracks.first(where: { $0.songId == songId && $0.serverId == serverId })
-            }.map { DisplayableSong(from: $0) }
+            // serverId-scoped lookup table — O(1) per id and avoids matching a track that was
+            // re-downloaded under a different server with a colliding songId.
+            let tracksBySongId = Dictionary(
+                (((try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? [])
+                    .filter { $0.serverId == serverId })
+                    .map { ($0.songId, $0) },
+                uniquingKeysWith: { first, _ in first }
+            )
+            let songs = playlist.songIds.compactMap { tracksBySongId[$0] }.map { DisplayableSong(from: $0) }
             return LocalPlaylistData(playlistId: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId, songs: songs)
+        }
+    }
+
+    func backfillPlaylistSongIds(playlistId: String, serverId: UUID, orderedSongIds: [String]) async {
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let playlists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
+            // Only repair records that are actually missing their order. DownloadedTrack carries
+            // no playlist link, so membership cannot be recovered from disk alone — the order must
+            // come from the authoritative API list, intersected with what is actually downloaded.
+            guard let record = playlists.first(where: { $0.playlistId == playlistId && $0.serverId == serverId }),
+                  record.songIds.isEmpty else { return }
+            let downloaded = Set(
+                (((try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? [])
+                    .filter { $0.serverId == serverId })
+                    .map(\.songId)
+            )
+            let repaired = orderedSongIds.filter { downloaded.contains($0) }
+            guard !repaired.isEmpty else { return }
+            record.songIds = repaired
+            do {
+                try context.save()
+                Logger.download.info("Back-filled \(repaired.count, privacy: .public) songId(s) for playlist '\(playlistId, privacy: .public)'")
+            } catch {
+                Logger.download.debug("DownloadService: songIds back-fill save failed — \(error)")
+            }
         }
     }
 

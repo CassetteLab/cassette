@@ -56,6 +56,12 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
     /// Returns offline-playable playlist data assembled from persisted tracks, or nil if not downloaded.
     func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData?
 
+    /// Repairs a downloaded playlist whose `songIds` is empty (e.g. records written before the
+    /// field existed) by persisting the authoritative track order intersected with the tracks
+    /// actually on disk. No-op when `songIds` is already populated or the record is absent.
+    /// Lets pre-migration downloads become readable offline after one online open.
+    func backfillPlaylistSongIds(playlistId: String, serverId: UUID, orderedSongIds: [String]) async
+
     // TODO(v1.x): switch to background URLSession with resume support.
     // v1 uses foreground URLSession — user must keep the app open during download.
     func download(song: Song, serverId: UUID) async throws

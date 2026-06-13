@@ -56,6 +56,7 @@ private final class ADDownloadStub: DownloadServiceProtocol {
     func removeCover(forId coverArtId: String) async {}
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int { 0 }
     func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData? { nil }
+    func backfillPlaylistSongIds(playlistId: String, serverId: UUID, orderedSongIds: [String]) async {}
     func download(song: Song, serverId: UUID) async throws { throw URLError(.unknown) }
     func download(album: AlbumID3, serverId: UUID) async throws { throw URLError(.unknown) }
     func download(playlist: PlaylistWithSongs, serverId: UUID) async throws { throw URLError(.unknown) }
