@@ -61,6 +61,11 @@ final class PlaylistDetailViewModel {
     private func loadFromAPI() async {
         do {
             let apiPlaylist = try await libraryService.playlist(id: playlistId)
+            // Empty-success guard: behind a captive proxy / Cloudflare-WARP edge the server
+            // is reachable but answers 200 with no entries. That never throws, so the catch
+            // below can't help — treat an empty result exactly like a failure and prefer the
+            // downloaded copy before clobbering the UI with an "Empty Playlist" state.
+            if (apiPlaylist.entry ?? []).isEmpty, await loadFromLocal() { return }
             playlistDetail = apiPlaylist
             guard let serverId = serverState.activeServer?.id else { return }
             let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
