@@ -334,10 +334,11 @@ extension AppContainer {
         Logger.migration.info("[ExtMigration] Complete: \(renamedCount) renamed, \(skippedCount) skipped")
     }
 
-    // v2: v1 set the done-flag unconditionally even when no track was remuxed, so installs that
-    // ran the broken v1 are stuck "done" — the version bump is what forces the corrected pass.
-    private static let m4aFaststartMigrationKey = "cassette.m4aFaststartMigration_v2"
-    private static let m4aFaststartAttemptsKey = "cassette.m4aFaststartMigration_v2_attempts"
+    // v3: v2 was burned on installs that ran it against an EMPTY download set (fresh install) —
+    // it set the done-flag on a clean-but-empty pass, so the scan→remux path was never exercised.
+    // The version bump re-runs the migration; both keys bump together so the attempt counter resets.
+    private static let m4aFaststartMigrationKey = "cassette.m4aFaststartMigration_v3"
+    private static let m4aFaststartAttemptsKey = "cassette.m4aFaststartMigration_v3_attempts"
     private static let m4aFaststartMaxAttempts = 3
 
     /// Migration that faststart-remuxes already-downloaded m4a tracks so they play offline through
