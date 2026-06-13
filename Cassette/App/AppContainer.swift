@@ -334,16 +334,25 @@ extension AppContainer {
         Logger.migration.info("[ExtMigration] Complete: \(renamedCount) renamed, \(skippedCount) skipped")
     }
 
-    private static let m4aFaststartMigrationKey = "cassette.m4aFaststartMigration_v1"
+    // v2: v1 set the done-flag unconditionally even when no track was remuxed, so installs that
+    // ran the broken v1 are stuck "done" — the version bump is what forces the corrected pass.
+    private static let m4aFaststartMigrationKey = "cassette.m4aFaststartMigration_v2"
+    private static let m4aFaststartAttemptsKey = "cassette.m4aFaststartMigration_v2_attempts"
+    private static let m4aFaststartMaxAttempts = 3
 
-    /// One-shot migration that faststart-remuxes already-downloaded m4a tracks so they play
-    /// offline through AudioStreaming (which cannot open non-faststart M4A). Idempotent,
-    /// versioned, fire-and-forget at boot — mirrors `migrateAudioExtensionsIfNeeded`.
+    /// Migration that faststart-remuxes already-downloaded m4a tracks so they play offline through
+    /// AudioStreaming (which cannot open non-faststart M4A). Fire-and-forget at boot.
     ///
-    /// CRITICAL difference from the .mpeg rename migration: a remux REWRITES the file bytes,
-    /// so `DownloadedTrack.fileSize` MUST be refreshed from the remuxed file. Otherwise
-    /// `downloadedURL`'s `diskSize == fileSize` validity guard rejects the remuxed file and the
-    /// track becomes unplayable. Scope: DownloadedTrack only (ephemeral CachedTrack is Phase 2).
+    /// Retry-safe (unlike v1): the done-flag is set ONLY on a clean pass — save succeeded AND no
+    /// track failed to remux. Failed tracks (e.g. a transient export failure at boot) are retried
+    /// on the next launch, up to `m4aFaststartMaxAttempts` passes, after which it gives up so a
+    /// genuinely irrecoverable file can't trigger an eternal boot-time retry.
+    ///
+    /// Detection is CONTENT-based (`ftyp` sniff), not extension-based, so a mis-served m4a that an
+    /// earlier migration renamed `.mp3` is still caught. A remux REWRITES the bytes, so
+    /// `DownloadedTrack.fileSize` is refreshed from the remuxed file (with the same `?? 0` fallback
+    /// as the download path, so `downloadedURL`'s `fileSize == 0` escape covers a size-read miss
+    /// instead of persisting a stale, mismatched size). Scope: DownloadedTrack only (CachedTrack = Phase 2).
     static func migrateM4AFaststartIfNeeded(modelContainer: ModelContainer) async {
         guard !UserDefaults.standard.bool(forKey: m4aFaststartMigrationKey) else { return }
 
@@ -355,21 +364,49 @@ extension AppContainer {
         let remuxer = AudioFaststartRemuxer()
 
         var remuxedCount = 0
+        var failedCount = 0
+        var m4aCount = 0
         for track in tracks {
             let fileURL = downloadsDir.appendingPathComponent(track.filePath)
-            guard ["m4a", "mp4", "m4b"].contains(fileURL.pathExtension.lowercased()) else { continue }
             guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
-            if case .remuxed = await remuxer.remuxToFaststartIfNeeded(at: fileURL) {
-                // Bytes changed — keep fileSize in sync with the validity guard.
-                let newSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? track.fileSize
+            // Content sniff, not extension — catches a container with a wrong/renamed extension.
+            guard AudioFaststartRemuxer.isM4AContainer(atPath: fileURL.path) else { continue }
+            m4aCount += 1
+            switch await remuxer.remuxToFaststartIfNeeded(at: fileURL) {
+            case .remuxed:
+                // Bytes changed — refresh fileSize from the remuxed file (?? 0 mirrors the
+                // download path, where downloadedURL's `== 0` escape tolerates a read miss).
+                let newSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
                 track.fileSize = newSize
                 remuxedCount += 1
+                Logger.migration.info("[M4AFaststart] faststart-remuxed '\(track.songId, privacy: .public)'")
+            case .failed:
+                failedCount += 1
+                Logger.migration.warning("[M4AFaststart] export failed '\(track.songId, privacy: .public)' — will retry next boot")
+            case .skipped:
+                break   // already faststart or not an MP4 container — nothing to do
             }
         }
 
-        try? ctx.save()
-        UserDefaults.standard.set(true, forKey: m4aFaststartMigrationKey)
-        Logger.migration.info("[M4AFaststart] Complete: \(remuxedCount) remuxed of \(tracks.count) track(s)")
+        // Persist the fileSize updates; only mark done on a clean pass so failures are retried.
+        var saveOK = true
+        do {
+            try ctx.save()
+        } catch {
+            saveOK = false
+            Logger.migration.error("[M4AFaststart] save failed: \(error, privacy: .public) — not marking done, will retry")
+        }
+
+        let attempts = UserDefaults.standard.integer(forKey: m4aFaststartAttemptsKey) + 1
+        UserDefaults.standard.set(attempts, forKey: m4aFaststartAttemptsKey)
+        let giveUp = attempts >= m4aFaststartMaxAttempts
+        if saveOK && (failedCount == 0 || giveUp) {
+            UserDefaults.standard.set(true, forKey: m4aFaststartMigrationKey)
+            if failedCount > 0 {
+                Logger.migration.warning("[M4AFaststart] giving up after \(attempts) attempts with \(failedCount) still failing")
+            }
+        }
+        Logger.migration.info("[M4AFaststart] Complete: \(remuxedCount) remuxed, \(failedCount) failed of \(m4aCount) m4a (\(tracks.count) total), attempt \(attempts)")
     }
 
     private static func audioExtFromMime(_ mimeType: String) -> String {

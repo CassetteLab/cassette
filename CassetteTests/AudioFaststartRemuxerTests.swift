@@ -101,13 +101,26 @@ struct AudioFaststartRemuxerTests {
         }
     }
 
-    // MARK: - remuxToFaststartIfNeeded skip paths (no AVFoundation export)
+    // MARK: - Content detection (isM4AContainer) + skip paths (no AVFoundation export)
 
-    @Test("non-m4a extension is skipped without inspecting bytes")
-    func nonM4ASkipped() async {
-        // A .flac file with deliberately m4a-looking bytes must still skip on extension.
-        let bytes = box("ftyp", payload: 8) + box("mdat", payload: 16) + box("moov", payload: 8)
-        await withTempFile(bytes, ext: "flac") { url in
+    @Test("isM4AContainer detects an ftyp container regardless of extension")
+    func contentDetection() async {
+        let mp4 = box("ftyp", payload: 8) + box("mdat", payload: 16) + box("moov", payload: 8)
+        // ftyp content saved with a wrong .mp3 extension is still recognised as a container.
+        await withTempFile(mp4, ext: "mp3") { url in
+            #expect(AudioFaststartRemuxer.isM4AContainer(atPath: url.path) == true)
+        }
+        // Non-MP4 bytes (a flac signature, no ftyp) are not a container.
+        let flac = Array("fLaC".utf8) + [UInt8](repeating: 0, count: 64)
+        await withTempFile(flac, ext: "flac") { url in
+            #expect(AudioFaststartRemuxer.isM4AContainer(atPath: url.path) == false)
+        }
+    }
+
+    @Test("non-MP4 content is skipped (no ftyp → not a container)")
+    func nonMP4ContentSkipped() async {
+        let flac = Array("fLaC".utf8) + [UInt8](repeating: 0, count: 64)
+        await withTempFile(flac, ext: "flac") { url in
             let outcome = await AudioFaststartRemuxer().remuxToFaststartIfNeeded(at: url)
             #expect(outcome == .skipped)
         }

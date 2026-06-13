@@ -25,15 +25,12 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         case needsRemux
     }
 
-    /// Extensions that may carry an MP4/AAC/ALAC stream. The byte-level `classify` is the
-    /// authoritative gate; this just avoids opening obvious non-candidates (mp3/flac/…).
-    private static let m4aExtensions: Set<String> = ["m4a", "mp4", "m4b"]
-
     /// Remuxes `fileURL` in place when it is a non-faststart m4a; otherwise leaves it untouched.
     /// On success the file at `fileURL` IS the optimized output (atomic swap); on any failure the
-    /// original is left intact. Safe to call on any audio file — non-m4a returns `.skipped`.
+    /// original is left intact. Detection is CONTENT-based (the `ftyp` box via `classify`), not
+    /// extension-based — so a mis-served m4a saved/renamed with a wrong extension (e.g. `.mp3`)
+    /// is still handled. Any non-MP4 file returns `.skipped`.
     func remuxToFaststartIfNeeded(at fileURL: URL) async -> Outcome {
-        guard Self.m4aExtensions.contains(fileURL.pathExtension.lowercased()) else { return .skipped }
         guard let boxes = Self.topLevelBoxTypes(atPath: fileURL.path) else { return .skipped }
         switch Self.classify(boxTypes: boxes) {
         case .notMP4, .faststart:
@@ -80,6 +77,14 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     }
 
     // MARK: - Pure box-layout logic (no I/O — unit-testable)
+
+    /// Content sniff: true when the file is an ISO-BMFF (MP4/M4A/M4B) container — its top-level
+    /// box layout contains an `ftyp` box. Independent of the file extension, so it recognises a
+    /// container that was saved or renamed with a wrong extension.
+    nonisolated static func isM4AContainer(atPath path: String) -> Bool {
+        guard let boxes = topLevelBoxTypes(atPath: path) else { return false }
+        return boxes.contains("ftyp")
+    }
 
     /// Classifies an MP4 top-level box layout: requires `ftyp` to be MP4; `.faststart` when
     /// `moov` precedes `mdat` (or there is no `mdat`); `.needsRemux` when `mdat` precedes `moov`.
