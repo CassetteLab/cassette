@@ -142,8 +142,16 @@ jobs:
           CASK="Casks/cassette.rb"
           /usr/bin/sed -i '' -E "s/^  version \".*\"/  version \"$VERSION\"/" "$CASK"
           /usr/bin/sed -i '' -E "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$CASK"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$CASK"
-          git commit -m "chore(cask): update cassette to $VERSION"
-          git push
+          if git diff --quiet -- "$CASK"; then
+            echo "Cask already at $VERSION — nothing to bump."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add "$CASK"
+            git commit -m "chore(cask): update cassette to $VERSION"
+            git push
+          fi
+
+      - name: Clean up sensitive files on runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/cert.p12"
