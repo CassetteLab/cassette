@@ -16,7 +16,7 @@ jobs:
       APP_NAME: Cassette
       SCHEME: Cassette
       PROJECT: Cassette.xcodeproj
-      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_TEAM_ID: LK2358MPL8
 
     steps:
       - uses: actions/checkout@v4
