@@ -70,10 +70,12 @@ certificate, key, or password is stored in this repo.
 - **Bundle ID:** `fr.mathieu-dubart.Cassette` · **Team ID:** `LK2358MPL8`
 - **macOS minimum:** 15.0 (Sequoia) — the cask should declare
   `depends_on macos: ">= :sequoia"`.
-- **Toolchain:** the project requires **Xcode 27** (iOS 26 / macOS 26 SDK), so
-  the workflow runs on `macos-26` and pins `/Applications/Xcode_27.app`. Bump
-  both together when the toolchain moves; verify the exact Xcode path exists on
-  the chosen runner image.
+- **Toolchain:** the workflow runs on `macos-26` and selects the newest stable
+  Xcode via `maxim-lobanov/setup-xcode@v1` (`latest-stable`). The project is
+  authored with Xcode 27, a 2026 beta not yet on hosted runners. If it fails to
+  compile on the runner's GA Xcode because of a beta-only API, move to a
+  self-hosted runner with Xcode 27 — App Store submission requires a GA Xcode
+  anyway, so a beta-only dependency is a launch blocker to resolve regardless.
 - **Versioning:** the `Cassette` target uses `apple-generic` versioning, which
   `agvtool` (the Xcode Cloud script) requires. The macOS job sets the version via
   `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` build-setting overrides, which
