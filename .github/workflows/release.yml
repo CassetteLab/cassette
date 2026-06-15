@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  macos-release:
+    runs-on: macos-26
+    env:
+      APP_NAME: Cassette
+      SCHEME: Cassette
+      PROJECT: Cassette.xcodeproj
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pin Xcode
+        run: sudo xcode-select -s /Applications/Xcode_27.app   # project requires Xcode 27 (iOS 26 / macOS 26 SDK); match the macos-26 image's installed path
+
+      - name: Derive version from tag
+        id: version
+        run: |
+          if [ -n "${GITHUB_REF_NAME:-}" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-dev"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION"
+
+      - name: Import Developer ID certificate into a temp keychain
+        env:
+          CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" \
+            -k "$KEYCHAIN" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+      - name: Archive (macOS, manual Developer ID signing)
+        run: |
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            archive
+
+      - name: Export Developer ID app
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -exportOptionsPlist ExportOptions-DeveloperID.plist
+
+      - name: Write App Store Connect API key
+        env:
+          AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+        run: echo "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+
+      - name: Notarize + staple the .app
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+        run: |
+          APP="$RUNNER_TEMP/export/$APP_NAME.app"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/$APP_NAME.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/$APP_NAME.zip" \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$AC_API_KEY_ID" \
+            --issuer "$AC_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$APP"
+
+      - name: Create .dmg
+        run: |
+          brew install create-dmg
+          DMG="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+          create-dmg \
+            --volname "$APP_NAME" \
+            --window-size 540 380 \
+            --icon-size 120 \
+            --icon "$APP_NAME.app" 150 190 \
+            --app-drop-link 390 190 \
+            --hide-extension "$APP_NAME.app" \
+            "$DMG" \
+            "$RUNNER_TEMP/export/$APP_NAME.app"
+
+      - name: Notarize + staple the .dmg
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+        run: |
+          DMG="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
+          xcrun notarytool submit "$DMG" \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$AC_API_KEY_ID" \
+            --issuer "$AC_API_ISSUER_ID" \
+            --wait
+          xcrun stapler staple "$DMG"
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
+          generate_release_notes: true
+
+      - name: Bump Homebrew cask
+        if: github.ref_type == 'tag'
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG="$RUNNER_TEMP/$APP_NAME-$VERSION.dmg"
+          SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/MathieuDubart/homebrew-cassette.git" tap
+          cd tap
+          CASK="Casks/cassette.rb"
+          /usr/bin/sed -i '' -E "s/^  version \".*\"/  version \"$VERSION\"/" "$CASK"
+          /usr/bin/sed -i '' -E "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$CASK"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$CASK"
+          git commit -m "chore(cask): update cassette to $VERSION"
+          git push
