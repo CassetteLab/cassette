@@ -44,7 +44,6 @@ Set these in the repo settings (Settings → Secrets and variables → Actions):
 | `AC_API_KEY_P8_BASE64` | Base64 of the App Store Connect API key (`.p8`), used for notarization |
 | `AC_API_KEY_ID` | App Store Connect API key ID |
 | `AC_API_ISSUER_ID` | App Store Connect API issuer ID |
-| `APPLE_TEAM_ID` | Apple Developer Team ID (`LK2358MPL8`) |
 | `HOMEBREW_TAP_TOKEN` | PAT with write access to `MathieuDubart/homebrew-cassette` |
 
 `ExportOptions-DeveloperID.plist` is committed (Team ID is not a secret). No
