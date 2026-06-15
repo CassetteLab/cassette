@@ -573,6 +573,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Cassette/Cassette-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				VERSIONING_SYSTEM = "apple-generic";
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = LK2358MPL8;
 				ENABLE_APP_SANDBOX = YES;
@@ -634,6 +635,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Cassette/Cassette-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				VERSIONING_SYSTEM = "apple-generic";
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = LK2358MPL8;
 				ENABLE_APP_SANDBOX = YES;
