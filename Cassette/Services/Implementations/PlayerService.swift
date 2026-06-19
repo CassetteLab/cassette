@@ -914,7 +914,14 @@ actor PlayerService: PlayerServiceProtocol {
             await MainActor.run { state.queue.insert(contentsOf: songs, at: insertAt) }
             Logger.player.info("Inserted \(songs.count) song(s) at queue position \(insertAt)")
             await saveSession()
+            if !songs.isEmpty {
+                await presentQueueConfirmation(
+                    songs.count == 1 ? "Playing next" : "\(songs.count) songs playing next"
+                )
+            }
         }
+        // Empty-queue Play Next falls back to play() above and starts playback immediately,
+        // which is its own visible feedback — no confirmation toast there, matching Play.
     }
 
     func playNext(_ song: DisplayableSong) async {
@@ -923,10 +930,23 @@ actor PlayerService: PlayerServiceProtocol {
 
     func addToQueue(_ songs: [DisplayableSong]) async {
         await appendToQueue(songs)
+        // appendToQueue is also the silent leaf for background auto-extend, so the confirmation
+        // lives here on the user-facing path. Re-check live stream: appendToQueue no-ops on radio.
+        guard !songs.isEmpty,
+              await MainActor.run(body: { !state.isLiveStream }) else { return }
+        await presentQueueConfirmation(
+            songs.count == 1 ? "Added to queue" : "\(songs.count) songs added to queue"
+        )
     }
 
     func addToQueue(_ song: DisplayableSong) async {
-        await appendToQueue([song])
+        await addToQueue([song])
+    }
+
+    /// Presents an enqueue confirmation toast on the main actor. Callers guard against empty
+    /// batches (failed lazy loads) and live-stream mode so those no-op paths stay silent.
+    private func presentQueueConfirmation(_ message: String) async {
+        await MainActor.run { toastService.showConfirmation(message) }
     }
 
     func removeFromQueue(at index: Int) async {
