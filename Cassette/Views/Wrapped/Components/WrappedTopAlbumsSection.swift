@@ -52,7 +52,7 @@ struct WrappedTopAlbumsSection: View {
                 Color.clear
                     .aspectRatio(1, contentMode: .fit)
                     .overlay {
-                        CoverArtView(id: album.albumId, size: 220)
+                        CoverArtView(id: album.albumId, size: 220, tier: .hero)
                     }
                     .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
                     .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)

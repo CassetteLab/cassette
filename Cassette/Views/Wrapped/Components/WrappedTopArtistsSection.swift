@@ -55,12 +55,15 @@ struct WrappedTopArtistsSection: View {
         } label: {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 ZStack(alignment: .topLeading) {
-                    CoverArtCard(
+                    CoverArtView(
                         id: artist.artistId,
-                        size: cardWidth,
+                        size: Int(cardWidth * 2),
+                        tier: .hero,
                         cornerRadius: CassetteCornerRadius.large,
                         initialImage: coverImages[artist.artistId]
                     )
+                    .frame(width: cardWidth, height: cardWidth)
+                    .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.large)
                     dominantColors[artist.artistId, default: .clear]
                         .opacity(0.15)
                         .frame(width: cardWidth, height: cardWidth)
