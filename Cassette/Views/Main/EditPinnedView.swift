@@ -40,6 +40,8 @@ struct EditPinnedView: View {
                                             .lineLimit(1)
                                     }
                                 }
+                                Spacer(minLength: 0)
+                                ReorderIndicator(isActive: draggedItem?.id == item.id)
                             }
                             .padding(.vertical, CassetteSpacing.xs)
                             .opacity(draggedItem?.id == item.id ? 0.5 : 1.0)
