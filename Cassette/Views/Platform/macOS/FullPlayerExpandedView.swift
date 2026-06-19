@@ -335,7 +335,7 @@ struct FullPlayerExpandedView: View {
         let shadowColor = dominantColor == .clear ? Color.black : dominantColor
         ZStack {
             if let track = currentTrack {
-                CoverArtView(id: track.coverArtId ?? track.id, size: Int(size))
+                CoverArtView(id: track.coverArtId ?? track.id, size: Int(size), tier: .hero)
                     .frame(width: size, height: size)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
             } else {
