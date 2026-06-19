@@ -22,13 +22,17 @@ func postNavigateToAlbum(track: DisplayableSong) {
 
 func postNavigateToArtist(track: DisplayableSong) {
     guard let artistId = track.artistId else { return }
+    postNavigateToArtist(artistId: artistId, artistName: track.artist ?? "", coverArtId: track.coverArtId)
+}
+
+func postNavigateToArtist(artistId: String, artistName: String, coverArtId: String?) {
     NotificationCenter.default.post(
         name: .cassetteNavigateToArtist,
         object: nil,
         userInfo: [
             "artistId":   artistId,
-            "artistName": track.artist ?? "",
-            "coverArtId": track.coverArtId as Any
+            "artistName": artistName,
+            "coverArtId": coverArtId as Any
         ]
     )
 }

@@ -199,8 +199,6 @@ private struct TrackInfoSection: View {
 
     @Query private var favoriteMatches: [FavoriteRecord]
     @Environment(ArtworkImageCache.self) private var artworkImageCache
-    @State private var resolvedArtist: ArtistID3?
-    @State private var showArtistSheet = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
 
@@ -242,13 +240,7 @@ private struct TrackInfoSection: View {
                         HStack(spacing: CassetteSpacing.xs) {
                             if let artist = playerState.currentTrack?.artist {
                                 Button {
-                                    Task {
-                                        guard let c = container,
-                                              let result = try? await c.libraryService.search(artist),
-                                              let found = result.artist?.first else { return }
-                                        resolvedArtist = found
-                                        showArtistSheet = true
-                                    }
+                                    goToArtist()
                                 } label: {
                                     Text(artist)
                                         .font(.subheadline)
@@ -302,14 +294,7 @@ private struct TrackInfoSection: View {
                         }
                         .disabled(playerState.currentTrack?.albumId == nil || !isOnline)
                         Button("Go to Artist", systemImage: "music.mic") {
-                            guard let artistName = playerState.currentTrack?.artist else { return }
-                            Task {
-                                guard let c = container,
-                                      let result = try? await c.libraryService.search(artistName),
-                                      let found = result.artist?.first else { return }
-                                resolvedArtist = found
-                                showArtistSheet = true
-                            }
+                            goToArtist()
                         }
                         .disabled(playerState.currentTrack?.artist == nil || !isOnline)
                         Divider()
@@ -334,27 +319,6 @@ private struct TrackInfoSection: View {
                 .accessibilityLabel("More options")
             }
         }
-        .sheet(isPresented: $showArtistSheet) {
-            if let artist = resolvedArtist {
-                #if os(macOS)
-                ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                #else
-                NavigationStack {
-                    ArtistDetailView(artist: artist)
-                        .navigationDestination(for: HomeDestination.self) { destination in
-                            switch destination {
-                            case .album(let a):
-                                AlbumDetailView(albumId: a.id, albumName: a.name, coverArtId: a.coverArt)
-                            case .artist(let a):
-                                ArtistDetailView(artist: a)
-                            default:
-                                EmptyView()
-                            }
-                        }
-                }
-                #endif
-            }
-        }
         .sheet(isPresented: $showAlbumSheet) {
             if let track = playerState.currentTrack,
                let albumId = track.albumId,
@@ -371,6 +335,24 @@ private struct TrackInfoSection: View {
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
                 .environment(artworkImageCache)
+        }
+    }
+
+    /// Navigates to the current track's artist by routing through the Home stack (via
+    /// `.cassetteNavigateToArtist`), mirroring macOS. Prefers the track's own `artistId`;
+    /// falls back to a name search only when the track has no artistId (incomplete metadata).
+    private func goToArtist() {
+        guard let track = playerState.currentTrack else { return }
+        if track.artistId != nil {
+            postNavigateToArtist(track: track)
+            return
+        }
+        guard let name = track.artist else { return }
+        Task {
+            guard let c = container,
+                  let result = try? await c.libraryService.search(name),
+                  let found = result.artist?.first else { return }
+            postNavigateToArtist(artistId: found.id, artistName: found.name, coverArtId: found.coverArt)
         }
     }
 
