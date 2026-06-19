@@ -84,7 +84,11 @@ jobs:
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
             -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist ExportOptions-DeveloperID.plist
+            -exportOptionsPlist ExportOptions-DeveloperID.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
+            -authenticationKeyID "$AC_API_KEY_ID" \
+            -authenticationKeyIssuerID "$AC_API_ISSUER_ID"
 
       - name: Notarize + staple the .app
         run: |
