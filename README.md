@@ -4,7 +4,7 @@
 
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-brightgreen.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-iOS%2026%2B%20%7C%20macOS%2015%2B-blue.svg)](#requirements)
-[![Swift](https://img.shields.io/badge/Swift-6.0%2B-orange.svg)](https://swift.org)
+[![Swift](https://img.shields.io/badge/Swift-6-orange.svg)](https://swift.org)
 
 ---
 
@@ -18,9 +18,9 @@
 
 ## What is Cassette?
 
-Cassette is a native Swift / SwiftUI music client for iOS and macOS, designed for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, which means it works with Navidrome, Gonic, Airsonic Advanced, and any other compliant server. It is iOS-first — macOS support is minimal in v1.0 and will improve around v1.9
+Cassette is a native Swift / SwiftUI music client for iOS and macOS, built for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, so it works with Navidrome and any other compliant server.
 
-No accounts, no subscriptions, no tracking. Your music stays between your device and your server.
+It's a pure streaming client for *your* library — no accounts, no subscriptions, no tracking. Your music stays between your device and your server. The iOS app is distributed via TestFlight; the macOS app ships as a notarized build through Homebrew.
 
 Licensed under MPL-2.0.
 
@@ -29,102 +29,88 @@ Licensed under MPL-2.0.
 ## Features
 
 **Listening**
-- Native iOS 26+ client with Liquid Glass design language
-- Background playback with lock screen controls and AirPlay support
+- Native iOS 26 / macOS 15 client with a Liquid Glass design language
+- Background playback with lock screen and Control Center controls, plus AirPlay
 - True offline mode: download albums, playlists, or individual tracks
+- Playback powered by the AudioStreaming engine — FLAC, MP3, AAC, WAV, and Ogg/Vorbis
 - Persistent playback session — pick up where you left off after relaunching
-- Lyrics support, audio format display (FLAC / MP3 / AAC / WAV)
-- Shuffle, repeat, and queue management
+- Lyrics support
+- Shuffle, repeat, and full queue management
 
 **Library**
 - Browse by playlists, artists, albums, downloads, and favorites
 - Pinned albums and playlists on the home screen
 - Recently added (online) and recently downloaded (offline)
-- Full-text search across your entire library
+- Full-text search across your library
 - Favorites synced with your server (star / unstar)
+- **Cassette Wrapped** — a yearly recap of your listening
 
-**Server compatibility**
-- Subsonic API v1.16.1
-- OpenSubsonic API extensions where available
-- Custom HTTP headers support for servers behind reverse proxies (Cloudflare Access, Authelia, etc.)
-- Ephemeral track cache to reduce repeated network requests
+**Integrations & extras**
+- **ListenBrainz** — scrobble your listens and surface recommendations (fresh releases, similar artists)
+- **Home-screen widgets** (iOS)
+- **Discord Rich Presence** — *experimental / pre-alpha*; shows your now-playing in Discord through the companion helper, [cassette-discord-rpc](https://github.com/MathieuDubart/cassette-discord-rpc)
 
-**Privacy**
-- Zero tracking, zero analytics, zero third-party SDKs
-- Credentials stored exclusively in the iOS / macOS Keychain
-- All communication is directly between your device and your server
-
----
-
-## Requirements
-
-- iOS 26 or later (iPhone)
-- macOS 14 or later (minimal support in v1.0)
-- A running Subsonic, OpenSubsonic, or Navidrome server
+**Server & privacy**
+- Subsonic and OpenSubsonic API, with OpenSubsonic extensions where available
+- Custom HTTP headers for servers behind a reverse proxy (Cloudflare Access, Authelia, etc.)
+- Credentials stored only in the iOS / macOS Keychain — zero tracking, zero analytics, all traffic direct to your server
 
 ---
 
 ## Installation
 
-### Via homebrew
+### macOS — Homebrew
 
 ```bash
 brew tap MathieuDubart/cassette
 brew install --cask cassette
 ```
 
-### Via the App Store
+This installs the notarized `Cassette.app`.
 
-Coming soon.
+### iOS — TestFlight
 
-### Via TestFlight (beta)
+Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
-Coming soon.
-
-### Building from source
-
-If you prefer to build yourself:
+### Build from source
 
 1. **Requirements**
-   - macOS 14+ with Xcode 16+
-   - iOS 26+ deployment target
+   - macOS 15 or later with Xcode 26 or later
    - A Subsonic / OpenSubsonic / Navidrome server to connect to
-   - An Apple Developer account (free tier works for personal device builds)
+   - An Apple Developer account (the free tier works for personal device builds)
 
-2. **Clone and build**
+2. **Clone and open**
    ```bash
-   git clone https://github.com/MathieuDubart/Cassette.git
-   cd Cassette
+   git clone https://github.com/MathieuDubart/cassette.git
+   cd cassette
    open Cassette.xcodeproj
    ```
-   Swift Package Manager resolves the only dependency ([SwiftSonic](https://github.com/MathieuDubart/SwiftSonic)) automatically — no additional setup required.
+   Swift Package Manager resolves the dependencies (SwiftSonic and AudioStreaming) automatically — no extra setup.
 
 3. **Sign and run**
    - Select your team in Signing & Capabilities
-   - Choose a target device running iOS 26+
+   - Choose an iOS 26+ device/simulator or **My Mac**
    - Build and run (⌘R)
 
 4. **First launch**
    - Cassette prompts for your server URL, username, and password
-   - If your server sits behind a reverse proxy requiring custom request headers, expand **Advanced** and add them
-   - Tap **Connect** — Cassette verifies the connection and stores credentials securely
-   - Your library appears immediately
+   - If your server sits behind a reverse proxy that needs custom request headers, expand **Advanced** and add them
+   - Tap **Connect** — Cassette verifies the connection and stores credentials in the Keychain
+
+---
+
+## Requirements
+
+- iOS 26 or later, or macOS 15 (Sequoia) or later
+- A running Subsonic, OpenSubsonic, or Navidrome server
 
 ---
 
 ## Server compatibility
 
-Cassette implements the Subsonic API spec with OpenSubsonic extensions where available.
+Cassette works with any server that implements the Subsonic / OpenSubsonic API, and uses OpenSubsonic extensions where available. [Navidrome](https://www.navidrome.org) is the recommended and primary-tested server.
 
-| Server | Status | Notes |
-|--------|--------|-------|
-| Navidrome | ✅ Recommended | Full feature support |
-| Gonic | ✅ Tested | Full feature support |
-| Airsonic Advanced | ✅ Tested | Full feature support |
-| Funkwhale (subsonic-api plugin) | ⚠️ Untested | Should work |
-| Ampache (Subsonic mode) | ⚠️ Untested | Should work |
-
-If your server implements the Subsonic API and Cassette doesn't work correctly, [open an issue](https://github.com/MathieuDubart/Cassette/issues).
+If your server implements the Subsonic API and something doesn't behave, [open an issue](https://github.com/MathieuDubart/cassette/issues).
 
 ---
 
@@ -132,13 +118,13 @@ If your server implements the Subsonic API and Cassette doesn't work correctly, 
 
 For developers curious about the internals:
 
-- **UI layer**: SwiftUI views with `@Observable @MainActor` ViewModels. No business logic in views.
-- **Service layer**: Swift actors for `PlayerService`, `LibraryService`, `DownloadService`, `FavoritesService`, and others. Zero UIKit / SwiftUI imports inside services.
-- **SwiftSonic**: the underlying Swift library handling all Subsonic / OpenSubsonic API communication. Same author, separate repo, MIT-licensed. See [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic).
-- **Persistence**: SwiftData for app data (downloaded tracks, playlists, favorites cache); Keychain for credentials — no plaintext written to disk.
-- **Playback**: AVFoundation, wired to `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` for lock screen, Control Center, and AirPlay.
-- **Concurrency**: Swift 6 strict concurrency, `Sendable` throughout, `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor`.
-- **Zero external dependencies**: the only dependency is SwiftSonic itself.
+- **UI** — SwiftUI views with `@Observable @MainActor` view models; no business logic in views.
+- **Services** — Swift actors (`PlayerService`, `LibraryService`, `DownloadService`, `FavoritesService`, `NowPlayingService`, …) with no SwiftUI / UIKit imports.
+- **Playback** — the [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) engine, wired to `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` for lock screen, Control Center, and AirPlay.
+- **Subsonic API** — [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (same author, separate repo, MIT) handles all Subsonic / OpenSubsonic communication.
+- **Persistence** — SwiftData for app data (downloads, playlists, favorites cache); Keychain for credentials.
+- **Concurrency** — Swift 6 strict concurrency, `Sendable` throughout, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
+- **Dependencies** — SwiftSonic and AudioStreaming (which brings Ogg/Vorbis binary frameworks for lossless decoding). That's the full list.
 
 ---
 
@@ -146,24 +132,30 @@ For developers curious about the internals:
 
 Cassette is built incrementally, one theme per release.
 
-- **v1.8** — Widgets
-- **v2.0** — Carplay
+- **v1.8 — Widgets** ✅ shipped
+- **v2.0 — CarPlay** (in progress)
 
-For the full roadmap and discussion, see [GitHub Discussions](https://github.com/MathieuDubart/Cassette/discussions).
+For the full roadmap and discussion, see [GitHub Discussions](https://github.com/MathieuDubart/cassette/discussions).
+
+---
+
+## Links & support
+
+- Website — [getcassette.app](https://getcassette.app)
+- Feedback / bug reports — [support@getcassette.app](mailto:support@getcassette.app) · [GitHub Issues](https://github.com/MathieuDubart/cassette/issues)
+- Ideas & discussion — [GitHub Discussions](https://github.com/MathieuDubart/cassette/discussions)
+- Support development — [Ko-fi](https://ko-fi.com/mathieudbrt)
 
 ---
 
 ## Contributing
 
-Contributions are welcome. A few things to keep in mind before you start:
+Contributions are welcome. A few things before you start:
 
-- **Discuss before coding**: open an issue or a discussion before working on a feature, especially for architectural changes. A PR that contradicts a design decision will be closed.
-- **Match the existing style**: Swift 6 strict concurrency, no external dependencies beyond SwiftSonic, no Foundation / UIKit leakage outside the service layer.
-- **Test on real devices**: audio playback and Liquid Glass effects behave differently in Simulator — real device testing is expected.
-- **Conventional commits**: `feat`, `fix`, `refactor`, `docs`, `chore`, etc.
-
-For bug reports: [Issues](https://github.com/MathieuDubart/Cassette/issues).
-For ideas and feedback: [Discussions](https://github.com/MathieuDubart/Cassette/discussions).
+- **Discuss before coding** — open an issue or discussion before working on a feature, especially architectural changes. A PR that contradicts a design decision may be closed.
+- **Match the existing style** — Swift 6 strict concurrency, no Foundation / UIKit leakage outside the service layer, dependencies kept minimal (SwiftSonic + AudioStreaming).
+- **Test on real devices** — audio playback and Liquid Glass effects behave differently in the Simulator.
+- **Conventional commits** — `feat`, `fix`, `refactor`, `docs`, `chore`, etc.
 
 ---
 
@@ -171,13 +163,11 @@ For ideas and feedback: [Discussions](https://github.com/MathieuDubart/Cassette/
 
 Cassette is licensed under [MPL-2.0](LICENSE).
 
-- You can use, study, modify, and redistribute the source code
-- Modified files must remain under MPL-2.0; you may combine them with proprietary code in a Larger Work
-- The App Store version is the same code, signed and distributed for convenience
+- You can use, study, modify, and redistribute the source.
+- Modified files stay under MPL-2.0; you may combine them with proprietary code in a Larger Work.
+- The distributed builds (Homebrew, TestFlight) are the same source, signed for convenience.
 
-The underlying [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic) library is MIT-licensed, which is compatible with MPL-2.0.
-
-[AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. — MIT License.
+Dependencies: [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (MIT) and [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. (MIT) — both compatible with MPL-2.0.
 
 > Code prior to commit 21f9227 was licensed under GPL-3.0-or-later.
 
@@ -186,8 +176,8 @@ The underlying [SwiftSonic](https://github.com/MathieuDubart/SwiftSonic) library
 ## Acknowledgments
 
 - The [Navidrome](https://www.navidrome.org) team for an excellent self-hosted music server
-- The [OpenSubsonic](https://opensubsonic.netlify.app) community for modernizing the Subsonic API spec
-- The Substreamer, Ultrasonic, and Symfonium Android apps for raising the bar on what a self-hosted music client should feel like
+- The [OpenSubsonic](https://opensubsonic.netlify.app) community for modernizing the Subsonic API
+- Substreamer, Ultrasonic, and Symfonium for raising the bar on what a self-hosted music client should feel like
 
 ---
 
