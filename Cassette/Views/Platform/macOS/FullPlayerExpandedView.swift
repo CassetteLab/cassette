@@ -745,6 +745,8 @@ private struct ExpandedQueueRow: View {
 
             if isCurrent {
                 NowPlayingBarsIndicator(isPlaying: isPlaying)
+            } else {
+                ReorderIndicator()
             }
         }
         .padding(.vertical, 2)

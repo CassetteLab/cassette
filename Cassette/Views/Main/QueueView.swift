@@ -215,6 +215,8 @@ private struct QueueRow: View {
 
             if isCurrent {
                 NowPlayingBarsIndicator(isPlaying: isPlaying)
+            } else {
+                ReorderIndicator()
             }
         }
         .padding(.vertical, CassetteSpacing.xs)
