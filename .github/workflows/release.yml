@@ -17,6 +17,8 @@ jobs:
       SCHEME: Cassette
       PROJECT: Cassette.xcodeproj
       APPLE_TEAM_ID: LK2358MPL8
+      AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+      AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
 
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +56,11 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
 
+      - name: Write App Store Connect API key
+        env:
+          AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+        run: echo "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+
       - name: Archive (macOS, manual Developer ID signing)
         run: |
           xcodebuild \
@@ -76,15 +83,7 @@ jobs:
             -exportPath "$RUNNER_TEMP/export" \
             -exportOptionsPlist ExportOptions-DeveloperID.plist
 
-      - name: Write App Store Connect API key
-        env:
-          AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
-        run: echo "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
-
       - name: Notarize + staple the .app
-        env:
-          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
-          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
           APP="$RUNNER_TEMP/export/$APP_NAME.app"
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/$APP_NAME.zip"
@@ -110,9 +109,6 @@ jobs:
             "$RUNNER_TEMP/export/$APP_NAME.app"
 
       - name: Notarize + staple the .dmg
-        env:
-          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
-          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
           DMG="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
           xcrun notarytool submit "$DMG" \
