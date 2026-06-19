@@ -10,7 +10,11 @@ struct MainTabView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var searchText = ""
     @State private var searchPath = NavigationPath()
+    @State private var homePath = NavigationPath()
+    @State private var selectedTab: AppTab = .home
     @State private var showingFullPlayer = false
+
+    private enum AppTab: Hashable { case home, discover, search }
 
     private var hasTrack: Bool {
         container?.playerState.currentTrack != nil || container?.playerState.isLiveStream == true
@@ -44,20 +48,20 @@ struct MainTabView: View {
     }
 
     private var tabs: some View {
-        TabView {
-            Tab("Home", systemImage: "house.fill") {
-                NavigationStack {
+        TabView(selection: $selectedTab) {
+            Tab("Home", systemImage: "house.fill", value: AppTab.home) {
+                NavigationStack(path: $homePath) {
                     HomeView()
                 }
             }
 
-            Tab("Discover", systemImage: "sparkles") {
+            Tab("Discover", systemImage: "sparkles", value: AppTab.discover) {
                 NavigationStack {
                     DiscoverView()
                 }
             }
 
-            Tab(role: .search) {
+            Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) {
                     SearchView(searchQuery: $searchText, path: $searchPath)
                         .navigationTitle("Search")
@@ -70,6 +74,14 @@ struct MainTabView: View {
         .task(id: container?.serverState.isOnline) {
             guard container?.serverState.isOnline == true else { return }
             try? await container?.favoritesService.syncFromServer()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToArtist)) { note in
+            guard let id   = note.userInfo?["artistId"]   as? String,
+                  let name = note.userInfo?["artistName"] as? String else { return }
+            let coverArtId = note.userInfo?["coverArtId"] as? String
+            showingFullPlayer = false
+            selectedTab = .home
+            homePath.append(HomeDestination.artistById(id: id, name: name, coverArtId: coverArtId))
         }
     }
 }
