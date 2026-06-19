@@ -95,7 +95,7 @@ final class AddToPlaylistViewModel {
         let songObj = song.asSong()
         do {
             try await playlistService.addTracks(playlistId: playlist.id, songs: [songObj])
-            toastService.showSuccess("Added to \"\(playlist.name)\"")
+            toastService.showConfirmation("Added to \"\(playlist.name)\"")
             return .added
         } catch {
             Logger.playlist.error("AddToPlaylistViewModel: failed to add song \(songId) to playlist \(playlist.id): \(error)")
