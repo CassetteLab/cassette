@@ -7,6 +7,15 @@
     <key>teamID</key>
     <string>LK2358MPL8</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Developer ID Application</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>fr.mathieu-dubart.Cassette</key>
+        <string>Cassette Developer ID</string>
+        <key>fr.mathieu-dubart.Cassette.widgets</key>
+        <string>Cassette Widgets Developer ID</string>
+    </dict>
 </dict>
 </plist>
