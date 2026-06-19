@@ -21,12 +21,16 @@ import SwiftUI
 struct CoverArtCard: View {
     let id: String
     let size: CGFloat
+    /// Optional explicit tier. Default `nil` preserves CoverArtView's size-based resolution
+    /// (`size*2 >= 480 ? .hero : .thumb`) — existing callers are unaffected. Pass `.hero` for a
+    /// full-res surface whose display size is below 480px (e.g. Wrapped artist cards).
+    var tier: ArtworkTier? = nil
     var cornerRadius: CGFloat = CassetteCornerRadius.standard
     var placeholderSystemImage: String = "music.note"
     var initialImage: PlatformImage? = nil
 
     var body: some View {
-        CoverArtView(id: id, size: Int(size * 2), cornerRadius: cornerRadius, placeholderSystemImage: placeholderSystemImage, initialImage: initialImage)  // 2× for @2x sharpness
+        CoverArtView(id: id, size: Int(size * 2), tier: tier, cornerRadius: cornerRadius, placeholderSystemImage: placeholderSystemImage, initialImage: initialImage)  // 2× for @2x sharpness
             .frame(width: size, height: size)
             .cassetteCoverStyle(cornerRadius: cornerRadius)
     }
