@@ -61,6 +61,13 @@ final class ToastService {
         show(message, style: .success, duration: 2.5)
     }
 
+    /// Confirms that a user action succeeded (e.g. "Added to queue"). Uses the success style
+    /// (checkmark icon, green tint, brief duration). Message is the only required input so new
+    /// call sites stay trivial as this feedback is propagated across the app.
+    func showConfirmation(_ message: String) {
+        showSuccess(message)
+    }
+
     func dismiss() {
         dismissTask?.cancel()
         withAnimation(.easeOut(duration: 0.3)) {
