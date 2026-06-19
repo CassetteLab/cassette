@@ -259,6 +259,7 @@ struct CollectionContextMenuModifier: ViewModifier {
                                 coverArtId: coverArtId, serverId: serverId
                             )
                             HapticFeedback.success.trigger()
+                            container?.toastService.showConfirmation("Pinned to Home")
                         } catch PinError.limitReached {
                             HapticFeedback.warning.trigger()
                             showPinLimitAlert = true
@@ -410,6 +411,7 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                                 coverArtId: coverArtId, serverId: serverId
                             )
                             HapticFeedback.success.trigger()
+                            container?.toastService.showConfirmation("Pinned to Home")
                         } catch PinError.limitReached {
                             HapticFeedback.warning.trigger()
                             showPinLimitAlert = true
