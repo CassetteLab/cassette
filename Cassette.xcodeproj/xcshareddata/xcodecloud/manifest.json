@@ -1,0 +1,9 @@
+{
+  "id" : "fc80c573-6b6f-4717-9f6a-489a8def2612",
+  "targets" : [
+    {
+      "id" : "d1ee29c9-c119-4271-bea7-a6663c4944c2",
+      "name" : "Cassette"
+    }
+  ]
+}
