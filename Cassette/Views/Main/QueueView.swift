@@ -12,7 +12,10 @@ struct QueueView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(\.cassettePlayingAccent) private var playingAccent
+    #if os(macOS)
     @State private var draggedQueueIndex: Int?
+    @State private var dropTargetGap: Int?
+    #endif
 
     var body: some View {
         #if os(macOS)
@@ -93,9 +96,8 @@ struct QueueView: View {
                 Section("Up Next") {
                     ForEach(Array(upNext.enumerated()), id: \.offset) { offset, song in
                         let absoluteIndex = currentIndex + 1 + offset
-                        QueueRow(song: song, isCurrent: false, isDragging: draggedQueueIndex == absoluteIndex)
+                        QueueRow(song: song, isCurrent: false)
                             .contentShape(Rectangle())
-                            .opacity(draggedQueueIndex == absoluteIndex ? 0.5 : 1.0)
                             .onTapGesture {
                                 HapticFeedback.medium.trigger()
                                 Task {
@@ -106,6 +108,16 @@ struct QueueView: View {
                                     }
                                 }
                             }
+                            #if os(macOS)
+                            // macOS reorders by drag-and-drop; show a between-rows insertion line at the
+                            // drop gap (top of the target row, or bottom of the last row for an end drop)
+                            // instead of a row highlight.
+                            .overlay(alignment: .top) {
+                                if dropTargetGap == absoluteIndex { queueInsertionLine }
+                            }
+                            .overlay(alignment: .bottom) {
+                                if offset == upNext.count - 1 && dropTargetGap == absoluteIndex + 1 { queueInsertionLine }
+                            }
                             .onDrag {
                                 // Encode the row's absolute queue position; the delegate resolves the move
                                 // positionally (never by song id) so duplicate tracks reorder correctly.
@@ -115,11 +127,24 @@ struct QueueView: View {
                             .onDrop(of: [UTType.text], delegate: QueueReorderDropDelegate(
                                 targetIndex: absoluteIndex,
                                 draggedIndex: $draggedQueueIndex,
+                                dropTargetGap: $dropTargetGap,
                                 move: { from, toOffset in
                                     Task { await container?.playerService.moveInQueue(fromIndex: from, toIndex: toOffset) }
                                 }
                             ))
+                            #endif
                     }
+                    #if !os(macOS)
+                    .onMove { source, destination in
+                        // iOS uses native List reorder — offset-based, so duplicate-safe by construction.
+                        // `destination` is the Array.move toOffset that moveInQueue already replicates.
+                        guard let relativeSource = source.first else { return }
+                        let absoluteSource = currentIndex + 1 + relativeSource
+                        let absoluteDestination = currentIndex + 1 + destination
+                        HapticFeedback.light.trigger()
+                        Task { await container?.playerService.moveInQueue(fromIndex: absoluteSource, toIndex: absoluteDestination) }
+                    }
+                    #endif
                     .onDelete { indices in
                         let absoluteIndices = indices.sorted(by: >).map { currentIndex + 1 + $0 }
                         HapticFeedback.light.trigger()
@@ -133,7 +158,23 @@ struct QueueView: View {
             }
         }
         .listStyle(.plain)
+        #if !os(macOS)
+        // iOS List reorder only engages in edit mode (per the PlaylistDetailView precedent). Keep it
+        // always-on so Up Next is reorderable via the system grips without an explicit Edit toggle;
+        // this is why iOS shows edit-mode chrome and tap-to-play yields to the reorder/delete affordances.
+        .environment(\.editMode, .constant(.active))
+        #endif
     }
+
+    #if os(macOS)
+    /// Thin accent line drawn between rows at the current drop gap (macOS drag-reorder feedback).
+    private var queueInsertionLine: some View {
+        Rectangle()
+            .fill(playingAccent)
+            .frame(height: 2)
+            .padding(.horizontal, CassetteSpacing.l)
+    }
+    #endif
 
     @ViewBuilder
     private func queueControlsHeader(_ playerState: PlayerState) -> some View {
@@ -183,7 +224,6 @@ struct QueueView: View {
 private struct QueueRow: View {
     let song: DisplayableSong
     let isCurrent: Bool
-    let isDragging: Bool
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -191,10 +231,9 @@ private struct QueueRow: View {
     @State private var showAddToPlaylist = false
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, isCurrent: Bool, isDragging: Bool = false) {
+    init(song: DisplayableSong, isCurrent: Bool) {
         self.song = song
         self.isCurrent = isCurrent
-        self.isDragging = isDragging
         let cid = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -227,7 +266,11 @@ private struct QueueRow: View {
             if isCurrent {
                 NowPlayingBarsIndicator(isPlaying: isPlaying)
             } else {
-                ReorderIndicator(isActive: isDragging)
+                #if os(macOS)
+                // macOS has no edit-mode grip, so keep the visual reorder hint here; on iOS the system
+                // renders its own reorder grip in edit mode, so a second one would be redundant.
+                ReorderIndicator()
+                #endif
             }
         }
         .padding(.vertical, CassetteSpacing.xs)
@@ -306,14 +349,22 @@ private struct QueueRow: View {
 struct QueueReorderDropDelegate: DropDelegate {
     let targetIndex: Int
     @Binding var draggedIndex: Int?
+    @Binding var dropTargetGap: Int?
     let move: (Int, Int) -> Void
+
+    func dropEntered(info: DropInfo) {
+        guard let from = draggedIndex else { return }
+        // Track the insertion gap (== the Array.move toOffset the drop will use) so the view can draw
+        // the line where the item will land. This does NOT commit — the move is applied once, on drop.
+        dropTargetGap = targetIndex > from ? targetIndex + 1 : targetIndex
+    }
 
     func dropUpdated(info: DropInfo) -> DropProposal? {
         DropProposal(operation: .move)
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        defer { draggedIndex = nil }
+        defer { draggedIndex = nil; dropTargetGap = nil }
         guard let from = draggedIndex, from != targetIndex else { return true }
         // Land the dragged row exactly at targetIndex; moveInQueue applies dest = from < to ? to-1 : to.
         let toOffset = targetIndex > from ? targetIndex + 1 : targetIndex
