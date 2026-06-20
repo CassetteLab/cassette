@@ -186,9 +186,8 @@ struct FullPlayerView: View {
                 } else {
                     Color.clear
                         .aspectRatio(1, contentMode: .fit)
-                        // Cover cap — THE EYEBALL KNOB. Nudge this to resize the player-only cover.
-                        // 420 = the prior 280 enlarged by 50%; the surrounding Spacers still distribute the
-                        // remaining vertical space (aerated controls) around the larger artwork.
+                        // Cover cap — THE EYEBALL KNOB. Nudge this to resize the player-only cover; the
+                        // surrounding Spacers distribute the remaining vertical space (aerated controls) around it.
                         .frame(maxWidth: 340)
                         .overlay {
                             CoverArtView(id: coverArtId, size: 600)
