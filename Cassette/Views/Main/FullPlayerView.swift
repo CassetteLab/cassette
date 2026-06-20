@@ -32,21 +32,16 @@ struct FullPlayerView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dismiss) private var dismiss
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var surface: PlayerSurface = .player
     @State private var lyricsViewModel: LyricsViewModel?
     @Namespace private var morphNS
-    // Interactive drag-to-dismiss offset for the player surface (Phase 1; queue overscroll-to-dismiss is Phase 2).
-    @State private var dragOffset: CGFloat = 0
 
     var body: some View {
         if let playerState = container?.playerState {
             content(playerState)
-                .scaleEffect(1 - min(max(dragOffset, 0), 220) / 2600, anchor: .center)
-                .offset(y: dragOffset)
                 .task(id: playerState.currentTrack?.coverArtId) {
                     await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
                 }
@@ -71,34 +66,6 @@ struct FullPlayerView: View {
         }
     }
 
-    /// Vertical drag-to-dismiss for the player surface and the grabber. Gated to a dominant-downward drag so
-    /// it composes simultaneously with the cover's horizontal track-skip swipe; past a distance/velocity
-    /// threshold it animates the player off-screen then dismisses, otherwise springs back.
-    private var playerDismissGesture: some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                guard value.translation.height > 0,
-                      value.translation.height > abs(value.translation.width) else { return }
-                dragOffset = value.translation.height
-            }
-            .onEnded { value in
-                guard dragOffset > 0 else { return }
-                let byDistance = value.translation.height > 140
-                let byVelocity = value.predictedEndTranslation.height > 360 && value.translation.height > 24
-                if byDistance || byVelocity {
-                    withAnimation(.easeIn(duration: 0.2)) {
-                        dragOffset = 1200
-                    } completion: {
-                        dismiss()
-                    }
-                } else {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
-                        dragOffset = 0
-                    }
-                }
-            }
-    }
-
     @ViewBuilder
     private func content(_ playerState: PlayerState) -> some View {
         let coverArtId = playerState.isLiveStream
@@ -110,7 +77,6 @@ struct FullPlayerView: View {
         VStack(spacing: 0) {
             topBar
                 .padding(.top, CassetteSpacing.s)
-                .gesture(playerDismissGesture)
 
             ZStack {
                 // Both surfaces stay present (only opacity changes) so the queue List keeps a stable
@@ -124,10 +90,6 @@ struct FullPlayerView: View {
                 playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
                     .opacity(showingQueue ? 0 : 1)
                     .allowsHitTesting(!showingQueue)
-                    // Drag-to-dismiss runs simultaneously with the cover's horizontal track-skip swipe; the
-                    // dominant-down gate keeps them on complementary axes. Player surface only — the queue
-                    // List keeps its scroll (dismiss from the grabber there).
-                    .simultaneousGesture(playerDismissGesture)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // Morph keyed to `surface` ONLY, so it never composes with the isPlaying / showLyrics
@@ -400,12 +362,10 @@ struct FullPlayerView: View {
     }
 
     private var topBar: some View {
+        // Visual handle only — dismissal is the native zoom transition's interactive swipe (no custom gesture).
         Capsule()
             .fill(vm.contentColor.opacity(0.4))
             .frame(width: 36, height: 5)
-            // Widen the hit area so the thin capsule is a reliable drag-to-dismiss handle on any surface.
-            .frame(maxWidth: .infinity, minHeight: 28)
-            .contentShape(Rectangle())
             .accessibilityHidden(true)
     }
 

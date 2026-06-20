@@ -13,6 +13,8 @@ struct MainTabView: View {
     @State private var homePath = NavigationPath()
     @State private var selectedTab: AppTab = .home
     @State private var showingFullPlayer = false
+    @Namespace private var playerZoom
+    private let fullPlayerZoomID = "full-player"
 
     private enum AppTab: Hashable { case home, discover, search }
 
@@ -28,10 +30,12 @@ struct MainTabView: View {
                 if hasTrack {
                     MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer)
                         .environment(\.colorScheme, colorScheme)
+                        .cassetteMatchedTransitionSource(id: fullPlayerZoomID, in: playerZoom)
                 }
             }
             .fullScreenCover(isPresented: $showingFullPlayer) {
                 FullPlayerView()
+                    .cassetteZoomTransition(sourceID: fullPlayerZoomID, in: playerZoom)
             }
         #else
         tabs
