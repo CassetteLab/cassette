@@ -14,15 +14,30 @@ import AVKit
 
 private enum PlayerSurface { case player, queue }
 
+private extension View {
+    /// Applies the cover-art matchedGeometry only when motion is enabled, so the art flies between the
+    /// player and queue layouts; under Reduce Motion the modifier is skipped and the art simply fades.
+    @ViewBuilder
+    func morphCover(_ enabled: Bool, in namespace: Namespace.ID, isSource: Bool) -> some View {
+        if enabled {
+            matchedGeometryEffect(id: "cover", in: namespace, isSource: isSource)
+        } else {
+            self
+        }
+    }
+}
+
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var surface: PlayerSurface = .player
     @State private var lyricsViewModel: LyricsViewModel?
+    @Namespace private var morphNS
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -57,21 +72,29 @@ struct FullPlayerView: View {
             ? (playerState.currentRadio?.coverArt ?? "")
             : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? "")
         let isPlaying = playerState.playbackState == .playing
+        let showingQueue = isQueueVisible(playerState)
 
         VStack(spacing: 0) {
             topBar
                 .padding(.top, CassetteSpacing.s)
 
-            Group {
-                if surface == .queue && !playerState.isLiveStream {
+            ZStack {
+                // Both surfaces stay present (only opacity changes) so the queue List keeps a stable
+                // identity across the morph — no insert/remove, no cell re-materialization, no white flash.
+                // Live streams omit the queue surface (and the player can't be stranded behind a hidden toggle).
+                if !playerState.isLiveStream {
                     queueSurface(playerState, coverArtId: coverArtId)
-                } else {
-                    // Live streams have no queue; fall back to the player so the user is never stranded
-                    // in a queue surface whose toggle button is hidden.
-                    playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                        .opacity(showingQueue ? 1 : 0)
+                        .allowsHitTesting(showingQueue)
                 }
+                playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                    .opacity(showingQueue ? 0 : 1)
+                    .allowsHitTesting(!showingQueue)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Morph keyed to `surface` ONLY, so it never composes with the isPlaying / showLyrics
+            // animations. Reduce Motion degrades to a plain opacity crossfade (no matchedGeometry fly).
+            .animation(reduceMotion ? .easeInOut(duration: 0.22) : .spring(response: 0.45, dampingFraction: 0.82), value: surface)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cassetteContentWidth()
@@ -98,6 +121,12 @@ struct FullPlayerView: View {
     }
 
     // MARK: - Surfaces
+
+    /// Whether the queue surface is the currently-visible one (always false for live streams, which have
+    /// no queue). Drives the matchedGeometry `isSource` so the source always belongs to an in-tree view.
+    private func isQueueVisible(_ playerState: PlayerState) -> Bool {
+        surface == .queue && !playerState.isLiveStream
+    }
 
     /// Player state: centered album art (or lyrics) + track info. The transport chrome lives in the
     /// shared footer (anchored), so only this region differs between player and queue.
@@ -133,6 +162,7 @@ struct FullPlayerView: View {
                         }
                         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
                         .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                        .morphCover(!reduceMotion, in: morphNS, isSource: !isQueueVisible(playerState))
                         .scaleEffect(isPlaying ? 1.0 : 0.92)
                         .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                         .onTapGesture {
@@ -200,6 +230,7 @@ struct FullPlayerView: View {
             CoverArtView(id: coverArtId, size: 120)
                 .frame(width: 56, height: 56)
                 .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                .morphCover(!reduceMotion, in: morphNS, isSource: isQueueVisible(playerState))
 
             TrackInfoSection(
                 playerState: playerState,
