@@ -33,6 +33,7 @@ struct FullPlayerView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
@@ -327,7 +328,10 @@ struct FullPlayerView: View {
                     playerState: playerState,
                     playerService: container?.playerService,
                     contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor
+                    secondaryContentColor: vm.secondaryContentColor,
+                    // Stop the fill's continuous per-tick animation when the app isn't foreground-active
+                    // (off-screen) — zero visible change, just no idle Core Animation commits while hidden.
+                    animatesFill: scenePhase == .active
                 )
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.m)
@@ -574,6 +578,7 @@ private struct ScrubberView: View {
     let playerService: (any PlayerServiceProtocol)?
     let contentColor: Color
     let secondaryContentColor: Color
+    var animatesFill: Bool = true
 
     @State private var isDragging = false
     @State private var isSeeking = false
@@ -616,7 +621,8 @@ private struct ScrubberView: View {
                 trackColor: contentColor.opacity(0.2),
                 fillColor: contentColor.opacity(0.95),
                 isInteracting: isDragging || isSeeking,
-                isAdvancing: isAdvancing
+                isAdvancing: isAdvancing,
+                animatesFill: animatesFill
             )
             .onChange(of: playerState.position) { oldValue, newValue in
                 isAdvancing = newValue > oldValue
@@ -647,6 +653,7 @@ struct ProgressSlider: View {
     var trackHeight: CGFloat = 5
     var isInteracting: Bool = false
     var isAdvancing: Bool = false
+    var animatesFill: Bool = true
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -662,7 +669,7 @@ struct ProgressSlider: View {
                 Capsule()
                     .fill(fillColor)
                     .frame(width: progressWidth(in: trackW))
-                    .animation(isDragging || isInteracting || !isAdvancing ? nil : .linear(duration: 0.5), value: value)
+                    .animation(isDragging || isInteracting || !isAdvancing || !animatesFill ? nil : .linear(duration: 0.5), value: value)
             }
             .frame(height: isDragging ? 12 : trackHeight)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
