@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import OSLog
 
 struct EditPinnedView: View {
     @Environment(\.dismiss) private var dismiss
@@ -41,7 +42,10 @@ struct EditPinnedView: View {
                                     }
                                 }
                                 Spacer(minLength: 0)
+                                // Decorative grip — must never be a touch target, or it intercepts the
+                                // row's drag-to-reorder gesture. (Strongest hypothesis for the broken reorder.)
                                 ReorderIndicator(isActive: draggedItem?.id == item.id)
+                                    .allowsHitTesting(false)
                             }
                             .padding(.vertical, CassetteSpacing.xs)
                             .opacity(draggedItem?.id == item.id ? 0.5 : 1.0)
@@ -50,6 +54,7 @@ struct EditPinnedView: View {
                             // initiates from the row. Restore a full-row hit area for the drag.
                             .contentShape(Rectangle())
                             .onDrag {
+                                Logger.ui.notice("[PINNED-REORDER] onDrag started — item=\(item.displayName, privacy: .public)")
                                 draggedItem = item
                                 return NSItemProvider(object: item.id as NSString)
                             }
@@ -60,6 +65,7 @@ struct EditPinnedView: View {
                                     items: $items,
                                     draggedItem: $draggedItem,
                                     onReorder: { reordered in
+                                        Logger.ui.notice("[PINNED-REORDER] onReorder persisting \(reordered.count) item(s)")
                                         container?.pinService.reorder(items: reordered)
                                     }
                                 )
@@ -104,13 +110,23 @@ private struct PinnedItemDropDelegate: DropDelegate {
     @Binding var draggedItem: PinnedItem?
     let onReorder: ([PinnedItem]) -> Void
 
+    func validateDrop(info: DropInfo) -> Bool {
+        Logger.ui.notice("[PINNED-REORDER] validateDrop — target=\(item.displayName, privacy: .public)")
+        return true
+    }
+
     func dropEntered(info: DropInfo) {
+        Logger.ui.notice("[PINNED-REORDER] dropEntered — target=\(item.displayName, privacy: .public), dragged=\(draggedItem?.displayName ?? "nil", privacy: .public)")
         guard let draggedItem,
               draggedItem.id != item.id,
               let from = items.firstIndex(where: { $0.id == draggedItem.id }),
               let to = items.firstIndex(where: { $0.id == item.id })
-        else { return }
+        else {
+            Logger.ui.notice("[PINNED-REORDER] dropEntered — guard failed (no reorder)")
+            return
+        }
 
+        Logger.ui.notice("[PINNED-REORDER] dropEntered — moving from=\(from) to=\(to)")
         withAnimation {
             items.move(fromOffsets: IndexSet(integer: from), toOffset: to > from ? to + 1 : to)
         }
@@ -122,6 +138,7 @@ private struct PinnedItemDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
+        Logger.ui.notice("[PINNED-REORDER] performDrop — target=\(item.displayName, privacy: .public)")
         draggedItem = nil
         return true
     }
