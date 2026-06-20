@@ -118,6 +118,12 @@ struct FullPlayerView: View {
                 vm.dominantColor.opacity(0.5)
                 Color.black.opacity(0.25)
             }
+            // Flatten the 4-layer blurred background (black + radius-80 cover blur + dominant tint + scrim)
+            // into ONE Metal-backed bitmap. The morph leaves the background static, but the zoom (open/close)
+            // scales the WHOLE player including this full-screen background — without flattening, all 4 layers
+            // (and the expensive blur) re-composite every frame of the zoom. Rasterized, the zoom scales a
+            // single cached bitmap. Re-rasterizes on track change (cover crossfade); resting look unchanged.
+            .drawingGroup()
             .ignoresSafeArea()
         }
     }
