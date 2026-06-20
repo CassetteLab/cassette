@@ -585,15 +585,10 @@ private struct ScrubberView: View {
     @State private var isDragging = false
     @State private var isSeeking = false
     @State private var displayPosition: TimeInterval = 0
-    @State private var isAdvancing = false
 
     // Prefer AVPlayer-reported duration; fall back to song metadata to avoid slider clamping to 0..1
     private var effectiveDuration: TimeInterval {
         playerState.duration > 0 ? playerState.duration : (playerState.currentTrack?.duration ?? 1)
-    }
-
-    private var shownPosition: TimeInterval {
-        (isDragging || isSeeking) ? displayPosition : playerState.position
     }
 
     // ProgressSlider writes dragged values here; holds the seeked position until AVPlayer confirms.
@@ -605,6 +600,13 @@ private struct ScrubberView: View {
     }
 
     var body: some View {
+        // H2 (on-screen heat): the fill no longer re-arms a 0.5s linear tween every 500ms tick — that kept
+        // Core Animation committing continuously while the player was visible + playing. isAdvancing is gone,
+        // so ProgressSlider's fill advances in discrete steps with NO implicit animation (stepped). At a 2 Hz
+        // tick over a song-length bar each step is sub-pixel, so it still reads as smooth. ProgressSlider is a
+        // shared component (volume + macOS), so a playback-aware single-span animation can't live there; the
+        // stepped fill is the cooler, lower-risk option. The per-tick position read is isolated to the
+        // ScrubberTimeLabels leaf so this container and the slider's drag state don't re-evaluate each tick.
         VStack(spacing: CassetteSpacing.xs) {
             ProgressSlider(
                 value: positionBinding,
@@ -623,24 +625,40 @@ private struct ScrubberView: View {
                 trackColor: contentColor.opacity(0.2),
                 fillColor: contentColor.opacity(0.95),
                 isInteracting: isDragging || isSeeking,
-                isAdvancing: isAdvancing,
                 animatesFill: animatesFill
             )
-            .onChange(of: playerState.position) { oldValue, newValue in
-                isAdvancing = newValue > oldValue
-            }
 
-            HStack {
-                Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
-                    .font(.cassetteCaption)
-                    .foregroundStyle(secondaryContentColor)
-                    .monospacedDigit()
-                Spacer()
-                Text(Duration.seconds(max(effectiveDuration - shownPosition, 0)).formatted(.time(pattern: .minuteSecond)))
-                    .font(.cassetteCaption)
-                    .foregroundStyle(secondaryContentColor)
-                    .monospacedDigit()
-            }
+            ScrubberTimeLabels(
+                playerState: playerState,
+                effectiveDuration: effectiveDuration,
+                overridePosition: (isDragging || isSeeking) ? displayPosition : nil,
+                color: secondaryContentColor
+            )
+        }
+    }
+}
+
+/// Minimal leaf that renders elapsed / remaining time. It is the ONLY part of the scrubber that reads
+/// `playerState.position`, so the 500ms tick re-evaluates just these two Text views — not the whole
+/// ScrubberView (slider, drag state). The override holds the dragged/seeked value until the seek confirms.
+private struct ScrubberTimeLabels: View {
+    let playerState: PlayerState
+    let effectiveDuration: TimeInterval
+    let overridePosition: TimeInterval?
+    let color: Color
+
+    var body: some View {
+        let shown = overridePosition ?? playerState.position
+        HStack {
+            Text(Duration.seconds(shown).formatted(.time(pattern: .minuteSecond)))
+                .font(.cassetteCaption)
+                .foregroundStyle(color)
+                .monospacedDigit()
+            Spacer()
+            Text(Duration.seconds(max(effectiveDuration - shown, 0)).formatted(.time(pattern: .minuteSecond)))
+                .font(.cassetteCaption)
+                .foregroundStyle(color)
+                .monospacedDigit()
         }
     }
 }
