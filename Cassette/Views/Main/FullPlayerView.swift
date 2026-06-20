@@ -140,6 +140,12 @@ struct FullPlayerView: View {
     /// shared footer (anchored), so only this region differs between player and queue.
     @ViewBuilder
     private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
+        // THE EYEBALL KNOB (title→controls gap): the maximum space left between the track-info row and the
+        // controls/footer. Lower = tighter (the controls sit higher, hugging the title); raise to loosen.
+        // Only the BOTTOM Spacer below the title is capped to this — the cover→title Spacer above stays
+        // uncapped, so the cover stays pinned high and the flex collects there (Apple-Music cluster: large
+        // art up top, title + transport grouped below).
+        let titleToControlsGap: CGFloat = 8
         VStack(spacing: CassetteSpacing.s) {
             // Player-only state: NO leading Spacer, so the artwork starts high — just below the grabber,
             // Apple-Music-like top alignment (the top gap is the small fixed .padding(.top) below, the
@@ -205,9 +211,9 @@ struct FullPlayerView: View {
             )
             .padding(.horizontal, CassetteSpacing.l)
 
-            // Bottom gap is capped (the other two Spacers stay uncapped) so the title sits closer to the
-            // footer/transport — tighter than an even three-way split. Raise this cap to loosen it again.
-            if !showLyrics { Spacer(minLength: 0) }
+            // Cap ONLY this bottom Spacer (the cover→title Spacer above stays uncapped) so the title hugs the
+            // controls/footer instead of floating midway. `titleToControlsGap` at the top is the eyeball knob.
+            if !showLyrics { Spacer(minLength: 0).frame(maxHeight: titleToControlsGap) }
         }
         .padding(.top, CassetteSpacing.s)
         .padding(.bottom, CassetteSpacing.s)
