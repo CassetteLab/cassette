@@ -225,22 +225,21 @@ struct FullPlayerView: View {
     }
 
     private func queuePill(systemImage: String, isActive: Bool, label: String, action: @escaping () -> Void) -> some View {
-        // Active = a solid adaptive content-color chip with a WCAG-correct accent glyph
-        // (accentForeground(on:) picks the readable accent variant for that fill). Hardcoded white
-        // failed on light covers; deriving the fill from the raw accent would dead-zone to a same-accent
-        // (invisible) glyph, so the fill is contentColor and the glyph is the accent computed on it.
-        let activeFill = vm.contentColor
+        // Active = a fixed Electric Violet brand chip with a white glyph (design B). The base accent
+        // #6C47F5 (Violet.v500) keeps white at ~5.4:1; the lighter dark-mode variant #8060F7 drops it to
+        // ~4.2:1, so the fixed base is used rather than the scheme-adaptive accent. Intentionally does NOT
+        // adapt to the artwork — it is a constant brand-accent state signal. Inactive stays adaptive.
         return Button {
             HapticFeedback.light.trigger()
             action()
         } label: {
             Image(systemName: systemImage)
                 .font(.body)
-                .foregroundStyle(isActive ? CassetteColors.accentForeground(on: activeFill) : vm.secondaryContentColor)
+                .foregroundStyle(isActive ? Color.white : vm.secondaryContentColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, CassetteSpacing.s)
                 .background {
-                    Capsule().fill(isActive ? activeFill : vm.contentColor.opacity(0.12))
+                    Capsule().fill(isActive ? CassetteColors.Violet.v500 : vm.contentColor.opacity(0.12))
                 }
         }
         .buttonStyle(.plain)
