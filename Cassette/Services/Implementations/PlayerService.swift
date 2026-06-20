@@ -1139,12 +1139,14 @@ actor PlayerService: PlayerServiceProtocol {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { break }
                 guard !isRestoringSession else { continue }
+                // Position-only update — queue/track/mode already saved at each state change. Check the
+                // actor-local seekability first (no MainActor hop): a non-seekable stream can't restore a
+                // position, so skip the hop entirely rather than reading state only to discard it.
+                guard audioPlayer.isSeekable else { continue }
                 let (isPlaying, pos) = await MainActor.run {
                     (state.playbackState == .playing, state.position)
                 }
-                // Position-only update — queue/track/mode already saved at each state change.
-                // Skip if stream is not seekable (position cannot be restored anyway).
-                guard isPlaying, audioPlayer.isSeekable else { continue }
+                guard isPlaying else { continue }
                 await sessionService.savePosition(pos)
             }
         }
