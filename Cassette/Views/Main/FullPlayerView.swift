@@ -225,18 +225,22 @@ struct FullPlayerView: View {
     }
 
     private func queuePill(systemImage: String, isActive: Bool, label: String, action: @escaping () -> Void) -> some View {
-        let accent = CassetteColors.accentForeground(on: vm.dominantColor)
+        // Active = a solid adaptive content-color chip with a WCAG-correct accent glyph
+        // (accentForeground(on:) picks the readable accent variant for that fill). Hardcoded white
+        // failed on light covers; deriving the fill from the raw accent would dead-zone to a same-accent
+        // (invisible) glyph, so the fill is contentColor and the glyph is the accent computed on it.
+        let activeFill = vm.contentColor
         return Button {
             HapticFeedback.light.trigger()
             action()
         } label: {
             Image(systemName: systemImage)
                 .font(.body)
-                .foregroundStyle(isActive ? Color.white : vm.secondaryContentColor)
+                .foregroundStyle(isActive ? CassetteColors.accentForeground(on: activeFill) : vm.secondaryContentColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, CassetteSpacing.s)
                 .background {
-                    Capsule().fill(isActive ? accent : Color.white.opacity(0.1))
+                    Capsule().fill(isActive ? activeFill : vm.contentColor.opacity(0.12))
                 }
         }
         .buttonStyle(.plain)
