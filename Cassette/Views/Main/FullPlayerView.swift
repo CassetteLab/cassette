@@ -32,6 +32,7 @@ struct FullPlayerView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dismiss) private var dismiss
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
@@ -362,11 +363,19 @@ struct FullPlayerView: View {
     }
 
     private var topBar: some View {
-        // Visual handle only — dismissal is the native zoom transition's interactive swipe (no custom gesture).
-        Capsule()
-            .fill(vm.contentColor.opacity(0.4))
-            .frame(width: 36, height: 5)
-            .accessibilityHidden(true)
+        // Grabber doubles as a tap-to-dismiss (animated by the zoom-back) — a guaranteed close affordance
+        // alongside the zoom transition's interactive swipe. A discrete tap, not a drag-translate dismiss.
+        Button {
+            dismiss()
+        } label: {
+            Capsule()
+                .fill(vm.contentColor.opacity(0.4))
+                .frame(width: 36, height: 5)
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close player")
     }
 
 }
