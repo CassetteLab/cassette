@@ -30,8 +30,9 @@ struct LyricsView: View {
                 errorState(message)
             }
         }
-        .onAppear { viewModel.startTracking() }
-        .onDisappear { viewModel.stopTracking() }
+        .onAppear { viewModel.setVisible(true) }
+        .onDisappear { viewModel.setVisible(false) }
+        .onChange(of: viewModel.isPlaying) { _, _ in viewModel.reconcileTracking() }
     }
 
     // MARK: - Loaded
