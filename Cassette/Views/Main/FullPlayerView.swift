@@ -194,7 +194,9 @@ struct FullPlayerView: View {
             )
             .padding(.horizontal, CassetteSpacing.l)
 
-            if !showLyrics { Spacer(minLength: 0) }
+            // Bottom gap is capped (the other two Spacers stay uncapped) so the title sits closer to the
+            // footer/transport — tighter than an even three-way split. Raise this cap to loosen it again.
+            if !showLyrics { Spacer(minLength: 0).frame(maxHeight: CassetteSpacing.l) }
         }
         .padding(.top, CassetteSpacing.l)
         .padding(.bottom, CassetteSpacing.s)
