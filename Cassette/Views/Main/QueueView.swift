@@ -217,6 +217,10 @@ private struct QueueRow: View {
     let song: DisplayableSong
     let isCurrent: Bool
     let onRemove: (() -> Void)?
+    // Default to the system label colors (macOS popover, which has its own background); the inline iOS
+    // queue passes the full player's luminance-adaptive content colors so text reads over the cover blur.
+    var contentColor: Color = .primary
+    var secondaryContentColor: Color = .secondary
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -224,10 +228,13 @@ private struct QueueRow: View {
     @State private var showAddToPlaylist = false
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, isCurrent: Bool, onRemove: (() -> Void)? = nil) {
+    init(song: DisplayableSong, isCurrent: Bool, onRemove: (() -> Void)? = nil,
+         contentColor: Color = .primary, secondaryContentColor: Color = .secondary) {
         self.song = song
         self.isCurrent = isCurrent
         self.onRemove = onRemove
+        self.contentColor = contentColor
+        self.secondaryContentColor = secondaryContentColor
         let cid = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -245,12 +252,12 @@ private struct QueueRow: View {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 Text(song.title)
                     .font(.cassetteCellTitle)
-                    .foregroundStyle(isCurrent ? playingAccent : Color.primary)
+                    .foregroundStyle(isCurrent ? playingAccent : contentColor)
                     .lineLimit(1)
                 if let artist = song.artist {
                     Text(artist)
                         .font(.cassetteCaption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(secondaryContentColor)
                         .lineLimit(1)
                 }
             }
@@ -341,6 +348,8 @@ private struct QueueRow: View {
 /// context menu (no edit-mode delete circles); tap-to-play stays in the queue surface.
 struct InlineQueueList: View {
     let playerState: PlayerState
+    var contentColor: Color = .primary
+    var secondaryContentColor: Color = .secondary
     @Environment(\.appContainer) private var container
 
     var body: some View {
@@ -359,7 +368,8 @@ struct InlineQueueList: View {
             List {
                 ForEach(Array(upNext.enumerated()), id: \.offset) { offset, song in
                     let absoluteIndex = currentIndex + 1 + offset
-                    QueueRow(song: song, isCurrent: false, onRemove: { removeFromQueue(at: absoluteIndex) })
+                    QueueRow(song: song, isCurrent: false, onRemove: { removeFromQueue(at: absoluteIndex) },
+                             contentColor: contentColor, secondaryContentColor: secondaryContentColor)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .contentShape(Rectangle())

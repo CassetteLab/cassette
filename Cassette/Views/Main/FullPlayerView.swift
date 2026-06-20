@@ -177,8 +177,12 @@ struct FullPlayerView: View {
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.bottom, CassetteSpacing.xs)
 
-            InlineQueueList(playerState: playerState)
-                .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
+            InlineQueueList(
+                playerState: playerState,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor
+            )
+            .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
 
             queueStatusLine(playerState)
                 .padding(.horizontal, CassetteSpacing.l)
