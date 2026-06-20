@@ -33,12 +33,19 @@ struct FullPlayerView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
     @State private var surface: PlayerSurface = .player
     @State private var lyricsViewModel: LyricsViewModel?
     @Namespace private var morphNS
+    // L1 (morph / open-close lag): the cover drop-shadow is an offscreen pass re-rendered EACH FRAME while
+    // the cover layer transforms (matchedGeometry morph, zoom present/dismiss, isPlaying scale spring).
+    // Suppress it only DURING those transitions and restore it at rest — the resting look is unchanged, but
+    // the per-frame shadow cost during exactly those transitions is gone.
+    @State private var coverTransitioning = false
+    @State private var coverTransitionResetTask: Task<Void, Never>?
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -119,6 +126,12 @@ struct FullPlayerView: View {
             }
             .ignoresSafeArea()
         }
+        // Suppress the cover shadow across the transitions that transform the cover layer: the surface morph,
+        // the play/pause scale spring, and the open zoom (.onAppear). The close zoom is hooked on the grabber
+        // dismiss; an interactive swipe-down dismiss isn't hooked (minor, the shadow detail isn't visible mid-fly).
+        .onChange(of: surface) { _, _ in markCoverTransition() }
+        .onChange(of: playerState.playbackState) { _, _ in markCoverTransition() }
+        .onAppear { markCoverTransition() }
     }
 
     // MARK: - Surfaces
@@ -127,6 +140,19 @@ struct FullPlayerView: View {
     /// no queue). Drives the matchedGeometry `isSource` so the source always belongs to an in-tree view.
     private func isQueueVisible(_ playerState: PlayerState) -> Bool {
         surface == .queue && !playerState.isLiveStream
+    }
+
+    /// Suppress the cover shadow for the duration of a cover transition (morph / zoom / play-pause spring),
+    /// then restore it at rest with a short fade so it doesn't visibly pop back in. Re-entrant: a new
+    /// transition cancels the pending restore and extends the suppression.
+    private func markCoverTransition(_ duration: Double = 0.6) {
+        coverTransitioning = true
+        coverTransitionResetTask?.cancel()
+        coverTransitionResetTask = Task {
+            try? await Task.sleep(for: .seconds(duration))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.15)) { coverTransitioning = false }
+        }
     }
 
     /// Player state: centered album art (or lyrics) + track info. The transport chrome lives in the
@@ -163,7 +189,11 @@ struct FullPlayerView: View {
                             CoverArtView(id: coverArtId, size: 600)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                        .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                        // Shadow suppressed mid-transition (clear + radius 0 = no expensive offscreen blur pass),
+                        // restored to the identical resting look once the transform settles.
+                        .shadow(color: coverTransitioning ? .clear : .black.opacity(0.3),
+                                radius: coverTransitioning ? 0 : 30,
+                                y: coverTransitioning ? 0 : 10)
                         .morphCover(!reduceMotion, in: morphNS, isSource: !isQueueVisible(playerState))
                         .scaleEffect(isPlaying ? 1.0 : 0.92)
                         .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
@@ -210,7 +240,9 @@ struct FullPlayerView: View {
             InlineQueueList(
                 playerState: playerState,
                 contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor
+                secondaryContentColor: vm.secondaryContentColor,
+                // Mounted at opacity 0 for the morph — defer row artwork until the queue is actually shown.
+                loadArtwork: isQueueVisible(playerState)
             )
             // The iOS reorder grip is the system edit-mode control — not directly recolorable, but its
             // light/dark rendering can be pinned to the cover's luminance (the same isLightBackground
@@ -327,7 +359,10 @@ struct FullPlayerView: View {
                     playerState: playerState,
                     playerService: container?.playerService,
                     contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor
+                    secondaryContentColor: vm.secondaryContentColor,
+                    // Stop the fill's continuous per-tick animation when the app isn't foreground-active
+                    // (off-screen) — zero visible change, just no idle Core Animation commits while hidden.
+                    animatesFill: scenePhase == .active
                 )
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.m)
@@ -366,6 +401,7 @@ struct FullPlayerView: View {
         // Grabber doubles as a tap-to-dismiss (animated by the zoom-back) — a guaranteed close affordance
         // alongside the zoom transition's interactive swipe. A discrete tap, not a drag-translate dismiss.
         Button {
+            markCoverTransition()
             dismiss()
         } label: {
             Capsule()
@@ -574,19 +610,15 @@ private struct ScrubberView: View {
     let playerService: (any PlayerServiceProtocol)?
     let contentColor: Color
     let secondaryContentColor: Color
+    var animatesFill: Bool = true
 
     @State private var isDragging = false
     @State private var isSeeking = false
     @State private var displayPosition: TimeInterval = 0
-    @State private var isAdvancing = false
 
     // Prefer AVPlayer-reported duration; fall back to song metadata to avoid slider clamping to 0..1
     private var effectiveDuration: TimeInterval {
         playerState.duration > 0 ? playerState.duration : (playerState.currentTrack?.duration ?? 1)
-    }
-
-    private var shownPosition: TimeInterval {
-        (isDragging || isSeeking) ? displayPosition : playerState.position
     }
 
     // ProgressSlider writes dragged values here; holds the seeked position until AVPlayer confirms.
@@ -598,6 +630,13 @@ private struct ScrubberView: View {
     }
 
     var body: some View {
+        // H2 (on-screen heat): the fill no longer re-arms a 0.5s linear tween every 500ms tick — that kept
+        // Core Animation committing continuously while the player was visible + playing. isAdvancing is gone,
+        // so ProgressSlider's fill advances in discrete steps with NO implicit animation (stepped). At a 2 Hz
+        // tick over a song-length bar each step is sub-pixel, so it still reads as smooth. ProgressSlider is a
+        // shared component (volume + macOS), so a playback-aware single-span animation can't live there; the
+        // stepped fill is the cooler, lower-risk option. The per-tick position read is isolated to the
+        // ScrubberTimeLabels leaf so this container and the slider's drag state don't re-evaluate each tick.
         VStack(spacing: CassetteSpacing.xs) {
             ProgressSlider(
                 value: positionBinding,
@@ -616,23 +655,40 @@ private struct ScrubberView: View {
                 trackColor: contentColor.opacity(0.2),
                 fillColor: contentColor.opacity(0.95),
                 isInteracting: isDragging || isSeeking,
-                isAdvancing: isAdvancing
+                animatesFill: animatesFill
             )
-            .onChange(of: playerState.position) { oldValue, newValue in
-                isAdvancing = newValue > oldValue
-            }
 
-            HStack {
-                Text(Duration.seconds(shownPosition).formatted(.time(pattern: .minuteSecond)))
-                    .font(.cassetteCaption)
-                    .foregroundStyle(secondaryContentColor)
-                    .monospacedDigit()
-                Spacer()
-                Text(Duration.seconds(max(effectiveDuration - shownPosition, 0)).formatted(.time(pattern: .minuteSecond)))
-                    .font(.cassetteCaption)
-                    .foregroundStyle(secondaryContentColor)
-                    .monospacedDigit()
-            }
+            ScrubberTimeLabels(
+                playerState: playerState,
+                effectiveDuration: effectiveDuration,
+                overridePosition: (isDragging || isSeeking) ? displayPosition : nil,
+                color: secondaryContentColor
+            )
+        }
+    }
+}
+
+/// Minimal leaf that renders elapsed / remaining time. It is the ONLY part of the scrubber that reads
+/// `playerState.position`, so the 500ms tick re-evaluates just these two Text views — not the whole
+/// ScrubberView (slider, drag state). The override holds the dragged/seeked value until the seek confirms.
+private struct ScrubberTimeLabels: View {
+    let playerState: PlayerState
+    let effectiveDuration: TimeInterval
+    let overridePosition: TimeInterval?
+    let color: Color
+
+    var body: some View {
+        let shown = overridePosition ?? playerState.position
+        HStack {
+            Text(Duration.seconds(shown).formatted(.time(pattern: .minuteSecond)))
+                .font(.cassetteCaption)
+                .foregroundStyle(color)
+                .monospacedDigit()
+            Spacer()
+            Text(Duration.seconds(max(effectiveDuration - shown, 0)).formatted(.time(pattern: .minuteSecond)))
+                .font(.cassetteCaption)
+                .foregroundStyle(color)
+                .monospacedDigit()
         }
     }
 }
@@ -647,6 +703,7 @@ struct ProgressSlider: View {
     var trackHeight: CGFloat = 5
     var isInteracting: Bool = false
     var isAdvancing: Bool = false
+    var animatesFill: Bool = true
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -662,7 +719,7 @@ struct ProgressSlider: View {
                 Capsule()
                     .fill(fillColor)
                     .frame(width: progressWidth(in: trackW))
-                    .animation(isDragging || isInteracting || !isAdvancing ? nil : .linear(duration: 0.5), value: value)
+                    .animation(isDragging || isInteracting || !isAdvancing || !animatesFill ? nil : .linear(duration: 0.5), value: value)
             }
             .frame(height: isDragging ? 12 : trackHeight)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)

@@ -98,7 +98,12 @@ struct MiniPlayerAccessoryView: View {
     }
 
     private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool, isLiveStream: Bool) -> some View {
-        let progress = playerState.duration > 0 ? playerState.position / playerState.duration : 0.0
+        // While the full player covers the mini bar, skip reading position — that read is what drives the
+        // capsule's per-tick (500ms) re-render, and the capsule is off-screen so its value can't be seen.
+        // The `||` short-circuits before touching playerState.position when showingFullPlayer is true.
+        let progress = showingFullPlayer || playerState.duration <= 0
+            ? 0.0
+            : playerState.position / playerState.duration
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: CassetteSpacing.m) {
                 CoverArtCard(id: coverArtId, size: 36)

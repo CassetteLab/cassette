@@ -1139,12 +1139,14 @@ actor PlayerService: PlayerServiceProtocol {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { break }
                 guard !isRestoringSession else { continue }
+                // Position-only update — queue/track/mode already saved at each state change. Check the
+                // actor-local seekability first (no MainActor hop): a non-seekable stream can't restore a
+                // position, so skip the hop entirely rather than reading state only to discard it.
+                guard audioPlayer.isSeekable else { continue }
                 let (isPlaying, pos) = await MainActor.run {
                     (state.playbackState == .playing, state.position)
                 }
-                // Position-only update — queue/track/mode already saved at each state change.
-                // Skip if stream is not seekable (position cannot be restored anyway).
-                guard isPlaying, audioPlayer.isSeekable else { continue }
+                guard isPlaying else { continue }
                 await sessionService.savePosition(pos)
             }
         }
@@ -1243,22 +1245,27 @@ actor PlayerService: PlayerServiceProtocol {
 
     private func checkPrefetchThreshold() async {
         guard !prefetchScheduled else { return }
-        let (queue, currentIndex, duration, position) = await MainActor.run {
-            (state.queue, state.currentIndex, state.duration, state.position)
+        // Snapshot only the scalars each tick — never copy the whole `state.queue` array (it can be large
+        // and this runs every 500ms). The next-song element is read on MainActor only when we actually
+        // proceed, in a single hop alongside the server id (also trimming one MainActor round-trip).
+        let (currentIndex, duration, position) = await MainActor.run {
+            (state.currentIndex, state.duration, state.position)
         }
         guard duration > 0 else { return }
         let remaining = duration - position
         guard PlayerService.shouldSchedulePrefetch(crossfadeDuration: crossfadeConfig.duration, remaining: remaining) else { return }
 
         let nextIndex = currentIndex + 1
-        guard queue.indices.contains(nextIndex) else { return }
-        let nextSong = queue[nextIndex]
-
-        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else { return }
+        let resolved: (nextSong: DisplayableSong, serverId: UUID)? = await MainActor.run {
+            guard state.queue.indices.contains(nextIndex),
+                  let serverId = serverService.state.activeServer?.id else { return nil }
+            return (state.queue[nextIndex], serverId)
+        }
+        guard let resolved else { return }
 
         prefetchScheduled = true
-        Logger.player.debug("[PREFETCH] scheduling prefetch for '\(nextSong.title, privacy: .public)' (remaining=\(String(format: "%.1f", remaining))s)")
-        await prefetchNextTrack(nextSong: nextSong, serverId: serverId)
+        Logger.player.debug("[PREFETCH] scheduling prefetch for '\(resolved.nextSong.title, privacy: .public)' (remaining=\(String(format: "%.1f", remaining))s)")
+        await prefetchNextTrack(nextSong: resolved.nextSong, serverId: resolved.serverId)
     }
 
     private func prefetchNextTrack(nextSong: DisplayableSong, serverId: UUID) async {

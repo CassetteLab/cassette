@@ -221,6 +221,7 @@ private struct QueueRow: View {
     // queue passes the full player's luminance-adaptive content colors so text reads over the cover blur.
     var contentColor: Color = .primary
     var secondaryContentColor: Color = .secondary
+    var loadArtwork: Bool = true
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -229,12 +230,13 @@ private struct QueueRow: View {
     @Query private var favoriteMatches: [FavoriteRecord]
 
     init(song: DisplayableSong, isCurrent: Bool, onRemove: (() -> Void)? = nil,
-         contentColor: Color = .primary, secondaryContentColor: Color = .secondary) {
+         contentColor: Color = .primary, secondaryContentColor: Color = .secondary, loadArtwork: Bool = true) {
         self.song = song
         self.isCurrent = isCurrent
         self.onRemove = onRemove
         self.contentColor = contentColor
         self.secondaryContentColor = secondaryContentColor
+        self.loadArtwork = loadArtwork
         let cid = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -245,7 +247,7 @@ private struct QueueRow: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
-            CoverArtView(id: song.coverArtId ?? song.id, size: 88)
+            CoverArtView(id: song.coverArtId ?? song.id, size: 88, loadingEnabled: loadArtwork)
                 .frame(width: 44, height: 44)
                 .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.xs)
 
@@ -350,6 +352,9 @@ struct InlineQueueList: View {
     let playerState: PlayerState
     var contentColor: Color = .primary
     var secondaryContentColor: Color = .secondary
+    /// Defer row artwork loads until the queue is actually visible (it is mounted at opacity 0 for the
+    /// morph). The List stays mounted with stable identity — only the per-row artwork task is gated.
+    var loadArtwork: Bool = true
     @Environment(\.appContainer) private var container
 
     var body: some View {
@@ -369,7 +374,8 @@ struct InlineQueueList: View {
                 ForEach(Array(upNext.enumerated()), id: \.offset) { offset, song in
                     let absoluteIndex = currentIndex + 1 + offset
                     QueueRow(song: song, isCurrent: false, onRemove: { removeFromQueue(at: absoluteIndex) },
-                             contentColor: contentColor, secondaryContentColor: secondaryContentColor)
+                             contentColor: contentColor, secondaryContentColor: secondaryContentColor,
+                             loadArtwork: loadArtwork)
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .contentShape(Rectangle())

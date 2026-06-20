@@ -38,6 +38,10 @@ struct CoverArtView: View {
     var cornerRadius: CGFloat = 0
     var placeholderSystemImage: String = "music.note"
     var initialImage: PlatformImage? = nil
+    /// When false, the artwork load is deferred (placeholder/initial image only) until it flips true —
+    /// used to avoid firing artwork tasks for rows mounted but not yet visible (e.g. the inline queue at
+    /// opacity 0). Defaults to true so every other call site is unchanged.
+    var loadingEnabled: Bool = true
 
     var body: some View {
         // No artworkCache read here — see guard comment above.
@@ -49,7 +53,8 @@ struct CoverArtView: View {
             tier: tier,
             cornerRadius: cornerRadius,
             placeholderSystemImage: placeholderSystemImage,
-            initialImage: initialImage
+            initialImage: initialImage,
+            loadingEnabled: loadingEnabled
         )
     }
 }
@@ -62,18 +67,20 @@ private struct CoverArtViewContent: View {
     let tier: ArtworkTier?
     let cornerRadius: CGFloat
     let placeholderSystemImage: String
+    let loadingEnabled: Bool
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkCache
     @State private var cachedImage: PlatformImage?
     @State private var url: URL?
 
-    init(id: String, size: Int?, tier: ArtworkTier?, cornerRadius: CGFloat, placeholderSystemImage: String, initialImage: PlatformImage?) {
+    init(id: String, size: Int?, tier: ArtworkTier?, cornerRadius: CGFloat, placeholderSystemImage: String, initialImage: PlatformImage?, loadingEnabled: Bool = true) {
         self.id = id
         self.size = size
         self.tier = tier
         self.cornerRadius = cornerRadius
         self.placeholderSystemImage = placeholderSystemImage
+        self.loadingEnabled = loadingEnabled
         _cachedImage = State(initialValue: initialImage)
     }
 
@@ -111,7 +118,10 @@ private struct CoverArtViewContent: View {
                 }
             }
         }
-        .task(id: id) {
+        // Keyed on (loadingEnabled, id) so deferring/undeferring re-runs the load: a deferred row shows its
+        // placeholder/initial image and fires NO artwork task until it becomes visible (loadingEnabled flips).
+        .task(id: "\(loadingEnabled):\(id)") {
+            guard loadingEnabled else { return }
             url = nil
 
             let t = resolvedTier
