@@ -45,6 +45,10 @@ struct EditPinnedView: View {
                             }
                             .padding(.vertical, CassetteSpacing.xs)
                             .opacity(draggedItem?.id == item.id ? 0.5 : 1.0)
+                            // The trailing grip added a Spacer, making the row full-width with a
+                            // non-hittable gap; without an explicit content shape, .onDrag no longer
+                            // initiates from the row. Restore a full-row hit area for the drag.
+                            .contentShape(Rectangle())
                             .onDrag {
                                 draggedItem = item
                                 return NSItemProvider(object: item.id as NSString)
