@@ -11,6 +11,8 @@ import SwiftSonic
 struct RootViewMacOS: View {
     @Environment(\.appContainer) private var container
     @Query(sort: \PinnedItem.sortOrder) private var pinnedItems: [PinnedItem]
+    // Local mutable copy for native sidebar drag-to-reorder; synced from @Query on count changes.
+    @State private var localPinnedItems: [PinnedItem] = []
     @State private var selection: SidebarDestination? = .section(.home)
     @State private var searchQuery: String = ""
     @State private var isShowingFullPlayer = false
@@ -141,11 +143,17 @@ struct RootViewMacOS: View {
                 sidebarRow(.downloads)
             }
 
-            if !pinnedItems.isEmpty {
+            if !localPinnedItems.isEmpty {
                 Section("Pinned") {
-                    ForEach(pinnedItems) { item in
+                    ForEach(localPinnedItems) { item in
                         pinnedRow(item)
                             .tag(SidebarDestination.pinned(item.id))
+                    }
+                    .onMove { source, destination in
+                        // Native macOS List reorder; persist through the same PinService path as the iOS
+                        // grid (writes sortOrder + saves) so pinned order is one source of truth across platforms.
+                        localPinnedItems.move(fromOffsets: source, toOffset: destination)
+                        container?.pinService.reorder(items: localPinnedItems)
                     }
                 }
             }
@@ -154,6 +162,8 @@ struct RootViewMacOS: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             userFooter
         }
+        .onAppear { localPinnedItems = pinnedItems }
+        .onChange(of: pinnedItems.count) { _, _ in localPinnedItems = pinnedItems }
     }
 
     private func sidebarRow(_ section: SidebarSection) -> some View {
