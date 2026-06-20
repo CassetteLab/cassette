@@ -27,7 +27,10 @@ import AppKit
 final class DominantColorExtractor {
     private static let userDefaultsKey = "cassette.dominantColor.cache"
 
-    private var cache: [String: Color] = [:]
+    // Pure memoization store — not UI state. @ObservationIgnored so a cache write (on a cold-cover miss)
+    // never invalidates a view that called dominantColor() during its body. Colors that drive UI flow
+    // through observed @State / view-model properties (e.g. FullPlayerViewModel.dominantColor), never this.
+    @ObservationIgnored private var cache: [String: Color] = [:]
     private let ciContext = CIContext(options: [.workingColorSpace: kCFNull as Any])
 
     init() {
