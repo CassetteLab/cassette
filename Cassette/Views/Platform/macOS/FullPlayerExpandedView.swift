@@ -7,6 +7,7 @@
 import SwiftUI
 import AppKit
 import OSLog
+import UniformTypeIdentifiers
 
 private enum RightPanel { case lyrics, queue }
 
@@ -31,6 +32,7 @@ struct FullPlayerExpandedView: View {
     @State private var volumeBeforeMute: Double = 0.7
     @State private var showVolumeSlider = false
     @State private var showAddToPlaylist = false
+    @State private var draggedQueueIndex: Int?
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
 
     private var playerState: PlayerState? { container?.playerState }
@@ -650,19 +652,26 @@ struct FullPlayerExpandedView: View {
 
                 if !upNext.isEmpty {
                     Section("Up Next") {
-                        ForEach(Array(upNext.enumerated()), id: \.element.id) { offset, track in
+                        ForEach(Array(upNext.enumerated()), id: \.offset) { offset, track in
                             let absoluteIndex = currentIndex + 1 + offset
-                            ExpandedQueueRow(track: track, isCurrent: false)
+                            ExpandedQueueRow(track: track, isCurrent: false, isDragging: draggedQueueIndex == absoluteIndex)
                                 .contentShape(Rectangle())
+                                .opacity(draggedQueueIndex == absoluteIndex ? 0.5 : 1.0)
                                 .onTapGesture {
                                     Task { try? await container?.playerService.play(tracks: queue, startIndex: absoluteIndex) }
                                 }
-                        }
-                        .onMove { indexSet, destination in
-                            guard let relativeSource = indexSet.first else { return }
-                            let absoluteSource = currentIndex + 1 + relativeSource
-                            let absoluteDestination = currentIndex + 1 + destination
-                            Task { await container?.playerService.moveInQueue(fromIndex: absoluteSource, toIndex: absoluteDestination) }
+                                .onDrag {
+                                    // Positional payload — the delegate resolves by position, never song id.
+                                    draggedQueueIndex = absoluteIndex
+                                    return NSItemProvider(object: "\(absoluteIndex)" as NSString)
+                                }
+                                .onDrop(of: [UTType.text], delegate: QueueReorderDropDelegate(
+                                    targetIndex: absoluteIndex,
+                                    draggedIndex: $draggedQueueIndex,
+                                    move: { from, toOffset in
+                                        Task { await container?.playerService.moveInQueue(fromIndex: from, toIndex: toOffset) }
+                                    }
+                                ))
                         }
                         .onDelete { indexSet in
                             let absoluteIndices = indexSet.sorted(by: >).map { currentIndex + 1 + $0 }
@@ -715,6 +724,7 @@ struct FullPlayerExpandedView: View {
 private struct ExpandedQueueRow: View {
     let track: DisplayableSong
     let isCurrent: Bool
+    var isDragging: Bool = false
 
     @Environment(\.appContainer) private var container
     @Environment(\.cassettePlayingAccent) private var playingAccent
@@ -746,7 +756,7 @@ private struct ExpandedQueueRow: View {
             if isCurrent {
                 NowPlayingBarsIndicator(isPlaying: isPlaying)
             } else {
-                ReorderIndicator()
+                ReorderIndicator(isActive: isDragging)
             }
         }
         .padding(.vertical, 2)
