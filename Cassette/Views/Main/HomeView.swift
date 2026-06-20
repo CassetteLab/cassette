@@ -33,6 +33,7 @@ struct HomeView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: HomeViewModel?
+    @State private var showCreatePlaylist = false
     @State private var navigateToSettings = false
     @State private var navigateToAllAlbums = false
     private let recentColumns = [
@@ -124,6 +125,10 @@ struct HomeView: View {
             #if !os(macOS)
             ToolbarItem(placement: .automatic) {
                 Menu {
+                    Button { showCreatePlaylist = true } label: {
+                        Label("New Playlist", systemImage: "plus")
+                    }
+                    .disabled(!isOnline)
                     Button { navigateToSettings = true } label: {
                         Label("Settings", systemImage: "gear")
                     }
@@ -136,6 +141,7 @@ struct HomeView: View {
             }
             #endif
         }
+        .sheet(isPresented: $showCreatePlaylist) { CreatePlaylistSheet { _ in } }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
         #if os(macOS)
         .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
