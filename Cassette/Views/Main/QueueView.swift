@@ -6,11 +6,13 @@
 import SwiftUI
 import SwiftData
 import OSLog
+import UniformTypeIdentifiers
 
 struct QueueView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.dismiss) private var dismiss
     @Environment(\.cassettePlayingAccent) private var playingAccent
+    @State private var draggedQueueIndex: Int?
 
     var body: some View {
         #if os(macOS)
@@ -89,10 +91,11 @@ struct QueueView: View {
 
             if !upNext.isEmpty {
                 Section("Up Next") {
-                    ForEach(Array(upNext.enumerated()), id: \.element.id) { offset, song in
+                    ForEach(Array(upNext.enumerated()), id: \.offset) { offset, song in
                         let absoluteIndex = currentIndex + 1 + offset
-                        QueueRow(song: song, isCurrent: false)
+                        QueueRow(song: song, isCurrent: false, isDragging: draggedQueueIndex == absoluteIndex)
                             .contentShape(Rectangle())
+                            .opacity(draggedQueueIndex == absoluteIndex ? 0.5 : 1.0)
                             .onTapGesture {
                                 HapticFeedback.medium.trigger()
                                 Task {
@@ -103,13 +106,19 @@ struct QueueView: View {
                                     }
                                 }
                             }
-                    }
-                    .onMove { source, destination in
-                        guard let relativeSource = source.first else { return }
-                        let absoluteSource = currentIndex + 1 + relativeSource
-                        let absoluteDestination = currentIndex + 1 + destination
-                        HapticFeedback.light.trigger()
-                        Task { await container?.playerService.moveInQueue(fromIndex: absoluteSource, toIndex: absoluteDestination) }
+                            .onDrag {
+                                // Encode the row's absolute queue position; the delegate resolves the move
+                                // positionally (never by song id) so duplicate tracks reorder correctly.
+                                draggedQueueIndex = absoluteIndex
+                                return NSItemProvider(object: "\(absoluteIndex)" as NSString)
+                            }
+                            .onDrop(of: [UTType.text], delegate: QueueReorderDropDelegate(
+                                targetIndex: absoluteIndex,
+                                draggedIndex: $draggedQueueIndex,
+                                move: { from, toOffset in
+                                    Task { await container?.playerService.moveInQueue(fromIndex: from, toIndex: toOffset) }
+                                }
+                            ))
                     }
                     .onDelete { indices in
                         let absoluteIndices = indices.sorted(by: >).map { currentIndex + 1 + $0 }
@@ -174,6 +183,7 @@ struct QueueView: View {
 private struct QueueRow: View {
     let song: DisplayableSong
     let isCurrent: Bool
+    let isDragging: Bool
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -181,9 +191,10 @@ private struct QueueRow: View {
     @State private var showAddToPlaylist = false
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, isCurrent: Bool) {
+    init(song: DisplayableSong, isCurrent: Bool, isDragging: Bool = false) {
         self.song = song
         self.isCurrent = isCurrent
+        self.isDragging = isDragging
         let cid = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -216,7 +227,7 @@ private struct QueueRow: View {
             if isCurrent {
                 NowPlayingBarsIndicator(isPlaying: isPlaying)
             } else {
-                ReorderIndicator()
+                ReorderIndicator(isActive: isDragging)
             }
         }
         .padding(.vertical, CassetteSpacing.xs)
@@ -277,5 +288,36 @@ private struct QueueRow: View {
             AddToPlaylistSheet(song: song)
                 .environment(artworkImageCache)
         }
+    }
+}
+
+/// Positional drag-reorder drop delegate for the queue, shared by both queue surfaces.
+///
+/// Follows edit-pinned's `.onDrag`/`.onDrop` structure, with two deliberate differences:
+/// - It resolves the move by **absolute queue position** (`targetIndex` + the bound grab index), not
+///   edit-pinned's `firstIndex(by id)` — the queue can hold the same song twice, so an id lookup would
+///   move the wrong copy; positions are unique.
+/// - It commits a **single** move in `performDrop`, not per-`dropEntered`. `PlayerService` is an actor
+///   and `moveInQueue` is an order-sensitive incremental mutation, so firing one unstructured `Task`
+///   per hover would let commits interleave and scramble the queue; one move on drop is race-free.
+///
+/// `move(from:toOffset:)` receives the grabbed row's absolute index and the SwiftUI `Array.move`
+/// `toOffset` for the target slot (the convention `PlayerService.moveInQueue` expects).
+struct QueueReorderDropDelegate: DropDelegate {
+    let targetIndex: Int
+    @Binding var draggedIndex: Int?
+    let move: (Int, Int) -> Void
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        defer { draggedIndex = nil }
+        guard let from = draggedIndex, from != targetIndex else { return true }
+        // Land the dragged row exactly at targetIndex; moveInQueue applies dest = from < to ? to-1 : to.
+        let toOffset = targetIndex > from ? targetIndex + 1 : targetIndex
+        move(from, toOffset)
+        return true
     }
 }
