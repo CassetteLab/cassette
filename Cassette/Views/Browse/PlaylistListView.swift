@@ -29,7 +29,7 @@ struct PlaylistListView: View {
                     showCreateSheet = true
                 } label: {
                     Image(systemName: "plus")
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.cassetteAccent)
                 }
                 .disabled(container?.serverState.isOnline != true)
             }
