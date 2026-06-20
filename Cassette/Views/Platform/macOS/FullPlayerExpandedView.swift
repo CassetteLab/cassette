@@ -33,6 +33,7 @@ struct FullPlayerExpandedView: View {
     @State private var showVolumeSlider = false
     @State private var showAddToPlaylist = false
     @State private var draggedQueueIndex: Int?
+    @State private var dropTargetGap: Int?
     @AppStorage("cassette.lastVolume") private var localVolume: Double = 0.7
 
     private var playerState: PlayerState? { container?.playerState }
@@ -654,9 +655,14 @@ struct FullPlayerExpandedView: View {
                     Section("Up Next") {
                         ForEach(Array(upNext.enumerated()), id: \.offset) { offset, track in
                             let absoluteIndex = currentIndex + 1 + offset
-                            ExpandedQueueRow(track: track, isCurrent: false, isDragging: draggedQueueIndex == absoluteIndex)
+                            ExpandedQueueRow(track: track, isCurrent: false)
                                 .contentShape(Rectangle())
-                                .opacity(draggedQueueIndex == absoluteIndex ? 0.5 : 1.0)
+                                .overlay(alignment: .top) {
+                                    if dropTargetGap == absoluteIndex { queueInsertionLine }
+                                }
+                                .overlay(alignment: .bottom) {
+                                    if offset == upNext.count - 1 && dropTargetGap == absoluteIndex + 1 { queueInsertionLine }
+                                }
                                 .onTapGesture {
                                     Task { try? await container?.playerService.play(tracks: queue, startIndex: absoluteIndex) }
                                 }
@@ -668,6 +674,7 @@ struct FullPlayerExpandedView: View {
                                 .onDrop(of: [UTType.text], delegate: QueueReorderDropDelegate(
                                     targetIndex: absoluteIndex,
                                     draggedIndex: $draggedQueueIndex,
+                                    dropTargetGap: $dropTargetGap,
                                     move: { from, toOffset in
                                         Task { await container?.playerService.moveInQueue(fromIndex: from, toIndex: toOffset) }
                                     }
@@ -687,6 +694,14 @@ struct FullPlayerExpandedView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
         }
+    }
+
+    /// Thin accent line drawn between rows at the current drop gap (drag-reorder feedback).
+    private var queueInsertionLine: some View {
+        Rectangle()
+            .fill(CassetteColors.accentForeground(on: dominantColor))
+            .frame(height: 2)
+            .padding(.horizontal, 16)
     }
 
     // MARK: - Helpers
@@ -724,7 +739,6 @@ struct FullPlayerExpandedView: View {
 private struct ExpandedQueueRow: View {
     let track: DisplayableSong
     let isCurrent: Bool
-    var isDragging: Bool = false
 
     @Environment(\.appContainer) private var container
     @Environment(\.cassettePlayingAccent) private var playingAccent
@@ -756,7 +770,7 @@ private struct ExpandedQueueRow: View {
             if isCurrent {
                 NowPlayingBarsIndicator(isPlaying: isPlaying)
             } else {
-                ReorderIndicator(isActive: isDragging)
+                ReorderIndicator()
             }
         }
         .padding(.vertical, 2)
