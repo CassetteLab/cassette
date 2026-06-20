@@ -12,13 +12,16 @@ import OSLog
 import AVKit
 #endif
 
+private enum PlayerSurface { case player, queue }
+
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
-    @State private var showQueue = false
+    @State private var surface: PlayerSurface = .player
     @State private var lyricsViewModel: LyricsViewModel?
 
     var body: some View {
@@ -59,103 +62,22 @@ struct FullPlayerView: View {
             topBar
                 .padding(.top, CassetteSpacing.s)
 
-            VStack(spacing: 0) {
-                Spacer(minLength: CassetteSpacing.l)
-
-                ZStack {
-                    if showLyrics, let lyricsVM = lyricsViewModel {
-                        LyricsView(viewModel: lyricsVM)
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal, 20)
-                            .mask(
-                                LinearGradient(
-                                    stops: [
-                                        .init(color: .clear, location: 0),
-                                        .init(color: .black, location: 0.1),
-                                        .init(color: .black, location: 0.8),
-                                        .init(color: .clear, location: 1)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                            .transition(.opacity)
-                    } else {
-                        Color.clear
-                            .aspectRatio(1, contentMode: .fit)
-                            .frame(maxWidth: 280)
-                            .overlay {
-                                CoverArtView(id: coverArtId, size: 600)
-                            }
-                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                            .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
-                            .scaleEffect(isPlaying ? 1.0 : 0.92)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                            .onTapGesture {
-                                withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
-                            }
-                            .transition(.opacity)
-                            .trackSkipSwipe(playerState: playerState)
-                    }
+            Group {
+                if surface == .queue && !playerState.isLiveStream {
+                    queueSurface(playerState, coverArtId: coverArtId)
+                } else {
+                    // Live streams have no queue; fall back to the player so the user is never stranded
+                    // in a queue surface whose toggle button is hidden.
+                    playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
                 }
-                .frame(maxWidth: .infinity)
-                .animation(.smooth(duration: 0.3), value: showLyrics)
-
-                Spacer(minLength: CassetteSpacing.m)
-
-                TrackInfoSection(
-                    playerState: playerState,
-                    container: container,
-                    contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor,
-                    glassTint: vm.glassTint
-                )
-                .padding(.horizontal, CassetteSpacing.l)
-
-                if !playerState.isLiveStream {
-                    ScrubberView(
-                        playerState: playerState,
-                        playerService: container?.playerService,
-                        contentColor: vm.contentColor,
-                        secondaryContentColor: vm.secondaryContentColor
-                    )
-                    .padding(.horizontal, CassetteSpacing.l)
-                    .padding(.top, CassetteSpacing.m)
-                    .disabled(!playerState.isPlaybackAvailable)
-                    .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
-                }
-
-                PlaybackControlsView(
-                    playerState: playerState,
-                    playerService: container?.playerService,
-                    isPlaybackAvailable: playerState.isPlaybackAvailable,
-                    contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor
-                )
-                .padding(.top, CassetteSpacing.s)
-
-                VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
-                    .padding(.horizontal, CassetteSpacing.l)
-                    .padding(.top, CassetteSpacing.s)
-
-                Spacer(minLength: CassetteSpacing.xs)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            BottomToolbar(
-                showLyrics: $showLyrics,
-                showQueue: $showQueue,
-                isLiveStream: playerState.isLiveStream,
-                secondaryContentColor: vm.secondaryContentColor,
-                accentColor: CassetteColors.accentForeground(on: vm.dominantColor),
-                playerState: playerState
-            )
-            .padding(.top, CassetteSpacing.s)
-
-            Spacer(minLength: CassetteSpacing.l)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .cassetteContentWidth()
+        .safeAreaInset(edge: .bottom) {
+            sharedFooter(playerState)
+        }
         .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
         .background {
             ZStack {
@@ -173,9 +95,224 @@ struct FullPlayerView: View {
             }
             .ignoresSafeArea()
         }
-        .sheet(isPresented: $showQueue) {
-            QueueView()
-                .presentationDetents([.large])
+    }
+
+    // MARK: - Surfaces
+
+    /// Player state: centered album art (or lyrics) + track info. The transport chrome lives in the
+    /// shared footer (anchored), so only this region differs between player and queue.
+    @ViewBuilder
+    private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: CassetteSpacing.l)
+
+            ZStack {
+                if showLyrics, let lyricsVM = lyricsViewModel {
+                    LyricsView(viewModel: lyricsVM)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal, 20)
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0),
+                                    .init(color: .black, location: 0.1),
+                                    .init(color: .black, location: 0.8),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .transition(.opacity)
+                } else {
+                    Color.clear
+                        .aspectRatio(1, contentMode: .fit)
+                        .frame(maxWidth: 280)
+                        .overlay {
+                            CoverArtView(id: coverArtId, size: 600)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                        .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                        .scaleEffect(isPlaying ? 1.0 : 0.92)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                        .onTapGesture {
+                            withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
+                        }
+                        .transition(.opacity)
+                        .trackSkipSwipe(playerState: playerState)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .animation(.smooth(duration: 0.3), value: showLyrics)
+
+            Spacer(minLength: CassetteSpacing.m)
+
+            TrackInfoSection(
+                playerState: playerState,
+                container: container,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor,
+                glassTint: vm.glassTint
+            )
+            .padding(.horizontal, CassetteSpacing.l)
+
+            Spacer(minLength: CassetteSpacing.xs)
+        }
+    }
+
+    /// Queue state: fixed header (collapsed art + info + pills + Up Next header) over the scrollable
+    /// re-housed reorder list, with a status line above the shared footer.
+    @ViewBuilder
+    private func queueSurface(_ playerState: PlayerState, coverArtId: String) -> some View {
+        VStack(spacing: 0) {
+            collapsedTrackHeader(playerState, coverArtId: coverArtId)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.top, CassetteSpacing.s)
+
+            queuePills(playerState)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.vertical, CassetteSpacing.m)
+
+            upNextHeader(playerState)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.bottom, CassetteSpacing.xs)
+
+            InlineQueueList(playerState: playerState)
+                .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
+
+            queueStatusLine(playerState)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.vertical, CassetteSpacing.s)
+        }
+    }
+
+    private func collapsedTrackHeader(_ playerState: PlayerState, coverArtId: String) -> some View {
+        HStack(spacing: CassetteSpacing.m) {
+            CoverArtView(id: coverArtId, size: 120)
+                .frame(width: 56, height: 56)
+                .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+
+            TrackInfoSection(
+                playerState: playerState,
+                container: container,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor,
+                glassTint: vm.glassTint,
+                compact: true
+            )
+        }
+    }
+
+    private func queuePills(_ playerState: PlayerState) -> some View {
+        HStack(spacing: CassetteSpacing.s) {
+            queuePill(systemImage: "shuffle", isActive: playerState.isShuffled,
+                      label: playerState.isShuffled ? "Shuffle On" : "Shuffle Off") {
+                Task { await container?.playerService.toggleShuffle() }
+            }
+            queuePill(systemImage: playerState.repeatMode.systemImage, isActive: playerState.repeatMode != .off,
+                      label: "Repeat") {
+                Task { await container?.playerService.setRepeatMode(playerState.repeatMode.next) }
+            }
+            queuePill(systemImage: "infinity", isActive: playerState.isAutoExtendEnabled,
+                      label: "Auto-extend with Smart Shuffle") {
+                Task { await container?.playerService.setAutoExtendEnabled(!playerState.isAutoExtendEnabled) }
+            }
+        }
+    }
+
+    private func queuePill(systemImage: String, isActive: Bool, label: String, action: @escaping () -> Void) -> some View {
+        let accent = CassetteColors.accentForeground(on: vm.dominantColor)
+        return Button {
+            HapticFeedback.light.trigger()
+            action()
+        } label: {
+            Image(systemName: systemImage)
+                .font(.body)
+                .foregroundStyle(isActive ? Color.white : vm.secondaryContentColor)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, CassetteSpacing.s)
+                .background {
+                    Capsule().fill(isActive ? accent : Color.white.opacity(0.1))
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    private func upNextHeader(_ playerState: PlayerState) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Up Next")
+                .font(.cassetteSectionTitle)
+                .foregroundStyle(vm.contentColor)
+            if let album = playerState.currentTrack?.albumName, !album.isEmpty {
+                Text(album)
+                    .font(.cassetteCaption)
+                    .foregroundStyle(vm.secondaryContentColor)
+                    .lineLimit(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func queueStatusLine(_ playerState: PlayerState) -> some View {
+        let upNextCount = max(playerState.queue.count - playerState.currentIndex - 1, 0)
+        var bits: [String] = ["\(upNextCount) up next"]
+        if playerState.repeatMode == .all {
+            bits.append("Repeating all")
+        } else if playerState.repeatMode == .one {
+            bits.append("Repeating one")
+        }
+        if playerState.isShuffled { bits.append("Shuffled") }
+        if playerState.isAutoExtendEnabled { bits.append("Auto-extend on") }
+        return Text(bits.joined(separator: " · "))
+            .font(.cassetteCaption)
+            .foregroundStyle(vm.secondaryContentColor)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lineLimit(1)
+    }
+
+    /// Scrubber + transport + volume + bottom toolbar — one instance anchored across both surfaces, so
+    /// its `@State` / UIKit-backed children are never re-created by the surface toggle.
+    @ViewBuilder
+    private func sharedFooter(_ playerState: PlayerState) -> some View {
+        VStack(spacing: 0) {
+            if !playerState.isLiveStream {
+                ScrubberView(
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor
+                )
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.top, CassetteSpacing.m)
+                .disabled(!playerState.isPlaybackAvailable)
+                .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+            }
+
+            PlaybackControlsView(
+                playerState: playerState,
+                playerService: container?.playerService,
+                isPlaybackAvailable: playerState.isPlaybackAvailable,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor
+            )
+            .padding(.top, CassetteSpacing.s)
+
+            if dynamicTypeSize < .accessibility1 {
+                VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.s)
+            }
+
+            BottomToolbar(
+                showLyrics: $showLyrics,
+                surface: $surface,
+                isLiveStream: playerState.isLiveStream,
+                secondaryContentColor: vm.secondaryContentColor,
+                accentColor: CassetteColors.accentForeground(on: vm.dominantColor),
+                playerState: playerState
+            )
+            .padding(.top, CassetteSpacing.s)
         }
     }
 
@@ -196,18 +333,20 @@ private struct TrackInfoSection: View {
     let contentColor: Color
     let secondaryContentColor: Color
     let glassTint: Color
+    var compact: Bool = false
 
     @Query private var favoriteMatches: [FavoriteRecord]
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
 
-    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, glassTint: Color) {
+    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, glassTint: Color, compact: Bool = false) {
         self.playerState = playerState
         self.container = container
         self.contentColor = contentColor
         self.secondaryContentColor = secondaryContentColor
         self.glassTint = glassTint
+        self.compact = compact
         let cid = "song:\(playerState.currentTrack?.id ?? "")"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -219,8 +358,8 @@ private struct TrackInfoSection: View {
         HStack(alignment: .top, spacing: CassetteSpacing.m) {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 Text(playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (playerState.currentTrack?.title ?? ""))
-                    .font(.title2)
-                    .fontWeight(.bold)
+                    .font(compact ? .cassetteSectionTitle : .title2)
+                    .fontWeight(compact ? .semibold : .bold)
                     .foregroundStyle(contentColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -582,7 +721,7 @@ private struct PlaybackControlsView: View {
 
 private struct BottomToolbar: View {
     @Binding var showLyrics: Bool
-    @Binding var showQueue: Bool
+    @Binding var surface: PlayerSurface
     let isLiveStream: Bool
     let secondaryContentColor: Color
     let accentColor: Color
@@ -592,11 +731,12 @@ private struct BottomToolbar: View {
         HStack(spacing: CassetteSpacing.xxxxl) {
             if !isLiveStream {
                 Button {
+                    if surface == .queue { surface = .player }
                     withAnimation(.smooth(duration: 0.3)) { showLyrics.toggle() }
                 } label: {
                     Image(systemName: "quote.bubble")
                         .font(.title3)
-                        .foregroundStyle(showLyrics ? accentColor : secondaryContentColor)
+                        .foregroundStyle(showLyrics && surface == .player ? accentColor : secondaryContentColor)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.borderless)
@@ -607,10 +747,18 @@ private struct BottomToolbar: View {
                 .frame(width: 44, height: 44)
 
             if !isLiveStream {
-                Button { showQueue = true } label: {
+                Button {
+                    // Phase 1: instant surface toggle (no morph animation).
+                    if surface == .queue {
+                        surface = .player
+                    } else {
+                        surface = .queue
+                        showLyrics = false
+                    }
+                } label: {
                     Image(systemName: "list.bullet")
                         .font(.title3)
-                        .foregroundStyle(secondaryContentColor)
+                        .foregroundStyle(surface == .queue ? accentColor : secondaryContentColor)
                         .overlay(alignment: .topTrailing) {
                             if let badge = playerState.queueModeBadge {
                                 Image(systemName: badge)
