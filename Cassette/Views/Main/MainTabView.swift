@@ -30,11 +30,8 @@ struct MainTabView: View {
                         .environment(\.colorScheme, colorScheme)
                 }
             }
-            .sheet(isPresented: $showingFullPlayer) {
+            .fullScreenCover(isPresented: $showingFullPlayer) {
                 FullPlayerView()
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.hidden)
-                    .presentationBackground(.clear)
             }
         #else
         tabs
