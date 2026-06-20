@@ -166,9 +166,6 @@ struct FullPlayerView: View {
                         .morphCover(!reduceMotion, in: morphNS, isSource: !isQueueVisible(playerState))
                         .scaleEffect(isPlaying ? 1.0 : 0.92)
                         .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                        .onTapGesture {
-                            withAnimation(.smooth(duration: 0.3)) { showLyrics = true }
-                        }
                         .transition(.opacity)
                         .trackSkipSwipe(playerState: playerState)
                         .padding(.horizontal, CassetteSpacing.l)
