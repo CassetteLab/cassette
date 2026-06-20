@@ -55,6 +55,60 @@ final class DominantColorExtractor {
         return result.color
     }
 
+    /// Synchronously returns the memoized color for an id, or nil if not yet extracted. No work.
+    func cachedColor(for coverArtId: String) -> Color? {
+        cache[coverArtId]
+    }
+
+    /// Stores a packed color produced off-main by `packedAverageColor(from:)` and returns the Color,
+    /// so callers that already extracted off the main actor don't repeat the CoreImage work here.
+    func storeColor(packed: Int?, for coverArtId: String) -> Color {
+        if let cached = cache[coverArtId] { return cached }
+        guard let packed else { return .clear }
+        let color = Self.unpack(packed)
+        cache[coverArtId] = color
+        persistColor(packed, forKey: coverArtId)
+        return color
+    }
+
+    /// Off-main average-color extraction (packed 0xRRGGBB). `nonisolated` so it runs inside `Task.detached`,
+    /// keeping the CoreImage decode/average off the main actor. Mirrors `extract(from:)` but uses a local
+    /// CIContext (cheap next to the image decode it follows) instead of the MainActor-isolated instance one.
+    nonisolated static func packedAverageColor(from image: PlatformImage) -> Int? {
+        #if canImport(UIKit)
+        guard let cgImage = image.cgImage else { return nil }
+        #elseif canImport(AppKit)
+        var proposedRect = NSRect(origin: .zero, size: image.size)
+        guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else { return nil }
+        #endif
+
+        let ciImage = CIImage(cgImage: cgImage)
+        let extent = ciImage.extent
+        let inputExtent = CIVector(
+            x: extent.origin.x,
+            y: extent.origin.y,
+            z: extent.size.width,
+            w: extent.size.height
+        )
+        guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
+            kCIInputImageKey: ciImage,
+            kCIInputExtentKey: inputExtent
+        ]),
+        let outputImage = filter.outputImage else { return nil }
+
+        var bitmap = [UInt8](repeating: 0, count: 4)
+        let context = CIContext(options: [.workingColorSpace: kCFNull as Any])
+        context.render(
+            outputImage,
+            toBitmap: &bitmap,
+            rowBytes: 4,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .RGBA8,
+            colorSpace: nil
+        )
+        return (Int(bitmap[0]) << 16) | (Int(bitmap[1]) << 8) | Int(bitmap[2])
+    }
+
     /// Returns all persisted packed 0xRRGGBB colors keyed by coverArtId.
     /// Used by WidgetSyncService to mirror the cache to the App Group shared container.
     func cachedColors() -> [String: Int] {
