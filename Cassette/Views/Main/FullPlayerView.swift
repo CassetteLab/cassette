@@ -40,6 +40,12 @@ struct FullPlayerView: View {
     @State private var surface: PlayerSurface = .player
     @State private var lyricsViewModel: LyricsViewModel?
     @Namespace private var morphNS
+    // L1 (morph / open-close lag): the cover drop-shadow is an offscreen pass re-rendered EACH FRAME while
+    // the cover layer transforms (matchedGeometry morph, zoom present/dismiss, isPlaying scale spring).
+    // Suppress it only DURING those transitions and restore it at rest — the resting look is unchanged, but
+    // the per-frame shadow cost during exactly those transitions is gone.
+    @State private var coverTransitioning = false
+    @State private var coverTransitionResetTask: Task<Void, Never>?
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -120,6 +126,12 @@ struct FullPlayerView: View {
             }
             .ignoresSafeArea()
         }
+        // Suppress the cover shadow across the transitions that transform the cover layer: the surface morph,
+        // the play/pause scale spring, and the open zoom (.onAppear). The close zoom is hooked on the grabber
+        // dismiss; an interactive swipe-down dismiss isn't hooked (minor, the shadow detail isn't visible mid-fly).
+        .onChange(of: surface) { _, _ in markCoverTransition() }
+        .onChange(of: playerState.playbackState) { _, _ in markCoverTransition() }
+        .onAppear { markCoverTransition() }
     }
 
     // MARK: - Surfaces
@@ -128,6 +140,19 @@ struct FullPlayerView: View {
     /// no queue). Drives the matchedGeometry `isSource` so the source always belongs to an in-tree view.
     private func isQueueVisible(_ playerState: PlayerState) -> Bool {
         surface == .queue && !playerState.isLiveStream
+    }
+
+    /// Suppress the cover shadow for the duration of a cover transition (morph / zoom / play-pause spring),
+    /// then restore it at rest with a short fade so it doesn't visibly pop back in. Re-entrant: a new
+    /// transition cancels the pending restore and extends the suppression.
+    private func markCoverTransition(_ duration: Double = 0.6) {
+        coverTransitioning = true
+        coverTransitionResetTask?.cancel()
+        coverTransitionResetTask = Task {
+            try? await Task.sleep(for: .seconds(duration))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeIn(duration: 0.15)) { coverTransitioning = false }
+        }
     }
 
     /// Player state: centered album art (or lyrics) + track info. The transport chrome lives in the
@@ -164,7 +189,11 @@ struct FullPlayerView: View {
                             CoverArtView(id: coverArtId, size: 600)
                         }
                         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                        .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                        // Shadow suppressed mid-transition (clear + radius 0 = no expensive offscreen blur pass),
+                        // restored to the identical resting look once the transform settles.
+                        .shadow(color: coverTransitioning ? .clear : .black.opacity(0.3),
+                                radius: coverTransitioning ? 0 : 30,
+                                y: coverTransitioning ? 0 : 10)
                         .morphCover(!reduceMotion, in: morphNS, isSource: !isQueueVisible(playerState))
                         .scaleEffect(isPlaying ? 1.0 : 0.92)
                         .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
@@ -372,6 +401,7 @@ struct FullPlayerView: View {
         // Grabber doubles as a tap-to-dismiss (animated by the zoom-back) — a guaranteed close affordance
         // alongside the zoom transition's interactive swipe. A discrete tap, not a drag-translate dismiss.
         Button {
+            markCoverTransition()
             dismiss()
         } label: {
             Capsule()
