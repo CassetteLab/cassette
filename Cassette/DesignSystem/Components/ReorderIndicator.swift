@@ -15,13 +15,16 @@ import SwiftUI
 struct ReorderIndicator: View {
     /// When true, the grip tints with the playing accent (host-driven drag state).
     var isActive: Bool = false
+    /// Idle (non-dragging) tint. Defaults to `.secondary`; a surface over an adaptive background (e.g. the
+    /// full player's cover blur) can pass a luminance-matched color so the grip stays legible.
+    var idleColor: Color = .secondary
 
     @Environment(\.cassettePlayingAccent) private var playingAccent
 
     var body: some View {
         Image(systemName: "line.3.horizontal")
             .font(.cassetteCaption)
-            .foregroundStyle(isActive ? playingAccent : Color.secondary)
+            .foregroundStyle(isActive ? playingAccent : idleColor)
             .accessibilityLabel("Reorder")
     }
 }
