@@ -211,7 +211,9 @@ struct FullPlayerView: View {
             InlineQueueList(
                 playerState: playerState,
                 contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor
+                secondaryContentColor: vm.secondaryContentColor,
+                // Mounted at opacity 0 for the morph — defer row artwork until the queue is actually shown.
+                loadArtwork: isQueueVisible(playerState)
             )
             // The iOS reorder grip is the system edit-mode control — not directly recolorable, but its
             // light/dark rendering can be pinned to the cover's luminance (the same isLightBackground
