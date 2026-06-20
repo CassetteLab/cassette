@@ -76,34 +76,24 @@ struct FullPlayerView: View {
         let isPlaying = playerState.playbackState == .playing
         let showingQueue = isQueueVisible(playerState)
 
-        VStack(spacing: 0) {
-            topBar
-                .padding(.top, CassetteSpacing.s)
+        // Morph keyed to `surface` ONLY, so it never composes with the isPlaying / showLyrics animations.
+        // Reduce Motion degrades to a plain opacity crossfade (no matchedGeometry fly).
+        let morphAnimation: Animation = reduceMotion
+            ? .easeInOut(duration: 0.22)
+            : .spring(response: 0.45, dampingFraction: 0.82)
 
-            ZStack {
-                // Both surfaces stay present (only opacity changes) so the queue List keeps a stable
-                // identity across the morph — no insert/remove, no cell re-materialization, no white flash.
-                // Live streams omit the queue surface (and the player can't be stranded behind a hidden toggle).
-                if !playerState.isLiveStream {
-                    queueSurface(playerState, coverArtId: coverArtId)
-                        .opacity(showingQueue ? 1 : 0)
-                        .allowsHitTesting(showingQueue)
-                }
-                playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
-                    .opacity(showingQueue ? 0 : 1)
-                    .allowsHitTesting(!showingQueue)
-            }
+        surfaceStack(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
+                     showingQueue: showingQueue, morphAnimation: morphAnimation)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Morph keyed to `surface` ONLY, so it never composes with the isPlaying / showLyrics
-            // animations. Reduce Motion degrades to a plain opacity crossfade (no matchedGeometry fly).
-            .animation(reduceMotion ? .easeInOut(duration: 0.22) : .spring(response: 0.45, dampingFraction: 0.82), value: surface)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .cassetteContentWidth()
-        .safeAreaInset(edge: .bottom) {
-            sharedFooter(playerState, isPlaying: isPlaying)
-        }
-        .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
+            .cassetteContentWidth()
+            #if os(macOS)
+            // macOS keeps the transport in a bottom-pinned safe-area footer (unchanged). On iOS the controls
+            // flow inside surfaceStack so the player cluster can sit high — see surfaceStack.
+            .safeAreaInset(edge: .bottom) {
+                sharedFooter(playerState, isPlaying: isPlaying)
+            }
+            #endif
+            .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
         .background {
             ZStack {
                 Color.black
@@ -128,6 +118,75 @@ struct FullPlayerView: View {
         }
     }
 
+    /// The two morphing surfaces (player ⇄ queue) plus the transport controls.
+    ///
+    /// iOS: the controls FLOW directly under the surfaces (one shared `sharedFooter` instance — NOT
+    /// duplicated). On the player surface the queue collapses to zero height, so the surfaces `ZStack`
+    /// shrinks to the cover+title cluster and the controls rise to sit right under the title, with the slack
+    /// collecting in a trailing Spacer at the bottom. On the queue surface the queue fills, dropping the same
+    /// controls to the bottom. The whole layout (cover fly + crossfade + the controls gliding to their new
+    /// spot) animates on one spring keyed to `surface`.
+    ///
+    /// macOS: unchanged — only the two surfaces live here; the controls stay in the bottom safe-area inset
+    /// applied in `content`.
+    @ViewBuilder
+    private func surfaceStack(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool,
+                              showingQueue: Bool, morphAnimation: Animation) -> some View {
+        #if os(iOS)
+        VStack(spacing: 0) {
+            topBar
+                .padding(.top, CassetteSpacing.s)
+
+            ZStack(alignment: .top) {
+                // Both surfaces stay present (only opacity + height change) so the queue List keeps a stable
+                // identity across the morph — no insert/remove, no cell re-materialization, no white flash.
+                if !playerState.isLiveStream {
+                    queueSurface(playerState, coverArtId: coverArtId)
+                        // Claim height only while shown: collapsed to 0 on the player surface so the cluster
+                        // above shrinks and the controls below can rise; fills while the queue is shown.
+                        .frame(maxHeight: showingQueue ? .infinity : 0)
+                        .opacity(showingQueue ? 1 : 0)
+                        .allowsHitTesting(showingQueue)
+                }
+                playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                    .frame(maxHeight: showingQueue ? 0 : nil, alignment: .top)
+                    .opacity(showingQueue ? 0 : 1)
+                    .allowsHitTesting(!showingQueue)
+            }
+            .frame(maxWidth: .infinity)
+
+            // ONE shared controls instance (not duplicated). Flows right under the player cluster; on the
+            // queue surface the filled list above drops it to the bottom.
+            sharedFooter(playerState, isPlaying: isPlaying)
+
+            // Player surface, NON-lyrics only: slack collects BELOW the controls so the cluster sits high.
+            // In lyrics mode the lyrics region itself fills (maxHeight .infinity), so adding a Spacer here
+            // would split the slack and float the controls to mid-screen — keep lyrics filling above a
+            // bottom-anchored footer, matching the pre-restructure behavior.
+            if !showingQueue && !showLyrics { Spacer(minLength: 0) }
+        }
+        .animation(morphAnimation, value: surface)
+        #else
+        VStack(spacing: 0) {
+            topBar
+                .padding(.top, CassetteSpacing.s)
+
+            ZStack {
+                if !playerState.isLiveStream {
+                    queueSurface(playerState, coverArtId: coverArtId)
+                        .opacity(showingQueue ? 1 : 0)
+                        .allowsHitTesting(showingQueue)
+                }
+                playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                    .opacity(showingQueue ? 0 : 1)
+                    .allowsHitTesting(!showingQueue)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(morphAnimation, value: surface)
+        }
+        #endif
+    }
+
     // MARK: - Surfaces
 
     /// Whether the queue surface is the currently-visible one (always false for live streams, which have
@@ -140,17 +199,16 @@ struct FullPlayerView: View {
     /// shared footer (anchored), so only this region differs between player and queue.
     @ViewBuilder
     private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
-        // THE EYEBALL KNOB (title→controls gap): the maximum space left between the track-info row and the
-        // controls/footer. Lower = tighter (the controls sit higher, hugging the title); raise to loosen.
-        // Only the BOTTOM Spacer below the title is capped to this — the cover→title Spacer above stays
-        // uncapped, so the cover stays pinned high and the flex collects there (Apple-Music cluster: large
-        // art up top, title + transport grouped below).
+        // iOS: the controls FLOW under this surface (see surfaceStack), so it packs cover + title at the TOP
+        // with NO distributing Spacers — the cluster sits high and the slack collects below the controls.
+        // macOS: the controls live in a bottom-pinned footer, so the surface there still distributes its
+        // slack with Spacers (the cover→title gap, and the capped title→controls gap below — the knob).
+        #if os(macOS)
         let titleToControlsGap: CGFloat = 8
+        #endif
         VStack(spacing: CassetteSpacing.s) {
-            // Player-only state: NO leading Spacer, so the artwork starts high — just below the grabber,
-            // Apple-Music-like top alignment (the top gap is the small fixed .padding(.top) below, the
-            // eyeball knob). The cover<->title and below-title Spacers still distribute the space underneath.
-            // The lyrics state adds no Spacers and keeps its fill (see the maxHeight below), left as-is.
+            // Artwork starts high — just below the grabber (Apple-Music-like top alignment). The lyrics state
+            // keeps its fill (see the maxHeight below), left as-is.
 
             ZStack {
                 if showLyrics, let lyricsVM = lyricsViewModel {
@@ -173,8 +231,9 @@ struct FullPlayerView: View {
                 } else {
                     Color.clear
                         .aspectRatio(1, contentMode: .fit)
-                        // Cover cap — THE EYEBALL KNOB. Nudge this to resize the player-only cover; the
-                        // surrounding Spacers distribute the remaining vertical space (aerated controls) around it.
+                        // Cover cap (360) — THE EYEBALL KNOB for the player-only cover size. On iOS the cover
+                        // is packed at the top (no distributing Spacers); the slack collects below the controls.
+                        // On macOS the surrounding Spacers distribute the remaining vertical space around it.
                         .frame(maxWidth: 360)
                         .overlay {
                             CoverArtView(id: coverArtId, size: 600)
@@ -200,7 +259,10 @@ struct FullPlayerView: View {
             .frame(maxWidth: .infinity, maxHeight: showLyrics ? CGFloat.infinity : nil)
             .animation(.smooth(duration: 0.3), value: showLyrics)
 
+            // macOS only: distribute slack above the title (iOS packs the cluster at the top instead).
+            #if os(macOS)
             if !showLyrics { Spacer(minLength: 0) }
+            #endif
 
             TrackInfoSection(
                 playerState: playerState,
@@ -211,9 +273,11 @@ struct FullPlayerView: View {
             )
             .padding(.horizontal, CassetteSpacing.l)
 
-            // Cap ONLY this bottom Spacer (the cover→title Spacer above stays uncapped) so the title hugs the
-            // controls/footer instead of floating midway. `titleToControlsGap` at the top is the eyeball knob.
+            // macOS only: cap the bottom Spacer so the title hugs the bottom-pinned footer. On iOS the
+            // controls already flow right under the title (no Spacer), with the slack below them.
+            #if os(macOS)
             if !showLyrics { Spacer(minLength: 0).frame(maxHeight: titleToControlsGap) }
+            #endif
         }
         .padding(.top, CassetteSpacing.s)
         .padding(.bottom, CassetteSpacing.s)
