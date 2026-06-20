@@ -182,6 +182,11 @@ struct FullPlayerView: View {
                 contentColor: vm.contentColor,
                 secondaryContentColor: vm.secondaryContentColor
             )
+            // The iOS reorder grip is the system edit-mode control — not directly recolorable, but its
+            // light/dark rendering can be pinned to the cover's luminance (the same isLightBackground
+            // signal that drives contentColor). Light cover -> .light -> dark grip; dark cover -> .dark ->
+            // light grip — so the grip stays legible in lockstep with the row text on every cover.
+            .environment(\.colorScheme, vm.isLightBackground ? .light : .dark)
             .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
 
             queueStatusLine(playerState)
