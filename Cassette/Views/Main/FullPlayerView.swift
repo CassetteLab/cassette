@@ -132,9 +132,7 @@ struct FullPlayerView: View {
     /// shared footer (anchored), so only this region differs between player and queue.
     @ViewBuilder
     private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: CassetteSpacing.l)
-
+        VStack(spacing: CassetteSpacing.l) {
             ZStack {
                 if showLyrics, let lyricsVM = lyricsViewModel {
                     LyricsView(viewModel: lyricsVM)
@@ -156,7 +154,10 @@ struct FullPlayerView: View {
                 } else {
                     Color.clear
                         .aspectRatio(1, contentMode: .fit)
-                        .frame(maxWidth: 280)
+                        // The cover scales up to fill the height the shared-footer refactor freed (it used to
+                        // sit at a fixed 280 while Spacers ate the gap). Capped so it stays sane on large
+                        // screens, with a small inset rather than edge-to-edge.
+                        .frame(maxWidth: 420)
                         .overlay {
                             CoverArtView(id: coverArtId, size: 600)
                         }
@@ -170,12 +171,13 @@ struct FullPlayerView: View {
                         }
                         .transition(.opacity)
                         .trackSkipSwipe(playerState: playerState)
+                        .padding(.horizontal, CassetteSpacing.l)
                 }
             }
-            .frame(maxWidth: .infinity)
+            // The art/lyrics region expands to consume the available vertical space (no balancing Spacer);
+            // the square cover fills it up to its cap, centered, with the track info just below.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.smooth(duration: 0.3), value: showLyrics)
-
-            Spacer(minLength: CassetteSpacing.m)
 
             TrackInfoSection(
                 playerState: playerState,
@@ -185,9 +187,9 @@ struct FullPlayerView: View {
                 glassTint: vm.glassTint
             )
             .padding(.horizontal, CassetteSpacing.l)
-
-            Spacer(minLength: CassetteSpacing.xs)
         }
+        .padding(.top, CassetteSpacing.l)
+        .padding(.bottom, CassetteSpacing.s)
     }
 
     /// Queue state: fixed header (collapsed art + info + pills + Up Next header) over the scrollable
