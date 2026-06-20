@@ -1,0 +1,17 @@
+New in 1.8.2
+
+• A new inline queue in the full-screen player — swipe between the player and Up Next, with an animated transition.
+• Drag to reorder the queue (iOS and macOS).
+• Drag to reorder pinned items on Home (and in the macOS sidebar).
+• A "New Playlist" quick action on Home.
+• The full player now zooms open from the mini player and runs edge-to-edge.
+• Confirmation toasts when you pin, add to queue, or play next.
+
+Improved
+
+• Full-player artwork fills the space — bigger cover, no empty gap below the title.
+• Tapping the cover no longer opens lyrics (use the lyrics button); the grabber now closes the player.
+• Sharper queue typography and contrast, with a refreshed active-track pill.
+• Full-resolution artwork in Wrapped and the macOS full player.
+
+Please focus on: queue reordering on both platforms; opening and closing the full player (zoom in, swipe or tap to dismiss); pinned reordering persisting across relaunch; and the queue ↔ player transition.
