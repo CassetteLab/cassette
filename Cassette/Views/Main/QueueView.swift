@@ -10,7 +10,6 @@ import UniformTypeIdentifiers
 
 struct QueueView: View {
     @Environment(\.appContainer) private var container
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.cassettePlayingAccent) private var playingAccent
     #if os(macOS)
     @State private var draggedQueueIndex: Int?
@@ -45,16 +44,9 @@ struct QueueView: View {
             queueContent
         }
         #else
-        NavigationStack {
-            queueContent
-                .navigationTitle("Queue")
-                .navigationBarTitleDisplayModeInline()
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Done") { dismiss() }
-                    }
-                }
-        }
+        // iOS no longer presents QueueView as a sheet — the queue is inline in FullPlayerView via
+        // InlineQueueList. QueueView() is only instantiated on macOS now; this branch exists to compile.
+        queueContent
         #endif
     }
 
@@ -224,6 +216,7 @@ struct QueueView: View {
 private struct QueueRow: View {
     let song: DisplayableSong
     let isCurrent: Bool
+    let onRemove: (() -> Void)?
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
@@ -231,9 +224,10 @@ private struct QueueRow: View {
     @State private var showAddToPlaylist = false
     @Query private var favoriteMatches: [FavoriteRecord]
 
-    init(song: DisplayableSong, isCurrent: Bool) {
+    init(song: DisplayableSong, isCurrent: Bool, onRemove: (() -> Void)? = nil) {
         self.song = song
         self.isCurrent = isCurrent
+        self.onRemove = onRemove
         let cid = "song:\(song.id)"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -326,10 +320,82 @@ private struct QueueRow: View {
                 )
             }
             .disabled(!isOnline)
+
+            if let onRemove {
+                Divider()
+                Button(role: .destructive, action: onRemove) {
+                    Label("Remove from Queue", systemImage: "minus.circle")
+                }
+            }
         }
         .sheet(isPresented: $showAddToPlaylist) {
             AddToPlaylistSheet(song: song)
                 .environment(artworkImageCache)
+        }
+    }
+}
+
+/// The iOS Up Next reorder list, re-housed from the (removed) QueueView sheet into FullPlayerView's
+/// inline queue surface. Native `List` + `.onMove` (always-on edit mode) — offset-based, so
+/// duplicate-safe — rendered transparently over the player's blurred background. Removal is via the row
+/// context menu (no edit-mode delete circles); tap-to-play stays in the queue surface.
+struct InlineQueueList: View {
+    let playerState: PlayerState
+    @Environment(\.appContainer) private var container
+
+    var body: some View {
+        let queue = playerState.queue
+        let currentIndex = playerState.currentIndex
+        let upNext = Array(queue.dropFirst(currentIndex + 1))
+
+        if upNext.isEmpty {
+            EmptyStateView(
+                systemImage: "list.bullet",
+                title: "Nothing up next",
+                subtitle: "Tracks you add to the queue appear here."
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            List {
+                ForEach(Array(upNext.enumerated()), id: \.offset) { offset, song in
+                    let absoluteIndex = currentIndex + 1 + offset
+                    QueueRow(song: song, isCurrent: false, onRemove: { removeFromQueue(at: absoluteIndex) })
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            HapticFeedback.medium.trigger()
+                            Task {
+                                do {
+                                    try await container?.playerService.play(tracks: queue, startIndex: absoluteIndex)
+                                } catch {
+                                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                                }
+                            }
+                        }
+                }
+                .onMove { source, destination in
+                    // Native offset-based reorder — duplicate-safe; destination is the moveInQueue toOffset.
+                    guard let relativeSource = source.first else { return }
+                    let absoluteSource = currentIndex + 1 + relativeSource
+                    let absoluteDestination = currentIndex + 1 + destination
+                    HapticFeedback.light.trigger()
+                    Task { await container?.playerService.moveInQueue(fromIndex: absoluteSource, toIndex: absoluteDestination) }
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            #if !os(macOS)
+            .environment(\.editMode, .constant(.active))
+            #endif
+        }
+    }
+
+    private func removeFromQueue(at index: Int) {
+        Task {
+            guard let queue = container?.playerState.queue, index >= 0, index < queue.count else { return }
+            HapticFeedback.light.trigger()
+            await container?.playerService.removeFromQueue(at: index)
         }
     }
 }
