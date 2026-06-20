@@ -33,12 +33,8 @@ struct HomeView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: HomeViewModel?
-    @State private var showEditPinned = false
     @State private var navigateToSettings = false
     @State private var navigateToAllAlbums = false
-    // Local mutable copy for smooth drag-to-reorder; synced from @Query on count changes.
-    @State private var localPinnedItems: [PinnedItem] = []
-    @State private var dropTargetId: String?
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
     ]
@@ -80,8 +76,8 @@ struct HomeView: View {
     }
 
     private var visiblePinnedItems: [PinnedItem] {
-        guard container?.serverState.isOnline != true else { return localPinnedItems }
-        return localPinnedItems.filter { isAvailableOffline($0) }
+        guard container?.serverState.isOnline != true else { return allPinnedItems }
+        return allPinnedItems.filter { isAvailableOffline($0) }
     }
 
     private func isAvailableOffline(_ item: PinnedItem) -> Bool {
@@ -128,11 +124,6 @@ struct HomeView: View {
             #if !os(macOS)
             ToolbarItem(placement: .automatic) {
                 Menu {
-                    if !allPinnedItems.isEmpty {
-                        Button { showEditPinned = true } label: {
-                            Label("Edit Pinned", systemImage: "pin")
-                        }
-                    }
                     Button { navigateToSettings = true } label: {
                         Label("Settings", systemImage: "gear")
                     }
@@ -145,7 +136,6 @@ struct HomeView: View {
             }
             #endif
         }
-        .sheet(isPresented: $showEditPinned) { EditPinnedView() }
         .navigationDestination(isPresented: $navigateToSettings) { SettingsView() }
         #if os(macOS)
         .navigationDestination(isPresented: $navigateToAllAlbums) { AlbumsListView() }
@@ -211,8 +201,6 @@ struct HomeView: View {
             }
         }
         #endif
-        .onAppear { localPinnedItems = allPinnedItems }
-        .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = HomeViewModel(libraryService: svc) }
@@ -336,26 +324,6 @@ struct HomeView: View {
             LazyVGrid(columns: pinnedColumns, spacing: CassetteSpacing.m) {
                 ForEach(visiblePinnedItems) { item in
                     HomePinnedCard(item: item, namespace: pinnedZoomNamespace)
-                        .scaleEffect(dropTargetId == item.id ? 1.05 : 1.0)
-                        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: dropTargetId)
-                        .draggable(item.id)
-                        .dropDestination(for: String.self) { droppedIds, _ in
-                            guard let sourceId = droppedIds.first,
-                                  sourceId != item.id,
-                                  let sourceIdx = localPinnedItems.firstIndex(where: { $0.id == sourceId }),
-                                  let destIdx = localPinnedItems.firstIndex(where: { $0.id == item.id })
-                            else { return false }
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                localPinnedItems.move(
-                                    fromOffsets: IndexSet(integer: sourceIdx),
-                                    toOffset: destIdx > sourceIdx ? destIdx + 1 : destIdx
-                                )
-                            }
-                            container?.pinService.reorder(items: localPinnedItems)
-                            return true
-                        } isTargeted: { targeted in
-                            dropTargetId = targeted ? item.id : nil
-                        }
                 }
             }
         }
