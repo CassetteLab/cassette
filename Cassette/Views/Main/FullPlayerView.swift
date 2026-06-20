@@ -159,7 +159,12 @@ struct FullPlayerView: View {
     /// shared footer (anchored), so only this region differs between player and queue.
     @ViewBuilder
     private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
-        VStack(spacing: CassetteSpacing.l) {
+        VStack(spacing: CassetteSpacing.s) {
+            // Player-only state: NO leading Spacer, so the artwork starts high — just below the grabber,
+            // Apple-Music-like top alignment (the top gap is the small fixed .padding(.top) below, the
+            // eyeball knob). The cover<->title and below-title Spacers still distribute the space underneath.
+            // The lyrics state adds no Spacers and keeps its fill (see the maxHeight below), left as-is.
+
             ZStack {
                 if showLyrics, let lyricsVM = lyricsViewModel {
                     LyricsView(viewModel: lyricsVM)
@@ -181,10 +186,10 @@ struct FullPlayerView: View {
                 } else {
                     Color.clear
                         .aspectRatio(1, contentMode: .fit)
-                        // The cover scales up to fill the height the shared-footer refactor freed (it used to
-                        // sit at a fixed 280 while Spacers ate the gap). Capped so it stays sane on large
-                        // screens, with a small inset rather than edge-to-edge.
-                        .frame(maxWidth: 420)
+                        // Cover cap — THE EYEBALL KNOB. Nudge this to resize the player-only cover.
+                        // 420 = the prior 280 enlarged by 50%; the surrounding Spacers still distribute the
+                        // remaining vertical space (aerated controls) around the larger artwork.
+                        .frame(maxWidth: 340)
                         .overlay {
                             CoverArtView(id: coverArtId, size: 600)
                         }
@@ -202,10 +207,12 @@ struct FullPlayerView: View {
                         .padding(.horizontal, CassetteSpacing.l)
                 }
             }
-            // The art/lyrics region expands to consume the available vertical space (no balancing Spacer);
-            // the square cover fills it up to its cap, centered, with the track info just below.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Lyrics fills the middle (maxHeight .infinity, unchanged); the player-only cover keeps its
+            // natural (capped) height (maxHeight nil) so the Spacers above/below distribute the rest evenly.
+            .frame(maxWidth: .infinity, maxHeight: showLyrics ? CGFloat.infinity : nil)
             .animation(.smooth(duration: 0.3), value: showLyrics)
+
+            if !showLyrics { Spacer(minLength: 0) }
 
             TrackInfoSection(
                 playerState: playerState,
@@ -215,8 +222,12 @@ struct FullPlayerView: View {
                 glassTint: vm.glassTint
             )
             .padding(.horizontal, CassetteSpacing.l)
+
+            // Bottom gap is capped (the other two Spacers stay uncapped) so the title sits closer to the
+            // footer/transport — tighter than an even three-way split. Raise this cap to loosen it again.
+            if !showLyrics { Spacer(minLength: 0) }
         }
-        .padding(.top, CassetteSpacing.l)
+        .padding(.top, CassetteSpacing.s)
         .padding(.bottom, CassetteSpacing.s)
     }
 
