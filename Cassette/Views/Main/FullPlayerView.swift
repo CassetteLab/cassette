@@ -272,6 +272,9 @@ struct FullPlayerView: View {
             Image(systemName: systemImage)
                 .font(.body)
                 .foregroundStyle(isActive ? Color.white : vm.secondaryContentColor)
+                // SF Symbol glyphs differ in height (e.g. infinity vs shuffle/repeat), so without a fixed
+                // icon height the pills render at different heights. Pin a consistent height across all three.
+                .frame(height: 24)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, CassetteSpacing.s)
                 .background {
