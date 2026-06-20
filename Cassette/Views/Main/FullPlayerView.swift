@@ -133,12 +133,11 @@ struct FullPlayerView: View {
     /// shared footer (anchored), so only this region differs between player and queue.
     @ViewBuilder
     private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
-        VStack(spacing: CassetteSpacing.l) {
-            // Player-only state: distribute the freed vertical space as even spacing (above the cover,
-            // between cover and title, and below) so the layout breathes instead of a single cover-dominant
-            // block. The lyrics state adds no Spacers and keeps its fill (see the maxHeight below), so it is
-            // left exactly as-is.
-            if !showLyrics { Spacer(minLength: 0) }
+        VStack(spacing: CassetteSpacing.s) {
+            // Player-only state: NO leading Spacer, so the artwork starts high — just below the grabber,
+            // Apple-Music-like top alignment (the top gap is the small fixed .padding(.top) below, the
+            // eyeball knob). The cover<->title and below-title Spacers still distribute the space underneath.
+            // The lyrics state adds no Spacers and keeps its fill (see the maxHeight below), left as-is.
 
             ZStack {
                 if showLyrics, let lyricsVM = lyricsViewModel {
@@ -196,9 +195,9 @@ struct FullPlayerView: View {
 
             // Bottom gap is capped (the other two Spacers stay uncapped) so the title sits closer to the
             // footer/transport — tighter than an even three-way split. Raise this cap to loosen it again.
-            if !showLyrics { Spacer(minLength: 0).frame(maxHeight: CassetteSpacing.l) }
+            if !showLyrics { Spacer(minLength: 0) }
         }
-        .padding(.top, CassetteSpacing.l)
+        .padding(.top, CassetteSpacing.s)
         .padding(.bottom, CassetteSpacing.s)
     }
 
