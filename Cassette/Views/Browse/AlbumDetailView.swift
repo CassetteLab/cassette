@@ -84,6 +84,7 @@ struct AlbumDetailView: View {
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
+    @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @Query private var albumFavoriteMatches: [FavoriteRecord]
@@ -104,6 +105,8 @@ struct AlbumDetailView: View {
     private var heroIconColor: Color {
         colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
+    private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
+    private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackgroundColor }
     private var systemBackgroundColor: Color {
         #if canImport(UIKit)
         Color(UIColor.systemBackground)
@@ -216,6 +219,8 @@ struct AlbumDetailView: View {
         }
         .refreshable { await viewModel?.load() }
         .miniPlayerBottomMargin()
+        // Extend the scroll content under the transparent nav bar so the cover reaches the screen top.
+        .ignoresSafeArea(.container, edges: .top)
         .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await viewModel?.deleteDownload() } }
             Button("Cancel", role: .cancel) { }
@@ -225,22 +230,15 @@ struct AlbumDetailView: View {
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
         }
-        .background(
-            LinearGradient(
-                colors: [
-                    dominantColor == .clear
-                        ? systemBackgroundColor
-                        : dominantColor.opacity(0.9),
-                    dominantColor == .clear
-                        ? systemBackgroundColor
-                        : dominantColor.opacity(0.7)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.3), value: dominantColor)
-        )
+        // Solid page color the cover melts into; the cover scrolls in the header (ImmersiveCoverHero).
+        .background(bodyColor.ignoresSafeArea())
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { heroHeight = max(proxy.size.height * 0.74, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.74, proxy.size.width) }
+            }
+        }
         .cassetteContentWidth()
         // Drive the now-playing indicator from the SAME color as the hero buttons (heroIconColor), not raw
         // accentForeground — heroIconColor adds the dark-mode branch (cassetteAccentSecondary), so the bars
@@ -259,7 +257,7 @@ struct AlbumDetailView: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(heroIconColor)
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -274,12 +272,16 @@ struct AlbumDetailView: View {
                     }
                 } label: {
                     Image(systemName: isAlbumFavorite ? "star.fill" : "star")
-                        .foregroundStyle(isAlbumFavorite ? CassetteColors.accentForeground(on: dominantColor) : .primary)
+                        .foregroundStyle(isAlbumFavorite ? CassetteColors.accentForeground(on: dominantColor) : heroIconColor)
                         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
                 }
                 .disabled(!isOnline)
             }
         }
+        #if os(iOS)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(theme.isThemed ? (theme.isLight ? .light : .dark) : nil, for: .navigationBar)
+        #endif
         // Keyed on connectivity so the list re-loads from the right source when
         // NWPathMonitor flips isOnline — same pattern as AlbumDetailMacOS and
         // PlaylistDetailView.
@@ -355,23 +357,15 @@ struct AlbumDetailView: View {
 
     private func albumHeader(vm: AlbumDetailViewModel?) -> some View {
         let songs = displaySongs()
-        return VStack(spacing: CassetteSpacing.l) {
-            Group {
-                if effectiveInitialImage == nil && vm?.coverArtId == nil && coverArtId == nil {
-                    SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
-                } else {
-                    CoverArtCard(
-                        id: vm?.coverArtId ?? coverArtId ?? albumId,
-                        size: 300,
-                        cornerRadius: CassetteCornerRadius.large,
-                        initialImage: effectiveInitialImage
-                    )
-                }
-            }
-            .padding(.top, CassetteSpacing.xxl)
-
-            VStack(spacing: 0) {
-                Text(vm?.albumName ?? initialName)
+        return ImmersiveCoverHero(
+            coverArtId: vm?.coverArtId ?? coverArtId ?? albumId,
+            coverImage: effectiveInitialImage,
+            theme: theme,
+            heroHeight: heroHeight
+        ) {
+            VStack(spacing: CassetteSpacing.l) {
+                VStack(spacing: 0) {
+                    Text(vm?.albumName ?? initialName)
                     .font(.system(.title, design: .rounded, weight: .semibold))
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
@@ -436,7 +430,7 @@ struct AlbumDetailView: View {
                         try? await container?.playerService.play(tracks: songs, startIndex: 0)
                     }
                 }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true), accentColor: heroIconColor)
-                .frame(maxWidth: 400)
+                .frame(maxWidth: 220)
 
                 if mode == .downloadedOnly {
                     Button {
@@ -505,7 +499,7 @@ struct AlbumDetailView: View {
                 }
             }
             .buttonStyle(.borderless)
-            .padding(.horizontal, CassetteSpacing.xxxl)
+            .padding(.horizontal, CassetteSpacing.l)
 
             if mode == .full, let vm, vm.isDownloadingAlbum {
                 let total = vm.songs.count
@@ -530,9 +524,8 @@ struct AlbumDetailView: View {
                 }
                 .frame(minHeight: 44)
             }
+            }
         }
-        .padding(.bottom, CassetteSpacing.xxl)
-        .frame(maxWidth: .infinity)
     }
 }
 
