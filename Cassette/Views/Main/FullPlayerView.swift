@@ -191,14 +191,19 @@ struct FullPlayerView: View {
 
                 flowGap(Self.playerCoverToTitleGap, filling: filling)
 
-                TrackInfoSection(
-                    playerState: playerState,
-                    container: container,
-                    contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor,
-                    glassTint: vm.glassTint
-                )
-                .padding(.horizontal, CassetteSpacing.l)
+                // The queue shows the title in its header on top, so drop this row when the queue is open —
+                // it would otherwise render a SECOND live TrackInfoSection (duplicate @Query, heart/menu, and
+                // sheet hosts), not just a duplicate title.
+                if !showingQueue {
+                    TrackInfoSection(
+                        playerState: playerState,
+                        container: container,
+                        contentColor: vm.contentColor,
+                        secondaryContentColor: vm.secondaryContentColor,
+                        glassTint: vm.glassTint
+                    )
+                    .padding(.horizontal, CassetteSpacing.l)
+                }
 
                 if !playerState.isLiveStream {
                     ScrubberView(
