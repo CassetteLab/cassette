@@ -42,19 +42,13 @@ struct FullPlayerView: View {
     @Namespace private var morphNS
 
     #if os(iOS)
-    // MARK: - Player layout knobs (iOS) — eyeball-tunable; dial toward the Apple-Music reference.
-    /// Player-only cover cap. Bigger = larger artwork. On phones the cover is also width-limited, so its
-    /// on-screen size is really `min(playerCoverSize, screenWidth − 2·playerCoverHPadding)` — lower the
-    /// padding for a fuller-width image, raise the cap for wide screens.
+    // MARK: - Player layout knobs (iOS) — eyeball-tunable.
+    /// Player cover cap. Bigger = larger artwork (also width-limited to screenWidth − 2·playerCoverHPadding).
     private static let playerCoverSize: CGFloat = 340
     /// Horizontal margin around the cover (smaller = wider cover).
     private static let playerCoverHPadding: CGFloat = CassetteSpacing.m
-    /// Gap between the cover and the title row.
+    /// Minimum cover→title gap; the flowing layout's flexible Spacers distribute the rest to fill the screen.
     private static let playerCoverToTitleGap: CGFloat = CassetteSpacing.xl
-    /// Minimum gap between the title and the controls block. The remaining slack is flexible, so it lifts the
-    /// controls into the lower-middle and settles the toolbar near the bottom (content fills top→bottom, no
-    /// empty-bottom void). Raise to push the controls further down.
-    private static let playerControlsMinGap: CGFloat = CassetteSpacing.xl
     #endif
 
     var body: some View {
@@ -149,39 +143,113 @@ struct FullPlayerView: View {
     private func surfaceStack(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool,
                               showingQueue: Bool, morphAnimation: Animation) -> some View {
         #if os(iOS)
+        // Flowing iOS player: cover → title → scrubber → transport → volume flow and FILL the screen, with
+        // NO fixed footer. Lyrics and the queue reuse ONE mechanism — their content takes the cover's slot
+        // and fills it (maxHeight .infinity), pushing the flowing controls below toward the bottom. The
+        // mini→full zoom's matchedGeometry lives in MainTabView (separate); the player↔queue morphCover is
+        // gone. `morphAnimation` is the macOS-only morph spring and is unused here.
+        let filling = showLyrics || showingQueue
         VStack(spacing: 0) {
             topBar
                 .padding(.top, CassetteSpacing.s)
 
-            ZStack(alignment: .top) {
-                // Both surfaces stay present (only opacity + height change) so the queue List keeps a stable
-                // identity across the morph — no insert/remove, no cell re-materialization, no white flash.
-                if !playerState.isLiveStream {
-                    queueSurface(playerState, coverArtId: coverArtId)
-                        // Claim height only while shown: collapsed to 0 on the player surface so the cluster
-                        // above shrinks and the controls below can rise; fills while the queue is shown.
-                        .frame(maxHeight: showingQueue ? .infinity : 0)
-                        .opacity(showingQueue ? 1 : 0)
-                        .allowsHitTesting(showingQueue)
+            VStack(spacing: 0) {
+                // Each gap is flexible in the flowing default (distributes the slack so the content fills the
+                // screen) and collapses to a fixed floor once the slot fills — same view type both ways, so it
+                // animates. The slot is then the SOLE greedy element, so it takes the slack and pushes the
+                // controls toward the bottom.
+                flowGap(CassetteSpacing.l, filling: filling)
+
+                // The slot: the cover by default; lyrics or the queue fill it and push the controls down.
+                ZStack {
+                    if showLyrics, let lyricsVM = lyricsViewModel {
+                        LyricsView(viewModel: lyricsVM)
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 20)
+                            .mask(
+                                LinearGradient(
+                                    stops: [
+                                        .init(color: .clear, location: 0),
+                                        .init(color: .black, location: 0.1),
+                                        .init(color: .black, location: 0.8),
+                                        .init(color: .clear, location: 1)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                            .transition(.opacity)
+                    } else if showingQueue {
+                        flowingQueueContent(playerState, coverArtId: coverArtId)
+                            .transition(.opacity)
+                    } else {
+                        flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                            .transition(.opacity)
+                    }
                 }
-                playerSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
-                    .frame(maxHeight: showingQueue ? 0 : nil, alignment: .top)
-                    .opacity(showingQueue ? 0 : 1)
-                    .allowsHitTesting(!showingQueue)
+                .frame(maxWidth: .infinity, maxHeight: filling ? CGFloat.infinity : nil)
+
+                flowGap(Self.playerCoverToTitleGap, filling: filling)
+
+                TrackInfoSection(
+                    playerState: playerState,
+                    container: container,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor,
+                    glassTint: vm.glassTint
+                )
+                .padding(.horizontal, CassetteSpacing.l)
+
+                if !playerState.isLiveStream {
+                    ScrubberView(
+                        playerState: playerState,
+                        playerService: container?.playerService,
+                        contentColor: vm.contentColor,
+                        secondaryContentColor: vm.secondaryContentColor,
+                        animatesFill: scenePhase == .active
+                    )
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.top, CassetteSpacing.m)
+                    .disabled(!playerState.isPlaybackAvailable)
+                    .opacity(playerState.isPlaybackAvailable ? 1.0 : 0.4)
+                }
+
+                PlaybackControlsView(
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    isPlaybackAvailable: playerState.isPlaybackAvailable,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor
+                )
+                .padding(.top, CassetteSpacing.s)
+
+                if dynamicTypeSize < .accessibility1 {
+                    VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
+                        .padding(.horizontal, CassetteSpacing.l)
+                        .padding(.top, CassetteSpacing.s)
+                }
+
+                flowGap(CassetteSpacing.xs, filling: filling)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // One animation for the whole flowing reflow, keyed to the surface / lyrics toggles only, so the
+            // gaps, the slot fill, and the controls all glide together (the queue toggle has no withAnimation).
+            .animation(.smooth(duration: 0.3), value: showLyrics)
+            .animation(.smooth(duration: 0.3), value: surface)
 
-            // Player surface, NON-lyrics: a flexible gap ABOVE the controls distributes the slack so the
-            // controls sit in the lower-middle and the toolbar settles near the bottom — content spans
-            // top→bottom with no empty-bottom void. The queue fills above the footer instead, and lyrics
-            // fills the region itself, so both skip this. `playerControlsMinGap` is the eyeball-tunable floor.
-            if !showingQueue && !showLyrics { Spacer(minLength: Self.playerControlsMinGap) }
-
-            // ONE shared controls instance (not duplicated). Sits in the lower portion under the cluster on
-            // the player surface; on the queue surface the filled list above drops it to the bottom.
-            sharedFooter(playerState)
+            BottomToolbar(
+                showLyrics: $showLyrics,
+                surface: $surface,
+                isLiveStream: playerState.isLiveStream,
+                secondaryContentColor: vm.secondaryContentColor,
+                accentColor: CassetteColors.accentForeground(on: vm.dominantColor),
+                playerState: playerState
+            )
+            .padding(.top, CassetteSpacing.s)
+            // Fixed bottom margin (NOT a Spacer): a greedy Spacer here would compete with the inner VStack's
+            // maxHeight .infinity and split the slack, leaving a void below the toolbar in every state.
+            .padding(.bottom, CassetteSpacing.l)
         }
-        .animation(morphAnimation, value: surface)
         #else
         VStack(spacing: 0) {
             topBar
@@ -202,6 +270,81 @@ struct FullPlayerView: View {
         }
         #endif
     }
+
+    #if os(iOS)
+    /// A vertical gap in the flowing layout: flexible (distributes slack so the content fills the screen) in
+    /// the default state, collapsed to a fixed `floor` once the slot fills. It stays the SAME view type in
+    /// both states, so its height animates with the surface / lyrics toggle instead of popping.
+    private func flowGap(_ floor: CGFloat, filling: Bool) -> some View {
+        Color.clear.frame(minHeight: floor, maxHeight: filling ? floor : .infinity)
+    }
+
+    /// The default player cover. No `morphCover` — only the mini→full zoom uses matchedGeometry (wired in
+    /// MainTabView). Keeps the drawingGroup flatten + drop shadow + play/pause scaleEffect.
+    private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .frame(maxWidth: Self.playerCoverSize)
+            .overlay {
+                CoverArtView(id: coverArtId, size: 600)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+            .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+            .drawingGroup()
+            .scaleEffect(isPlaying ? 1.0 : 0.92)
+            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+            .trackSkipSwipe(playerState: playerState)
+            .padding(.horizontal, Self.playerCoverHPadding)
+    }
+
+    /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
+    /// player↔queue morph is gone), the queue pills, the scrollable reorder list that fills the slot, and the
+    /// status line. The header carries the title, so the duplicate title below is dropped in surfaceStack.
+    private func flowingQueueContent(_ playerState: PlayerState, coverArtId: String) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: CassetteSpacing.m) {
+                CoverArtView(id: coverArtId, size: 120)
+                    .frame(width: 56, height: 56)
+                    .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+
+                TrackInfoSection(
+                    playerState: playerState,
+                    container: container,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor,
+                    glassTint: vm.glassTint,
+                    compact: true
+                )
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+            .padding(.top, CassetteSpacing.s)
+
+            queuePills(playerState)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.vertical, CassetteSpacing.m)
+
+            upNextHeader(playerState)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.bottom, CassetteSpacing.xs)
+
+            InlineQueueList(
+                playerState: playerState,
+                contentColor: vm.contentColor,
+                secondaryContentColor: vm.secondaryContentColor,
+                // Only mounted while the queue is shown (no opacity-0 pre-mount), so always load artwork.
+                loadArtwork: true
+            )
+            // The iOS reorder grip is the system edit-mode control — pin its light/dark rendering to the
+            // cover's luminance so it stays legible in lockstep with the row text on every cover.
+            .environment(\.colorScheme, vm.isLightBackground ? .light : .dark)
+            .frame(maxWidth: .infinity, minHeight: 120, maxHeight: .infinity)
+
+            queueStatusLine(playerState)
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.vertical, CassetteSpacing.s)
+        }
+    }
+    #endif
 
     // MARK: - Surfaces
 
