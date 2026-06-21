@@ -707,7 +707,12 @@ actor PlayerService: PlayerServiceProtocol {
             if let info = pendingRestoreInfo, info.pause {
                 pendingRestoreInfo = (seekTime: info.seekTime, pause: false)
             }
-            audioPlayer.play(url: source.url, headers: source.customHeaders)
+            // Re-resolve through MediaResolver — the stored source was resolved at
+            // launch and may be hours old; a stale stream URL fails silently. This
+            // mirrors the always-re-resolve invariant every other playback start holds.
+            let freshSource = await refreshedColdStartSource() ?? source
+            currentSource = freshSource
+            audioPlayer.play(url: freshSource.url, headers: freshSource.customHeaders)
         } else {
             audioPlayer.resume()
         }
@@ -718,6 +723,20 @@ actor PlayerService: PlayerServiceProtocol {
         let resumeTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
+        }
+    }
+
+    /// Fresh download > cache > stream resolution for the cold-start resume path.
+    /// Returns nil (caller keeps the stored source) when the track or server is
+    /// unknown or resolution fails — local copies resolve without any network.
+    private func refreshedColdStartSource() async -> MediaSource? {
+        guard let track = await MainActor.run(body: { state.currentTrack }),
+              let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else { return nil }
+        do {
+            return try await mediaResolver.resolve(songId: track.id, serverId: serverId)
+        } catch {
+            Logger.player.warning("[RESTORE] cold-start re-resolve failed — keeping stored source: \(error, privacy: .public)")
+            return nil
         }
     }
 
