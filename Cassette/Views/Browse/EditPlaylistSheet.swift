@@ -223,18 +223,23 @@ struct EditPlaylistSheet: View {
         isSaving = true
         defer { isSaving = false }
 
+        // Compare trimmed-vs-trimmed so incidental whitespace (e.g. a server name with a trailing space, or
+        // a whitespace-only description edit) never triggers a no-op server write.
         let trimmedName = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedName.isEmpty && trimmedName != currentName {
+        if !trimmedName.isEmpty && trimmedName != currentName.trimmingCharacters(in: .whitespacesAndNewlines) {
             try? await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
         }
-        if editComment != currentComment {
-            try? await c.playlistService.updateDescription(id: playlistId, description: editComment)
+        let trimmedComment = editComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedComment != currentComment.trimmingCharacters(in: .whitespacesAndNewlines) {
+            try? await c.playlistService.updateDescription(id: playlistId, description: trimmedComment)
         }
         if coverDirty {
             await applyCover(container: c)
         }
-        onCommitted()
+        // Dismiss first, then notify — mirrors deletePlaylist(). The sheet's dismiss and the detail view's
+        // dismiss (inside onCommitted/onDeleted) are independent environments, so this ordering is safe.
         dismiss()
+        onCommitted()
     }
 
     private func applyCover(container c: AppContainer) async {
