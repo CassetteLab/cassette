@@ -49,4 +49,27 @@ struct WidgetPlayButton: View {
         .buttonStyle(.plain)
     }
 }
+
+/// Widget container background that stays readable on light covers: the cover's dominant color, with a dark
+/// scrim layered on top ONLY when that color is light, so the white widget content keeps contrast. Mirrors
+/// the app's `isLightBackground` luminance threshold (BT.601 perceived luminance > 0.6). Dark covers are
+/// unchanged (no scrim).
+struct WidgetReadableBackground: View {
+    let dominantColor: Color
+
+    private var isLightCover: Bool {
+        guard let components = dominantColor.cgColor?.components, components.count >= 3 else { return false }
+        let luminance = 0.299 * Double(components[0]) + 0.587 * Double(components[1]) + 0.114 * Double(components[2])
+        return luminance > 0.6
+    }
+
+    var body: some View {
+        ZStack {
+            dominantColor
+            if isLightCover {
+                Color.black.opacity(0.6)
+            }
+        }
+    }
+}
 #endif

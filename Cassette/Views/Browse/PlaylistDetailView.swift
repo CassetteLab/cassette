@@ -201,7 +201,10 @@ struct PlaylistDetailView: View {
             .animation(.easeInOut(duration: 0.3), value: dominantColor)
         )
         .cassetteContentWidth()
-        .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: dominantColor))
+        // Drive the now-playing indicator from the SAME color as the hero buttons (heroIconColor), not raw
+        // accentForeground — heroIconColor adds the dark-mode branch (cassetteAccentSecondary), so the bars
+        // now match the buttons on every background instead of diverging in dark mode.
+        .environment(\.cassettePlayingAccent, heroIconColor)
         .navigationTitle("")
         .navigationBarTitleDisplayModeInline()
         .navigationBarBackButtonHidden(true)
