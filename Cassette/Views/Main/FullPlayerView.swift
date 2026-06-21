@@ -164,6 +164,8 @@ struct FullPlayerView: View {
 
                 // The slot: the cover by default; lyrics or the queue fill it and push the controls down.
                 ZStack {
+                    // Content branches crossfade (lyrics / queue body). The cover is NOT in this if/else — it
+                    // is hoisted below so it never follows a branch's removal (which sent it off-screen).
                     if showLyrics, let lyricsVM = lyricsViewModel {
                         LyricsView(viewModel: lyricsVM)
                             .frame(maxWidth: .infinity)
@@ -182,10 +184,20 @@ struct FullPlayerView: View {
                             )
                             .transition(.opacity)
                     } else if showingQueue {
-                        flowingQueueContent(playerState, coverArtId: coverArtId)
+                        flowingQueueContent(playerState)
                             .transition(.opacity)
-                    } else {
-                        flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying)
+                    }
+
+                    // HOISTED cover: present in BOTH player and queue (removed only for lyrics), so toggling the
+                    // queue never removes it — it FLIES via matchedGeometry between the big player square
+                    // (source when !queue) and the queue header's collapsed cover anchor (source when queue),
+                    // with no off-screen detour or pop. `.transition(.opacity)` is ONLY for the lyrics show/hide.
+                    // Hit testing (cover swipe-to-skip) is off while the queue is up, so the flown cover does
+                    // not intercept the list's scroll/reorder gestures.
+                    if !showLyrics {
+                        flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
+                                     isSource: !showingQueue)
+                            .allowsHitTesting(!showingQueue)
                             .transition(.opacity)
                     }
                 }
@@ -289,7 +301,7 @@ struct FullPlayerView: View {
 
     /// The default player cover. No `morphCover` — only the mini→full zoom uses matchedGeometry (wired in
     /// MainTabView). Keeps the drawingGroup flatten + drop shadow + play/pause scaleEffect.
-    private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
+    private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool, isSource: Bool) -> some View {
         // HARD SQUARE. CoverArtView is `Image.resizable().scaledToFill()` — it has NO intrinsic size and fills
         // whatever frame it gets; the previous sizer (`Color.clear.aspectRatio(1).frame(maxW/H:)`) is ALSO
         // size-less, so inside the GREEDY fill slot it resolved to a wide-short rounded rect, not a square.
@@ -304,11 +316,12 @@ struct FullPlayerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
                 .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
                 .drawingGroup()
-                // Cover-fly endpoint (player side): flies to/from the queue header's collapsed cover when the
-                // queue toggles. Distinct id + namespace from the mini→full zoom (wired in MainTabView via
-                // `playerZoom`). After drawingGroup so the cheap rasterized square is what repositions — ONLY
-                // the cover flies; the dual-surface crossfade (the old lag source) stays removed.
-                .matchedGeometryEffect(id: "queueCover", in: morphNS)
+                // Cover-fly endpoint (player side): flies to/from the queue header's collapsed cover anchor on
+                // queue toggle. `isSource` is true on the player side (!queue) and false on the queue side, so
+                // exactly one endpoint is the source and the cover flies to the other. Distinct id + namespace
+                // from the mini→full zoom (MainTabView's `playerZoom`). After drawingGroup so the cheap
+                // rasterized square repositions — ONLY the cover flies; the dual-surface crossfade stays gone.
+                .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
                 .scaleEffect(isPlaying ? 1.0 : 0.92)
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -321,15 +334,15 @@ struct FullPlayerView: View {
     /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
     /// player↔queue morph is gone), the queue pills, the scrollable reorder list that fills the slot, and the
     /// status line. The header carries the title, so the duplicate title below is dropped in surfaceStack.
-    private func flowingQueueContent(_ playerState: PlayerState, coverArtId: String) -> some View {
+    private func flowingQueueContent(_ playerState: PlayerState) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: CassetteSpacing.m) {
-                CoverArtView(id: coverArtId, size: 120)
+                // Invisible 56pt ANCHOR — the cover-fly's queue endpoint (isSource: true on the queue side).
+                // The VISIBLE cover is the hoisted one in surfaceStack, which flies HERE; a second visible
+                // cover here would duplicate it, so this just reserves the header's cover slot.
+                Color.clear
                     .frame(width: 56, height: 56)
-                    .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
-                    // Cover-fly endpoint (queue side) — same id + namespace as the player cover, so the cover
-                    // flies between the big player square and this 56pt header cover with the queue toggle.
-                    .matchedGeometryEffect(id: "queueCover", in: morphNS)
+                    .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: true)
 
                 TrackInfoSection(
                     playerState: playerState,
