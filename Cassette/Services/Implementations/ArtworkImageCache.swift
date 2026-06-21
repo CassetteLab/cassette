@@ -234,7 +234,8 @@ final class ArtworkImageCache {
     /// a thumbnail (e.g. unsupported format).
     ///
     /// `nonisolated` so it is callable from `Task.detached` without hopping to MainActor.
-    private nonisolated static func thumbnailImage(from data: Data, maxDimension: Int) -> PlatformImage? {
+    /// Internal (not private) so `CoverArtView`'s local-base fallback decodes identically.
+    nonisolated static func thumbnailImage(from data: Data, maxDimension: Int) -> PlatformImage? {
         let options: [CFString: Any] = [
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
             kCGImageSourceCreateThumbnailFromImageAlways: true,

@@ -73,6 +73,11 @@ private struct CoverArtViewContent: View {
     @Environment(ArtworkImageCache.self) private var artworkCache
     @State private var cachedImage: PlatformImage?
     @State private var url: URL?
+    /// The id whose image `cachedImage` currently represents. Lets a track change resolve the
+    /// NEW id instead of short-circuiting on a stale image: we only keep the current image when
+    /// `displayedId == id`. A failed hero load can therefore never leave the previous track's
+    /// artwork on screen — the resolution below clears it and falls back against the current id.
+    @State private var displayedId: String?
 
     init(id: String, size: Int?, tier: ArtworkTier?, cornerRadius: CGFloat, placeholderSystemImage: String, initialImage: PlatformImage?, loadingEnabled: Bool = true) {
         self.id = id
@@ -82,6 +87,9 @@ private struct CoverArtViewContent: View {
         self.placeholderSystemImage = placeholderSystemImage
         self.loadingEnabled = loadingEnabled
         _cachedImage = State(initialValue: initialImage)
+        // A caller-provided image is its best guess for THIS id, so mark it displayed for `id`:
+        // it is upgraded by the load step online, but kept (not cleared) when offline.
+        _displayedId = State(initialValue: initialImage == nil ? nil : id)
     }
 
     private var resolvedTier: ArtworkTier {
@@ -123,33 +131,80 @@ private struct CoverArtViewContent: View {
         .task(id: "\(loadingEnabled):\(id)") {
             guard loadingEnabled else { return }
             url = nil
-
             let t = resolvedTier
+            let online = container?.serverState.isOnline ?? true
 
-            // 1. Sync RAM hit in .task (not in body) — safe: reads in task closures are
-            //    not tracked by @Observable, so this does NOT create an observation on the
+            // Resolution runs against the CURRENT id only; each successful step sets both
+            // `cachedImage` and `displayedId = id`, so an image whose id != current id is never
+            // shown. The previous image stays visible while we resolve (no flash) — it is only
+            // swapped atomically on success, or cleared at the end if nothing resolves.
+
+            // 1. RAM hit for the requested tier. Sync read in .task (not body) — reads in task
+            //    closures are not tracked by @Observable, so this creates no observation on the
             //    global cache dictionary.
             if let ram = artworkCache.cachedImage(for: id, tier: t) {
-                cachedImage = ram
+                apply(ram, for: id)
                 return
             }
 
-            // 2. Async load via artworkCache (disk → network → populates RAM).
-            //    cachedImage is NOT cleared — init image stays visible while loading.
-            if let image = await artworkCache.load(coverArtId: id, tier: t) {
-                cachedImage = image
+            // 2. Tiered load (RAM → disk `{id}@{tier}` → network). Network is online-only — offline
+            //    we skip straight to the local fallbacks rather than wait on a doomed fetch.
+            if online, let image = await artworkCache.load(coverArtId: id, tier: t) {
+                guard !Task.isCancelled else { return }
+                apply(image, for: id)
                 return
             }
 
-            // 3. Safety net: artworkCache failed — enter URL/AsyncImage path only if
-            //    nothing is already showing.
-            guard cachedImage == nil else { return }
-            if let localURL = await container?.downloadService.localCoverArtURL(forId: id) {
-                url = localURL
+            // The image already on screen is correct for this id (a caller-provided initialImage,
+            // or an unchanged id) — keep it rather than fall back to a lower tier or clear it.
+            if displayedId == id { return }
+
+            // 3. Local base file — the untagged full-res cover saved at download time (via
+            //    `downloadService.localCoverArtURL`, NOT the tiered cache), decoded off-main at the
+            //    requested tier size. Primary offline source for downloaded tracks.
+            if let baseURL = await container?.downloadService.localCoverArtURL(forId: id),
+               let image = await Self.decodedImage(at: baseURL, maxDimension: t.decodePixels) {
+                guard !Task.isCancelled else { return }
+                apply(image, for: id)
                 return
             }
-            url = await container?.libraryService.coverArtURL(id: id, size: size)
+            // A track change cancels this task; bail before any further @State write so a
+            // cancelled task that resumed after `id` already changed can never stomp the new
+            // id's resolution (the awaits above may resume out of order on the MainActor).
+            guard !Task.isCancelled else { return }
+
+            // 4. Local thumb already in RAM — lower-res but the correct track (only when a larger
+            //    tier was requested; a thumb request was already covered by step 1).
+            if t != .thumb, let ramThumb = artworkCache.cachedImage(for: id, tier: .thumb) {
+                apply(ramThumb, for: id)
+                return
+            }
+
+            // 5. Nothing local resolved and the on-screen image belongs to a previous id — clear it
+            //    so a mismatched cover is never left up, then try the online URL safety net
+            //    (AsyncImage falls through to the placeholder when offline).
+            cachedImage = nil
+            displayedId = nil
+            let fallbackURL = await container?.libraryService.coverArtURL(id: id, size: size)
+            guard !Task.isCancelled else { return }
+            url = fallbackURL
         }
+    }
+
+    /// Atomically swaps in a resolved image and records the id it belongs to.
+    private func apply(_ image: PlatformImage, for resolvedId: String) {
+        cachedImage = image
+        displayedId = resolvedId
+        url = nil
+    }
+
+    /// Decodes a local cover file off the main actor at `maxDimension`, reusing the cache's ImageIO
+    /// thumbnail path so the base-file fallback decodes identically to the tiered cache.
+    private static func decodedImage(at url: URL, maxDimension: Int) async -> PlatformImage? {
+        await Task.detached(priority: .userInitiated) {
+            guard let data = try? Data(contentsOf: url) else { return nil as PlatformImage? }
+            return ArtworkImageCache.thumbnailImage(from: data, maxDimension: maxDimension)
+        }.value
     }
 
     private var placeholder: some View {
