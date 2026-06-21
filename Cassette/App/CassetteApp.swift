@@ -70,11 +70,16 @@ struct CassetteApp: App {
             Group {
                 if let container {
                     RootView()
+                        // .toastOverlay() must be the INNERMOST modifier: a toast pill now renders a
+                        // CoverArtView, which reads @Environment(ArtworkImageCache.self) / appContainer.
+                        // An overlay's content only inherits environments applied AFTER the overlay
+                        // modifier (envs applied to the primary content below it do NOT reach the
+                        // overlay's own view). So the env injections must sit below .toastOverlay().
+                        .toastOverlay()
                         .environment(\.appContainer, container)
                         .environment(container.dominantColorExtractor)
                         .environment(container.artworkImageCache)
                         .modelContainer(container.modelContainer)
-                        .toastOverlay()
                         .environment(container.toastService)
                 } else {
                     ProgressView()

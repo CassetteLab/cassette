@@ -935,7 +935,8 @@ actor PlayerService: PlayerServiceProtocol {
             await saveSession()
             if !songs.isEmpty {
                 await presentQueueConfirmation(
-                    songs.count == 1 ? "Playing next" : "\(songs.count) songs playing next"
+                    songs.count == 1 ? "Playing next" : "\(songs.count) songs playing next",
+                    coverArtId: songs.first?.coverArtId
                 )
             }
         }
@@ -954,7 +955,8 @@ actor PlayerService: PlayerServiceProtocol {
         guard !songs.isEmpty,
               await MainActor.run(body: { !state.isLiveStream }) else { return }
         await presentQueueConfirmation(
-            songs.count == 1 ? "Added to queue" : "\(songs.count) songs added to queue"
+            songs.count == 1 ? "Added to queue" : "\(songs.count) songs added to queue",
+            coverArtId: songs.first?.coverArtId
         )
     }
 
@@ -964,8 +966,8 @@ actor PlayerService: PlayerServiceProtocol {
 
     /// Presents an enqueue confirmation toast on the main actor. Callers guard against empty
     /// batches (failed lazy loads) and live-stream mode so those no-op paths stay silent.
-    private func presentQueueConfirmation(_ message: String) async {
-        await MainActor.run { toastService.showConfirmation(message) }
+    private func presentQueueConfirmation(_ message: String, coverArtId: String? = nil) async {
+        await MainActor.run { toastService.showConfirmation(message, coverArtId: coverArtId) }
     }
 
     func removeFromQueue(at index: Int) async {

@@ -37,6 +37,18 @@ func postNavigateToArtist(artistId: String, artistName: String, coverArtId: Stri
     )
 }
 
+func postNavigateToPlaylist(playlistId: String, name: String, coverArtId: String?) {
+    NotificationCenter.default.post(
+        name: .cassetteNavigateToPlaylist,
+        object: nil,
+        userInfo: [
+            "playlistId": playlistId,
+            "name":       name,
+            "coverArtId": coverArtId as Any
+        ]
+    )
+}
+
 extension Notification.Name {
     static let cassetteTogglePlayPause = Notification.Name("cassette.togglePlayPause")
     static let cassetteSkipNext = Notification.Name("cassette.skipNext")
@@ -48,6 +60,7 @@ extension Notification.Name {
     static let cassetteOpenFullPlayer = Notification.Name("cassette.openFullPlayer")
     static let cassetteOpenFullPlayerLyrics = Notification.Name("cassette.openFullPlayerLyrics")
     static let cassetteSelectAlbums = Notification.Name("cassette.selectAlbums")
-    static let cassetteNavigateToAlbum  = Notification.Name("cassetteNavigateToAlbum")
-    static let cassetteNavigateToArtist = Notification.Name("cassetteNavigateToArtist")
+    static let cassetteNavigateToAlbum    = Notification.Name("cassetteNavigateToAlbum")
+    static let cassetteNavigateToArtist   = Notification.Name("cassetteNavigateToArtist")
+    static let cassetteNavigateToPlaylist = Notification.Name("cassetteNavigateToPlaylist")
 }
