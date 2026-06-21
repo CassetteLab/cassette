@@ -445,14 +445,11 @@ struct SearchView: View {
                 .onAppear {
                     Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView appeared — \(history.count) row(s) visible")
                 }
-                // Clearing search history is destructive with no undo, so gate it behind a confirmation —
-                // same confirmationDialog pattern as the playlist delete. The clear runs ONLY on confirm;
-                // Cancel leaves the history intact. confirmationDialog is cross-platform (iOS + macOS).
-                .confirmationDialog(
-                    "Clear search history?",
-                    isPresented: $showClearConfirm,
-                    titleVisibility: .visible
-                ) {
+                // Clearing search history is destructive with no undo, so gate it behind a confirmation.
+                // A centered .alert (popin) is used here — intentionally diverging from the playlist
+                // delete's bottom action-sheet. The clear runs ONLY on confirm; Cancel leaves the history
+                // intact. .alert is a centered modal on both iOS and macOS.
+                .alert("Clear search history?", isPresented: $showClearConfirm) {
                     Button("Clear", role: .destructive) {
                         Task { await container?.searchHistoryService.clear(serverId: serverId) }
                     }
