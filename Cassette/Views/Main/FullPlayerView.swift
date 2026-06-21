@@ -287,9 +287,12 @@ struct FullPlayerView: View {
     /// The default player cover. No `morphCover` — only the mini→full zoom uses matchedGeometry (wired in
     /// MainTabView). Keeps the drawingGroup flatten + drop shadow + play/pause scaleEffect.
     private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
+        // A FIXED centered 1:1 square, capped to the cover knob in BOTH dimensions so the greedy fill slot
+        // (which lyrics/queue need) can't stretch it into a wide rectangle — the slot stays greedy, the cover
+        // inside it does not. `.frame(maxWidth: .infinity)` centers the square in the full-width slot.
         Color.clear
             .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: Self.playerCoverSize)
+            .frame(maxWidth: Self.playerCoverSize, maxHeight: Self.playerCoverSize)
             .overlay {
                 CoverArtView(id: coverArtId, size: 600)
             }
@@ -299,6 +302,7 @@ struct FullPlayerView: View {
             .scaleEffect(isPlaying ? 1.0 : 0.92)
             .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
             .trackSkipSwipe(playerState: playerState)
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, Self.playerCoverHPadding)
     }
 
