@@ -81,6 +81,12 @@ actor PlaylistService: PlaylistServiceProtocol {
             // never touches local download state.
             if let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) {
                 try? await downloadService.remove(playlistId: id, serverId: serverId)
+                // Purge any client-side gradient-cover choice too — same "delete = delete everywhere"
+                // orphan-cleanup discipline as the offline download record above.
+                let container = modelContainer
+                await MainActor.run {
+                    PlaylistCoverStore(modelContainer: container).remove(playlistId: id, serverId: serverId)
+                }
             }
         } catch {
             listCache = previousList

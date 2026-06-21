@@ -49,6 +49,14 @@ struct PlaylistGradientSpec: Codable, Equatable, Sendable {
         self.blue = rgb.blue
     }
 
+    /// Direct reconstruction from stored components (no Color round-trip) — used by the persistence store.
+    init(shape: PlaylistGradientShape, red: Double, green: Double, blue: Double) {
+        self.shape = shape
+        self.red = red
+        self.green = green
+        self.blue = blue
+    }
+
     /// Neutral default for an empty playlist (no first track to derive a color from yet) — a calm slate.
     /// Marked elsewhere as a *system* default (not a user pick), so a real choice never gets overwritten.
     static func neutral(shape: PlaylistGradientShape = .verticalFade) -> PlaylistGradientSpec {

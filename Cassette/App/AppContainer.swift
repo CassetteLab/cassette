@@ -161,7 +161,8 @@ extension ModelContainer {
             PlaybackSession.self, // kept for schema-mismatch migration safety; see session() below
             PlaybackEvent.self,
             CachedLyrics.self,
-            SearchHistoryEntry.self
+            SearchHistoryEntry.self,
+            PlaylistCoverChoice.self
         ])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
         return try ModelContainer(for: schema, configurations: config)
