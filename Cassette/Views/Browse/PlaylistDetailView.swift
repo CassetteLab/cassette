@@ -69,11 +69,9 @@ struct PlaylistDetailView: View {
     @State private var coverRefreshID = UUID()
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
-    // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the full-bleed cover region
-    // from the screen top; `topSafeInset` = status bar + nav bar, so the floating content lines up with the
-    // cover's lower edge even though the List content starts below the nav bar.
+    // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the cover region height; the
+    // cover lives in the first SCROLLING row and bleeds under the nav bar via ignoresSafeArea.
     @State private var heroHeight: CGFloat = 600
-    @State private var topSafeInset: CGFloat = 100
 
     // View-level offline backstop: sources the song list straight from SwiftData when the
     // view model produced nothing (empty-success or error). Mirrors AlbumDetailView's
@@ -251,30 +249,15 @@ struct PlaylistDetailView: View {
                 .environment(\.appContainer, c)
             }
         }
-        .background(
-            PlaylistThemedBackground(
-                coverArtId: effectiveCoverArtId,
-                coverImage: initialCoverImage,
-                theme: theme,
-                heroHeight: heroHeight
-            )
-            // Re-mount on cover change (edit upload) so the new cover reloads, like the old hero card did.
-            .id(coverRefreshID)
-        )
-        // Capture the view width (→ square hero region) and the top safe-area inset (status + nav bar) so the
-        // floating content lines up with the cover's lower edge. Tunable defaults until this fires.
+        // Solid page color the track list always sits on. The cover itself now lives in the (scrolling)
+        // header row, so it scrolls up with the content instead of staying fixed behind it.
+        .background(bodyColor.ignoresSafeArea())
+        // Capture the hero region height (the cover lives in the first scrolling row, sized to this).
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear {
-                        // Taller hero so the track list starts well into the lower part (AM-like, with extra
-                        // top breathing room): the larger of a square cover and ~66% of the view height.
-                        heroHeight = max(proxy.size.height * 0.90, proxy.size.width)
-                        // Keep the sensible default if the reader can't see a real inset (e.g. 0 under an
-                        // ignoresSafeArea ancestor) — a wrong 0 would drop the floating content below the cover.
-                        if proxy.safeAreaInsets.top > 1 { topSafeInset = proxy.safeAreaInsets.top }
-                    }
-                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.90, proxy.size.width) }
+                    .onAppear { heroHeight = max(proxy.size.height * 0.6, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.6, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
@@ -398,11 +381,22 @@ struct PlaylistDetailView: View {
     // MARK: - Header
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
-        VStack(spacing: CassetteSpacing.l) {
-            Spacer(minLength: 0)
+        ZStack(alignment: .bottom) {
+            // The cover + blurred melt live HERE, in the scroll content (the first row), so they scroll up
+            // with the list. ignoresSafeArea(.container, .top) bleeds the cover under the transparent nav bar.
+            PlaylistThemedBackground(
+                coverArtId: effectiveCoverArtId,
+                coverImage: initialCoverImage,
+                theme: theme,
+                heroHeight: heroHeight
+            )
+            .frame(height: heroHeight)
+            .ignoresSafeArea(.container, edges: .top)
+            .id(coverRefreshID)
 
-            VStack(spacing: 0) {
-                Text(vm?.name ?? initialName)
+            VStack(spacing: CassetteSpacing.l) {
+                VStack(spacing: 0) {
+                    Text(vm?.name ?? initialName)
                     .font(.cassetteDetailTitle)
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
@@ -517,12 +511,11 @@ struct PlaylistDetailView: View {
                     )
                 }
             }
+            }
+            .padding(.bottom, CassetteSpacing.l)
         }
-        // Float the content over the LOWER part of the cover: span from the List content top (below the nav
-        // bar) down to the cover's bottom edge (heroHeight from the screen top), content bottom-aligned.
-        .frame(height: max(heroHeight - topSafeInset, 220), alignment: .bottom)
+        .frame(height: heroHeight)
         .frame(maxWidth: .infinity)
-        .padding(.bottom, CassetteSpacing.l)
     }
 
     /// Apple-Music "Featured Artists" rail: the most-present artists in the playlist as tappable circles

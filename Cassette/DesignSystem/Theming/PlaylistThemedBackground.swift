@@ -41,8 +41,6 @@ struct PlaylistThemedBackground: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        // No animation on the blurred-JPEG background — animating the melt lives on the crisp render (C2).
-        .ignoresSafeArea()
     }
 
     /// The lower part of the hero: a blurred copy of the cover dissolving into the solid body color, masked
