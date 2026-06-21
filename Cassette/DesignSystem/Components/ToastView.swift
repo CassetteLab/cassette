@@ -12,26 +12,48 @@ struct ToastView: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.s) {
-            Image(systemName: toast.style.systemImage)
-                .foregroundStyle(toast.style.tint)
-            Text(toast.message)
-                .font(.cassetteCellTitle)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
+            leading
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(toast.message)
+                    .font(.cassetteCellTitle)
+                    .lineLimit(1)
+                if let subtitle = toast.subtitle {
+                    Text(subtitle)
+                        .font(.cassetteCaption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .multilineTextAlignment(.leading)
         }
-        .padding(.horizontal, CassetteSpacing.l)
-        .padding(.vertical, CassetteSpacing.m)
+        .padding(.horizontal, CassetteSpacing.m)
+        .padding(.vertical, CassetteSpacing.s)
         .background(
             RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
                 .fill(.regularMaterial)
         )
         .overlay(
             RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
-                .stroke(toast.style.tint.opacity(0.3), lineWidth: 1)
+                .stroke(toast.style.tint.opacity(0.25), lineWidth: 1)
         )
         .shadow(radius: 8, y: 2)
         .padding(.horizontal, CassetteSpacing.l)
         .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    /// Leading element: the cover thumbnail (Apple-Music pill) when the toast carries a `coverArtId`,
+    /// otherwise the style icon so plain confirmations (e.g. "Pinned to Home") keep their look.
+    @ViewBuilder
+    private var leading: some View {
+        if let coverArtId = toast.coverArtId {
+            CoverArtView(id: coverArtId, size: 120)
+                .frame(width: 34, height: 34)
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
+        } else {
+            Image(systemName: toast.style.systemImage)
+                .foregroundStyle(toast.style.tint)
+        }
     }
 }
 

@@ -34,16 +34,21 @@ final class ToastService {
     struct Toast: Identifiable, Equatable {
         let id = UUID()
         let message: String
+        /// Optional secondary line (e.g. the playlist name under "1 song added").
+        var subtitle: String? = nil
         let style: Style
         let duration: TimeInterval
+        /// Optional cover-art id rendered as the leading thumbnail (Apple-Music pill style).
+        /// `nil` falls back to the style icon, so plain confirmations keep their look.
+        var coverArtId: String? = nil
     }
 
     private(set) var current: Toast?
     private var dismissTask: Task<Void, Never>?
 
-    func show(_ message: String, style: Style = .info, duration: TimeInterval = 3.0) {
+    func show(_ message: String, subtitle: String? = nil, style: Style = .info, duration: TimeInterval = 3.0, coverArtId: String? = nil) {
         dismissTask?.cancel()
-        current = Toast(message: message, style: style, duration: duration)
+        current = Toast(message: message, subtitle: subtitle, style: style, duration: duration, coverArtId: coverArtId)
         dismissTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
@@ -62,10 +67,11 @@ final class ToastService {
     }
 
     /// Confirms that a user action succeeded (e.g. "Added to queue"). Uses the success style
-    /// (checkmark icon, green tint, brief duration). Message is the only required input so new
-    /// call sites stay trivial as this feedback is propagated across the app.
-    func showConfirmation(_ message: String) {
-        showSuccess(message)
+    /// (brief duration). Optionally renders an Apple-Music-style pill: a leading cover thumbnail
+    /// (`coverArtId`) and a secondary line (`subtitle`, e.g. the playlist name). Message is the only
+    /// required input so existing call sites stay trivial.
+    func showConfirmation(_ message: String, subtitle: String? = nil, coverArtId: String? = nil) {
+        show(message, subtitle: subtitle, style: .success, duration: 2.5, coverArtId: coverArtId)
     }
 
     func dismiss() {
