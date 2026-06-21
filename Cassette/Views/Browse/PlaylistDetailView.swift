@@ -259,8 +259,8 @@ struct PlaylistDetailView: View {
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear { heroHeight = max(proxy.size.height * 0.74, proxy.size.width) }
-                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.74, proxy.size.width) }
+                    .onAppear { heroHeight = max(proxy.size.height * 0.9, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.9, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
@@ -387,14 +387,21 @@ struct PlaylistDetailView: View {
         ZStack(alignment: .bottom) {
             // The cover + blurred melt live HERE, in the scroll content (the first row), so they scroll up
             // with the list. ignoresSafeArea(.container, .top) bleeds the cover under the transparent nav bar.
-            PlaylistThemedBackground(
-                coverArtId: effectiveCoverArtId,
-                coverImage: initialCoverImage,
-                theme: theme,
-                heroHeight: heroHeight
-            )
+            GeometryReader { geo in
+                // Stretchy header: on over-scroll at the top, grow the cover UPWARD to fill the bounce
+                // instead of revealing the solid page color behind it.
+                let stretch = max(0, geo.frame(in: .global).minY)
+                PlaylistThemedBackground(
+                    coverArtId: effectiveCoverArtId,
+                    coverImage: initialCoverImage,
+                    theme: theme,
+                    heroHeight: heroHeight
+                )
+                .frame(width: geo.size.width, height: heroHeight + stretch)
+                .offset(y: -stretch)
+                .id(coverRefreshID)
+            }
             .frame(height: heroHeight)
-            .id(coverRefreshID)
 
             VStack(spacing: CassetteSpacing.l) {
                 VStack(spacing: 0) {
@@ -448,7 +455,7 @@ struct PlaylistDetailView: View {
                             try? await container?.playerService.play(tracks: songs, startIndex: 0)
                         }
                     }, isDisabled: resolvedSongs(vm).isEmpty || (vm?.isDownloadingPlaylist == true), accentColor: heroIconColor)
-                    .frame(maxWidth: 400)
+                    .frame(maxWidth: 220)
 
                     if vm?.isOffline != true {
                         if let vm {
@@ -501,7 +508,7 @@ struct PlaylistDetailView: View {
                     }
                 }
                 .buttonStyle(.borderless)
-                .padding(.horizontal, CassetteSpacing.xxxl)
+                .padding(.horizontal, CassetteSpacing.l)
 
                 if let vm, vm.isDownloadingPlaylist {
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
