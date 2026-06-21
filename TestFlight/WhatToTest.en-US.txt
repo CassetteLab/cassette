@@ -1,17 +1,21 @@
-New in 1.8.2
+New in 1.8.3
 
-• A new inline queue in the full-screen player — swipe between the player and Up Next, with an animated transition.
-• Drag to reorder the queue (iOS and macOS).
-• Drag to reorder pinned items on Home (and in the macOS sidebar).
-• A "New Playlist" quick action on Home.
-• The full player now zooms open from the mini player and runs edge-to-edge.
-• Confirmation toasts when you pin, add to queue, or play next.
+• Redesigned full-screen player — a flowing layout with a larger square (1:1) cover that fills the space, and the cover now flies between the player and the queue as you switch. On macOS, the background colors smoothly cross-fade when the track changes.
+• A new confirmation toast, Apple Music style — it shows a cover thumbnail and sits just above the mini player. The "added to playlist" toast is tappable and takes you straight to that playlist.
+• Offline playback for downloaded m4a tracks that weren't optimized for streaming — new downloads are fixed automatically, and existing downloads are migrated.
 
-Improved
+Fixed and improved
 
-• Full-player artwork fills the space — bigger cover, no empty gap below the title.
-• Tapping the cover no longer opens lyrics (use the lyrics button); the grabber now closes the player.
-• Sharper queue typography and contrast, with a refreshed active-track pill.
-• Full-resolution artwork in Wrapped and the macOS full player.
+• Deleting a playlist now tells you when it fails (instead of silently doing nothing), and a successful delete also removes that playlist's offline download so it doesn't linger.
+• Clearing your search history now asks you to confirm first.
+• Offline reliability: a flaky or empty server response no longer wipes a downloaded album or playlist, downloaded playlists with missing track info repair themselves, and the full-player cover no longer shows the previous track's artwork when you're offline.
+• Playback now resumes correctly when you reopen the app after it was fully closed.
+• Better contrast: the now-playing indicator and the macOS player controls stay legible on any cover, and the Home-screen widget keeps its text readable on light covers.
+• The Ko-fi support banner in Settings is now smaller and more discreet.
 
-Please focus on: queue reordering on both platforms; opening and closing the full player (zoom in, swipe or tap to dismiss); pinned reordering persisting across relaunch; and the queue ↔ player transition.
+Please focus on:
+• Opening, closing, and using the redesigned full player — the square cover, and the cover flying to and from the queue.
+• The new toast — add a song to a playlist, then tap the toast to open that playlist.
+• Offline playback of downloaded m4a tracks.
+• Deleting a playlist: a successful delete also removes its offline copy; a failed delete shows an error and keeps the playlist.
+• Clearing search history (the confirmation step).
