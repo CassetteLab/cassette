@@ -110,6 +110,14 @@ struct RootViewMacOS: View {
             selection = .section(.home)
             navigationPath.append(HomeDestination.artistById(id: id, name: name, coverArtId: coverArtId))
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToPlaylist)) { note in
+            guard let id   = note.userInfo?["playlistId"] as? String,
+                  let name = note.userInfo?["name"]       as? String else { return }
+            let coverArtId = note.userInfo?["coverArtId"] as? String
+            withAnimation { isShowingFullPlayer = false }
+            selection = .section(.home)
+            navigationPath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId))
+        }
     }
 
     // MARK: - Playback

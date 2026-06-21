@@ -5,6 +5,13 @@
 
 import SwiftUI
 
+/// A tappable destination carried by a confirmation toast. Sendable (plain ids only — no
+/// PersistentModel crosses actor boundaries), so it travels with the Toast payload freely.
+/// The tap is resolved by ToastOverlay, which reuses the existing notification-nav pattern.
+enum ToastAction: Equatable, Sendable {
+    case navigateToPlaylist(id: String, name: String, coverArtId: String?)
+}
+
 @MainActor
 @Observable
 final class ToastService {
@@ -41,14 +48,17 @@ final class ToastService {
         /// Optional cover-art id rendered as the leading thumbnail (Apple-Music pill style).
         /// `nil` falls back to the style icon, so plain confirmations keep their look.
         var coverArtId: String? = nil
+        /// Optional tap destination. When set, the pill shows a trailing chevron and a tap dismisses
+        /// the toast and navigates (resolved in ToastOverlay). `nil` = non-tappable, no chevron.
+        var action: ToastAction? = nil
     }
 
     private(set) var current: Toast?
     private var dismissTask: Task<Void, Never>?
 
-    func show(_ message: String, subtitle: String? = nil, style: Style = .info, duration: TimeInterval = 3.0, coverArtId: String? = nil) {
+    func show(_ message: String, subtitle: String? = nil, style: Style = .info, duration: TimeInterval = 3.0, coverArtId: String? = nil, action: ToastAction? = nil) {
         dismissTask?.cancel()
-        current = Toast(message: message, subtitle: subtitle, style: style, duration: duration, coverArtId: coverArtId)
+        current = Toast(message: message, subtitle: subtitle, style: style, duration: duration, coverArtId: coverArtId, action: action)
         dismissTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
@@ -70,8 +80,9 @@ final class ToastService {
     /// (brief duration). Optionally renders an Apple-Music-style pill: a leading cover thumbnail
     /// (`coverArtId`) and a secondary line (`subtitle`, e.g. the playlist name). Message is the only
     /// required input so existing call sites stay trivial.
-    func showConfirmation(_ message: String, subtitle: String? = nil, coverArtId: String? = nil) {
-        show(message, subtitle: subtitle, style: .success, duration: 2.5, coverArtId: coverArtId)
+    func showConfirmation(_ message: String, subtitle: String? = nil, coverArtId: String? = nil, action: ToastAction? = nil) {
+        // Tappable toasts dwell a little longer so there is time to tap before auto-dismiss.
+        show(message, subtitle: subtitle, style: .success, duration: action == nil ? 2.5 : 4.0, coverArtId: coverArtId, action: action)
     }
 
     func dismiss() {

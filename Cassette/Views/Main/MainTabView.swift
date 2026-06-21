@@ -84,5 +84,13 @@ struct MainTabView: View {
             selectedTab = .home
             homePath.append(HomeDestination.artistById(id: id, name: name, coverArtId: coverArtId))
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToPlaylist)) { note in
+            guard let id   = note.userInfo?["playlistId"] as? String,
+                  let name = note.userInfo?["name"]       as? String else { return }
+            let coverArtId = note.userInfo?["coverArtId"] as? String
+            showingFullPlayer = false
+            selectedTab = .home
+            homePath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId))
+        }
     }
 }
