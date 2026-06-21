@@ -99,9 +99,9 @@ struct SettingsView: View {
 
     private func supportSection() -> some View {
         Section {
-            VStack(spacing: 4) {
+            VStack(spacing: 2) {
                 Text("Cassette is free, forever.")
-                    .font(.footnote)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
@@ -112,9 +112,9 @@ struct SettingsView: View {
                     Image("kofiButton")
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: 220)
+                        .frame(maxWidth: 140)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, 6)
                 }
             }
             .listRowBackground(Color.clear)
