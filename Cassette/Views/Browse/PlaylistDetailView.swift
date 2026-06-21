@@ -200,6 +200,14 @@ struct PlaylistDetailView: View {
                         } : nil,
                         onAddToPlaylist: { song in songToAddToPlaylist = song }
                     )
+
+                    let featured = FeaturedArtist.from(songs)
+                    if !featured.isEmpty {
+                        featuredArtistsSection(featured)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    }
                 }
             }
         }
@@ -704,6 +712,45 @@ struct PlaylistDetailView: View {
             )
             .id(coverRefreshID)
         }
+    }
+
+    /// Apple-Music "Featured Artists" rail: the most-present artists in the playlist as tappable circles
+    /// → artist detail (reuses the existing `.cassetteNavigateToArtist` notification path). Only artists
+    /// with an `artistId` appear (see FeaturedArtist); the circle uses a representative track cover.
+    private func featuredArtistsSection(_ artists: [FeaturedArtist]) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            Text("Featured Artists")
+                .font(.cassetteSectionTitle)
+                .foregroundStyle(headerTextColor)
+                .padding(.horizontal, CassetteSpacing.l)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: CassetteSpacing.m) {
+                    ForEach(artists) { artist in
+                        Button {
+                            HapticFeedback.light.trigger()
+                            postNavigateToArtist(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArtId)
+                        } label: {
+                            VStack(spacing: CassetteSpacing.xs) {
+                                CoverArtView(id: artist.coverArtId ?? artist.id, size: 160, placeholderSystemImage: "music.mic")
+                                    .frame(width: 76, height: 76)
+                                    .clipShape(Circle())
+                                Text(artist.name)
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(headerSecondaryColor)
+                                    .lineLimit(1)
+                                    .frame(width: 84)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, CassetteSpacing.l)
+                .padding(.bottom, CassetteSpacing.s)
+            }
+        }
+        .padding(.top, CassetteSpacing.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
