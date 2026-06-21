@@ -215,6 +215,9 @@ struct PlaylistDetailView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        // Extend the scroll content under the transparent nav bar so the first row's cover reaches the
+        // screen top (and scrolls up under the bar). The bottom safe area / mini-player margin is preserved.
+        .ignoresSafeArea(.container, edges: .top)
         .miniPlayerBottomMargin()
         .refreshable { await viewModel?.load() }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
@@ -391,7 +394,6 @@ struct PlaylistDetailView: View {
                 heroHeight: heroHeight
             )
             .frame(height: heroHeight)
-            .ignoresSafeArea(.container, edges: .top)
             .id(coverRefreshID)
 
             VStack(spacing: CassetteSpacing.l) {
