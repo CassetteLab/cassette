@@ -159,19 +159,22 @@ private struct CoverArtViewContent: View {
             // or an unchanged id) — keep it rather than fall back to a lower tier or clear it.
             if displayedId == id { return }
 
-            // 3. Local base file — the untagged full-res cover saved at download time (via
-            //    `downloadService.localCoverArtURL`, NOT the tiered cache), decoded off-main at the
-            //    requested tier size. Primary offline source for downloaded tracks.
-            if let baseURL = await container?.downloadService.localCoverArtURL(forId: id),
-               let image = await Self.decodedImage(at: baseURL, maxDimension: t.decodePixels) {
+            // 3. Local on-disk file, decoded off-main at the requested tier size. Try the tiered file
+            //    `{id}@{tier}` FIRST — generated gradient covers and the online cache both persist there
+            //    (DownloadService.persistCover), so it is what resolves a gradient playlist (or any
+            //    online-cached cover) offline — then the untagged base file saved at download time (the
+            //    primary offline source for downloaded tracks).
+            for diskId in ["\(id)@\(t.rawValue)", id] {
+                if let baseURL = await container?.downloadService.localCoverArtURL(forId: diskId),
+                   let image = await Self.decodedImage(at: baseURL, maxDimension: t.decodePixels) {
+                    guard !Task.isCancelled else { return }
+                    apply(image, for: id)
+                    return
+                }
+                // A track change cancels this task; bail before the next probe / any @State write so a
+                // cancelled task that resumed after `id` changed can never stomp the new id's resolution.
                 guard !Task.isCancelled else { return }
-                apply(image, for: id)
-                return
             }
-            // A track change cancels this task; bail before any further @State write so a
-            // cancelled task that resumed after `id` already changed can never stomp the new
-            // id's resolution (the awaits above may resume out of order on the MainActor).
-            guard !Task.isCancelled else { return }
 
             // 4. Local thumb already in RAM — lower-res but the correct track (only when a larger
             //    tier was requested; a thumb request was already covered by step 1).

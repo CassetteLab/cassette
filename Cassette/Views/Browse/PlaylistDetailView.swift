@@ -698,7 +698,12 @@ struct PlaylistDetailView: View {
 
     @ViewBuilder
     private func coverArtContent(vm: PlaylistDetailViewModel?) -> some View {
-        if initialCoverImage == nil && vm?.coverArtId == nil && coverArtId == nil {
+        // Skeleton only while genuinely still loading with no cover hint yet. Once the VM has loaded we
+        // always render the card with the effective id (server cover, else playlistId) — a gradient
+        // playlist has no server coverArt, so this is what surfaces its cached gradient in the hero
+        // instead of a never-resolving skeleton.
+        if (vm == nil || vm?.isLoading == true)
+            && initialCoverImage == nil && coverArtId == nil && vm?.coverArtId == nil {
             SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
         } else {
             CoverArtCard(
