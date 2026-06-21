@@ -72,7 +72,7 @@ struct PlaylistDetailView: View {
     // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the full-bleed cover region
     // from the screen top; `topSafeInset` = status bar + nav bar, so the floating content lines up with the
     // cover's lower edge even though the List content starts below the nav bar.
-    @State private var heroHeight: CGFloat = 540
+    @State private var heroHeight: CGFloat = 600
     @State private var topSafeInset: CGFloat = 100
 
     // View-level offline backstop: sources the song list straight from SwiftData when the
@@ -267,14 +267,14 @@ struct PlaylistDetailView: View {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
-                        // Taller hero so the track list starts in the lower third (AM-like): the larger of a
-                        // square cover and ~58% of the view height.
-                        heroHeight = max(proxy.size.height * 0.58, proxy.size.width)
+                        // Taller hero so the track list starts well into the lower part (AM-like, with extra
+                        // top breathing room): the larger of a square cover and ~66% of the view height.
+                        heroHeight = max(proxy.size.height * 0.66, proxy.size.width)
                         // Keep the sensible default if the reader can't see a real inset (e.g. 0 under an
                         // ignoresSafeArea ancestor) — a wrong 0 would drop the floating content below the cover.
                         if proxy.safeAreaInsets.top > 1 { topSafeInset = proxy.safeAreaInsets.top }
                     }
-                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.58, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.66, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
