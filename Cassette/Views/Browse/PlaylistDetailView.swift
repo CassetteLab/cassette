@@ -330,14 +330,13 @@ struct PlaylistDetailView: View {
         }
     }
 
-    /// A nav-bar icon using the app's shared over-cover treatment (the FullPlayer's glass button): the icon
-    /// in the theme's adaptive content color over a Liquid-Glass / material circle tinted by the theme, so
-    /// the chevron/pencil stay legible over any cover and on scroll — consistent with the transport buttons.
+    /// A nav-bar icon. No explicit glass here — iOS 26 already gives toolbar items a Liquid-Glass background;
+    /// adding our tinted glass circle on top read as a second "frosted" layer. The icon uses the same color
+    /// as the play button (heroIconColor) for consistency.
     private func navBarIcon(_ systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(theme.contentColor)
-            .cassetteGlassButton(size: 34, tint: theme.glassTint)
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(heroIconColor)
     }
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
