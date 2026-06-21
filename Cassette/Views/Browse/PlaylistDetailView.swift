@@ -510,9 +510,7 @@ struct PlaylistDetailView: View {
                             postNavigateToArtist(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArtId)
                         } label: {
                             VStack(spacing: CassetteSpacing.xs) {
-                                CoverArtView(id: artist.coverArtId ?? artist.id, size: 160, placeholderSystemImage: "music.mic")
-                                    .frame(width: 76, height: 76)
-                                    .clipShape(Circle())
+                                FeaturedArtistAvatar(artist: artist, size: 76)
                                 Text(artist.name)
                                     .font(.cassetteCaption)
                                     .foregroundStyle(headerSecondaryColor)
