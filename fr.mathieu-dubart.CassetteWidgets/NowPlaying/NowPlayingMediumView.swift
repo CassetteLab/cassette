@@ -63,7 +63,7 @@ struct NowPlayingMediumView: View {
             }
         }
         .containerBackground(for: .widget) {
-            entry.dominantColor
+            WidgetReadableBackground(dominantColor: entry.dominantColor)
         }
     }
 }
