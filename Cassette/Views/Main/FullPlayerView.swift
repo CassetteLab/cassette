@@ -304,6 +304,11 @@ struct FullPlayerView: View {
                 .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
                 .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
                 .drawingGroup()
+                // Cover-fly endpoint (player side): flies to/from the queue header's collapsed cover when the
+                // queue toggles. Distinct id + namespace from the mini→full zoom (wired in MainTabView via
+                // `playerZoom`). After drawingGroup so the cheap rasterized square is what repositions — ONLY
+                // the cover flies; the dual-surface crossfade (the old lag source) stays removed.
+                .matchedGeometryEffect(id: "queueCover", in: morphNS)
                 .scaleEffect(isPlaying ? 1.0 : 0.92)
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -322,6 +327,9 @@ struct FullPlayerView: View {
                 CoverArtView(id: coverArtId, size: 120)
                     .frame(width: 56, height: 56)
                     .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                    // Cover-fly endpoint (queue side) — same id + namespace as the player cover, so the cover
+                    // flies between the big player square and this 56pt header cover with the queue toggle.
+                    .matchedGeometryEffect(id: "queueCover", in: morphNS)
 
                 TrackInfoSection(
                     playerState: playerState,
