@@ -6,6 +6,7 @@
 import SwiftUI
 import SwiftData
 import SwiftSonic
+import OSLog
 
 struct PlaylistListView: View {
     var zoomNamespace: Namespace.ID? = nil
@@ -136,8 +137,19 @@ private struct OnlinePlaylistRow: View {
         ) {
             Button("Delete", role: .destructive) {
                 Task {
-                    try? await container?.playlistService.deletePlaylist(id: playlist.id)
-                    onActionCompleted?()
+                    guard let container else { return }
+                    do {
+                        // The service deletes server-side first and rolls its own cache back on failure, so it
+                        // is safe to refresh the (server-fresh) list only AFTER a confirmed success.
+                        try await container.playlistService.deletePlaylist(id: playlist.id)
+                        onActionCompleted?()
+                        container.toastService.showConfirmation("Playlist deleted")
+                    } catch {
+                        // Server refused / unreachable: surface it and leave the playlist in place. Do NOT
+                        // refresh or remove anything locally — the deletion never happened.
+                        Logger.playlist.error("[PLAYLIST] delete failed id=\(playlist.id, privacy: .public): \(error, privacy: .public)")
+                        container.toastService.showError("Couldn't delete playlist. Please try again.")
+                    }
                 }
             }
             Button("Cancel", role: .cancel) {}
