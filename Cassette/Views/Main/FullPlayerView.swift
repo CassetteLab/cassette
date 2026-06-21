@@ -41,6 +41,22 @@ struct FullPlayerView: View {
     @State private var lyricsViewModel: LyricsViewModel?
     @Namespace private var morphNS
 
+    #if os(iOS)
+    // MARK: - Player layout knobs (iOS) — eyeball-tunable; dial toward the Apple-Music reference.
+    /// Player-only cover cap. Bigger = larger artwork. On phones the cover is also width-limited, so its
+    /// on-screen size is really `min(playerCoverSize, screenWidth − 2·playerCoverHPadding)` — lower the
+    /// padding for a fuller-width image, raise the cap for wide screens.
+    private static let playerCoverSize: CGFloat = 420
+    /// Horizontal margin around the cover (smaller = wider cover).
+    private static let playerCoverHPadding: CGFloat = CassetteSpacing.m
+    /// Gap between the cover and the title row.
+    private static let playerCoverToTitleGap: CGFloat = CassetteSpacing.l
+    /// Minimum gap between the title and the controls block. The remaining slack is flexible, so it lifts the
+    /// controls into the lower-middle and settles the toolbar near the bottom (content fills top→bottom, no
+    /// empty-bottom void). Raise to push the controls further down.
+    private static let playerControlsMinGap: CGFloat = CassetteSpacing.xxl
+    #endif
+
     var body: some View {
         if let playerState = container?.playerState {
             content(playerState)
@@ -155,15 +171,15 @@ struct FullPlayerView: View {
             }
             .frame(maxWidth: .infinity)
 
-            // ONE shared controls instance (not duplicated). Flows right under the player cluster; on the
-            // queue surface the filled list above drops it to the bottom.
-            sharedFooter(playerState)
+            // Player surface, NON-lyrics: a flexible gap ABOVE the controls distributes the slack so the
+            // controls sit in the lower-middle and the toolbar settles near the bottom — content spans
+            // top→bottom with no empty-bottom void. The queue fills above the footer instead, and lyrics
+            // fills the region itself, so both skip this. `playerControlsMinGap` is the eyeball-tunable floor.
+            if !showingQueue && !showLyrics { Spacer(minLength: Self.playerControlsMinGap) }
 
-            // Player surface, NON-lyrics only: slack collects BELOW the controls so the cluster sits high.
-            // In lyrics mode the lyrics region itself fills (maxHeight .infinity), so adding a Spacer here
-            // would split the slack and float the controls to mid-screen — keep lyrics filling above a
-            // bottom-anchored footer, matching the pre-restructure behavior.
-            if !showingQueue && !showLyrics { Spacer(minLength: 0) }
+            // ONE shared controls instance (not duplicated). Sits in the lower portion under the cluster on
+            // the player surface; on the queue surface the filled list above drops it to the bottom.
+            sharedFooter(playerState)
         }
         .animation(morphAnimation, value: surface)
         #else
@@ -199,14 +215,21 @@ struct FullPlayerView: View {
     /// shared footer (anchored), so only this region differs between player and queue.
     @ViewBuilder
     private func playerSurface(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
-        // iOS: the controls FLOW under this surface (see surfaceStack), so it packs cover + title at the TOP
-        // with NO distributing Spacers — the cluster sits high and the slack collects below the controls.
-        // macOS: the controls live in a bottom-pinned footer, so the surface there still distributes its
-        // slack with Spacers (the cover→title gap, and the capped title→controls gap below — the knob).
-        #if os(macOS)
+        // iOS: cover + title sized/spaced by the layout knobs at the top of the struct; the controls FLOW
+        // under this surface (see surfaceStack), with a flexible gap there distributing the slack so the cover
+        // fills the top and the controls sit in the lower-middle. macOS keeps its prior values and distributes
+        // slack with the Spacers below (the cover→title gap, and the capped title→controls gap — the knob).
+        #if os(iOS)
+        let coverCap = Self.playerCoverSize
+        let coverHPadding = Self.playerCoverHPadding
+        let coverTitleSpacing = Self.playerCoverToTitleGap
+        #else
+        let coverCap: CGFloat = 360
+        let coverHPadding = CassetteSpacing.l
+        let coverTitleSpacing = CassetteSpacing.s
         let titleToControlsGap: CGFloat = 8
         #endif
-        VStack(spacing: CassetteSpacing.s) {
+        VStack(spacing: coverTitleSpacing) {
             // Artwork starts high — just below the grabber (Apple-Music-like top alignment). The lyrics state
             // keeps its fill (see the maxHeight below), left as-is.
 
@@ -231,10 +254,8 @@ struct FullPlayerView: View {
                 } else {
                     Color.clear
                         .aspectRatio(1, contentMode: .fit)
-                        // Cover cap (360) — THE EYEBALL KNOB for the player-only cover size. On iOS the cover
-                        // is packed at the top (no distributing Spacers); the slack collects below the controls.
-                        // On macOS the surrounding Spacers distribute the remaining vertical space around it.
-                        .frame(maxWidth: 360)
+                        // Cover cap — sized by the iOS layout knobs (playerCoverSize); macOS keeps 360.
+                        .frame(maxWidth: coverCap)
                         .overlay {
                             CoverArtView(id: coverArtId, size: 600)
                         }
@@ -251,7 +272,7 @@ struct FullPlayerView: View {
                         .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                         .transition(.opacity)
                         .trackSkipSwipe(playerState: playerState)
-                        .padding(.horizontal, CassetteSpacing.l)
+                        .padding(.horizontal, coverHPadding)
                 }
             }
             // Lyrics fills the middle (maxHeight .infinity, unchanged); the player-only cover keeps its
