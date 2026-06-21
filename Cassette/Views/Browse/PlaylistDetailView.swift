@@ -162,7 +162,7 @@ struct PlaylistDetailView: View {
                         action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(bodyColor)
                 } else if songs.isEmpty {
                     EmptyStateView(
                         systemImage: "music.note.list",
@@ -170,7 +170,7 @@ struct PlaylistDetailView: View {
                         subtitle: "This playlist doesn't have any tracks yet."
                     )
                     .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
+                    .listRowBackground(bodyColor)
                 } else {
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
                     PlaylistSongRows(
@@ -200,10 +200,10 @@ struct PlaylistDetailView: View {
                         onContextRemove: !vm.isOffline ? { index in
                             Task { await vm.removeTrack(at: index) }
                         } : nil,
-                        onAddToPlaylist: { song in songToAddToPlaylist = song }
+                        onAddToPlaylist: { song in songToAddToPlaylist = song },
+                        // Solid backing per row so the rows occlude the fixed full-bleed cover on scroll.
+                        rowBackground: bodyColor
                     )
-                    // Solid body color so the rows occlude the fixed full-bleed cover as they scroll up.
-                    .listRowBackground(bodyColor)
 
                     let featured = FeaturedArtist.from(songs)
                     if !featured.isEmpty {
@@ -269,12 +269,12 @@ struct PlaylistDetailView: View {
                     .onAppear {
                         // Taller hero so the track list starts well into the lower part (AM-like, with extra
                         // top breathing room): the larger of a square cover and ~66% of the view height.
-                        heroHeight = max(proxy.size.height * 0.66, proxy.size.width)
+                        heroHeight = max(proxy.size.height * 0.90, proxy.size.width)
                         // Keep the sensible default if the reader can't see a real inset (e.g. 0 under an
                         // ignoresSafeArea ancestor) — a wrong 0 would drop the floating content below the cover.
                         if proxy.safeAreaInsets.top > 1 { topSafeInset = proxy.safeAreaInsets.top }
                     }
-                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.66, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.90, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
@@ -369,7 +369,7 @@ struct PlaylistDetailView: View {
             }
             .padding(.vertical, CassetteSpacing.xs)
             .listRowInsets(EdgeInsets(top: 0, leading: CassetteSpacing.l, bottom: 0, trailing: CassetteSpacing.l))
-            .listRowBackground(Color.clear)
+            .listRowBackground(bodyColor)
             .listRowSeparator(.hidden)
         }
     }
@@ -667,6 +667,9 @@ struct PlaylistSongRows: View {
     let onReorder: ((IndexSet, Int) -> Void)?
     let onContextRemove: ((Int) -> Void)?
     let onAddToPlaylist: ((DisplayableSong) -> Void)?
+    /// Solid backing applied to EACH row so the rows occlude a fixed full-bleed cover behind the List on
+    /// scroll. `nil` = default List row background (the macOS detail has no fixed cover, so it passes nil).
+    let rowBackground: Color?
 
     @Query private var downloadedTracks: [DownloadedTrack]
     @Query private var allFavorites: [FavoriteRecord]
@@ -675,7 +678,7 @@ struct PlaylistSongRows: View {
         Set(allFavorites.map(\.id))
     }
 
-    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil, onContextRemove: ((Int) -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil) {
+    init(songs: [DisplayableSong], serverId: UUID, downloadingIds: Set<String> = [], titleColor: Color = .primary, secondaryColor: Color = .secondary, onTap: @escaping (Int) -> Void, onDownload: ((String) -> Void)? = nil, onRemoveDownload: ((String) -> Void)? = nil, onRemove: ((Int) -> Void)? = nil, onReorder: ((IndexSet, Int) -> Void)? = nil, onContextRemove: ((Int) -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil, rowBackground: Color? = nil) {
         self.songs = songs
         self.downloadingIds = downloadingIds
         self.titleColor = titleColor
@@ -687,6 +690,7 @@ struct PlaylistSongRows: View {
         self.onReorder = onReorder
         self.onContextRemove = onContextRemove
         self.onAddToPlaylist = onAddToPlaylist
+        self.rowBackground = rowBackground
         let sid = serverId
         _downloadedTracks = Query(
             filter: #Predicate<DownloadedTrack> { track in
@@ -703,6 +707,7 @@ struct PlaylistSongRows: View {
         if let removeAction = onRemove {
             ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                 makeRow(index: index, song: song)
+                    .listRowBackground(rowBackground)
             }
             .onDelete { indexSet in
                 for index in indexSet.sorted(by: >) { removeAction(index) }
@@ -713,6 +718,7 @@ struct PlaylistSongRows: View {
         } else {
             ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                 makeRow(index: index, song: song)
+                    .listRowBackground(rowBackground)
             }
         }
     }
