@@ -312,7 +312,10 @@ struct FullPlayerView: View {
         GeometryReader { geo in
             let side = min(geo.size.width, Self.playerCoverSize)
             CoverArtView(id: coverArtId, size: 600)
-                .frame(width: side, height: side)
+                // Hard square ONLY when this is the fly's SOURCE (player). When it's the MATCHER (queue), the
+                // frame is flexible so matchedGeometry can shrink+move it to the 56pt header anchor — a rigid
+                // 340 frame here is exactly why the flown cover stayed 340 and overflowed the row.
+                .frame(width: isSource ? side : nil, height: isSource ? side : nil)
                 .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
                 .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
                 .drawingGroup()
