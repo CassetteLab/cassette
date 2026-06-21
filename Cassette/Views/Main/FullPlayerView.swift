@@ -290,23 +290,27 @@ struct FullPlayerView: View {
     /// The default player cover. No `morphCover` — only the mini→full zoom uses matchedGeometry (wired in
     /// MainTabView). Keeps the drawingGroup flatten + drop shadow + play/pause scaleEffect.
     private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool) -> some View {
-        // A FIXED centered 1:1 square, capped to the cover knob in BOTH dimensions so the greedy fill slot
-        // (which lyrics/queue need) can't stretch it into a wide rectangle — the slot stays greedy, the cover
-        // inside it does not. `.frame(maxWidth: .infinity)` centers the square in the full-width slot.
-        Color.clear
-            .aspectRatio(1, contentMode: .fit)
-            .frame(maxWidth: Self.playerCoverSize, maxHeight: Self.playerCoverSize)
-            .overlay {
-                CoverArtView(id: coverArtId, size: 600)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-            .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
-            .drawingGroup()
-            .scaleEffect(isPlaying ? 1.0 : 0.92)
-            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-            .trackSkipSwipe(playerState: playerState)
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, Self.playerCoverHPadding)
+        // HARD SQUARE. CoverArtView is `Image.resizable().scaledToFill()` — it has NO intrinsic size and fills
+        // whatever frame it gets; the previous sizer (`Color.clear.aspectRatio(1).frame(maxW/H:)`) is ALSO
+        // size-less, so inside the GREEDY fill slot it resolved to a wide-short rounded rect, not a square.
+        // Don't rely on aspectRatio: read the available width and pin the cover to an EXPLICIT equal-side
+        // frame. The slot stays greedy (for lyrics/queue); only the cover is hard-squared and centered. The
+        // inner explicit `width == height` frame is un-stretchable, so the outer centering frame can't widen
+        // it. scaledToFill fills the square (album art is 1:1) and the clipShape crops + rounds it.
+        GeometryReader { geo in
+            let side = min(geo.size.width, Self.playerCoverSize)
+            CoverArtView(id: coverArtId, size: 600)
+                .frame(width: side, height: side)
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+                .drawingGroup()
+                .scaleEffect(isPlaying ? 1.0 : 0.92)
+                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .frame(height: Self.playerCoverSize)
+        .trackSkipSwipe(playerState: playerState)
+        .padding(.horizontal, Self.playerCoverHPadding)
     }
 
     /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
