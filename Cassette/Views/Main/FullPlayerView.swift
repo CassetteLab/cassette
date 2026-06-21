@@ -205,8 +205,11 @@ struct FullPlayerView: View {
                         flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
                                      isSource: !showingQueue)
                             .allowsHitTesting(!showingQueue)
-                            // Bleed the cover to the very top + horizontal edges, under the grabber.
-                            .ignoresSafeArea(.container, edges: [.top, .horizontal])
+                            // Bleed the cover to the very top under the grabber. Top ONLY — ignoring the
+                            // horizontal safe area expands the slot past the screen and pushes the controls
+                            // (title/artist, transport) off-screen. The cover is already full-width via its
+                            // fill frame.
+                            .ignoresSafeArea(.container, edges: .top)
                             .transition(.opacity)
                     }
                 }

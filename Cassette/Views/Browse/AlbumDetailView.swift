@@ -84,7 +84,7 @@ struct AlbumDetailView: View {
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
-    @State private var heroHeight: CGFloat = 393
+    @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @Query private var albumFavoriteMatches: [FavoriteRecord]
@@ -235,9 +235,8 @@ struct AlbumDetailView: View {
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    // Unzoomed cover: a full-width SQUARE so the whole art shows bound-to-bound, no crop.
-                    .onAppear { heroHeight = proxy.size.width }
-                    .onChange(of: proxy.size.width) { _, w in heroHeight = w }
+                    .onAppear { heroHeight = max(proxy.size.height * 0.86, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.86, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
