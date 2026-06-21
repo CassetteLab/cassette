@@ -41,7 +41,7 @@ struct PlaylistThemedBackground: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
-        .animation(.easeInOut(duration: 0.35), value: theme)
+        // No animation on the blurred-JPEG background — animating the melt lives on the crisp render (C2).
         .ignoresSafeArea()
     }
 
@@ -59,8 +59,8 @@ struct PlaylistThemedBackground: View {
             // Resolve to pure body color at the very bottom of the hero region.
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.30),
-                    .init(color: bodyColor, location: 0.92),
+                    .init(color: .clear, location: 0.42),
+                    .init(color: bodyColor, location: 0.97),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -72,8 +72,8 @@ struct PlaylistThemedBackground: View {
         .mask(
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.40),
-                    .init(color: .black, location: 0.64),
+                    .init(color: .clear, location: 0.50),
+                    .init(color: .black, location: 0.80),
                 ],
                 startPoint: .top,
                 endPoint: .bottom

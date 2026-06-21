@@ -72,7 +72,7 @@ struct PlaylistDetailView: View {
     // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the full-bleed cover region
     // from the screen top; `topSafeInset` = status bar + nav bar, so the floating content lines up with the
     // cover's lower edge even though the List content starts below the nav bar.
-    @State private var heroHeight: CGFloat = 460
+    @State private var heroHeight: CGFloat = 540
     @State private var topSafeInset: CGFloat = 100
 
     // View-level offline backstop: sources the song list straight from SwiftData when the
@@ -267,12 +267,14 @@ struct PlaylistDetailView: View {
             GeometryReader { proxy in
                 Color.clear
                     .onAppear {
-                        heroHeight = proxy.size.width
+                        // Taller hero so the track list starts in the lower third (AM-like): the larger of a
+                        // square cover and ~58% of the view height.
+                        heroHeight = max(proxy.size.height * 0.58, proxy.size.width)
                         // Keep the sensible default if the reader can't see a real inset (e.g. 0 under an
                         // ignoresSafeArea ancestor) — a wrong 0 would drop the floating content below the cover.
                         if proxy.safeAreaInsets.top > 1 { topSafeInset = proxy.safeAreaInsets.top }
                     }
-                    .onChange(of: proxy.size.width) { _, newWidth in heroHeight = newWidth }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.58, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
@@ -342,14 +344,14 @@ struct PlaylistDetailView: View {
         }
     }
 
-    /// A nav-bar icon over a subtle dark scrim circle, so the chevron/pencil stay legible over ANY cover
-    /// (light or dark) and while scrolling — the artwork floats under the transparent nav bar.
+    /// A nav-bar icon using the app's shared over-cover treatment (the FullPlayer's glass button): the icon
+    /// in the theme's adaptive content color over a Liquid-Glass / material circle tinted by the theme, so
+    /// the chevron/pencil stay legible over any cover and on scroll — consistent with the transport buttons.
     private func navBarIcon(_ systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 30, height: 30)
-            .background(Circle().fill(Color.black.opacity(0.32)))
+            .foregroundStyle(theme.contentColor)
+            .cassetteGlassButton(size: 34, tint: theme.glassTint)
     }
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
