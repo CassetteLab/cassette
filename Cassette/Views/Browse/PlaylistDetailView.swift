@@ -28,7 +28,6 @@ struct PlaylistDetailView: View {
         let pid = playlist.id
         _downloadedPlaylistMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
         _dominantColor = State(initialValue: initialDominantColor)
-        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
     init(playlist: DownloadedPlaylist, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
@@ -42,7 +41,6 @@ struct PlaylistDetailView: View {
         let pid = playlist.playlistId
         _downloadedPlaylistMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
         _dominantColor = State(initialValue: initialDominantColor)
-        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
     init(playlistId: String, name: String, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil) {
@@ -56,7 +54,6 @@ struct PlaylistDetailView: View {
         let pid = playlistId
         _downloadedPlaylistMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
         _dominantColor = State(initialValue: initialDominantColor)
-        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
     @Environment(\.appContainer) private var container
@@ -65,7 +62,6 @@ struct PlaylistDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
-    @State private var isLightBackground: Bool = false
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
@@ -283,7 +279,6 @@ struct PlaylistDetailView: View {
             let cached = colorExtractor.dominantColor(for: artId, image: nil)
             if cached != .clear {
                 dominantColor = cached
-                isLightBackground = cached.luminance > 0.6
                 return
             }
 
@@ -511,7 +506,6 @@ struct PlaylistDetailView: View {
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
-            isLightBackground = color.luminance > 0.6
         }
     }
 
