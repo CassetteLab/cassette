@@ -90,7 +90,7 @@ struct FullPlayerView: View {
             // macOS keeps the transport in a bottom-pinned safe-area footer (unchanged). On iOS the controls
             // flow inside surfaceStack so the player cluster can sit high — see surfaceStack.
             .safeAreaInset(edge: .bottom) {
-                sharedFooter(playerState, isPlaying: isPlaying)
+                sharedFooter(playerState)
             }
             #endif
             .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
@@ -157,7 +157,7 @@ struct FullPlayerView: View {
 
             // ONE shared controls instance (not duplicated). Flows right under the player cluster; on the
             // queue surface the filled list above drops it to the bottom.
-            sharedFooter(playerState, isPlaying: isPlaying)
+            sharedFooter(playerState)
 
             // Player surface, NON-lyrics only: slack collects BELOW the controls so the cluster sits high.
             // In lyrics mode the lyrics region itself fills (maxHeight .infinity), so adding a Spacer here
@@ -415,12 +415,7 @@ struct FullPlayerView: View {
     /// Scrubber + transport + volume + bottom toolbar — one instance anchored across both surfaces, so
     /// its `@State` / UIKit-backed children are never re-created by the surface toggle.
     @ViewBuilder
-    private func sharedFooter(_ playerState: PlayerState, isPlaying: Bool) -> some View {
-        // The iOS smooth scrubber fill animates only while the scrubber is the surface the user is actually
-        // looking at — the player, not the queue/lyrics (the footer stays mounted across both). Combined with
-        // the foreground (scenePhase) gate below and `isPlaying`, this keeps the continuous glide off whenever
-        // it would not be seen. macOS is unaffected (it keeps the foreground-only gate on the shared slider).
-        let scrubberVisible = surface == .player && !showLyrics
+    private func sharedFooter(_ playerState: PlayerState) -> some View {
         VStack(spacing: 0) {
             if !playerState.isLiveStream {
                 ScrubberView(
@@ -428,12 +423,9 @@ struct FullPlayerView: View {
                     playerService: container?.playerService,
                     contentColor: vm.contentColor,
                     secondaryContentColor: vm.secondaryContentColor,
-                    // Foreground gate (Tier-1): no idle Core Animation while backgrounded/off-screen.
-                    animatesFill: scenePhase == .active,
-                    // iOS smooth-fill extras (ignored by the macOS ProgressSlider path).
-                    isVisibleSurface: scrubberVisible,
-                    isPlaying: isPlaying,
-                    trackId: playerState.currentTrack?.id
+                    // Stop the fill's continuous per-tick animation when the app isn't foreground-active
+                    // (off-screen) — zero visible change, just no idle Core Animation commits while hidden.
+                    animatesFill: scenePhase == .active
                 )
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.m)
@@ -680,12 +672,7 @@ private struct ScrubberView: View {
     let playerService: (any PlayerServiceProtocol)?
     let contentColor: Color
     let secondaryContentColor: Color
-    // Foreground gate (Tier-1): false when backgrounded/off-screen, on both platforms.
     var animatesFill: Bool = true
-    // iOS smooth-fill inputs (ignored on macOS, which keeps the shared stepped ProgressSlider).
-    var isVisibleSurface: Bool = true
-    var isPlaying: Bool = false
-    var trackId: String?
 
     @State private var isDragging = false
     @State private var isSeeking = false
@@ -696,7 +683,7 @@ private struct ScrubberView: View {
         playerState.duration > 0 ? playerState.duration : (playerState.currentTrack?.duration ?? 1)
     }
 
-    // The slider writes dragged values here; holds the seeked position until AVPlayer confirms.
+    // ProgressSlider writes dragged values here; holds the seeked position until AVPlayer confirms.
     private var positionBinding: Binding<TimeInterval> {
         Binding(
             get: { (isDragging || isSeeking) ? displayPosition : playerState.position },
@@ -705,39 +692,33 @@ private struct ScrubberView: View {
     }
 
     var body: some View {
-        // The per-tick position read is isolated to the ScrubberTimeLabels leaf, so THIS container never
-        // re-evaluates on the 500ms tick (the H3 win). On iOS the fill GLIDES smoothly via SmoothScrubberFill
-        // — one continuous, gated Core Animation toward the track end, not a per-tick re-armed tween (the
-        // original heat source) nor a stepped jump; it is isolated to its own leaf so the glide costs no body
-        // re-eval. macOS keeps the shared stepped ProgressSlider (a playback-aware span can't live in a
-        // component the volume slider also uses), so the smooth glide is an iOS-only concern.
+        // H2 (on-screen heat): the fill no longer re-arms a 0.5s linear tween every 500ms tick — that kept
+        // Core Animation committing continuously while the player was visible + playing. isAdvancing is gone,
+        // so ProgressSlider's fill advances in discrete steps with NO implicit animation (stepped). At a 2 Hz
+        // tick over a song-length bar each step is sub-pixel, so it still reads as smooth. ProgressSlider is a
+        // shared component (volume + macOS), so a playback-aware single-span animation can't live there; the
+        // stepped fill is the cooler, lower-risk option. The per-tick position read is isolated to the
+        // ScrubberTimeLabels leaf so this container and the slider's drag state don't re-evaluate each tick.
         VStack(spacing: CassetteSpacing.xs) {
-            #if os(iOS)
-            SmoothScrubberSlider(
-                value: positionBinding,
-                total: effectiveDuration,
-                playerState: playerState,
-                isPlaying: isPlaying,
-                // Full iOS gate: foreground AND visible surface (AND playing, applied inside the fill).
-                animates: animatesFill && isVisibleSurface,
-                isInteracting: isDragging || isSeeking,
-                interactingValue: displayPosition,
-                trackId: trackId,
-                onEditingChanged: handleEditingChanged,
-                trackColor: contentColor.opacity(0.2),
-                fillColor: contentColor.opacity(0.95)
-            )
-            #else
             ProgressSlider(
                 value: positionBinding,
                 total: effectiveDuration,
-                onEditingChanged: handleEditingChanged,
+                onEditingChanged: { editing in
+                    isDragging = editing
+                    if !editing {
+                        isSeeking = true
+                        let target = displayPosition
+                        Task {
+                            defer { isSeeking = false }
+                            await playerService?.seek(to: target)
+                        }
+                    }
+                },
                 trackColor: contentColor.opacity(0.2),
                 fillColor: contentColor.opacity(0.95),
                 isInteracting: isDragging || isSeeking,
                 animatesFill: animatesFill
             )
-            #endif
 
             ScrubberTimeLabels(
                 playerState: playerState,
@@ -745,18 +726,6 @@ private struct ScrubberView: View {
                 overridePosition: (isDragging || isSeeking) ? displayPosition : nil,
                 color: secondaryContentColor
             )
-        }
-    }
-
-    private func handleEditingChanged(_ editing: Bool) {
-        isDragging = editing
-        if !editing {
-            isSeeking = true
-            let target = displayPosition
-            Task {
-                defer { isSeeking = false }
-                await playerService?.seek(to: target)
-            }
         }
     }
 }
@@ -861,184 +830,6 @@ struct ProgressSlider: View {
         return min(totalWidth, max(0, (CGFloat(displayedValue) / CGFloat(total)) * totalWidth))
     }
 }
-
-#if os(iOS)
-/// iOS-only scrubber slider with a smoothly gliding fill. The track + drag handling live here; the fill is
-/// a self-driving leaf (`SmoothScrubberFill`) so the continuous glide is isolated to that leaf and the
-/// `ScrubberView` container never re-evaluates on the position tick. This slider's own chrome DOES re-evaluate
-/// per tick — only to refresh `accessibilityValue` from the live position, the same cheap ~2 Hz cost the
-/// shared `ProgressSlider` already pays — but that is off the 60 fps animation path, so it is not the heat
-/// concern. The shared `ProgressSlider` (volume slider + four macOS surfaces) is left completely untouched.
-private struct SmoothScrubberSlider: View {
-    @Binding var value: TimeInterval
-    let total: TimeInterval
-    let playerState: PlayerState
-    let isPlaying: Bool
-    let animates: Bool
-    let isInteracting: Bool
-    let interactingValue: TimeInterval
-    let trackId: String?
-    let onEditingChanged: (Bool) -> Void
-    let trackColor: Color
-    let fillColor: Color
-    var height: CGFloat = 32
-    var trackHeight: CGFloat = 5
-
-    @State private var isDragging = false
-
-    var body: some View {
-        GeometryReader { geo in
-            let trackW = geo.size.width
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(trackColor)
-
-                SmoothScrubberFill(
-                    playerState: playerState,
-                    total: total,
-                    trackWidth: trackW,
-                    isPlaying: isPlaying,
-                    animates: animates,
-                    isInteracting: isInteracting,
-                    interactingValue: interactingValue,
-                    fillColor: fillColor
-                )
-                // Reset the glide cleanly on track change: a fresh leaf starts from the new track's position
-                // (≈0) and glides from there, so no stale fill width carries over from the previous track.
-                .id(trackId)
-            }
-            .frame(height: isDragging ? 12 : trackHeight)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
-            .frame(maxHeight: .infinity)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { gesture in
-                        if !isDragging {
-                            isDragging = true
-                            onEditingChanged(true)
-                            HapticFeedback.light.trigger()
-                        }
-                        let ratio = max(0, min(1, gesture.location.x / trackW))
-                        value = total * Double(ratio)
-                    }
-                    .onEnded { _ in
-                        isDragging = false
-                        onEditingChanged(false)
-                    }
-            )
-        }
-        .frame(height: height)
-        .accessibilityLabel("Playback position")
-        .accessibilityValue(Duration.seconds(value).formatted(.time(pattern: .minuteSecond)))
-        .accessibilityAdjustableAction { direction in
-            let step = total * 0.05
-            switch direction {
-            case .increment:
-                value = min(value + step, total)
-                onEditingChanged(false)
-            case .decrement:
-                value = max(value - step, 0)
-                onEditingChanged(false)
-            @unknown default: break
-            }
-        }
-    }
-}
-
-/// Self-driving fill for the iOS scrubber. Instead of re-arming a tween on every position tick (the original
-/// heat source), it runs ONE continuous linear animation toward the track end over the remaining duration,
-/// re-synced only on play / pause / seek (incl. remote, via `seekEpoch`) / track-change / visibility /
-/// duration-load — never per tick. It reads `playerState.position` ONLY inside event closures, never in
-/// `body` (it observes `playerState.seekEpoch` in `body`, but that changes only on a seek, not per tick), so
-/// it does not re-evaluate on the 500ms tick; the fill width is driven entirely by Core Animation on this
-/// isolated leaf. The glide is
-/// gated by `animates` (visible + foreground) AND `isPlaying`; off any of those the fill snaps to the true
-/// position and holds, so there is no idle animation on the queue/lyrics surface or while backgrounded.
-///
-/// Tradeoff: a single long Core Animation is far cheaper than the per-tick re-arm (no body re-eval, no
-/// re-arming), but a continuously gliding bar still has an inherent per-frame GPU cost. If that proves too
-/// hot, the documented fallback is the stepped fill — drop this slider on iOS and reuse `ProgressSlider`.
-private struct SmoothScrubberFill: View {
-    let playerState: PlayerState
-    let total: TimeInterval
-    let trackWidth: CGFloat
-    let isPlaying: Bool
-    let animates: Bool
-    let isInteracting: Bool
-    let interactingValue: TimeInterval
-    let fillColor: Color
-
-    @State private var fraction: CGFloat = 0
-    // Bumped on every re-sync so a glide scheduled for the next runloop (after the snap presents) bails if a
-    // newer re-sync has since superseded it — e.g. a pause that raced ahead of its own pending glide.
-    @State private var glideGeneration = 0
-
-    var body: some View {
-        Capsule()
-            .fill(fillColor)
-            .frame(width: max(0, fraction) * trackWidth)
-            .onAppear { resync() }
-            .onChange(of: isPlaying) { _, _ in resync() }
-            .onChange(of: animates) { _, _ in resync() }
-            .onChange(of: isInteracting) { _, _ in resync() }
-            .onChange(of: interactingValue) { _, _ in if isInteracting { resync() } }
-            .onChange(of: total) { _, _ in resync() }
-            // Re-sync on a position DISCONTINUITY that the gate triggers can't see: a seek NOT originating
-            // from this view's drag — remote / lock-screen / Control-Center / CarPlay, or skip-to-previous's
-            // restart — moves `position` while `playbackState` stays `.playing` and the local drag state is
-            // untouched, so none of the triggers above fire. `seekEpoch` bumps on every such seek, so the
-            // glide re-arms from the new position instead of running on its stale pre-seek trajectory. This
-            // observes `seekEpoch` (changes only on a seek), NOT `position` (which ticks ~2 Hz) — so it
-            // re-syncs on seeks without re-evaluating the leaf per tick.
-            .onChange(of: playerState.seekEpoch) { _, _ in resync() }
-    }
-
-    private func resync() {
-        glideGeneration &+= 1
-        let generation = glideGeneration
-
-        guard total > 0, trackWidth > 0 else {
-            setFraction(0, animated: false)
-            return
-        }
-
-        // While dragging/seeking, pin the fill to the interaction value — no glide.
-        if isInteracting {
-            setFraction(CGFloat(interactingValue / total), animated: false)
-            return
-        }
-
-        // Snap to the TRUE position first (corrects any drift; this is the glide's start point). The snap
-        // commits this runloop; the glide is scheduled for the next so it animates FROM the snapped value
-        // rather than coalescing with it.
-        let position = playerState.position
-        setFraction(CGFloat(position / total), animated: false)
-
-        // Paused / hidden surface / backgrounded → hold at the true position, no animation.
-        guard animates, isPlaying else { return }
-
-        let remaining = max(total - position, 0)
-        guard remaining > 0 else {
-            setFraction(1, animated: false)
-            return
-        }
-
-        Task { @MainActor in
-            guard generation == glideGeneration else { return }   // superseded by a newer re-sync
-            withAnimation(.linear(duration: remaining)) { fraction = 1 }
-        }
-    }
-
-    private func setFraction(_ value: CGFloat, animated: Bool) {
-        let clamped = min(1, max(0, value))
-        var transaction = Transaction()
-        transaction.disablesAnimations = !animated
-        withTransaction(transaction) { fraction = clamped }
-    }
-}
-#endif
 
 // MARK: - Playback controls
 

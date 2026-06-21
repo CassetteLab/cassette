@@ -19,11 +19,6 @@ final class PlayerState {
     var playbackState: PlaybackState = .idle
     var position: TimeInterval = 0
     var duration: TimeInterval = 0
-    /// Monotonic counter bumped on every seek (in-app drag, remote/lock-screen/Control-Center/CarPlay, or
-    /// skip-to-previous's restart). UI that drives a self-running playback animation — the iOS scrubber fill —
-    /// watches this to re-sync on position DISCONTINUITIES, which `position` alone can't signal (it also
-    /// advances ~every 500ms during normal playback, so observing it directly would defeat the isolation).
-    var seekEpoch: Int = 0
     var repeatMode: RepeatMode = .off
     var isShuffled: Bool = false
     /// False when a restored track cannot be resolved (offline + streamed only).

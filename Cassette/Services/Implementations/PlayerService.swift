@@ -785,11 +785,7 @@ actor PlayerService: PlayerServiceProtocol {
             currentPlaySegmentStart = Date()
         }
         audioPlayer.seek(to: position)
-        await MainActor.run {
-            state.position = position
-            // Signal the discontinuity to UI driving a self-running playback animation (iOS scrubber fill).
-            state.seekEpoch &+= 1
-        }
+        await MainActor.run { state.position = position }
         await pushPositionSnapshot()
     }
 
