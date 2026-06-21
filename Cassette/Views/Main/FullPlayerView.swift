@@ -316,10 +316,11 @@ struct FullPlayerView: View {
         // inner explicit `width == height` frame is un-stretchable, so the outer centering frame can't widen
         // it. scaledToFill fills the square (album art is 1:1) and the clipShape crops + rounds it.
         GeometryReader { geo in
+            // SQUARE (1:1) — never crop the art top/bottom — as large as the slot allows. On the queue side
+            // (matcher) the frame is flexible so matchedGeometry can shrink it to the 56pt header anchor.
+            let side = min(geo.size.width, geo.size.height)
             CoverArtView(id: coverArtId, size: 1000)
-                // FULL-BLEED edge-to-edge on the player (source). On the queue side (matcher) the frame is
-                // flexible so matchedGeometry can shrink+move it to the 56pt header anchor.
-                .frame(width: isSource ? geo.size.width : nil, height: isSource ? geo.size.height : nil)
+                .frame(width: isSource ? side : nil, height: isSource ? side : nil)
                 .clipped()
                 // Blend the cover into the dominant page on ALL FOUR edges (a light vignette of the dominant
                 // color), so it fades into the background instead of sitting as a hard rectangle — while
@@ -347,7 +348,9 @@ struct FullPlayerView: View {
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(height: Self.playerCoverSize)
+        // Taller slot than the old 340 contained card so the square cover reads big/immersive (side =
+        // min(width, this) — full-width on common phones, gently capped on the widest).
+        .frame(height: 400)
         .trackSkipSwipe(playerState: playerState)
     }
 
