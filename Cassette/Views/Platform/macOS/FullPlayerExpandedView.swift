@@ -76,6 +76,10 @@ struct FullPlayerExpandedView: View {
                 contentLayout(geo)
             }
         }
+        // Cross-fade the dominant-color-derived chrome (mesh background + accent) when the track changes,
+        // like Apple Music. Scoped to dominantColor so it never animates the mesh's per-frame wave motion.
+        // Separable from the contrast fix — drop this one modifier if the transition isn't wanted.
+        .animation(.easeInOut(duration: 0.5), value: dominantColor)
         .overlay(alignment: .topLeading) {
             topLeadingButtons
         }
