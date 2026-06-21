@@ -109,7 +109,9 @@ struct FullPlayerView: View {
         .background {
             ZStack {
                 Color.black
-                if let coverImage = vm.coverImage {
+                // Queue + lyrics use a FLAT unified dominant color for legibility (text over a solid color).
+                // The now-playing surface keeps the blurred cover wash.
+                if !showLyrics && surface == .player, let coverImage = vm.coverImage {
                     Image(platformImage: coverImage)
                         .resizable()
                         .scaledToFill()
@@ -117,7 +119,7 @@ struct FullPlayerView: View {
                         .blur(radius: 80, opaque: true)
                         .transition(.opacity)
                 }
-                vm.dominantColor.opacity(0.5)
+                vm.dominantColor.opacity(showLyrics || surface == .queue ? 1.0 : 0.5)
                 Color.black.opacity(0.25)
             }
             // Flatten the 4-layer blurred background (black + radius-80 cover blur + dominant tint + scrim)
