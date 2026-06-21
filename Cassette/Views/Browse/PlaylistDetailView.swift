@@ -63,6 +63,7 @@ struct PlaylistDetailView: View {
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var showDeleteAlert = false
+    @State private var showEditSheet = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
     // Inline edit mode
@@ -190,7 +191,7 @@ struct PlaylistDetailView: View {
                         onRemoveDownload: { songId in
                             Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
                         },
-                        onRemove: (isEditing && !vm.isOffline) ? { index in
+                        onRemove: !vm.isOffline ? { index in
                             Task { await vm.removeTrack(at: index) }
                         } : nil,
                         onReorder: (isEditing && !vm.isOffline) ? { source, destination in
@@ -227,6 +228,29 @@ struct PlaylistDetailView: View {
         }
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
+        }
+        .sheet(isPresented: $showEditSheet) {
+            if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
+                EditPlaylistSheet(
+                    playlistId: playlistId,
+                    serverId: serverId,
+                    currentName: vm.name,
+                    currentComment: vm.playlistDetail?.comment ?? "",
+                    currentCoverArtId: effectiveCoverArtId,
+                    songs: resolvedSongs(vm),
+                    onCommitted: {
+                        Task { await vm.load() }
+                        coverRefreshID = UUID()
+                        coverArtUploadVersion += 1
+                    },
+                    onDeleted: { dismiss() }
+                )
+                // Inject explicitly so the sheet never misses these (sheet env propagation has bitten us
+                // before — see the toast overlay fix).
+                .environment(colorExtractor)
+                .environment(c.artworkImageCache)
+                .environment(\.appContainer, c)
+            }
         }
         .background(
             PlaylistThemedBackground(
@@ -353,7 +377,7 @@ struct PlaylistDetailView: View {
                 .fontWeight(.semibold)
             } else {
                 Button {
-                    enterEditMode()
+                    showEditSheet = true
                 } label: {
                     Image(systemName: "pencil")
                         .foregroundStyle(CassetteColors.accent)
