@@ -156,7 +156,9 @@ struct FullPlayerView: View {
         // and fills it (maxHeight .infinity), pushing the flowing controls below toward the bottom. The
         // mini→full zoom's matchedGeometry lives in MainTabView (separate); the player↔queue morphCover is
         // gone. `morphAnimation` is the macOS-only morph spring and is unused here.
-        let filling = showLyrics || showingQueue
+        // The cover now FILLS the upper space full-bleed (album/playlist look) instead of being a centered
+        // square, so the slot is greedy and the gaps are fixed on every surface (cover, lyrics, queue).
+        let filling = true
         VStack(spacing: 0) {
             topBar
                 .padding(.top, CassetteSpacing.s)
@@ -305,53 +307,33 @@ struct FullPlayerView: View {
         Color.clear.frame(minHeight: floor, maxHeight: filling ? floor : .infinity)
     }
 
-    /// The default player cover. No `morphCover` — only the mini→full zoom uses matchedGeometry (wired in
-    /// MainTabView). Keeps the drawingGroup flatten + drop shadow + play/pause scaleEffect.
+    /// The default player cover — FILLS the upper space full-bleed (album/playlist look), melting into the
+    /// dominant color at the bottom. No `morphCover` — the mini→full zoom matchedGeometry lives in MainTabView;
+    /// the `queueCover` matchedGeometry flies the cover to the queue header on queue toggle. `isPlaying` is no
+    /// longer used (the play/pause scale was removed).
     private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool, isSource: Bool) -> some View {
-        // HARD SQUARE. CoverArtView is `Image.resizable().scaledToFill()` — it has NO intrinsic size and fills
-        // whatever frame it gets; the previous sizer (`Color.clear.aspectRatio(1).frame(maxW/H:)`) is ALSO
-        // size-less, so inside the GREEDY fill slot it resolved to a wide-short rounded rect, not a square.
-        // Don't rely on aspectRatio: read the available width and pin the cover to an EXPLICIT equal-side
-        // frame. The slot stays greedy (for lyrics/queue); only the cover is hard-squared and centered. The
-        // inner explicit `width == height` frame is un-stretchable, so the outer centering frame can't widen
-        // it. scaledToFill fills the square (album art is 1:1) and the clipShape crops + rounds it.
-        GeometryReader { geo in
-            // SQUARE (1:1) — never crop the art top/bottom — as large as the slot allows. On the queue side
-            // (matcher) the frame is flexible so matchedGeometry can shrink it to the 56pt header anchor.
-            let side = min(geo.size.width, geo.size.height)
-            CoverArtView(id: coverArtId, size: 1000)
-                .frame(width: isSource ? side : nil, height: isSource ? side : nil)
-                .clipped()
-                // Blend the cover into the dominant page on ALL FOUR edges (a light vignette of the dominant
-                // color), so it fades into the background instead of sitting as a hard rectangle — while
-                // keeping most of the cover crisply visible in the center.
-                .overlay {
-                    if isSource {
-                        let c = vm.dominantColor
-                        ZStack {
-                            LinearGradient(stops: [.init(color: c, location: 0), .init(color: .clear, location: 0.14)],
-                                           startPoint: .top, endPoint: .bottom)
-                            LinearGradient(stops: [.init(color: .clear, location: 0.86), .init(color: c, location: 1)],
-                                           startPoint: .top, endPoint: .bottom)
-                            LinearGradient(stops: [.init(color: c, location: 0), .init(color: .clear, location: 0.14)],
-                                           startPoint: .leading, endPoint: .trailing)
-                            LinearGradient(stops: [.init(color: .clear, location: 0.86), .init(color: c, location: 1)],
-                                           startPoint: .leading, endPoint: .trailing)
-                        }
-                    }
+        CoverArtView(id: coverArtId, size: 1000)
+            // FILL the slot full-bleed (full upper space) on the player. On the queue side (matcher) the frame
+            // is flexible (nil) so matchedGeometry can shrink+move it to the 56pt header anchor.
+            .frame(maxWidth: isSource ? .infinity : nil, maxHeight: isSource ? .infinity : nil)
+            .clipped()
+            // Melt the bottom into the dominant body color so the cover fades into the controls area below.
+            .overlay {
+                if isSource {
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0.68),
+                            .init(color: vm.dominantColor, location: 1.0),
+                        ],
+                        startPoint: .top, endPoint: .bottom
+                    )
                 }
-                .drawingGroup()
-                // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue
-                // toggle. Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
-                .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
-                .scaleEffect(isPlaying ? 1.0 : 0.97)
-                .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        // Taller slot than the old 340 contained card so the square cover reads big/immersive (side =
-        // min(width, this) — full-width on common phones, gently capped on the widest).
-        .frame(height: 400)
-        .trackSkipSwipe(playerState: playerState)
+            }
+            .drawingGroup()
+            // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
+            // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
+            .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
+            .trackSkipSwipe(playerState: playerState)
     }
 
     /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
