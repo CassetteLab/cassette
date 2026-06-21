@@ -106,29 +106,33 @@ struct FullPlayerView: View {
             }
             #endif
             .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
+        // Solid dominant-color page across all surfaces. The now-playing cover is full-bleed in the slot and
+        // melts into this color (like the album/playlist heroes); queue + lyrics sit on the flat color for
+        // legibility. A black base shows until the dominant color resolves.
         .background {
+            #if os(iOS)
             ZStack {
                 Color.black
-                // Queue + lyrics use a FLAT unified dominant color for legibility (text over a solid color).
-                // The now-playing surface keeps the blurred cover wash.
-                if !showLyrics && surface == .player, let coverImage = vm.coverImage {
+                vm.dominantColor
+            }
+            .ignoresSafeArea()
+            #else
+            // macOS keeps its blurred cover wash (not in scope for the immersive pass).
+            ZStack {
+                Color.black
+                if let coverImage = vm.coverImage {
                     Image(platformImage: coverImage)
                         .resizable()
                         .scaledToFill()
                         .scaleEffect(1.3)
                         .blur(radius: 80, opaque: true)
-                        .transition(.opacity)
                 }
-                vm.dominantColor.opacity(showLyrics || surface == .queue ? 1.0 : 0.5)
+                vm.dominantColor.opacity(0.5)
                 Color.black.opacity(0.25)
             }
-            // Flatten the 4-layer blurred background (black + radius-80 cover blur + dominant tint + scrim)
-            // into ONE Metal-backed bitmap. The morph leaves the background static, but the zoom (open/close)
-            // scales the WHOLE player including this full-screen background — without flattening, all 4 layers
-            // (and the expensive blur) re-composite every frame of the zoom. Rasterized, the zoom scales a
-            // single cached bitmap. Re-rasterizes on track change (cover crossfade); resting look unchanged.
             .drawingGroup()
             .ignoresSafeArea()
+            #endif
         }
     }
 
@@ -312,28 +316,33 @@ struct FullPlayerView: View {
         // inner explicit `width == height` frame is un-stretchable, so the outer centering frame can't widen
         // it. scaledToFill fills the square (album art is 1:1) and the clipShape crops + rounds it.
         GeometryReader { geo in
-            let side = min(geo.size.width, Self.playerCoverSize)
-            CoverArtView(id: coverArtId, size: 600)
-                // Hard square ONLY when this is the fly's SOURCE (player). When it's the MATCHER (queue), the
-                // frame is flexible so matchedGeometry can shrink+move it to the 56pt header anchor — a rigid
-                // 340 frame here is exactly why the flown cover stayed 340 and overflowed the row.
-                .frame(width: isSource ? side : nil, height: isSource ? side : nil)
-                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                .shadow(color: .black.opacity(0.3), radius: 30, y: 10)
+            CoverArtView(id: coverArtId, size: 1000)
+                // FULL-BLEED edge-to-edge on the player (source). On the queue side (matcher) the frame is
+                // flexible so matchedGeometry can shrink+move it to the 56pt header anchor.
+                .frame(width: isSource ? geo.size.width : nil, height: isSource ? geo.size.height : nil)
+                .clipped()
+                // Melt the cover's bottom into the dominant body color so it fades into the page (AM look).
+                .overlay(alignment: .bottom) {
+                    if isSource {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0.60),
+                                .init(color: vm.dominantColor, location: 1.0),
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
+                }
                 .drawingGroup()
-                // Cover-fly endpoint (player side): flies to/from the queue header's collapsed cover anchor on
-                // queue toggle. `isSource` is true on the player side (!queue) and false on the queue side, so
-                // exactly one endpoint is the source and the cover flies to the other. Distinct id + namespace
-                // from the mini→full zoom (MainTabView's `playerZoom`). After drawingGroup so the cheap
-                // rasterized square repositions — ONLY the cover flies; the dual-surface crossfade stays gone.
+                // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue
+                // toggle. Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
                 .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
-                .scaleEffect(isPlaying ? 1.0 : 0.92)
+                .scaleEffect(isPlaying ? 1.0 : 0.97)
                 .animation(.spring(response: 0.5, dampingFraction: 0.7), value: isPlaying)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(height: Self.playerCoverSize)
         .trackSkipSwipe(playerState: playerState)
-        .padding(.horizontal, Self.playerCoverHPadding)
     }
 
     /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
