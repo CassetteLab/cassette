@@ -148,77 +148,50 @@ struct CreatePlaylistSheet: View {
         #endif
     }
 
-    /// Cross-platform cover picker: "None" + (iOS) a photo option + the six gradient forms. The gradient
-    /// previews show the neutral base color (an empty playlist has no first track to derive from yet — that
-    /// derivation lands in Phase 2b); the forms are still distinguishable by geometry.
-    private var coverPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: CassetteSpacing.m) {
-                coverSwatch(isSelected: selectedGradient == nil && !hasPhoto, label: "None", action: {
-                    selectedGradient = nil
-                    #if os(iOS)
-                    pendingImage = nil
-                    #endif
-                }) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: CassetteCornerRadius.standard).fill(Color.secondary.opacity(0.15))
-                        Image(systemName: "nosign").font(.title3).foregroundStyle(.secondary)
-                    }
-                }
-
-                #if os(iOS)
-                coverSwatch(isSelected: hasPhoto, label: "Photo", action: {
-                    selectedGradient = nil
-                    showImageOptions = true
-                }) {
-                    ZStack {
-                        if let pending = pendingImage {
-                            Image(uiImage: pending).resizable().aspectRatio(1, contentMode: .fill)
-                        } else {
-                            RoundedRectangle(cornerRadius: CassetteCornerRadius.standard).fill(Color.secondary.opacity(0.15))
-                            Image(systemName: "photo").font(.title3).foregroundStyle(.secondary)
-                        }
-                    }
-                }
-                #endif
-
-                ForEach(PlaylistGradientShape.allCases) { shape in
-                    coverSwatch(isSelected: selectedGradient == shape, label: shape.displayName, action: {
-                        selectedGradient = shape
-                        #if os(iOS)
-                        pendingImage = nil
-                        #endif
-                    }) {
-                        PlaylistGradientView(spec: .neutral(shape: shape))
-                    }
-                }
-            }
-            .padding(.vertical, CassetteSpacing.xs)
-        }
+    private var showsPhotoOption: Bool {
+        #if os(iOS)
+        return true
+        #else
+        return false
+        #endif
     }
 
-    @ViewBuilder
-    private func coverSwatch<Content: View>(
-        isSelected: Bool,
-        label: String,
-        action: @escaping () -> Void,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: CassetteSpacing.xs) {
-                content()
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: CassetteCornerRadius.standard)
-                            .strokeBorder(Color.cassetteAccent, lineWidth: isSelected ? 3 : 0)
-                    )
-                Text(label)
-                    .font(.caption2)
-                    .foregroundStyle(isSelected ? Color.cassetteAccent : Color.secondary)
+    private var photoPreviewImage: PlatformImage? {
+        #if os(iOS)
+        return pendingImage
+        #else
+        return nil
+        #endif
+    }
+
+    /// Create-flow cover picker. The gradient previews show the neutral base color (an empty playlist has no
+    /// first track to derive from yet — that derivation is the edit flow's job); forms differ by geometry.
+    private var coverPicker: some View {
+        PlaylistCoverPicker(
+            selectedGradient: selectedGradient,
+            isPhotoSelected: hasPhoto,
+            photoPreview: photoPreviewImage,
+            showsPhotoOption: showsPhotoOption,
+            leadingLabel: "None",
+            onSelectLeading: {
+                selectedGradient = nil
+                #if os(iOS)
+                pendingImage = nil
+                #endif
+            },
+            onSelectPhoto: {
+                selectedGradient = nil
+                #if os(iOS)
+                showImageOptions = true
+                #endif
+            },
+            onSelectGradient: { shape in
+                selectedGradient = shape
+                #if os(iOS)
+                pendingImage = nil
+                #endif
             }
-        }
-        .buttonStyle(.plain)
+        )
     }
 
     /// Applies the chosen cover after the playlist is created: render+cache+upload via PlaylistCoverManager
