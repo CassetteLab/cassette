@@ -160,15 +160,14 @@ struct FullPlayerView: View {
         // square, so the slot is greedy and the gaps are fixed on every surface (cover, lyrics, queue).
         let filling = true
         VStack(spacing: 0) {
-            topBar
-                .padding(.top, CassetteSpacing.s)
-
             VStack(spacing: 0) {
                 // Each gap is flexible in the flowing default (distributes the slack so the content fills the
                 // screen) and collapses to a fixed floor once the slot fills — same view type both ways, so it
                 // animates. The slot is then the SOLE greedy element, so it takes the slack and pushes the
                 // controls toward the bottom.
-                flowGap(CassetteSpacing.l, filling: filling)
+                // No top gap for the cover (it bleeds to the very top under the grabber); clear the grabber
+                // for lyrics/queue so their content isn't hidden behind it.
+                flowGap((showLyrics || showingQueue) ? 44 : 0, filling: filling)
 
                 // The slot: the cover by default; lyrics or the queue fill it and push the controls down.
                 ZStack {
@@ -206,6 +205,8 @@ struct FullPlayerView: View {
                         flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
                                      isSource: !showingQueue)
                             .allowsHitTesting(!showingQueue)
+                            // Bleed the cover to the very top, under the grabber (album/playlist hero look).
+                            .ignoresSafeArea(.container, edges: .top)
                             .transition(.opacity)
                     }
                 }
@@ -277,6 +278,11 @@ struct FullPlayerView: View {
             // Fixed bottom margin (NOT a Spacer): a greedy Spacer here would compete with the inner VStack's
             // maxHeight .infinity and split the slack, leaving a void below the toolbar in every state.
             .padding(.bottom, CassetteSpacing.l)
+        }
+        // The grabber floats OVER the cover (which now bleeds to the very top), like the album/playlist nav bar.
+        .overlay(alignment: .top) {
+            topBar
+                .padding(.top, CassetteSpacing.s)
         }
         #else
         VStack(spacing: 0) {
