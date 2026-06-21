@@ -60,6 +60,11 @@ final class AlbumDetailViewModel {
     private func loadFromAPI() async {
         do {
             let apiAlbum = try await libraryService.album(id: albumId)
+            // Empty-success guard: behind a captive proxy / Cloudflare-WARP edge the server
+            // is reachable but answers 200 with no songs. That never throws, so the catch
+            // below can't help — treat an empty result exactly like a failure and prefer the
+            // downloaded copy before clobbering the UI with an empty state.
+            if (apiAlbum.song ?? []).isEmpty, await loadFromLocal() { return }
             loadedAlbum = apiAlbum
             guard let serverId = serverState.activeServer?.id else { return }
             let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)

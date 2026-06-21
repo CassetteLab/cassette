@@ -61,6 +61,11 @@ final class PlaylistDetailViewModel {
     private func loadFromAPI() async {
         do {
             let apiPlaylist = try await libraryService.playlist(id: playlistId)
+            // Empty-success guard: behind a captive proxy / Cloudflare-WARP edge the server
+            // is reachable but answers 200 with no entries. That never throws, so the catch
+            // below can't help — treat an empty result exactly like a failure and prefer the
+            // downloaded copy before clobbering the UI with an "Empty Playlist" state.
+            if (apiPlaylist.entry ?? []).isEmpty, await loadFromLocal() { return }
             playlistDetail = apiPlaylist
             guard let serverId = serverState.activeServer?.id else { return }
             let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
@@ -69,6 +74,13 @@ final class PlaylistDetailViewModel {
             coverArtId = apiPlaylist.coverArt
             songs = (apiPlaylist.entry ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
             isOffline = false
+            // Self-heal: if this playlist was downloaded before songIds existed (or with an
+            // empty list), repair it now from the authoritative order so it reads offline next time.
+            await downloadService.backfillPlaylistSongIds(
+                playlistId: playlistId,
+                serverId: serverId,
+                orderedSongIds: (apiPlaylist.entry ?? []).map(\.id)
+            )
         } catch {
             // Server unreachable (airplane mode with stale isOnline, VPN-satisfied path,
             // server down): fall back to the downloaded copy before surfacing an error.

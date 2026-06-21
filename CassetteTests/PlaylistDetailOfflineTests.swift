@@ -14,7 +14,13 @@ import SwiftSonic
 /// reach the server; loadFromAPI's failure is the trigger under test.
 @MainActor
 private final class PDLibraryStub: LibraryServiceProtocol {
-    func playlist(id: String) async throws -> PlaylistWithSongs { throw URLError(.notConnectedToInternet) }
+    /// When set, `playlist(id:)` returns this instead of throwing — used to drive the
+    /// empty-but-successful (200, no entries) path that the catch block can't catch.
+    var playlistResult: PlaylistWithSongs?
+    func playlist(id: String) async throws -> PlaylistWithSongs {
+        if let playlistResult { return playlistResult }
+        throw URLError(.notConnectedToInternet)
+    }
     func playlists() async throws -> [Playlist] { throw URLError(.unknown) }
     func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
     func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
@@ -48,6 +54,7 @@ private final class PDDownloadStub: DownloadServiceProtocol {
 
     let progressStream: AsyncStream<[DownloadProgress]> = AsyncStream { $0.finish() }
     func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData? { playlistData }
+    func backfillPlaylistSongIds(playlistId: String, serverId: UUID, orderedSongIds: [String]) async {}
     func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData? { nil }
     func downloadedURL(forSongId songId: String, serverId: UUID) async -> URL? { nil }
     func isDownloaded(songId: String, serverId: UUID) async -> Bool { false }
@@ -100,7 +107,7 @@ struct PlaylistDetailOfflineTests {
         )
     }
 
-    private func makeVM(playlistData: LocalPlaylistData?, isOnline: Bool) -> PlaylistDetailViewModel {
+    private func makeVM(playlistData: LocalPlaylistData?, isOnline: Bool, apiPlaylist: PlaylistWithSongs? = nil) -> PlaylistDetailViewModel {
         let state = ServerState()
         state.isOnline = isOnline
         state.activeServer = ServerSnapshot(from: ServerConfig(
@@ -108,14 +115,22 @@ struct PlaylistDetailOfflineTests {
         ))
         let download = PDDownloadStub()
         download.playlistData = playlistData
+        let library = PDLibraryStub()
+        library.playlistResult = apiPlaylist
         return PlaylistDetailViewModel(
             playlistId: "playlist-1",
-            libraryService: PDLibraryStub(),
+            libraryService: library,
             downloadService: download,
             playlistService: PDPlaylistStub(),
             toastService: ToastService(),
             serverState: state
         )
+    }
+
+    /// An empty-but-successful playlist payload (200 OK, zero entries) — the WARP/Cloudflare
+    /// edge response that returns without throwing.
+    private var emptySuccessPlaylist: PlaylistWithSongs {
+        PlaylistWithSongs(id: "playlist-1", name: "Road Trip", songCount: 0, duration: 0)
     }
 
     private var downloadedPlaylist: LocalPlaylistData {
@@ -160,5 +175,25 @@ struct PlaylistDetailOfflineTests {
         #expect(vm.songs.isEmpty)
         #expect(vm.error == nil)
         #expect(vm.isOffline == true)
+    }
+
+    // MARK: - Empty-success (WARP / Cloudflare edge) — the case the throw-only stubs missed
+
+    @Test("empty-success playlist response with a downloaded copy loads local, not Empty")
+    func emptySuccessFallsBackToLocal() async {
+        let vm = makeVM(playlistData: downloadedPlaylist, isOnline: true, apiPlaylist: emptySuccessPlaylist)
+        await vm.load()
+        #expect(vm.songs.count == 2)
+        #expect(vm.error == nil)
+        #expect(vm.isOffline == true)
+        #expect(vm.name == "Road Trip")
+    }
+
+    @Test("empty-success playlist with NO downloaded copy stays empty, no error")
+    func emptySuccessNoLocalStaysEmpty() async {
+        let vm = makeVM(playlistData: nil, isOnline: true, apiPlaylist: emptySuccessPlaylist)
+        await vm.load()
+        #expect(vm.songs.isEmpty)
+        #expect(vm.error == nil)
     }
 }
