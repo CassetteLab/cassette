@@ -23,8 +23,12 @@ struct PlaylistTheme: Equatable, Sendable {
     var isThemed: Bool { dominantColor != .clear }
     var isLight: Bool { isThemed && dominantColor.luminance > 0.6 }
 
-    // Adaptive foreground over the themed background — neutral + luminance-based (mirrors the full-player
-    // palette). System-adaptive (`.primary`/`.secondary`) until the theme color resolves.
+    // Adaptive foreground over the themed background. `isLight` uses the app-wide PERCEIVED (BT.601)
+    // luminance (`Color.luminance > 0.6`) — the same light/dark convention as the full player, and the
+    // Apple-Music-correct bias toward white text (dark text only on clearly light covers). The `accentColor`
+    // below uses a separate WCAG contrast check — an accessibility concern for the accent specifically, NOT a
+    // competing isLight definition; these two are intentionally distinct, not a duplication to unify.
+    // System-adaptive (`.primary`/`.secondary`) until the theme color resolves.
     var contentColor: Color { isThemed ? (isLight ? .black : .white) : .primary }
     var secondaryContentColor: Color {
         isThemed ? (isLight ? Color.black.opacity(0.7) : Color.white.opacity(0.7)) : .secondary
