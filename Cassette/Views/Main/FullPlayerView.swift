@@ -205,8 +205,8 @@ struct FullPlayerView: View {
                         flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
                                      isSource: !showingQueue)
                             .allowsHitTesting(!showingQueue)
-                            // Bleed the cover to the very top, under the grabber (album/playlist hero look).
-                            .ignoresSafeArea(.container, edges: .top)
+                            // Bleed the cover to the very top + horizontal edges, under the grabber.
+                            .ignoresSafeArea(.container, edges: [.top, .horizontal])
                             .transition(.opacity)
                     }
                 }
@@ -339,7 +339,6 @@ struct FullPlayerView: View {
             // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
             // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
             .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
-            .trackSkipSwipe(playerState: playerState)
     }
 
     /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
@@ -764,7 +763,6 @@ private struct TrackInfoSection: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
-            .trackSkipSwipe(playerState: playerState)
 
             HStack(spacing: CassetteSpacing.s) {
                 if !playerState.isLiveStream {
