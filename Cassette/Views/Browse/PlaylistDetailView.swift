@@ -69,6 +69,12 @@ struct PlaylistDetailView: View {
     @State private var coverRefreshID = UUID()
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
+    // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the full-bleed cover region
+    // from the screen top; `topSafeInset` = status bar + nav bar, so the floating content lines up with the
+    // cover's lower edge even though the List content starts below the nav bar.
+    @State private var heroHeight: CGFloat = 460
+    @State private var topSafeInset: CGFloat = 100
+
     // View-level offline backstop: sources the song list straight from SwiftData when the
     // view model produced nothing (empty-success or error). Mirrors AlbumDetailView's
     // downloaded fallback so a downloaded playlist stays readable independent of the
@@ -88,6 +94,18 @@ struct PlaylistDetailView: View {
     private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
     private var headerTextColor: Color { theme.contentColor }
     private var headerSecondaryColor: Color { theme.secondaryContentColor }
+
+    /// Solid body color the cover melts into (the themed dominant color, or the system background until it
+    /// resolves). Used by the immersive background and by the track-list row backgrounds, so the rows
+    /// occlude the fixed full-bleed cover as they scroll up over it.
+    private var bodyColor: Color {
+        if theme.isThemed { return theme.dominantColor }
+        #if canImport(UIKit)
+        return Color(UIColor.systemBackground)
+        #else
+        return Color(NSColor.windowBackgroundColor)
+        #endif
+    }
 
     /// Header metadata line, Apple-Music style: "N songs · Updated <relative date>".
     private func metadataLine(count: Int, updated: Date?) -> String {
@@ -184,13 +202,15 @@ struct PlaylistDetailView: View {
                         } : nil,
                         onAddToPlaylist: { song in songToAddToPlaylist = song }
                     )
+                    // Solid body color so the rows occlude the fixed full-bleed cover as they scroll up.
+                    .listRowBackground(bodyColor)
 
                     let featured = FeaturedArtist.from(songs)
                     if !featured.isEmpty {
                         featuredArtistsSection(featured)
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+                            .listRowBackground(bodyColor)
                     }
                 }
             }
@@ -235,9 +255,26 @@ struct PlaylistDetailView: View {
             PlaylistThemedBackground(
                 coverArtId: effectiveCoverArtId,
                 coverImage: initialCoverImage,
-                theme: theme
+                theme: theme,
+                heroHeight: heroHeight
             )
+            // Re-mount on cover change (edit upload) so the new cover reloads, like the old hero card did.
+            .id(coverRefreshID)
         )
+        // Capture the view width (→ square hero region) and the top safe-area inset (status + nav bar) so the
+        // floating content lines up with the cover's lower edge. Tunable defaults until this fires.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear {
+                        heroHeight = proxy.size.width
+                        // Keep the sensible default if the reader can't see a real inset (e.g. 0 under an
+                        // ignoresSafeArea ancestor) — a wrong 0 would drop the floating content below the cover.
+                        if proxy.safeAreaInsets.top > 1 { topSafeInset = proxy.safeAreaInsets.top }
+                    }
+                    .onChange(of: proxy.size.width) { _, newWidth in heroHeight = newWidth }
+            }
+        }
         .cassetteContentWidth()
         // Drive the now-playing indicator from the SAME color as the hero buttons (heroIconColor), not raw
         // accentForeground — heroIconColor adds the dark-mode branch (cassetteAccentSecondary), so the bars
@@ -250,6 +287,12 @@ struct PlaylistDetailView: View {
         .enableSwipeBack()
         #endif
         .toolbar { toolbarContent }
+        // Transparent nav bar so the cover floats under it; adapt the status-bar style to the cover
+        // lightness (dark text on a light cover, light text on a dark cover).
+        #if os(iOS)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(theme.isThemed ? (theme.isLight ? .light : .dark) : nil, for: .navigationBar)
+        #endif
         // Keyed on connectivity so the list re-loads from the right source when
         // NWPathMonitor flips isOnline — same pattern as PlaylistDetailMacOS.
         .task(id: container?.serverState.isOnline) {
@@ -286,20 +329,27 @@ struct PlaylistDetailView: View {
             Button {
                 dismiss()
             } label: {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                navBarIcon("chevron.left")
             }
         }
         ToolbarItem(placement: .primaryAction) {
             Button {
                 showEditSheet = true
             } label: {
-                Image(systemName: "pencil")
-                    .foregroundStyle(CassetteColors.accent)
+                navBarIcon("pencil")
             }
             .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
         }
+    }
+
+    /// A nav-bar icon over a subtle dark scrim circle, so the chevron/pencil stay legible over ANY cover
+    /// (light or dark) and while scrolling — the artwork floats under the transparent nav bar.
+    private func navBarIcon(_ systemName: String) -> some View {
+        Image(systemName: systemName)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 30, height: 30)
+            .background(Circle().fill(Color.black.opacity(0.32)))
     }
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
@@ -347,9 +397,7 @@ struct PlaylistDetailView: View {
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
         VStack(spacing: CassetteSpacing.l) {
-            // Cover art (editing the cover lives in the edit sheet now)
-            coverArtContent(vm: vm)
-                .padding(.top, CassetteSpacing.xxl)
+            Spacer(minLength: 0)
 
             VStack(spacing: 0) {
                 Text(vm?.name ?? initialName)
@@ -468,28 +516,11 @@ struct PlaylistDetailView: View {
                 }
             }
         }
-        .padding(.bottom, CassetteSpacing.xxl)
+        // Float the content over the LOWER part of the cover: span from the List content top (below the nav
+        // bar) down to the cover's bottom edge (heroHeight from the screen top), content bottom-aligned.
+        .frame(height: max(heroHeight - topSafeInset, 220), alignment: .bottom)
         .frame(maxWidth: .infinity)
-    }
-
-    @ViewBuilder
-    private func coverArtContent(vm: PlaylistDetailViewModel?) -> some View {
-        // Skeleton only while genuinely still loading with no cover hint yet. Once the VM has loaded we
-        // always render the card with the effective id (server cover, else playlistId) — a gradient
-        // playlist has no server coverArt, so this is what surfaces its cached gradient in the hero
-        // instead of a never-resolving skeleton.
-        if (vm == nil || vm?.isLoading == true)
-            && initialCoverImage == nil && coverArtId == nil && vm?.coverArtId == nil {
-            SkeletonBlock(width: 220, height: 220, cornerRadius: CassetteCornerRadius.large)
-        } else {
-            CoverArtCard(
-                id: vm?.coverArtId ?? coverArtId ?? playlistId,
-                size: 300,
-                cornerRadius: CassetteCornerRadius.large,
-                initialImage: initialCoverImage
-            )
-            .id(coverRefreshID)
-        }
+        .padding(.bottom, CassetteSpacing.l)
     }
 
     /// Apple-Music "Featured Artists" rail: the most-present artists in the playlist as tappable circles
