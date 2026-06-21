@@ -49,6 +49,8 @@ struct FullPlayerView: View {
     private static let playerCoverHPadding: CGFloat = CassetteSpacing.m
     /// Minimum cover→title gap; the flowing layout's flexible Spacers distribute the rest to fill the screen.
     private static let playerCoverToTitleGap: CGFloat = CassetteSpacing.xl
+    /// Vertical breathing room between the flowing controls (scrubber ↔ transport ↔ volume). Raise to spread.
+    private static let playerControlsSpacing: CGFloat = CassetteSpacing.l
     #endif
 
     var body: some View {
@@ -226,12 +228,13 @@ struct FullPlayerView: View {
                     contentColor: vm.contentColor,
                     secondaryContentColor: vm.secondaryContentColor
                 )
-                .padding(.top, CassetteSpacing.s)
+                // Breathing room between scrubber → transport → volume — the `playerControlsSpacing` knob.
+                .padding(.top, Self.playerControlsSpacing)
 
                 if dynamicTypeSize < .accessibility1 {
                     VolumeSection(contentColor: vm.contentColor, secondaryContentColor: vm.secondaryContentColor)
                         .padding(.horizontal, CassetteSpacing.l)
-                        .padding(.top, CassetteSpacing.s)
+                        .padding(.top, Self.playerControlsSpacing)
                 }
 
                 flowGap(CassetteSpacing.xs, filling: filling)
