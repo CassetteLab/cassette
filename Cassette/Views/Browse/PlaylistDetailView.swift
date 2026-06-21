@@ -96,21 +96,22 @@ struct PlaylistDetailView: View {
     @State private var coverPickerSource: CoverPickerSource?
     #endif
 
-    private var headerTextColor: Color {
-        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
-    }
-    private var headerSecondaryColor: Color {
-        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    /// The reusable theming engine, fed by this view's cover-derived `dominantColor` (the Phase-1 color
+    /// source). Drives both the blended background and the adaptive foreground colors below.
+    private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
+    private var headerTextColor: Color { theme.contentColor }
+    private var headerSecondaryColor: Color { theme.secondaryContentColor }
+
+    /// Header metadata line, Apple-Music style: "N songs · Updated <relative date>".
+    private func metadataLine(count: Int, updated: Date?) -> String {
+        var parts = ["\(count) song\(count == 1 ? "" : "s")"]
+        if let updated {
+            parts.append("Updated \(updated.formatted(.relative(presentation: .named)))")
+        }
+        return parts.joined(separator: " · ")
     }
     private var heroIconColor: Color {
         colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
-    }
-    private var systemBackgroundColor: Color {
-        #if canImport(UIKit)
-        Color(UIColor.systemBackground)
-        #else
-        Color(NSColor.windowBackgroundColor)
-        #endif
     }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
@@ -219,20 +220,11 @@ struct PlaylistDetailView: View {
             AddToPlaylistSheet(song: song)
         }
         .background(
-            LinearGradient(
-                colors: [
-                    dominantColor == .clear
-                        ? systemBackgroundColor
-                        : dominantColor.opacity(0.9),
-                    dominantColor == .clear
-                        ? systemBackgroundColor
-                        : dominantColor.opacity(0.7)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
+            PlaylistThemedBackground(
+                coverArtId: viewModel?.coverArtId ?? coverArtId ?? playlistId,
+                coverImage: initialCoverImage,
+                theme: theme
             )
-            .ignoresSafeArea()
-            .animation(.easeInOut(duration: 0.3), value: dominantColor)
         )
         .cassetteContentWidth()
         // Drive the now-playing indicator from the SAME color as the hero buttons (heroIconColor), not raw
@@ -596,7 +588,7 @@ struct PlaylistDetailView: View {
                         SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
                     } else if vm != nil {
                         let count = resolvedSongs(vm).count
-                        Text("\(count) track\(count == 1 ? "" : "s")")
+                        Text(metadataLine(count: count, updated: vm?.playlistDetail?.changed))
                             .font(.cassetteCaption)
                             .foregroundStyle(headerSecondaryColor.opacity(0.8))
                     }
