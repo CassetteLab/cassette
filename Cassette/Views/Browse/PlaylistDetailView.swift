@@ -66,11 +66,6 @@ struct PlaylistDetailView: View {
     @State private var showEditSheet = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
-    // Inline edit mode
-    @State private var isEditing = false
-    @State private var editName: String = ""
-    @State private var editDescription: String = ""
-    @State private var isSaving = false
     @State private var coverRefreshID = UUID()
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
@@ -82,16 +77,6 @@ struct PlaylistDetailView: View {
     @Query private var downloadedPlaylistMatches: [DownloadedPlaylist]
     @Query private var allDownloadedTracks: [DownloadedTrack]
 
-    #if os(iOS)
-    private enum CoverPickerSource: Identifiable {
-        case library, camera, files
-        var id: Self { self }
-    }
-
-    @State private var pendingImage: UIImage?
-    @State private var showImageOptions = false
-    @State private var coverPickerSource: CoverPickerSource?
-    #endif
 
     /// The cover id actually displayed: the server cover, else the playlist id — under which a generated
     /// gradient cover is cached (`{playlistId}@{tier}`). Drives BOTH the cover and the theme derivation, so a
@@ -194,9 +179,6 @@ struct PlaylistDetailView: View {
                         onRemove: !vm.isOffline ? { index in
                             Task { await vm.removeTrack(at: index) }
                         } : nil,
-                        onReorder: (isEditing && !vm.isOffline) ? { source, destination in
-                            Task { await vm.moveTracks(from: source, to: destination) }
-                        } : nil,
                         onContextRemove: !vm.isOffline ? { index in
                             Task { await vm.removeTrack(at: index) }
                         } : nil,
@@ -214,9 +196,6 @@ struct PlaylistDetailView: View {
             }
         }
         .listStyle(.plain)
-        #if os(iOS)
-        .environment(\.editMode, .constant(isEditing ? .active : .inactive))
-        #endif
         .scrollContentBackground(.hidden)
         .miniPlayerBottomMargin()
         .refreshable { await viewModel?.load() }
@@ -271,21 +250,6 @@ struct PlaylistDetailView: View {
         .enableSwipeBack()
         #endif
         .toolbar { toolbarContent }
-        #if os(iOS)
-        .fullScreenCover(item: $coverPickerSource) { source in
-            switch source {
-            case .library:
-                ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
-                    .ignoresSafeArea()
-            case .camera:
-                ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
-                    .ignoresSafeArea()
-            case .files:
-                DocumentImagePicker(onPick: { pendingImage = $0 })
-                    .ignoresSafeArea()
-            }
-        }
-        #endif
         // Keyed on connectivity so the list re-loads from the right source when
         // NWPathMonitor flips isOnline — same pattern as PlaylistDetailMacOS.
         .task(id: container?.serverState.isOnline) {
@@ -312,41 +276,6 @@ struct PlaylistDetailView: View {
             await loadDominantColor(coverArtId: artId)
         }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
-        #if os(iOS)
-        .sheet(isPresented: $showImageOptions) {
-            VStack(spacing: 0) {
-                Text("Change Cover Art")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(CassetteColors.textSecondary)
-                    .padding(.top, CassetteSpacing.l)
-                    .padding(.bottom, CassetteSpacing.m)
-
-                Divider()
-
-                coverPickerRow(icon: "photo.on.rectangle", label: "Choose from Library") {
-                    showImageOptions = false
-                    coverPickerSource = .library
-                }
-
-                Divider().padding(.leading, 56)
-
-                if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                    coverPickerRow(icon: "camera.fill", label: "Take a Photo") {
-                        showImageOptions = false
-                        coverPickerSource = .camera
-                    }
-                    Divider().padding(.leading, 56)
-                }
-
-                coverPickerRow(icon: "folder.fill", label: "Browse Files") {
-                    showImageOptions = false
-                    coverPickerSource = .files
-                }
-            }
-            .presentationDetents([.height(200)])
-            .presentationDragIndicator(.visible)
-        }
-        #endif
     }
 
     // MARK: - Toolbar
@@ -354,157 +283,24 @@ struct PlaylistDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            if isEditing {
-                Button("Cancel") { cancelEdit() }
-                    .disabled(isSaving)
-            } else {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
-                }
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
             }
         }
         ToolbarItem(placement: .primaryAction) {
-            if isSaving {
-                ProgressView().controlSize(.small)
-            } else if isEditing {
-                Button("Done") {
-                    Task { await saveInlineEdit() }
-                }
-                .fontWeight(.semibold)
-            } else {
-                Button {
-                    showEditSheet = true
-                } label: {
-                    Image(systemName: "pencil")
-                        .foregroundStyle(CassetteColors.accent)
-                }
-                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
-            }
-        }
-    }
-
-    // MARK: - Edit mode
-
-    private func enterEditMode() {
-        editName = viewModel?.name ?? initialName
-        editDescription = viewModel?.playlistDetail?.comment ?? ""
-        #if os(iOS)
-        pendingImage = nil
-        #endif
-        isEditing = true
-    }
-
-    private func cancelEdit() {
-        editName = ""
-        editDescription = ""
-        #if os(iOS)
-        pendingImage = nil
-        #endif
-        isEditing = false
-    }
-
-    private func saveInlineEdit() async {
-        guard let vm = viewModel, let c = container else { return }
-        isSaving = true
-        defer { isSaving = false }
-
-        let trimmedName = editName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedDesc = editDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        let originalDesc = (vm.playlistDetail?.comment ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if !trimmedName.isEmpty && trimmedName != vm.name {
-            do {
-                try await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
-                vm.name = trimmedName
-            } catch {
-                Logger.playlist.warning("PlaylistDetailView: rename failed: \(error)")
-                c.toastService.showError("Failed to rename playlist")
-            }
-        }
-
-        if trimmedDesc != originalDesc {
-            do {
-                try await c.playlistService.updateDescription(id: playlistId, description: trimmedDesc)
-            } catch {
-                Logger.playlist.warning("PlaylistDetailView: description update failed: \(error)")
-                c.toastService.showError("Failed to update description")
-            }
-        }
-
-        #if os(iOS)
-        if let image = pendingImage {
-            await uploadCoverImage(image, container: c)
-        }
-        #endif
-
-        isEditing = false
-        Task { await vm.load() }
-    }
-
-    #if os(iOS)
-    private func uploadCoverImage(_ image: UIImage, container: AppContainer) async {
-        guard let jpegData = image.jpegData(compressionQuality: 0.85),
-              let snapshot = container.serverState.activeServer,
-              let baseURL = URL(string: snapshot.baseURL) else { return }
-        do {
-            let creds = try await container.serverService.activeCredentials()
-            let api = NavidromeNativeAPI(transport: CustomHeadersTransport(headers: creds.customHeaders))
-            Logger.playlist.debug("Navidrome auth: requesting JWT for user=\(snapshot.username, privacy: .private)")
-            let token = try await api.authenticate(
-                baseURL: baseURL,
-                username: snapshot.username,
-                password: creds.password
-            )
-            Logger.playlist.debug("Navidrome auth: JWT obtained")
-            Logger.playlist.debug("Upload playlist cover: POST /api/playlist/\(playlistId, privacy: .public)/image, cf_headers=\(!creds.customHeaders.isEmpty)")
-            try await api.uploadPlaylistCover(
-                baseURL: baseURL,
-                token: token,
-                playlistId: playlistId,
-                imageData: jpegData,
-                mimeType: "image/jpeg"
-            )
-            Logger.playlist.debug("Upload playlist cover: success")
-            Logger.playlist.debug("uploadCover: viewModel?.coverArtId='\(self.viewModel?.coverArtId ?? "<nil>", privacy: .public)'")
-            if let artId = viewModel?.coverArtId {
-                Logger.playlist.debug("uploadCover: invalidating artId='\(artId, privacy: .public)'")
-                await container.artworkImageCache.invalidate(for: artId)
-            }
-            if let vm = viewModel {
-                await vm.load()
-                container.pinService.updateCoverArtId(itemType: .playlist, itemId: playlistId, newCoverArtId: vm.coverArtId)
-            }
-            coverRefreshID = UUID()
-            coverArtUploadVersion += 1
-            pendingImage = nil
-        } catch {
-            Logger.playlist.warning("PlaylistDetailView: cover image upload failed: \(error)")
-        }
-    }
-
-    private func coverPickerRow(icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: CassetteSpacing.m) {
-                Image(systemName: icon)
-                    .font(.body)
+            Button {
+                showEditSheet = true
+            } label: {
+                Image(systemName: "pencil")
                     .foregroundStyle(CassetteColors.accent)
-                    .frame(width: 28)
-                    .padding(.leading, CassetteSpacing.l)
-                Text(label)
-                    .font(.system(.body, design: .rounded))
-                    .foregroundStyle(CassetteColors.textPrimary)
-                Spacer()
             }
-            .frame(height: 52)
-            .contentShape(Rectangle())
+            .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
         }
-        .buttonStyle(.plain)
     }
-    #endif
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
 
@@ -551,81 +347,37 @@ struct PlaylistDetailView: View {
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
         VStack(spacing: CassetteSpacing.l) {
-            // Cover art
-            Group {
-                #if os(iOS)
-                if isEditing {
-                    ZStack {
-                        if let pending = pendingImage {
-                            Image(uiImage: pending)
-                                .resizable()
-                                .aspectRatio(1, contentMode: .fill)
-                                .frame(width: 220, height: 220)
-                                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
-                        } else {
-                            coverArtContent(vm: vm)
-                        }
-                        RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
-                            .fill(Color.black.opacity(0.4))
-                        Image(systemName: "camera.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                    }
-                    .frame(width: 220, height: 220)
-                    .onTapGesture { showImageOptions = true }
-                } else {
-                    coverArtContent(vm: vm)
-                }
-                #else
-                coverArtContent(vm: vm)
-                #endif
-            }
-            .padding(.top, CassetteSpacing.xxl)
+            // Cover art (editing the cover lives in the edit sheet now)
+            coverArtContent(vm: vm)
+                .padding(.top, CassetteSpacing.xxl)
 
             VStack(spacing: 0) {
-                if isEditing {
-                    TextField("Playlist name", text: $editName)
-                        .font(.cassetteDetailTitle)
-                        .foregroundStyle(headerTextColor)
-                        .multilineTextAlignment(.center)
-                        .textFieldStyle(.plain)
-                        .padding(.horizontal, CassetteSpacing.l)
+                Text(vm?.name ?? initialName)
+                    .font(.cassetteDetailTitle)
+                    .foregroundStyle(headerTextColor)
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, CassetteSpacing.xs)
+                if vm == nil {
+                    SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
                         .padding(.bottom, CassetteSpacing.s)
-                    TextField("Add a description...", text: $editDescription, axis: .vertical)
-                        .font(.cassetteCellSubtitle)
+                } else if let owner = vm?.owner {
+                    Text("by \(owner)")
+                        .font(.callout.weight(.semibold))
                         .foregroundStyle(headerSecondaryColor)
-                        .multilineTextAlignment(.center)
-                        .textFieldStyle(.plain)
-                        .lineLimit(1...4)
-                        .padding(.horizontal, CassetteSpacing.l)
-                } else {
-                    Text(vm?.name ?? initialName)
-                        .font(.cassetteDetailTitle)
-                        .foregroundStyle(headerTextColor)
-                        .multilineTextAlignment(.center)
-                        .padding(.bottom, CassetteSpacing.xs)
-                    if vm == nil {
-                        SkeletonBlock(width: 140, height: 18, cornerRadius: 4)
-                            .padding(.bottom, CassetteSpacing.s)
-                    } else if let owner = vm?.owner {
-                        Text("by \(owner)")
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(headerSecondaryColor)
-                            .padding(.bottom, CassetteSpacing.s)
-                    }
-                    if vm == nil {
-                        SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
-                    } else if vm != nil {
-                        let count = resolvedSongs(vm).count
-                        Text(metadataLine(count: count, updated: vm?.playlistDetail?.changed))
-                            .font(.cassetteCaption)
-                            .foregroundStyle(headerSecondaryColor.opacity(0.8))
-                    }
+                        .padding(.bottom, CassetteSpacing.s)
+                }
+                if vm == nil {
+                    SkeletonBlock(width: 100, height: 14, cornerRadius: 4)
+                } else if vm != nil {
+                    let count = resolvedSongs(vm).count
+                    Text(metadataLine(count: count, updated: vm?.playlistDetail?.changed))
+                        .font(.cassetteCaption)
+                        .foregroundStyle(headerSecondaryColor.opacity(0.8))
                 }
             }
             .padding(.horizontal, CassetteSpacing.l)
 
-            if !isEditing {
+            Group {
                 HStack(spacing: CassetteSpacing.m) {
                     Button {
                         HapticFeedback.medium.trigger()
