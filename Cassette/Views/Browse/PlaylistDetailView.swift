@@ -92,6 +92,11 @@ struct PlaylistDetailView: View {
     @State private var coverPickerSource: CoverPickerSource?
     #endif
 
+    /// The cover id actually displayed: the server cover, else the playlist id — under which a generated
+    /// gradient cover is cached (`{playlistId}@{tier}`). Drives BOTH the cover and the theme derivation, so a
+    /// gradient playlist (which has no server `coverArt`) is themed from its gradient, not left unthemed.
+    private var effectiveCoverArtId: String { viewModel?.coverArtId ?? coverArtId ?? playlistId }
+
     /// The reusable theming engine, fed by this view's cover-derived `dominantColor` (the Phase-1 color
     /// source). Drives both the blended background and the adaptive foreground colors below.
     private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
@@ -225,7 +230,7 @@ struct PlaylistDetailView: View {
         }
         .background(
             PlaylistThemedBackground(
-                coverArtId: viewModel?.coverArtId ?? coverArtId ?? playlistId,
+                coverArtId: effectiveCoverArtId,
                 coverImage: initialCoverImage,
                 theme: theme
             )
@@ -273,15 +278,13 @@ struct PlaylistDetailView: View {
             }
             await viewModel?.load()
         }
-        .task(id: viewModel?.coverArtId) {
-            guard let artId = viewModel?.coverArtId else { return }
-
+        .task(id: effectiveCoverArtId) {
+            let artId = effectiveCoverArtId
             let cached = colorExtractor.dominantColor(for: artId, image: nil)
             if cached != .clear {
                 dominantColor = cached
                 return
             }
-
             await loadDominantColor(coverArtId: artId)
         }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
