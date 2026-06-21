@@ -5,7 +5,6 @@
 
 import SwiftUI
 import SwiftSonic
-import OSLog
 #if os(iOS)
 import UniformTypeIdentifiers
 #endif
@@ -14,6 +13,7 @@ struct CreatePlaylistSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appContainer) private var container
     @State private var viewModel: CreatePlaylistViewModel?
+    @State private var selectedGradient: PlaylistGradientShape?
     @FocusState private var nameFieldFocused: Bool
 
     var onCreated: ((PlaylistWithSongs) -> Void)? = nil
@@ -47,11 +47,7 @@ struct CreatePlaylistSheet: View {
                         guard let vm = viewModel, let c = container else { return }
                         Task {
                             if let created = await vm.create() {
-                                #if os(iOS)
-                                if let image = pendingImage {
-                                    await uploadCoverImage(image, playlistId: created.id, container: c)
-                                }
-                                #endif
+                                await applyCover(playlistId: created.id, container: c)
                                 onCreated?(created)
                                 dismiss()
                             }
@@ -123,11 +119,9 @@ struct CreatePlaylistSheet: View {
     @ViewBuilder
     private func content(_ vm: CreatePlaylistViewModel) -> some View {
         Form {
-            #if os(iOS)
-            Section {
-                coverPickerButton
+            Section("Cover") {
+                coverPicker
             }
-            #endif
 
             Section("Name") {
                 TextField("My Awesome Playlist", text: Bindable(vm).name)
@@ -146,63 +140,110 @@ struct CreatePlaylistSheet: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
-    #if os(iOS)
-    @ViewBuilder
-    private var coverPickerButton: some View {
-        Button {
-            showImageOptions = true
-        } label: {
+    private var hasPhoto: Bool {
+        #if os(iOS)
+        return pendingImage != nil
+        #else
+        return false
+        #endif
+    }
+
+    /// Cross-platform cover picker: "None" + (iOS) a photo option + the six gradient forms. The gradient
+    /// previews show the neutral base color (an empty playlist has no first track to derive from yet — that
+    /// derivation lands in Phase 2b); the forms are still distinguishable by geometry.
+    private var coverPicker: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: CassetteSpacing.m) {
-                ZStack {
-                    if let pending = pendingImage {
-                        Image(uiImage: pending)
-                            .resizable()
-                            .aspectRatio(1, contentMode: .fill)
-                            .frame(width: 56, height: 56)
-                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
-                    } else {
-                        RoundedRectangle(cornerRadius: CassetteCornerRadius.standard)
-                            .fill(Color.secondary.opacity(0.15))
-                            .frame(width: 56, height: 56)
-                        Image(systemName: "photo")
-                            .font(.title3)
-                            .foregroundStyle(.secondary)
+                coverSwatch(isSelected: selectedGradient == nil && !hasPhoto, label: "None", action: {
+                    selectedGradient = nil
+                    #if os(iOS)
+                    pendingImage = nil
+                    #endif
+                }) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: CassetteCornerRadius.standard).fill(Color.secondary.opacity(0.15))
+                        Image(systemName: "nosign").font(.title3).foregroundStyle(.secondary)
                     }
                 }
-                Text(pendingImage == nil ? "Add Cover Art" : "Change Cover Art")
-                    .foregroundStyle(Color.cassetteAccent)
-                Spacer(minLength: 0)
+
+                #if os(iOS)
+                coverSwatch(isSelected: hasPhoto, label: "Photo", action: {
+                    selectedGradient = nil
+                    showImageOptions = true
+                }) {
+                    ZStack {
+                        if let pending = pendingImage {
+                            Image(uiImage: pending).resizable().aspectRatio(1, contentMode: .fill)
+                        } else {
+                            RoundedRectangle(cornerRadius: CassetteCornerRadius.standard).fill(Color.secondary.opacity(0.15))
+                            Image(systemName: "photo").font(.title3).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                #endif
+
+                ForEach(PlaylistGradientShape.allCases) { shape in
+                    coverSwatch(isSelected: selectedGradient == shape, label: shape.displayName, action: {
+                        selectedGradient = shape
+                        #if os(iOS)
+                        pendingImage = nil
+                        #endif
+                    }) {
+                        PlaylistGradientView(spec: .neutral(shape: shape))
+                    }
+                }
+            }
+            .padding(.vertical, CassetteSpacing.xs)
+        }
+    }
+
+    @ViewBuilder
+    private func coverSwatch<Content: View>(
+        isSelected: Bool,
+        label: String,
+        action: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: CassetteSpacing.xs) {
+                content()
+                    .frame(width: 60, height: 60)
+                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CassetteCornerRadius.standard)
+                            .strokeBorder(Color.cassetteAccent, lineWidth: isSelected ? 3 : 0)
+                    )
+                Text(label)
+                    .font(.caption2)
+                    .foregroundStyle(isSelected ? Color.cassetteAccent : Color.secondary)
             }
         }
         .buttonStyle(.plain)
     }
 
-    private func uploadCoverImage(_ image: UIImage, playlistId: String, container: AppContainer) async {
-        guard let jpegData = image.jpegData(compressionQuality: 0.85),
-              let snapshot = container.serverState.activeServer,
-              let baseURL = URL(string: snapshot.baseURL) else { return }
-        do {
-            let creds = try await container.serverService.activeCredentials()
-            let api = NavidromeNativeAPI(transport: CustomHeadersTransport(headers: creds.customHeaders))
-            Logger.playlist.debug("Navidrome auth: requesting JWT for user=\(snapshot.username, privacy: .private)")
-            let token = try await api.authenticate(
-                baseURL: baseURL,
-                username: snapshot.username,
-                password: creds.password
-            )
-            Logger.playlist.debug("Navidrome auth: JWT obtained")
-            Logger.playlist.debug("Upload playlist cover: POST /api/playlist/\(playlistId, privacy: .public)/image, cf_headers=\(!creds.customHeaders.isEmpty)")
-            try await api.uploadPlaylistCover(
-                baseURL: baseURL,
-                token: token,
-                playlistId: playlistId,
-                imageData: jpegData,
-                mimeType: "image/jpeg"
-            )
-            Logger.playlist.debug("Upload playlist cover: success")
-        } catch {
-            Logger.playlist.warning("CreatePlaylistSheet: cover image upload failed: \(error)")
+    /// Applies the chosen cover after the playlist is created: render+cache+upload via PlaylistCoverManager
+    /// (cross-platform, supersedes the old iOS-only inline upload) and persist a gradient choice client-side.
+    private func applyCover(playlistId: String, container c: AppContainer) async {
+        let manager = PlaylistCoverManager(
+            serverState: c.serverState,
+            serverService: c.serverService,
+            downloadService: c.downloadService,
+            artworkImageCache: c.artworkImageCache
+        )
+        if let shape = selectedGradient {
+            // Empty playlist at creation → neutral base color now; first-track derivation is Phase 2b.
+            let spec = PlaylistGradientSpec.neutral(shape: shape)
+            await manager.applyGradientCover(spec, playlistId: playlistId)
+            if let serverId = c.serverState.activeServer?.id {
+                PlaylistCoverStore(modelContainer: c.modelContainer)
+                    .save(spec, playlistId: playlistId, serverId: serverId, isUserPicked: true)
+            }
+            return
         }
+        #if os(iOS)
+        if let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
+            await manager.applyImageCover(data, playlistId: playlistId)
+        }
+        #endif
     }
-    #endif
 }
