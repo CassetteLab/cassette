@@ -75,6 +75,13 @@ actor PlaylistService: PlaylistServiceProtocol {
         do {
             try await client().deletePlaylist(id: id)
             Logger.playlist.info("Deleted playlist id=\(id, privacy: .public)")
+            // Server delete confirmed → purge any offline download record so Offline keeps no orphan copy
+            // ("delete = delete everywhere"). Best-effort (remove logs its own failures internally) and
+            // NEVER reached when the server refused — we are past the throwing call — so a refused delete
+            // never touches local download state.
+            if let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) {
+                try? await downloadService.remove(playlistId: id, serverId: serverId)
+            }
         } catch {
             listCache = previousList
             detailCache[id] = previousDetail
