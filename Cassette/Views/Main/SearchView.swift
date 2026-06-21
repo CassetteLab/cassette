@@ -357,6 +357,7 @@ struct SearchView: View {
 
         @Environment(\.appContainer) private var container
         @Query private var historyEntries: [SearchHistoryEntry]
+        @State private var showClearConfirm = false
 
         init(serverId: String, path: Binding<NavigationPath>) {
             // [DIAG] Time the Query descriptor construction.
@@ -430,7 +431,7 @@ struct SearchView: View {
                                 .foregroundStyle(.primary)
                             Spacer()
                             Button("Clear") {
-                                Task { await container?.searchHistoryService.clear(serverId: serverId) }
+                                showClearConfirm = true
                             }
                             .font(.cassetteBody)
                             .foregroundStyle(Color.cassetteAccent)
@@ -443,6 +444,21 @@ struct SearchView: View {
                 // log is the main-thread cost of the @Query fetch + SwiftUI layout pass.
                 .onAppear {
                     Logger.ui.debug("[SEARCH-OPEN] SearchHistoryListView appeared — \(history.count) row(s) visible")
+                }
+                // Clearing search history is destructive with no undo, so gate it behind a confirmation —
+                // same confirmationDialog pattern as the playlist delete. The clear runs ONLY on confirm;
+                // Cancel leaves the history intact. confirmationDialog is cross-platform (iOS + macOS).
+                .confirmationDialog(
+                    "Clear search history?",
+                    isPresented: $showClearConfirm,
+                    titleVisibility: .visible
+                ) {
+                    Button("Clear", role: .destructive) {
+                        Task { await container?.searchHistoryService.clear(serverId: serverId) }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("This will remove all your recent searches. This action cannot be undone.")
                 }
             }
         }
