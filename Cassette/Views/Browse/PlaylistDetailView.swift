@@ -71,7 +71,7 @@ struct PlaylistDetailView: View {
 
     // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the cover region height; the
     // cover lives in the first SCROLLING row and bleeds under the nav bar via ignoresSafeArea.
-    @State private var heroHeight: CGFloat = 600
+    @State private var heroHeight: CGFloat = 680
 
     // View-level offline backstop: sources the song list straight from SwiftData when the
     // view model produced nothing (empty-success or error). Mirrors AlbumDetailView's
@@ -259,8 +259,8 @@ struct PlaylistDetailView: View {
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear { heroHeight = max(proxy.size.height * 0.6, proxy.size.width) }
-                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.6, proxy.size.width) }
+                    .onAppear { heroHeight = max(proxy.size.height * 0.74, proxy.size.width) }
+                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.74, proxy.size.width) }
             }
         }
         .cassetteContentWidth()
