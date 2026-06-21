@@ -321,16 +321,22 @@ struct FullPlayerView: View {
                 // flexible so matchedGeometry can shrink+move it to the 56pt header anchor.
                 .frame(width: isSource ? geo.size.width : nil, height: isSource ? geo.size.height : nil)
                 .clipped()
-                // Melt the cover's bottom into the dominant body color so it fades into the page (AM look).
-                .overlay(alignment: .bottom) {
+                // Blend the cover into the dominant page on ALL FOUR edges (a light vignette of the dominant
+                // color), so it fades into the background instead of sitting as a hard rectangle — while
+                // keeping most of the cover crisply visible in the center.
+                .overlay {
                     if isSource {
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0.60),
-                                .init(color: vm.dominantColor, location: 1.0),
-                            ],
-                            startPoint: .top, endPoint: .bottom
-                        )
+                        let c = vm.dominantColor
+                        ZStack {
+                            LinearGradient(stops: [.init(color: c, location: 0), .init(color: .clear, location: 0.14)],
+                                           startPoint: .top, endPoint: .bottom)
+                            LinearGradient(stops: [.init(color: .clear, location: 0.86), .init(color: c, location: 1)],
+                                           startPoint: .top, endPoint: .bottom)
+                            LinearGradient(stops: [.init(color: c, location: 0), .init(color: .clear, location: 0.14)],
+                                           startPoint: .leading, endPoint: .trailing)
+                            LinearGradient(stops: [.init(color: .clear, location: 0.86), .init(color: c, location: 1)],
+                                           startPoint: .leading, endPoint: .trailing)
+                        }
                     }
                 }
                 .drawingGroup()
