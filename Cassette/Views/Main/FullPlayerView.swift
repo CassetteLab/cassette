@@ -46,15 +46,15 @@ struct FullPlayerView: View {
     /// Player-only cover cap. Bigger = larger artwork. On phones the cover is also width-limited, so its
     /// on-screen size is really `min(playerCoverSize, screenWidth − 2·playerCoverHPadding)` — lower the
     /// padding for a fuller-width image, raise the cap for wide screens.
-    private static let playerCoverSize: CGFloat = 420
+    private static let playerCoverSize: CGFloat = 340
     /// Horizontal margin around the cover (smaller = wider cover).
     private static let playerCoverHPadding: CGFloat = CassetteSpacing.m
     /// Gap between the cover and the title row.
-    private static let playerCoverToTitleGap: CGFloat = CassetteSpacing.l
+    private static let playerCoverToTitleGap: CGFloat = CassetteSpacing.xl
     /// Minimum gap between the title and the controls block. The remaining slack is flexible, so it lifts the
     /// controls into the lower-middle and settles the toolbar near the bottom (content fills top→bottom, no
     /// empty-bottom void). Raise to push the controls further down.
-    private static let playerControlsMinGap: CGFloat = CassetteSpacing.xxl
+    private static let playerControlsMinGap: CGFloat = CassetteSpacing.xl
     #endif
 
     var body: some View {
