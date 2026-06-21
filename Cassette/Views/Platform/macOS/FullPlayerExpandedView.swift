@@ -50,6 +50,16 @@ struct FullPlayerExpandedView: View {
         colorExtractor.dominantColor(for: currentTrack?.coverArtId, image: artworkImage)
     }
 
+    /// Contrast-correct accent for the player chrome (active toggles, playing indicator, queue insertion line).
+    /// The rendered background is ALWAYS dark — `generatePalette` caps brightness and the view forces a dark
+    /// colorScheme — so the accent must be measured against THAT dark background, not the raw cover. Measuring
+    /// against the raw cover made a light cover resolve to the dark accent variant, which then vanished on the
+    /// dark mesh (the "black/color mix" break). Same `ColorContrastUtils` source as iOS; only the background
+    /// argument is corrected, so the accent stays legible on light and dark covers alike.
+    private var playerAccent: Color {
+        CassetteColors.accentForeground(on: generatePalette(from: dominantColor).dark)
+    }
+
     private var volumeIconName: String {
         if localVolume == 0 || isMuted { return "speaker.slash.fill" }
         if localVolume < 0.33 { return "speaker.fill" }
@@ -105,7 +115,7 @@ struct FullPlayerExpandedView: View {
             selectedPanel = remembered ? .lyrics : .queue
         }
         .environment(\.colorScheme, .dark)
-        .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: dominantColor))
+        .environment(\.cassettePlayingAccent, playerAccent)
         .sheet(isPresented: $showAddToPlaylist) {
             if let track = currentTrack {
                 AddToPlaylistSheet(song: track)
@@ -487,7 +497,7 @@ struct FullPlayerExpandedView: View {
                 Task { await container?.playerService.toggleShuffle() }
             } label: {
                 Image(systemName: "shuffle")
-                    .foregroundStyle(playerState?.isShuffled == true ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
+                    .foregroundStyle(playerState?.isShuffled == true ? playerAccent : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -520,7 +530,7 @@ struct FullPlayerExpandedView: View {
                 }
             } label: {
                 Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
-                    .foregroundStyle(playerState?.repeatMode != .off ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.5))
+                    .foregroundStyle(playerState?.repeatMode != .off ? playerAccent : Color.white.opacity(0.5))
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -569,7 +579,7 @@ struct FullPlayerExpandedView: View {
                     } label: {
                         Image(systemName: "infinity")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(isAutoExtend ? CassetteColors.accentForeground(on: dominantColor) : Color.white.opacity(0.6))
+                            .foregroundStyle(isAutoExtend ? playerAccent : Color.white.opacity(0.6))
                             .padding(6)
                             .background(isAutoExtend ? CassetteColors.accentBackground : .clear)
                             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -699,7 +709,7 @@ struct FullPlayerExpandedView: View {
     /// Thin accent line drawn between rows at the current drop gap (drag-reorder feedback).
     private var queueInsertionLine: some View {
         Rectangle()
-            .fill(CassetteColors.accentForeground(on: dominantColor))
+            .fill(playerAccent)
             .frame(height: 2)
             .padding(.horizontal, 16)
     }
