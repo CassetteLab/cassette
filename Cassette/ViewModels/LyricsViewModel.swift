@@ -25,6 +25,7 @@ final class LyricsViewModel {
     private var lyricsList: LyricsList?
     private var trackingTimer: Timer?
     private var resumeTask: Task<Void, Never>?
+    private var isShown = false
 
     nonisolated enum State: Equatable {
         case loading
@@ -128,8 +129,38 @@ final class LyricsViewModel {
 
     // MARK: - Timer lifecycle
 
-    func startTracking() {
-        stopTracking()
+    /// True while playback is playing. Exposed so the lyrics view can reconcile tracking on play/pause.
+    var isPlaying: Bool { playerState.playbackState == .playing }
+
+    private var hasSyncedLyrics: Bool {
+        if case .loaded(let structured) = state { return structured.synced }
+        return false
+    }
+
+    /// Called when the lyrics view appears/disappears. The auto-scroll resume task is torn down on hide.
+    func setVisible(_ visible: Bool) {
+        isShown = visible
+        if !visible {
+            resumeTask?.cancel()
+            resumeTask = nil
+        }
+        reconcileTracking()
+    }
+
+    /// Single source of truth for the 10 Hz line-tracking timer: it runs ONLY while the lyrics are
+    /// visible AND playback is playing AND the current lyrics are time-synced. The timer is never started
+    /// at init; it is torn down the instant any condition goes false (hide, pause, unsynced) so a paused or
+    /// hidden player does no per-tick work. Idempotent — safe to call on any condition change.
+    func reconcileTracking() {
+        if isShown && isPlaying && hasSyncedLyrics {
+            startTimer()
+        } else {
+            stopTimer()
+        }
+    }
+
+    private func startTimer() {
+        guard trackingTimer == nil else { return }
         trackingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
@@ -138,11 +169,9 @@ final class LyricsViewModel {
         }
     }
 
-    func stopTracking() {
+    private func stopTimer() {
         trackingTimer?.invalidate()
         trackingTimer = nil
-        resumeTask?.cancel()
-        resumeTask = nil
     }
 
     // MARK: - Private helpers
@@ -156,6 +185,8 @@ final class LyricsViewModel {
         let best = lyricsService.selectBestLanguage(from: list, preferred: selectedLanguage)
         currentLineIndex = nil
         state = best.map { .loaded($0) } ?? .empty
+        // Lyrics (and their synced-ness) just changed — start the timer if it should now run.
+        reconcileTracking()
     }
 
     private func networkErrorMessage(from error: LyricsError) -> String {

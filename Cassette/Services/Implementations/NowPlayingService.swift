@@ -325,20 +325,50 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     #endif
 
     private func appendToDebugLog(_ message: String) {
+        // Forward to the off-actor, opt-in, size-capped logger — no synchronous disk I/O on the playback
+        // actor or the track-change path (audit finding L4). Disabled by default; see RemoteCommandDebugLog.
+        RemoteCommandDebugLog.log(message)
+    }
+}
+
+/// Opt-in, size-capped, off-actor file logger for the MPRemoteCommandCenter skip/previous diagnostic.
+///
+/// This is the active diagnostic for the remote-command (next/previous) bug, so the capability is kept —
+/// but made safe. It is OFF by default and enabled at runtime via the UserDefaults flag `debug.rccFileLog`
+/// (so it can be turned on for a release build on a real device, unlike a `#if DEBUG` gate). When enabled it
+/// appends on a background serial queue — never blocking the playback actor — and rotates the file at a size
+/// cap so `cassette_debug.log` can never grow unbounded.
+private enum RemoteCommandDebugLog {
+    /// Runtime toggle, default OFF. Set this UserDefaults bool to true to capture the log while diagnosing.
+    nonisolated static let enabledKey = "debug.rccFileLog"
+    /// Rotate when the active log reaches this size; total on disk is bounded to ~2x this (.log + .log.1).
+    private nonisolated static let maxBytes = 256 * 1024
+    private nonisolated static let queue = DispatchQueue(label: "fr.mathieu-dubart.cassette.rcc-debug-log", qos: .utility)
+
+    nonisolated static func log(_ message: String) {
         #if os(iOS)
-        guard let docs = FileManager.default.urls(
-            for: .documentDirectory, in: .userDomainMask
-        ).first else { return }
-        let file = docs.appendingPathComponent("cassette_debug.log")
+        // Cheap in-memory flag check on the caller; when disabled (the default) we do zero work and zero I/O.
+        guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
         let line = "\(Date()): \(message)\n"
-        guard let data = line.data(using: .utf8) else { return }
-        if FileManager.default.fileExists(atPath: file.path) {
-            guard let handle = try? FileHandle(forWritingTo: file) else { return }
-            handle.seekToEndOfFile()
-            handle.write(data)
-            try? handle.close()
-        } else {
-            try? data.write(to: file)
+        queue.async {
+            let fm = FileManager.default
+            guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first,
+                  let data = line.data(using: .utf8) else { return }
+            let file = docs.appendingPathComponent("cassette_debug.log")
+            // Rotate before appending once at/over the cap so the file can't grow without bound.
+            if let attrs = try? fm.attributesOfItem(atPath: file.path),
+               let size = attrs[.size] as? Int, size >= maxBytes {
+                let rotated = docs.appendingPathComponent("cassette_debug.log.1")
+                try? fm.removeItem(at: rotated)
+                try? fm.moveItem(at: file, to: rotated)
+            }
+            if let handle = try? FileHandle(forWritingTo: file) {
+                defer { try? handle.close() }
+                handle.seekToEndOfFile()
+                handle.write(data)
+            } else {
+                try? data.write(to: file)
+            }
         }
         #endif
     }
