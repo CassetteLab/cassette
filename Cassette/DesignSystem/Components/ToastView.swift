@@ -41,13 +41,9 @@ struct ToastView: View {
             RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
                 .fill(.regularMaterial)
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
-                .stroke(toast.style.tint.opacity(0.25), lineWidth: 1)
-        )
         .shadow(radius: 8, y: 2)
         .padding(.horizontal, CassetteSpacing.l)
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     /// Leading element: the cover thumbnail (Apple-Music pill) when the toast carries a `coverArtId`,
@@ -69,13 +65,29 @@ struct ToastView: View {
 
 struct ToastOverlay: ViewModifier {
     @Environment(ToastService.self) private var toastService
+    @Environment(\.appContainer) private var container
+
+    /// Mirrors MainTabView.hasTrack — true while the mini player bar is on screen.
+    private var miniPlayerVisible: Bool {
+        container?.playerState.currentTrack != nil || container?.playerState.isLiveStream == true
+    }
+
+    /// Bottom inset so the toast floats just above the mini player when it is shown, otherwise just
+    /// above the tab bar / home indicator. Tunable if the gap needs nudging on device.
+    private var bottomInset: CGFloat {
+        #if os(iOS)
+        miniPlayerVisible ? CassetteSpacing.miniPlayerBottomMargin + CassetteSpacing.s : CassetteSpacing.l
+        #else
+        miniPlayerVisible ? CassetteMacOSLayout.playerBarReservedHeight + CassetteSpacing.s : CassetteSpacing.l
+        #endif
+    }
 
     func body(content: Content) -> some View {
         content
-            .overlay(alignment: .top) {
+            .overlay(alignment: .bottom) {
                 if let toast = toastService.current {
                     ToastView(toast: toast)
-                        .padding(.top, CassetteSpacing.s)
+                        .padding(.bottom, bottomInset)
                         .id(toast.id)
                         // Only tappable toasts intercept touches; plain ones stay non-interactive so
                         // taps pass through to the content underneath (unchanged behaviour).
