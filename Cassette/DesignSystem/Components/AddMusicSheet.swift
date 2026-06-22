@@ -612,3 +612,71 @@ private struct AddMusicPhaseView: View {
         }
     }
 }
+
+// MARK: - Commit (atomic replace + R1 comment guard + first-track derivation)
+
+/// Commits an add-music selection through the SINGLE shared path used by every entry point (iOS edit "+",
+/// iOS detail, macOS): ONE atomic full-list replace (current tracks + new selection), the R1 comment guard
+/// (re-assert a non-empty comment AFTER the replace), and — the critical bit — the empty→first-track color
+/// derivation. When the playlist went from empty to its first track on a gradient cover whose color was still
+/// the neutral default, the color is derived from the first added track via the SAME `PlaylistGradientResolver`
+/// hook the cover re-pick uses (never a parallel path that would skip derivation/caching). Shape + user-pick
+/// flag are preserved; later adds never re-derive (the resolver result is frozen in the cover store).
+@MainActor
+enum AddMusicCommitter {
+    static func commit(
+        addedSongs: [DisplayableSong],
+        playlistId: String,
+        serverId: UUID,
+        existingTrackIds: [String],
+        currentComment: String,
+        container: AppContainer,
+        colorExtractor: DominantColorExtractor
+    ) async {
+        guard !addedSongs.isEmpty else { return }
+        let wasEmpty = existingTrackIds.isEmpty
+
+        // Atomic full-list replace — the SINGLE track-mutation path (same primitive as reorder/multi-remove).
+        // The picker disables already-in-playlist songs, so the selection never collides with existingTrackIds
+        // and a plain append is dedup-safe. NOT a naive incremental songIdToAdd.
+        let finalIds = existingTrackIds + addedSongs.map(\.id)
+        do {
+            try await container.playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: finalIds)
+        } catch {
+            Logger.playlist.error("[ADD-MUSIC] atomic replace failed: \(error, privacy: .public)")
+            container.toastService.showError("Couldn't add to playlist")
+            return
+        }
+
+        // R1 guard: re-assert a non-empty comment AFTER the replace (createPlaylist replace doesn't carry it).
+        // No name re-assert (omitted = unchanged).
+        let trimmedComment = currentComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedComment.isEmpty {
+            try? await container.playlistService.updateDescription(id: playlistId, description: trimmedComment)
+        }
+
+        // First-track derivation (piège #1). Only on empty→first-track, only when the cover is a gradient spec
+        // (an empty playlist's gradient color is necessarily the neutral default — there was no track to derive
+        // from). Photo covers have no spec → skipped. Route through the resolver so caching + neutral fallback
+        // stay consistent with the re-pick path.
+        guard wasEmpty, let firstAdded = addedSongs.first, firstAdded.coverArtId != nil else { return }
+        let store = PlaylistCoverStore(modelContainer: container.modelContainer)
+        guard let choice = store.choice(playlistId: playlistId, serverId: serverId),
+              let spec = choice.spec else { return }
+        let derived = await PlaylistGradientResolver.resolve(
+            form: spec.shape,
+            firstTrackCoverArtId: firstAdded.coverArtId,
+            artworkImageCache: container.artworkImageCache,
+            colorExtractor: colorExtractor
+        )
+        let manager = PlaylistCoverManager(
+            serverState: container.serverState,
+            serverService: container.serverService,
+            downloadService: container.downloadService,
+            artworkImageCache: container.artworkImageCache
+        )
+        _ = await manager.applyGradientCover(derived, playlistId: playlistId)
+        // Preserve the existing user-pick flag so the cover-store overwrite guard never blocks the derived save.
+        store.save(derived, playlistId: playlistId, serverId: serverId, isUserPicked: choice.isUserPicked)
+    }
+}
