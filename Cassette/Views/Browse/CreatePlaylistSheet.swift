@@ -65,6 +65,7 @@ struct CreatePlaylistSheet: View {
                 }
             }
         }
+        .tint(Color.cassetteAccent)
         #if os(iOS)
         .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
             Button("Choose from Library") {
@@ -118,24 +119,30 @@ struct CreatePlaylistSheet: View {
 
     @ViewBuilder
     private func content(_ vm: CreatePlaylistViewModel) -> some View {
-        Form {
-            Section("Cover") {
-                coverPicker
-            }
+        ScrollView {
+            VStack(spacing: CassetteSpacing.xl) {
+                coverCarousel(vm)
+                    .padding(.top, CassetteSpacing.s)
 
-            Section("Name") {
-                TextField("My Awesome Playlist", text: Bindable(vm).name)
-                    .focused($nameFieldFocused)
-                    .submitLabel(.next)
+                VStack(spacing: 0) {
+                    // Editorial centered title, no visible field chrome, hairline separator below (AM style).
+                    TextField("Playlist Title", text: Bindable(vm).name)
+                        .font(.system(.title2, design: .rounded, weight: .semibold))
+                        .multilineTextAlignment(.center)
+                        .focused($nameFieldFocused)
+                        .submitLabel(.done)
+                        .padding(.vertical, CassetteSpacing.s)
+                    Divider()
+
+                    TextField("Description", text: Bindable(vm).description, axis: .vertical)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1...4)
+                        .padding(.vertical, CassetteSpacing.s)
+                    Divider()
+                }
+                .padding(.horizontal, CassetteSpacing.l)
             }
-            Section("Description (optional)") {
-                TextField(
-                    "What's this playlist about?",
-                    text: Bindable(vm).description,
-                    axis: .vertical
-                )
-                .lineLimit(3...6)
-            }
+            .padding(.top, CassetteSpacing.m)
         }
         .scrollDismissesKeyboard(.interactively)
     }
@@ -164,10 +171,12 @@ struct CreatePlaylistSheet: View {
         #endif
     }
 
-    /// Create-flow cover picker. The gradient previews show the neutral base color (an empty playlist has no
-    /// first track to derive from yet — that derivation is the edit flow's job); forms differ by geometry.
-    private var coverPicker: some View {
-        PlaylistCoverPicker(
+    /// Create-flow cover carousel (Apple-Music direction). The gradient previews show the neutral base color
+    /// (an empty playlist has no first track to derive from yet — that derivation is the edit flow's job);
+    /// forms differ by geometry. The live title renders into the gradient cards.
+    private func coverCarousel(_ vm: CreatePlaylistViewModel) -> some View {
+        PlaylistCoverCarousel(
+            title: vm.name,
             selectedGradient: selectedGradient,
             isPhotoSelected: hasPhoto,
             photoPreview: photoPreviewImage,
