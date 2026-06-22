@@ -7,6 +7,9 @@ import SwiftUI
 import SwiftSonic
 import SwiftData
 import OSLog
+#if os(iOS)
+import UniformTypeIdentifiers
+#endif
 
 struct PlaylistDetailView: View {
     private let playlistId: String
@@ -72,6 +75,25 @@ struct PlaylistDetailView: View {
 
     @State private var coverRefreshID = UUID()
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
+
+    // MARK: In-place edit mode (iOS only — macOS keeps EditPlaylistSheet). The detail view becomes the editor:
+    // hero → editable cover carousel, title/description → fields, track list (Gate 2) → reorder + multi-select.
+    // Reuses the validated PlaylistCoverCarousel + the mutation committer — only the CONTAINER changes.
+    @State private var isEditing = false
+    @State private var editName: String = ""
+    @State private var editComment: String = ""
+    @State private var selectedGradient: PlaylistGradientShape?
+    @State private var photoIsCover = false
+    @State private var coverDirty = false
+    @Namespace private var heroEditNamespace
+    #if os(iOS)
+    @State private var pendingImage: UIImage?
+    @State private var showImageOptions = false
+    @State private var showImagePicker = false
+    @State private var showCamera = false
+    @State private var showFilePicker = false
+    @State private var imageToCrop: CroppableImage?
+    #endif
 
     // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the cover region height; the
     // cover lives in the first SCROLLING row and bleeds under the nav bar via ignoresSafeArea.
@@ -152,10 +174,18 @@ struct PlaylistDetailView: View {
         // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove).
         // ScrollView + LazyVStack refactor is deferred until that interaction is re-implemented outside List.
         List {
-            playlistHeader(vm: viewModel)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+            Group {
+                if isEditing {
+                    editHeader
+                        .transition(.opacity)
+                } else {
+                    playlistHeader(vm: viewModel)
+                        .transition(.opacity)
+                }
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
 
             if isLoadingSkeleton {
                 skeletonRows
@@ -240,6 +270,40 @@ struct PlaylistDetailView: View {
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
         }
+        #if os(iOS)
+        // In-place edit cover photo flow (mirrors the create/edit sheets: pick → Apple-Photos crop).
+        .confirmationDialog("Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
+            Button("Choose from Library") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showImagePicker = true }
+            }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take a Photo") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showCamera = true }
+                }
+            }
+            Button("Browse Files") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showFilePicker = true }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .fullScreenCover(isPresented: $showImagePicker) {
+            ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(item: $imageToCrop) { croppable in
+            SquareCropView(image: croppable.image, onCrop: { pendingImage = $0; imageToCrop = nil }, onCancel: { imageToCrop = nil })
+        }
+        .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.jpeg, .png, .heic, .webP], allowsMultipleSelection: false) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url), let img = UIImage(data: data) { presentCrop(img) }
+        }
+        #endif
         .sheet(isPresented: $showEditSheet) {
             if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
                 EditPlaylistSheet(
@@ -364,31 +428,44 @@ struct PlaylistDetailView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            Button {
-                dismiss()
-            } label: {
-                navBarIcon("chevron.left")
+        if isEditing {
+            ToolbarItem(placement: .cancellationAction) {
+                Button { cancelEdit() } label: { CircleToolbarLabel(systemName: "xmark") }
+                    .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                showAddMusic = true
-            } label: {
-                navBarIcon("plus")
+            ToolbarItem(placement: .confirmationAction) {
+                let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                Button { commitEdit() } label: { CircleToolbarLabel(systemName: "checkmark", filled: canSave) }
+                    .buttonStyle(.plain)
+                    .disabled(!canSave)
             }
-            .buttonStyle(.plain)
-            .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                showEditSheet = true
-            } label: {
-                navBarIcon("pencil")
+        } else {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    dismiss()
+                } label: {
+                    navBarIcon("chevron.left")
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showAddMusic = true
+                } label: {
+                    navBarIcon("plus")
+                }
+                .buttonStyle(.plain)
+                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    enterEdit()
+                } label: {
+                    navBarIcon("pencil")
+                }
+                .buttonStyle(.plain)
+                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            }
         }
     }
 
@@ -442,6 +519,119 @@ struct PlaylistDetailView: View {
         if downloaded == total { return .fullyDownloaded }
         return .partiallyDownloaded(downloaded: downloaded, total: total)
     }
+
+    // MARK: - In-place edit header (iOS in-place editor; reuses the validated carousel + fields)
+
+    private var editHeader: some View {
+        VStack(spacing: CassetteSpacing.l) {
+            editCoverCarousel
+                // Clear the (edit-mode) nav bar since the list bleeds under it via ignoresSafeArea(.top).
+                .padding(.top, 100)
+            VStack(spacing: CassetteSpacing.s) {
+                TextField("Playlist Title", text: $editName)
+                    .font(.system(.title2, design: .rounded, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                TextField("Description", text: $editComment, axis: .vertical)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1...4)
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+        .padding(.bottom, CassetteSpacing.l)
+    }
+
+    private var editCoverCarousel: some View {
+        PlaylistCoverCarousel(
+            title: editName,
+            selectedGradient: selectedGradient,
+            isPhotoSelected: photoIsCover,
+            photoPreview: editPhotoPreview,
+            showsPhotoOption: editShowsPhotoOption,
+            leadingLabel: "Current",
+            leadingCoverArtId: effectiveCoverArtId,
+            onSelectLeading: {
+                selectedGradient = nil
+                photoIsCover = false
+                coverDirty = true
+            },
+            onSelectPhoto: {
+                selectedGradient = nil
+                photoIsCover = true
+                coverDirty = true
+            },
+            onRequestPhotoPicker: {
+                selectedGradient = nil
+                photoIsCover = true
+                coverDirty = true
+                #if os(iOS)
+                showImageOptions = true
+                #endif
+            },
+            onSelectGradient: { shape in
+                selectedGradient = shape
+                photoIsCover = false
+                coverDirty = true
+            }
+        )
+    }
+
+    private var editShowsPhotoOption: Bool {
+        #if os(iOS)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    private var editPhotoPreview: PlatformImage? {
+        #if os(iOS)
+        return pendingImage
+        #else
+        return nil
+        #endif
+    }
+
+    /// Enter in-place edit: snapshot the current metadata + cover choice into the working edit state, animate in.
+    private func enterEdit() {
+        editName = viewModel?.name ?? initialName
+        editComment = viewModel?.playlistDetail?.comment ?? ""
+        selectedGradient = nil
+        photoIsCover = false
+        coverDirty = false
+        #if os(iOS)
+        pendingImage = nil
+        #endif
+        loadEditGradientChoice()
+        withAnimation(.smooth) { isEditing = true }
+    }
+
+    /// Cancel in-place edit: discard the working state without mutating anything.
+    private func cancelEdit() {
+        withAnimation(.smooth) { isEditing = false }
+    }
+
+    /// Commit in-place edit. Gate 1 scaffolds the exit; Gate 3 wires the real persistence (atomic-replace +
+    /// R1 comment guard + first-track derivation) and the cover apply through the shared committer.
+    private func commitEdit() {
+        withAnimation(.smooth) { isEditing = false }
+    }
+
+    private func loadEditGradientChoice() {
+        guard let c = container, let serverId = c.serverState.activeServer?.id else { return }
+        if let choice = PlaylistCoverStore(modelContainer: c.modelContainer).choice(playlistId: playlistId, serverId: serverId),
+           choice.isUserPicked, let spec = choice.spec {
+            selectedGradient = spec.shape
+        }
+    }
+
+    #if os(iOS)
+    /// Defer presenting the crop screen so the picker fully dismisses first (sequential full-screen covers).
+    private func presentCrop(_ image: UIImage) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            imageToCrop = CroppableImage(image: image)
+        }
+    }
+    #endif
 
     // MARK: - Header
 
