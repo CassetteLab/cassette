@@ -32,6 +32,9 @@ struct EditPlaylistSheet: View {
 
     @State private var editName: String = ""
     @State private var editComment: String = ""
+    /// Local, mutable working copy of the track list — reorder (drag) and multi-select remove both mutate this;
+    /// the commit does ONE atomic full-list replace (createPlaylist replace) if it differs from `songs`.
+    @State private var editSongs: [DisplayableSong] = []
     @State private var selectedGradient: PlaylistGradientShape?
     @State private var coverDirty = false
     @State private var isSaving = false
@@ -92,13 +95,18 @@ struct EditPlaylistSheet: View {
                 }
 
                 Section("Songs") {
-                    ForEach(songs) { song in
+                    ForEach(editSongs) { song in
                         trackRow(song)
+                    }
+                    .onMove { from, to in
+                        editSongs.move(fromOffsets: from, toOffset: to)
                     }
                 }
             }
             .navigationTitle("Edit Playlist")
             .navigationBarTitleDisplayModeInline()
+            // Always-on edit mode so the Songs rows show drag-reorder handles (and, in B2, selection circles).
+            .environment(\.editMode, .constant(.active))
             .toolbar { toolbar }
             .confirmationDialog("Delete \"\(currentName)\"?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { Task { await deletePlaylist() } }
@@ -141,6 +149,7 @@ struct EditPlaylistSheet: View {
                 loaded = true
                 editName = currentName
                 editComment = currentComment
+                editSongs = songs
                 loadCurrentChoice()
             }
         }
@@ -226,11 +235,22 @@ struct EditPlaylistSheet: View {
         // Compare trimmed-vs-trimmed so incidental whitespace (e.g. a server name with a trailing space, or
         // a whitespace-only description edit) never triggers a no-op server write.
         let trimmedName = editName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedComment = editComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let commentChanged = trimmedComment != currentComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let songsChanged = editSongs.map(\.id) != songs.map(\.id)
+
         if !trimmedName.isEmpty && trimmedName != currentName.trimmingCharacters(in: .whitespacesAndNewlines) {
             try? await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
         }
-        let trimmedComment = editComment.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmedComment != currentComment.trimmingCharacters(in: .whitespacesAndNewlines) {
+        // Atomic full-list replace — the SINGLE track-mutation path (reorder + multi-select remove). The
+        // replace carries only playlistId + songIds: the name is preserved (omitted), comment is NOT a param.
+        if songsChanged {
+            try? await c.playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: editSongs.map(\.id))
+        }
+        // R1 guard: re-assert the comment AFTER the replace (it doesn't survive createPlaylist). Re-assert a
+        // non-empty comment even if unchanged; always write a changed comment (edit/clear). One write covers
+        // the guard + a simultaneous description edit. NO name re-assert (omitted = unchanged).
+        if (songsChanged && !trimmedComment.isEmpty) || commentChanged {
             try? await c.playlistService.updateDescription(id: playlistId, description: trimmedComment)
         }
         if coverDirty {
