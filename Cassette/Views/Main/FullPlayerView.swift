@@ -1009,6 +1009,9 @@ struct ProgressSlider: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { gesture in
+                        // Track not laid out yet (zero width) -> dividing by it yields NaN that would flow into
+                        // seek (and trap in the engine). Skip the drag until the track has a real width.
+                        guard trackW > 0 else { return }
                         if !isDragging {
                             isDragging = true
                             onEditingChanged(true)

@@ -790,6 +790,13 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Seek
 
     func seek(to position: TimeInterval) async {
+        // Reject malformed targets (NaN/inf). A scrubber drag against a zero-width track produces NaN, which
+        // would trap in the AudioStreaming engine's Int64(time / duration). The single chokepoint for every
+        // seek caller (UI, lyrics, lock screen). A malformed seek is a silent no-op — NOT a jump to zero.
+        guard position.isFinite else {
+            Logger.player.warning("seek ignored — non-finite target")
+            return
+        }
         guard await MainActor.run(body: { !state.isLiveStream }) else {
             Logger.player.debug("seek ignored — live stream mode")
             return
