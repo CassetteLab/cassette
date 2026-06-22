@@ -27,6 +27,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     func start() async {
         guard !commandsRegistered else { return }
         commandsRegistered = true
+        RemoteCommandDebugLog.log("LIFE start() begin — registering all remote commands (cold start)")
 
         let center = MPRemoteCommandCenter.shared()
         let playerService = playerService
@@ -37,6 +38,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+        RemoteCommandDebugLog.log("REG playCommand")
 
         center.pauseCommand.addTarget { [playerService] _ in
             Task.detached(priority: .userInitiated) {
@@ -44,6 +46,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+        RemoteCommandDebugLog.log("REG pauseCommand")
 
         center.togglePlayPauseCommand.addTarget { [playerService] _ in
             Task.detached(priority: .userInitiated) {
@@ -51,6 +54,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+        RemoteCommandDebugLog.log("REG togglePlayPauseCommand")
 
         center.nextTrackCommand.addTarget { [playerService] _ in
             Task.detached(priority: .userInitiated) {
@@ -62,7 +66,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
-        appendToDebugLog("[RCC] start() — registered nextTrackCommand")
+        RemoteCommandDebugLog.log("REG nextTrackCommand")
 
         center.previousTrackCommand.addTarget { [playerService] _ in
             Task.detached(priority: .userInitiated) {
@@ -74,7 +78,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
-        appendToDebugLog("[RCC] start() — registered previousTrackCommand")
+        RemoteCommandDebugLog.log("REG previousTrackCommand")
 
         #if os(macOS)
         // macOS Control Center may route the previous-track gesture through skipBackwardCommand
@@ -85,6 +89,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             Task { try? await self.playerService.skipToPrevious() }
             return .success
         }
+        RemoteCommandDebugLog.log("REG skipBackwardCommand (macOS)")
         #endif
 
         center.changePlaybackPositionCommand.addTarget { [playerService] event in
@@ -97,12 +102,14 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
-        appendToDebugLog("[RCC] start() — isEnabled next=\(center.nextTrackCommand.isEnabled) prev=\(center.previousTrackCommand.isEnabled)")
+        RemoteCommandDebugLog.log("REG changePlaybackPositionCommand")
+        RemoteCommandDebugLog.log("EN start-end play=\(center.playCommand.isEnabled) pause=\(center.pauseCommand.isEnabled) toggle=\(center.togglePlayPauseCommand.isEnabled) next=\(center.nextTrackCommand.isEnabled) prev=\(center.previousTrackCommand.isEnabled) seek=\(center.changePlaybackPositionCommand.isEnabled)")
     }
 
     func stop() async {
         await MainActor.run {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            RemoteCommandDebugLog.log("INFO clear (stop) — nowPlayingInfo=nil")
             #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = .stopped
             #endif
@@ -115,6 +122,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     // MARK: - Update
 
     func update(with snapshot: NowPlayingSnapshot) async {
+        RemoteCommandDebugLog.log("STATE update entry live=\(snapshot.isLiveStream) artURL=\(snapshot.artworkURL != nil) coverId=\(snapshot.coverArtId != nil) rate=\(snapshot.playbackRate) pos=\(snapshot.position) dur=\(snapshot.duration)")
         if snapshot.isLiveStream {
             // Live stream: fresh dict with the IsLiveStream flag set.
             // Duration and elapsed time are intentionally omitted — Control Center hides
@@ -129,6 +137,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             let baseInfo = info
             await MainActor.run {
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
+                RemoteCommandDebugLog.log("INFO set live-base keys=[\(npKeySummary(baseInfo))]")
                 #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = .playing
                 #endif
@@ -151,6 +160,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                     var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? baseInfo
                     infoWithArt[MPMediaItemPropertyArtwork] = artwork
                     MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                    RemoteCommandDebugLog.log("INFO set live-artwork keys=[\(npKeySummary(infoWithArt))]")
                     #if os(macOS)
                     MPNowPlayingInfoCenter.default().playbackState = .playing
                     #endif
@@ -176,6 +186,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
                 if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                RemoteCommandDebugLog.log("INFO set position-only keys=[\(npKeySummary(info))]")
                 #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
                 #endif
@@ -212,6 +223,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         let baseInfo = info
         await MainActor.run {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
+            RemoteCommandDebugLog.log("INFO set newtrack-base keys=[\(npKeySummary(baseInfo))]")
             #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
             #endif
@@ -235,6 +247,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                RemoteCommandDebugLog.log("INFO set newtrack-artwork-fast keys=[\(npKeySummary(infoWithArt))]")
                 #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
                 #endif
@@ -250,6 +263,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 var infoWithArt = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? fallback
                 infoWithArt[MPMediaItemPropertyArtwork] = artwork
                 MPNowPlayingInfoCenter.default().nowPlayingInfo = infoWithArt
+                RemoteCommandDebugLog.log("INFO set newtrack-artwork-slow keys=[\(npKeySummary(infoWithArt))]")
                 #if os(macOS)
                 MPNowPlayingInfoCenter.default().playbackState = snapshot.playbackRate > 0 ? .playing : .paused
                 #endif
@@ -267,6 +281,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             info[MPNowPlayingInfoPropertyPlaybackRate] = rate
             info[MPMediaItemPropertyPlaybackDuration] = duration
             MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+            RemoteCommandDebugLog.log("INFO set pushPosition keys=[\(npKeySummary(info))]")
             #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = .playing
             #endif
@@ -282,9 +297,8 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         Logger.nowPlaying.debug("[REMOTE] updateRemoteCommandsAvailability — isLiveStream=\(isLiveStream, privacy: .public) nextEnabled=\(!isLiveStream, privacy: .public)")
         Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled BEFORE=\(center.nextTrackCommand.isEnabled, privacy: .public)")
         Logger.nowPlaying.debug("[REMOTE] previousTrackCommand.isEnabled BEFORE=\(center.previousTrackCommand.isEnabled, privacy: .public)")
-        appendToDebugLog("[RCC] updateRemoteCommandsAvailability called — isLiveStream=\(isLiveStream)")
-        appendToDebugLog("[RCC] nextTrack BEFORE=\(center.nextTrackCommand.isEnabled)")
-        appendToDebugLog("[RCC] previousTrack BEFORE=\(center.previousTrackCommand.isEnabled)")
+        RemoteCommandDebugLog.log("EN updateAvail call isLiveStream=\(isLiveStream)")
+        RemoteCommandDebugLog.log("EN BEFORE play=\(center.playCommand.isEnabled) pause=\(center.pauseCommand.isEnabled) toggle=\(center.togglePlayPauseCommand.isEnabled) next=\(center.nextTrackCommand.isEnabled) prev=\(center.previousTrackCommand.isEnabled) seek=\(center.changePlaybackPositionCommand.isEnabled)")
         center.nextTrackCommand.isEnabled = !isLiveStream
         center.previousTrackCommand.isEnabled = !isLiveStream
         #if os(macOS)
@@ -293,8 +307,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         center.changePlaybackPositionCommand.isEnabled = !isLiveStream
         Logger.nowPlaying.debug("[REMOTE] nextTrackCommand.isEnabled AFTER=\(center.nextTrackCommand.isEnabled, privacy: .public)")
         Logger.nowPlaying.debug("[REMOTE] previousTrackCommand.isEnabled AFTER=\(center.previousTrackCommand.isEnabled, privacy: .public)")
-        appendToDebugLog("[RCC] nextTrack AFTER=\(center.nextTrackCommand.isEnabled)")
-        appendToDebugLog("[RCC] previousTrack AFTER=\(center.previousTrackCommand.isEnabled)")
+        RemoteCommandDebugLog.log("EN AFTER play=\(center.playCommand.isEnabled) pause=\(center.pauseCommand.isEnabled) toggle=\(center.togglePlayPauseCommand.isEnabled) next=\(center.nextTrackCommand.isEnabled) prev=\(center.previousTrackCommand.isEnabled) seek=\(center.changePlaybackPositionCommand.isEnabled)")
     }
 
     // MARK: - Discord RPC
@@ -324,11 +337,22 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     }
     #endif
 
-    private func appendToDebugLog(_ message: String) {
-        // Forward to the off-actor, opt-in, size-capped logger — no synchronous disk I/O on the playback
-        // actor or the track-change path (audit finding L4). Disabled by default; see RemoteCommandDebugLog.
-        RemoteCommandDebugLog.log(message)
-    }
+}
+
+/// Compact, privacy-safe summary of WHICH now-playing keys are present (names only, never the values) — a
+/// missing key here maps directly to a missing control on iOS, so this is the core signal for the "partial
+/// controls" symptom. Free function so it's callable inside `MainActor.run` blocks with no actor hop.
+private func npKeySummary(_ info: [String: Any]) -> String {
+    var present: [String] = []
+    if info[MPMediaItemPropertyTitle] != nil { present.append("title") }
+    if info[MPMediaItemPropertyArtist] != nil { present.append("artist") }
+    if info[MPMediaItemPropertyAlbumTitle] != nil { present.append("album") }
+    if info[MPMediaItemPropertyPlaybackDuration] != nil { present.append("dur") }
+    if info[MPNowPlayingInfoPropertyElapsedPlaybackTime] != nil { present.append("elapsed") }
+    if info[MPNowPlayingInfoPropertyPlaybackRate] != nil { present.append("rate") }
+    if info[MPMediaItemPropertyArtwork] != nil { present.append("art") }
+    if info[MPNowPlayingInfoPropertyIsLiveStream] != nil { present.append("live") }
+    return present.joined(separator: ",")
 }
 
 /// Opt-in, size-capped, off-actor file logger for the MPRemoteCommandCenter skip/previous diagnostic.
@@ -338,18 +362,25 @@ actor NowPlayingService: NowPlayingServiceProtocol {
 /// (so it can be turned on for a release build on a real device, unlike a `#if DEBUG` gate). When enabled it
 /// appends on a background serial queue — never blocking the playback actor — and rotates the file at a size
 /// cap so `cassette_debug.log` can never grow unbounded.
-private enum RemoteCommandDebugLog {
+enum RemoteCommandDebugLog {
     /// Runtime toggle, default OFF. Set this UserDefaults bool to true to capture the log while diagnosing.
     nonisolated static let enabledKey = "debug.rccFileLog"
     /// Rotate when the active log reaches this size; total on disk is bounded to ~2x this (.log + .log.1).
     private nonisolated static let maxBytes = 256 * 1024
     private nonisolated static let queue = DispatchQueue(label: "fr.mathieu-dubart.cassette.rcc-debug-log", qos: .utility)
 
-    nonisolated static func log(_ message: String) {
+    /// `@autoclosure` so that when disabled (the default) NOTHING is built — the caller pays only a single bool
+    /// read, so the hot path (periodic position pushes) and the observed timing stay unperturbed (no Heisenbug
+    /// — that's the #1 trap when instrumenting a race). The monotonic `uptimeNanoseconds` + thread tag are
+    /// captured SYNCHRONOUSLY in the caller's context, so they record the EVENT's true time/thread, not the
+    /// background writer's. Monotonic ns orders two events inside the same wall-clock millisecond — that
+    /// ordering is exactly what reveals which of registration / enable / nowPlayingInfo / setActive wins the race.
+    nonisolated static func log(_ message: @autoclosure () -> String) {
         #if os(iOS)
-        // Cheap in-memory flag check on the caller; when disabled (the default) we do zero work and zero I/O.
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
-        let line = "\(Date()): \(message)\n"
+        let mono = DispatchTime.now().uptimeNanoseconds
+        let thr = Thread.isMainThread ? "main" : "t\(pthread_mach_thread_np(pthread_self()))"
+        let line = "[RCC] mono=\(mono) thr=\(thr) \(Date()) \(message())\n"
         queue.async {
             let fm = FileManager.default
             guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first,

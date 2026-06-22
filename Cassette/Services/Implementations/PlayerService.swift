@@ -386,6 +386,7 @@ actor PlayerService: PlayerServiceProtocol {
             isLiveStream: false,
             radioStationName: nil
         )
+        RemoteCommandDebugLog.log("STATE startPlayback -> FULL push (new track) pos=0 rate=1 artURL=\(artworkURL != nil)")
         await nowPlayingService?.update(with: snapshot)
         await saveSession()
         startPositionSaveTimer()
@@ -465,6 +466,7 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.warning("[CREDENTIALS] activeCredentials failed, using empty headers: \(error, privacy: .public)")
             artworkHeaders = [:]
         }
+        RemoteCommandDebugLog.log("STATE playRadio -> FULL push live=true")
         await nowPlayingService?.update(with: NowPlayingSnapshot(
             title: station.name,
             artist: "Live Radio",
@@ -674,8 +676,10 @@ actor PlayerService: PlayerServiceProtocol {
         sessionActivationRetryTask?.cancel()
         sessionActivationRetryTask = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        RemoteCommandDebugLog.log("SESSION pause() setActive(false) otherAudio=\(AVAudioSession.sharedInstance().isOtherAudioPlaying)")
         #endif
         await MainActor.run { state.playbackState = .paused }
+        RemoteCommandDebugLog.log("STATE pause() -> position push rate=0")
         await pushPositionSnapshot(rate: 0.0)
         stopProgressTimer()
         stopPositionSaveTimer()
@@ -695,6 +699,7 @@ actor PlayerService: PlayerServiceProtocol {
             isMutedForRestore = false
         }
         isRestoringSession = false
+        RemoteCommandDebugLog.log("STATE resume() entry -> configureAudioSessionIfNeeded")
         #if os(iOS)
         configureAudioSessionIfNeeded()
         #endif
@@ -717,6 +722,7 @@ actor PlayerService: PlayerServiceProtocol {
             audioPlayer.resume()
         }
         await MainActor.run { state.playbackState = .playing }
+        RemoteCommandDebugLog.log("STATE resume() -> position push rate=1")
         await pushPositionSnapshot(rate: 1.0)
         startProgressTimer()
         startPositionSaveTimer()
@@ -767,6 +773,7 @@ actor PlayerService: PlayerServiceProtocol {
         sessionActivationRetryTask?.cancel()
         sessionActivationRetryTask = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        RemoteCommandDebugLog.log("SESSION stop() setActive(false) otherAudio=\(AVAudioSession.sharedInstance().isOtherAudioPlaying)")
         #endif
         accumulatedPlayedSeconds = 0
         currentPlaySegmentStart = nil
@@ -805,6 +812,7 @@ actor PlayerService: PlayerServiceProtocol {
         }
         audioPlayer.seek(to: position)
         await MainActor.run { state.position = position }
+        RemoteCommandDebugLog.log("STATE seek() -> position push pos=\(position)")
         await pushPositionSnapshot()
     }
 
@@ -1120,6 +1128,7 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.warning("[CREDENTIALS] activeCredentials failed, using empty headers: \(error, privacy: .public)")
             artworkHeaders = [:]
         }
+        RemoteCommandDebugLog.log("STATE restore -> FULL push (paused) pos=\(position) rate=0 artURL=\(artworkURL != nil)")
         await nowPlayingService?.update(with: NowPlayingSnapshot(
             title: track.title,
             artist: track.artist,
@@ -1182,6 +1191,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     private func startProgressTimer() {
         stopProgressTimer()
+        RemoteCommandDebugLog.log("STATE progressTimer start")
         progressTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
@@ -1673,6 +1683,7 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         stopPositionSaveTimer()
+        RemoteCommandDebugLog.log("STATE rewindToFirstTrackPaused -> position push rate=0")
         await pushPositionSnapshot(rate: 0)
         await saveSession()
     }
@@ -1830,6 +1841,7 @@ actor PlayerService: PlayerServiceProtocol {
             isLiveStream: false,
             radioStationName: nil
         )
+        RemoteCommandDebugLog.log("STATE positionSnapshot -> update pos=\(clampedPosition) rate=\(resolvedRate) dur=\(duration)")
         await nowPlayingService?.update(with: snapshot)
     }
 
@@ -1842,6 +1854,7 @@ actor PlayerService: PlayerServiceProtocol {
         }
         guard case .playing = playbackState, !isLiveStream, hasTrack else { return }
         guard elapsed >= 0, duration > 0, elapsed <= duration else { return }
+        RemoteCommandDebugLog.log("STATE periodic push elapsed=\(elapsed) dur=\(duration) rate=1")
         await nowPlayingService?.pushPosition(elapsed: elapsed, rate: 1.0, duration: duration)
     }
 
@@ -1856,6 +1869,7 @@ actor PlayerService: PlayerServiceProtocol {
 #if os(iOS)
 extension PlayerService {
     func configureAudioSessionIfNeeded() {
+        RemoteCommandDebugLog.log("SESSION configure() entry configured=\(audioSessionConfigured)")
         do {
             let session = AVAudioSession.sharedInstance()
             if !audioSessionConfigured {
@@ -1863,22 +1877,27 @@ extension PlayerService {
                 // AirPlay + Bluetooth options enable wireless output without extra entitlements.
                 try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
                 audioSessionConfigured = true
+                RemoteCommandDebugLog.log("SESSION setCategory(.playback) ok")
             }
             // Always call setActive(true) — iOS may have deactivated the session during a
             // background interruption (phone call, Siri, other audio app) even after a
             // successful initial setup. Without this, resume() silently fails on the lock screen.
             try session.setActive(true)
+            RemoteCommandDebugLog.log("SESSION setActive(true) ok cat=\(session.category.rawValue) otherAudio=\(session.isOtherAudioPlaying)")
         } catch let error as NSError {
             if error.code == -50 {
                 // Code=-50: another app holds the session — retry after short delay.
                 Logger.player.warning("AVAudioSession setActive Code=-50, retrying in 0.5s")
+                RemoteCommandDebugLog.log("SESSION setActive Code=-50 -> retry scheduled (0.5s)")
                 sessionActivationRetryTask = Task {
                     try? await Task.sleep(for: .seconds(0.5))
                     guard !Task.isCancelled else { return }
                     try? AVAudioSession.sharedInstance().setActive(true)
+                    RemoteCommandDebugLog.log("SESSION retry setActive(true) otherAudio=\(AVAudioSession.sharedInstance().isOtherAudioPlaying)")
                 }
             } else {
                 Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
+                RemoteCommandDebugLog.log("SESSION setActive failed code=\(error.code)")
             }
         }
         if interruptionObserver == nil {
@@ -1888,8 +1907,10 @@ extension PlayerService {
                 queue: .main
             ) { [weak self] notification in
                 guard let self else { return }
+                RemoteCommandDebugLog.log("LIFE interruptionNotification received (main queue)")
                 Task { await self.handleAudioSessionInterruption(notification) }
             }
+            RemoteCommandDebugLog.log("LIFE interruption observer registered")
         }
         if routeChangeObserver == nil {
             routeChangeObserver = NotificationCenter.default.addObserver(
@@ -1904,14 +1925,17 @@ extension PlayerService {
                 // route's port types here on the main queue before hopping to the actor.
                 let previousOutputs = (notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey]
                     as? AVAudioSessionRouteDescription)?.outputs.map(\.portType) ?? []
+                RemoteCommandDebugLog.log("LIFE routeChangeNotification received reason=\(changeReason.rawValue) (main queue)")
                 Task { await self.handleRouteChange(changeReason, previousOutputs: previousOutputs) }
             }
+            RemoteCommandDebugLog.log("LIFE routeChange observer registered")
         }
     }
 
     private func handleAudioSessionInterruption(_ notification: Notification) async {
         guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+        RemoteCommandDebugLog.log("LIFE interruption handler entry typeRaw=\(typeValue)")
 
         switch type {
         case .began:
@@ -1932,6 +1956,7 @@ extension PlayerService {
                 Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
             }
             Logger.player.info("[INTERRUPTION] began — paused playback")
+            RemoteCommandDebugLog.log("LIFE interruption .began -> paused playback")
 
         case .ended:
             let shouldResume = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
@@ -1940,6 +1965,7 @@ extension PlayerService {
             let wasRouteDisconnect = interruptionWasRouteDisconnect
             interruptionWasRouteDisconnect = false
             Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public) routeDisconnect=\(wasRouteDisconnect, privacy: .public)")
+            RemoteCommandDebugLog.log("LIFE interruption .ended shouldResume=\(shouldResume) routeDisconnect=\(wasRouteDisconnect)")
             if shouldResume && !wasRouteDisconnect {
                 await resume()
             } else {
@@ -1960,6 +1986,7 @@ extension PlayerService {
             .map { $0.portType.rawValue }
             .joined(separator: ",")
         Logger.player.info("[ROUTE] routeChange reason=\(reason.logDescription, privacy: .public) outputs=[\(outputs, privacy: .public)]")
+        RemoteCommandDebugLog.log("LIFE routeChange handler reason=\(reason.logDescription) outputs=[\(outputs)]")
 
         switch reason {
         case .oldDeviceUnavailable:
@@ -1977,6 +2004,7 @@ extension PlayerService {
 
         case .newDeviceAvailable, .routeConfigurationChange:
             try? AVAudioSession.sharedInstance().setActive(true)
+            RemoteCommandDebugLog.log("SESSION routeChange setActive(true) otherAudio=\(AVAudioSession.sharedInstance().isOtherAudioPlaying)")
 
         default:
             break
