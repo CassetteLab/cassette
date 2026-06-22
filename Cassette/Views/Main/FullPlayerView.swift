@@ -322,27 +322,31 @@ struct FullPlayerView: View {
     /// the `queueCover` matchedGeometry flies the cover to the queue header on queue toggle. `isPlaying` is no
     /// longer used (the play/pause scale was removed).
     private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool, isSource: Bool) -> some View {
-        CoverArtView(id: coverArtId, size: 1000)
-            // FILL the slot full-bleed (full upper space) on the player. On the queue side (matcher) the frame
-            // is flexible (nil) so matchedGeometry can shrink+move it to the 56pt header anchor.
-            .frame(maxWidth: isSource ? .infinity : nil, maxHeight: isSource ? .infinity : nil)
-            .clipped()
-            // Melt the bottom into the dominant body color so the cover fades into the controls area below.
-            .overlay {
-                if isSource {
-                    LinearGradient(
-                        stops: [
-                            .init(color: .clear, location: 0.68),
-                            .init(color: vm.dominantColor, location: 1.0),
-                        ],
-                        startPoint: .top, endPoint: .bottom
-                    )
+        GeometryReader { geo in
+            CoverArtView(id: coverArtId, size: 1000)
+                // DEFINITE size from the geometry — NOT maxWidth/maxHeight .infinity. A greedy frame reports an
+                // unbounded ideal width which, flattened by drawingGroup, widened the slot and pushed the
+                // controls off-screen. Flexible (nil) on the queue side so matchedGeometry shrinks it to 56pt.
+                .frame(width: isSource ? geo.size.width : nil, height: isSource ? geo.size.height : nil)
+                .clipped()
+                // Melt the bottom into the dominant body color so the cover fades into the controls area below.
+                .overlay {
+                    if isSource {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .clear, location: 0.68),
+                                .init(color: vm.dominantColor, location: 1.0),
+                            ],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
                 }
-            }
-            .drawingGroup()
-            // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
-            // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
-            .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
+                .drawingGroup()
+                // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
+                // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
+                .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
     }
 
     /// The queue rehosted on the flowing mechanism: a collapsed cover+title header on top (NO morphCover — the
