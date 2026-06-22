@@ -308,6 +308,9 @@ struct PlaylistDetailView: View {
             await viewModel?.load()
         }
         .task(id: effectiveCoverArtId) {
+            // Photo / server cover -> extract the dominant. Gradient playlists are themed from the spec base
+            // color (cover-refresh task), not the JPEG, so gradient + body stay coherent.
+            guard gradientSpec == nil else { return }
             let artId = effectiveCoverArtId
             let cached = colorExtractor.dominantColor(for: artId, image: nil)
             if cached != .clear {
@@ -318,10 +321,16 @@ struct PlaylistDetailView: View {
         }
         .task(id: coverRefreshID) {
             // A user-picked gradient -> render the hero CRISP from the spec (the JPEG stays the
-            // cards/cross-device truth). Re-resolves after an edit (coverRefreshID bumps). Nil -> JPEG/photo.
+            // cards/cross-device truth), AND theme the body straight from the (vibrance-boosted) spec base
+            // color so gradient + background + body stay coherent, no JPEG re-extraction. Re-resolves after an
+            // edit (coverRefreshID bumps). Nil -> JPEG/photo path keeps the extractor.
             guard let container, let serverId = container.serverState.activeServer?.id else { gradientSpec = nil; return }
             let choice = PlaylistCoverStore(modelContainer: container.modelContainer).choice(playlistId: playlistId, serverId: serverId)
-            gradientSpec = choice?.isUserPicked == true ? choice?.spec : nil
+            let spec = choice?.isUserPicked == true ? choice?.spec : nil
+            gradientSpec = spec
+            if let spec {
+                withAnimation(.easeIn(duration: 0.2)) { dominantColor = spec.baseColor }
+            }
         }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
