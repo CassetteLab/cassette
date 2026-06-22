@@ -205,11 +205,11 @@ struct FullPlayerView: View {
                         flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
                                      isSource: !showingQueue)
                             .allowsHitTesting(!showingQueue)
-                            // Bleed the cover up under the grabber with NEGATIVE top padding, NOT
-                            // ignoresSafeArea: ignoresSafeArea (any edge) propagated to the slot/innerVStack
-                            // and expanded it past the screen, pushing the title/artist + transport
-                            // off-screen. Negative padding is vertical only, so it can't widen the layout.
-                            .padding(.top, -60)
+                            // Bleed the cover up under the grabber to the very top edge (covers the white
+                            // status-bar strip). Safe now that the cover has a DEFINITE frame (GeometryReader):
+                            // the earlier overflow was the greedy frame's unbounded ideal width — proven by
+                            // df4b251, where negative padding alone still overflowed — not ignoresSafeArea.
+                            .ignoresSafeArea(.container, edges: .top)
                             .transition(.opacity)
                     }
                 }
