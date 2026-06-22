@@ -33,10 +33,11 @@ struct PlaylistThemedBackground: View {
 
             if theme.isThemed, let coverArtId {
                 ZStack(alignment: .top) {
-                    // Sharp full-bleed cover — crisp gradient from the spec, else the artwork. Edge-to-edge.
+                    // Sharp full-bleed cover — an ANIMATED mesh gradient from the spec (foreground only, cheap;
+                    // the melt below stays static), else the artwork. Edge-to-edge.
                     Group {
                         if let gradientSpec {
-                            PlaylistGradientView(spec: gradientSpec)
+                            AnimatedGradientHeroView(spec: gradientSpec)
                         } else {
                             CoverArtView(id: coverArtId, size: 1000, initialImage: coverImage)
                         }

@@ -117,3 +117,63 @@ struct PlaylistGradientView: View {
         }
     }
 }
+
+/// The ANIMATED crisp hero cover for a gradient playlist — a `MeshGradient` (iOS 18+, always taken on the
+/// iOS-26 min target) whose control points drift slowly for a subtle living motion (Apple-Music feel).
+/// SEPARATE from `PlaylistGradientView`, which stays static so the off-screen JPEG snapshot is deterministic.
+/// The 6 forms map to 6 nine-color mesh arrangements derived from the spec's base/light/dark shades.
+/// Foreground only (no blur) so the animation is cheap; the background/melt stays static (rasterized once).
+/// Honors Reduce Motion (static then) and pauses off-screen (the cover row stops rendering; `onDisappear`
+/// resets the drift).
+struct AnimatedGradientHeroView: View {
+    let spec: PlaylistGradientSpec
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        let base = spec.baseColor
+        let light = base.adjusted(saturation: -0.04, brightness: 0.18)
+        let dark = base.adjusted(saturation: 0.06, brightness: -0.24)
+        MeshGradient(
+            width: 3, height: 3,
+            points: Self.points(phase),
+            colors: Self.meshColors(spec.shape, base: base, light: light, dark: dark)
+        )
+        .onAppear {
+            phase = 0
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 7).repeatForever(autoreverses: true)) { phase = 1 }
+        }
+        .onDisappear { phase = 0 }
+    }
+
+    /// Corners pinned (fill the frame); the edge-midpoints + center drift by ±0.05 as `phase` oscillates.
+    private static func points(_ phase: CGFloat) -> [SIMD2<Float>] {
+        let p = Float(phase)
+        return [
+            [0.0, 0.0],            [0.5 + 0.05 * p, 0.0],             [1.0, 0.0],
+            [0.0, 0.5 - 0.04 * p], [0.5 - 0.05 * p, 0.5 + 0.05 * p],  [1.0, 0.5 + 0.04 * p],
+            [0.0, 1.0],            [0.5 + 0.04 * p, 1.0],             [1.0, 1.0],
+        ]
+    }
+
+    /// Per-form 9-color arrangement echoing the static `PlaylistGradientView` look of each shape.
+    private static func meshColors(_ shape: PlaylistGradientShape, base: Color, light: Color, dark: Color) -> [Color] {
+        let hue = base.adjusted(hue: 0.07)
+        switch shape {
+        case .verticalFade:
+            return [light, light, light, base, base, base, dark, dark, dark]
+        case .diagonalSheen:
+            return [light, light, base, light, base, dark, base, dark, dark]
+        case .radialGlow:
+            return [dark, base, dark, base, light, base, dark, base, dark]
+        case .angularSweep:
+            return [base, light, hue, dark, base, light, hue, dark, base]
+        case .duotone:
+            return [base, base, hue, base, hue, hue, hue, hue, dark]
+        case .mesh:
+            return [light, base, light, base, hue, dark, dark, base, dark]
+        }
+    }
+}
