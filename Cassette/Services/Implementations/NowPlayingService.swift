@@ -28,76 +28,84 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         guard !commandsRegistered else { return }
         commandsRegistered = true
 
-        let center = MPRemoteCommandCenter.shared()
         let playerService = playerService
 
-        center.playCommand.addTarget { [playerService] _ in
-            Task.detached(priority: .userInitiated) {
-                await playerService.resume()
-            }
-            return .success
-        }
+        // Register every command handler SYNCHRONOUSLY, on the MAIN THREAD, in ONE atomic block — before any
+        // actor suspension and before the first now-playing info is set. MPRemoteCommandCenter is a main-thread
+        // API: registering it from the NowPlayingService actor (off-main) let iOS snapshot setSupportedCommands
+        // mid-registration — capturing only {Play, Pause} and never re-snapshotting, so Next / Previous /
+        // scrubber showed greyed out (partial/random by run = the registration-vs-snapshot race). One
+        // main-thread block guarantees the supported set is COMPLETE at iOS's single snapshot. addTarget is what
+        // makes a command "supported"; isEnabled (in updateRemoteCommandsAvailability) only greys/ungreys it.
+        await MainActor.run {
+            let center = MPRemoteCommandCenter.shared()
 
-        center.pauseCommand.addTarget { [playerService] _ in
-            Task.detached(priority: .userInitiated) {
-                await playerService.pause()
-            }
-            return .success
-        }
-
-        center.togglePlayPauseCommand.addTarget { [playerService] _ in
-            Task.detached(priority: .userInitiated) {
-                await playerService.togglePlayPause()
-            }
-            return .success
-        }
-
-        center.nextTrackCommand.addTarget { [playerService] _ in
-            Task.detached(priority: .userInitiated) {
-                do {
-                    try await playerService.skipToNext()
-                } catch {
-                    Logger.nowPlaying.error("[PLAYBACK] skipToNext failed: \(error, privacy: .public)")
+            center.playCommand.addTarget { [playerService] _ in
+                Task.detached(priority: .userInitiated) {
+                    await playerService.resume()
                 }
+                return .success
             }
-            return .success
-        }
-        appendToDebugLog("[RCC] start() — registered nextTrackCommand")
 
-        center.previousTrackCommand.addTarget { [playerService] _ in
-            Task.detached(priority: .userInitiated) {
-                do {
-                    try await playerService.skipToPrevious()
-                } catch {
-                    Logger.nowPlaying.error("[PLAYBACK] skipToPrevious failed: \(error, privacy: .public)")
+            center.pauseCommand.addTarget { [playerService] _ in
+                Task.detached(priority: .userInitiated) {
+                    await playerService.pause()
                 }
+                return .success
             }
-            return .success
-        }
-        appendToDebugLog("[RCC] start() — registered previousTrackCommand")
 
-        #if os(macOS)
-        // macOS Control Center may route the previous-track gesture through skipBackwardCommand
-        // instead of previousTrackCommand. Register both so the gesture works on either path.
-        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: 0)]
-        center.skipBackwardCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task { try? await self.playerService.skipToPrevious() }
-            return .success
-        }
-        #endif
+            center.togglePlayPauseCommand.addTarget { [playerService] _ in
+                Task.detached(priority: .userInitiated) {
+                    await playerService.togglePlayPause()
+                }
+                return .success
+            }
 
-        center.changePlaybackPositionCommand.addTarget { [playerService] event in
-            guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
-                return .commandFailed
+            center.nextTrackCommand.addTarget { [playerService] _ in
+                Task.detached(priority: .userInitiated) {
+                    do {
+                        try await playerService.skipToNext()
+                    } catch {
+                        Logger.nowPlaying.error("[PLAYBACK] skipToNext failed: \(error, privacy: .public)")
+                    }
+                }
+                return .success
             }
-            let position = seekEvent.positionTime
-            Task.detached(priority: .userInitiated) {
-                await playerService.seek(to: position)
+
+            center.previousTrackCommand.addTarget { [playerService] _ in
+                Task.detached(priority: .userInitiated) {
+                    do {
+                        try await playerService.skipToPrevious()
+                    } catch {
+                        Logger.nowPlaying.error("[PLAYBACK] skipToPrevious failed: \(error, privacy: .public)")
+                    }
+                }
+                return .success
             }
-            return .success
+
+            #if os(macOS)
+            // macOS Control Center may route the previous-track gesture through skipBackwardCommand
+            // instead of previousTrackCommand. Register both so the gesture works on either path.
+            center.skipBackwardCommand.preferredIntervals = [NSNumber(value: 0)]
+            center.skipBackwardCommand.addTarget { [playerService] _ in
+                Task.detached(priority: .userInitiated) {
+                    try? await playerService.skipToPrevious()
+                }
+                return .success
+            }
+            #endif
+
+            center.changePlaybackPositionCommand.addTarget { [playerService] event in
+                guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
+                    return .commandFailed
+                }
+                let position = seekEvent.positionTime
+                Task.detached(priority: .userInitiated) {
+                    await playerService.seek(to: position)
+                }
+                return .success
+            }
         }
-        appendToDebugLog("[RCC] start() — isEnabled next=\(center.nextTrackCommand.isEnabled) prev=\(center.previousTrackCommand.isEnabled)")
     }
 
     func stop() async {
