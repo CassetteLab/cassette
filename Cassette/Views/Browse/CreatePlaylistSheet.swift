@@ -27,6 +27,7 @@ struct CreatePlaylistSheet: View {
     @State private var showImagePicker = false
     @State private var showCamera = false
     @State private var showFilePicker = false
+    @State private var imageToCrop: CroppableImage?
     #endif
 
     var body: some View {
@@ -88,12 +89,19 @@ struct CreatePlaylistSheet: View {
             Button("Cancel", role: .cancel) {}
         }
         .fullScreenCover(isPresented: $showImagePicker) {
-            ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { pendingImage = squareCropped($0) }, onCancel: {})
+            ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
                 .ignoresSafeArea()
         }
         .fullScreenCover(isPresented: $showCamera) {
-            ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { pendingImage = squareCropped($0) }, onCancel: {})
+            ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
                 .ignoresSafeArea()
+        }
+        .fullScreenCover(item: $imageToCrop) { croppable in
+            SquareCropView(
+                image: croppable.image,
+                onCrop: { pendingImage = $0; imageToCrop = nil },
+                onCancel: { imageToCrop = nil }
+            )
         }
         .fileImporter(
             isPresented: $showFilePicker,
@@ -104,7 +112,7 @@ struct CreatePlaylistSheet: View {
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
             if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
-                pendingImage = squareCropped(img)
+                presentCrop(img)
             }
         }
         #endif
@@ -172,14 +180,10 @@ struct CreatePlaylistSheet: View {
     }
 
     #if os(iOS)
-    /// Center-square crop so any picked image becomes a clean square cover — replaces UIImagePickerController's
-    /// clunky built-in crop (now disabled via allowsEditing: false). Orientation is normalised by the renderer.
-    private func squareCropped(_ image: UIImage) -> UIImage {
-        let side = min(image.size.width, image.size.height)
-        let origin = CGPoint(x: (image.size.width - side) / 2, y: (image.size.height - side) / 2)
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side))
-        return renderer.image { _ in
-            image.draw(at: CGPoint(x: -origin.x, y: -origin.y))
+    /// Defer presenting the crop screen so the picker fully dismisses first (sequential full-screen covers).
+    private func presentCrop(_ image: UIImage) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            imageToCrop = CroppableImage(image: image)
         }
     }
     #endif
@@ -244,3 +248,11 @@ struct CreatePlaylistSheet: View {
         #endif
     }
 }
+
+#if os(iOS)
+/// Identifiable wrapper so a picked image can drive `.fullScreenCover(item:)` for the crop screen.
+private struct CroppableImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+#endif
