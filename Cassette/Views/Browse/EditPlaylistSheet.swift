@@ -165,7 +165,7 @@ struct EditPlaylistSheet: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
-            Button { dismiss() } label: { circleIcon("xmark", filled: false) }
+            Button { dismiss() } label: { CircleToolbarLabel(systemName: "xmark") }
                 .buttonStyle(.plain)
                 .disabled(isSaving)
         }
@@ -174,7 +174,7 @@ struct EditPlaylistSheet: View {
                 ProgressView().controlSize(.small)
             } else {
                 let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                Button { Task { await commit() } } label: { circleIcon("checkmark", filled: canSave) }
+                Button { Task { await commit() } } label: { CircleToolbarLabel(systemName: "checkmark", filled: canSave) }
                     .buttonStyle(.plain)
                     .disabled(!canSave)
             }
@@ -202,14 +202,6 @@ struct EditPlaylistSheet: View {
         #endif
     }
 
-    /// AM-style circular toolbar action — accent-filled when active (✓), subtle grey otherwise (X / disabled).
-    private func circleIcon(_ name: String, filled: Bool) -> some View {
-        Image(systemName: name)
-            .font(.system(size: 13, weight: .semibold))
-            .foregroundStyle(filled ? Color.white : Color.primary)
-            .frame(width: 30, height: 30)
-            .background(Circle().fill(filled ? Color.cassetteAccent : Color.secondary.opacity(0.15)))
-    }
 
     private func trackRow(_ song: DisplayableSong) -> some View {
         HStack(spacing: CassetteSpacing.m) {

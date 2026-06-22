@@ -124,6 +124,8 @@ struct AddMusicSheet: View {
                 AddMusicLibraryRow(title: "Artists", systemImage: "music.mic", route: .allArtists)
                 AddMusicLibraryRow(title: "Favorites", systemImage: "heart.fill", route: .favorites)
                 AddMusicLibraryRow(title: "Downloads", systemImage: "arrow.down.circle.fill", route: .downloads)
+            } header: {
+                Text("Library").font(.cassetteSectionTitle).textCase(nil).foregroundStyle(.primary)
             }
             Section {
                 AddMusicLibraryRow(title: "Recently Added", systemImage: "clock", route: .recentlyAdded)
@@ -151,7 +153,8 @@ struct AddMusicSheet: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
-            Button { dismiss() } label: { Image(systemName: "xmark") }
+            Button { dismiss() } label: { CircleToolbarLabel(systemName: "xmark") }
+                .buttonStyle(.plain)
                 .disabled(isSaving)
         }
         ToolbarItem(placement: .confirmationAction) {
@@ -166,8 +169,9 @@ struct AddMusicSheet: View {
                         dismiss()
                     }
                 } label: {
-                    Text(selection.count > 0 ? "Add \(selection.count)" : "Done").fontWeight(.semibold)
+                    CircleToolbarLabel(systemName: "checkmark", filled: selection.count > 0)
                 }
+                .buttonStyle(.plain)
                 .disabled(selection.count == 0)
             }
         }
