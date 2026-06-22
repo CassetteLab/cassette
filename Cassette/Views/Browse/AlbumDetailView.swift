@@ -430,7 +430,7 @@ struct AlbumDetailView: View {
                     Image(systemName: "shuffle")
                         .font(.cassetteCellTitle)
                         .foregroundStyle(headerTextColor)
-                        .cassetteHeroButton(size: 44)
+                        .cassetteGlassButton(size: 44)
                 }
                 .disabled(songs.isEmpty)
                 .opacity(vm == nil ? 0.4 : 1)
@@ -457,7 +457,7 @@ struct AlbumDetailView: View {
                         Image(systemName: "trash")
                             .font(.cassetteCellTitle)
                             .foregroundStyle(headerTextColor)
-                            .cassetteHeroButton(size: 44)
+                            .cassetteGlassButton(size: 44)
                     }
                 } else if vm?.isOffline != true {
                     if let vm {
@@ -466,7 +466,7 @@ struct AlbumDetailView: View {
                                 Image(systemName: "xmark")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(headerTextColor)
-                                    .cassetteHeroButton(size: 44)
+                                    .cassetteGlassButton(size: 44)
                             }
                         } else {
                             switch downloadState(for: vm) {
@@ -475,7 +475,7 @@ struct AlbumDetailView: View {
                                     Image(systemName: "arrow.down.circle")
                                         .font(.cassetteCellTitle)
                                         .foregroundStyle(headerTextColor)
-                                        .cassetteHeroButton(size: 44)
+                                        .cassetteGlassButton(size: 44)
                                 }
                                 .disabled(vm.songs.isEmpty)
                             case .partiallyDownloaded:
@@ -483,7 +483,7 @@ struct AlbumDetailView: View {
                                     Image(systemName: "arrow.down.circle.dotted")
                                         .font(.cassetteCellTitle)
                                         .foregroundStyle(headerTextColor)
-                                        .cassetteHeroButton(size: 44)
+                                        .cassetteGlassButton(size: 44)
                                 }
                             case .fullyDownloaded:
                                 Button {
@@ -493,7 +493,7 @@ struct AlbumDetailView: View {
                                     Image(systemName: "trash")
                                         .font(.cassetteCellTitle)
                                         .foregroundStyle(headerTextColor)
-                                        .cassetteHeroButton(size: 44)
+                                        .cassetteGlassButton(size: 44)
                                 }
                             }
                         }
@@ -502,7 +502,7 @@ struct AlbumDetailView: View {
                             Image(systemName: "arrow.down.circle")
                                 .font(.cassetteCellTitle)
                                 .foregroundStyle(headerTextColor)
-                                .cassetteHeroButton(size: 44)
+                                .cassetteGlassButton(size: 44)
                         }
                         .disabled(true)
                         .opacity(0.4)

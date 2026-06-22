@@ -452,7 +452,7 @@ struct PlaylistDetailView: View {
                         Image(systemName: "shuffle")
                             .font(.cassetteCellTitle)
                             .foregroundStyle(headerTextColor)
-                            .cassetteHeroButton(size: 44)
+                            .cassetteGlassButton(size: 44)
                     }
                     .disabled(resolvedSongs(vm).isEmpty)
                     .opacity(vm == nil ? 0.4 : 1)
@@ -473,7 +473,7 @@ struct PlaylistDetailView: View {
                                     Image(systemName: "xmark")
                                         .font(.cassetteCellTitle)
                                         .foregroundStyle(headerTextColor)
-                                        .cassetteHeroButton(size: 44)
+                                        .cassetteGlassButton(size: 44)
                                 }
                             } else {
                                 switch downloadState(for: vm) {
@@ -482,7 +482,7 @@ struct PlaylistDetailView: View {
                                         Image(systemName: "arrow.down.circle")
                                             .font(.cassetteCellTitle)
                                             .foregroundStyle(headerTextColor)
-                                            .cassetteHeroButton(size: 44)
+                                            .cassetteGlassButton(size: 44)
                                     }
                                     .disabled(vm.songs.isEmpty)
                                 case .partiallyDownloaded:
@@ -490,7 +490,7 @@ struct PlaylistDetailView: View {
                                         Image(systemName: "arrow.down.circle.dotted")
                                             .font(.cassetteCellTitle)
                                             .foregroundStyle(headerTextColor)
-                                            .cassetteHeroButton(size: 44)
+                                            .cassetteGlassButton(size: 44)
                                     }
                                 case .fullyDownloaded:
                                     Button {
@@ -500,7 +500,7 @@ struct PlaylistDetailView: View {
                                         Image(systemName: "trash")
                                             .font(.cassetteCellTitle)
                                             .foregroundStyle(headerTextColor)
-                                            .cassetteHeroButton(size: 44)
+                                            .cassetteGlassButton(size: 44)
                                     }
                                 }
                             }
@@ -509,7 +509,7 @@ struct PlaylistDetailView: View {
                                 Image(systemName: "arrow.down.circle")
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(headerTextColor)
-                                    .cassetteHeroButton(size: 44)
+                                    .cassetteGlassButton(size: 44)
                             }
                             .disabled(true)
                             .opacity(0.4)
