@@ -221,6 +221,8 @@ struct AlbumDetailView: View {
         .miniPlayerBottomMargin()
         // Extend the scroll content under the transparent nav bar so the cover reaches the screen top.
         .ignoresSafeArea(.container, edges: .top)
+        // No soft blur under the nav bar (the cover scrolls under it; the system effect would flicker).
+        .cassetteHideTopScrollEdgeEffect()
         .alert("Remove downloaded album?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await viewModel?.deleteDownload() } }
             Button("Cancel", role: .cancel) { }

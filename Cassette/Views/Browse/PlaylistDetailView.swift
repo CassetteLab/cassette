@@ -218,6 +218,8 @@ struct PlaylistDetailView: View {
         // Extend the scroll content under the transparent nav bar so the first row's cover reaches the
         // screen top (and scrolls up under the bar). The bottom safe area / mini-player margin is preserved.
         .ignoresSafeArea(.container, edges: .top)
+        // No soft blur under the nav bar (the cover scrolls under it; the system effect would flicker).
+        .cassetteHideTopScrollEdgeEffect()
         .miniPlayerBottomMargin()
         .refreshable { await viewModel?.load() }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {

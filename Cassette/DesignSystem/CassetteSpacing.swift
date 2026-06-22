@@ -80,6 +80,18 @@ extension View {
     func cassetteContentWidth() -> some View {
         modifier(ContentWidthModifier())
     }
+
+    /// Hides the iOS/macOS 26 scroll-edge effect (the soft blur the system fades under top bars). Used on the
+    /// immersive detail scroll views, where the cover scrolls under a transparent nav bar and the blur would
+    /// otherwise flicker in/out behind it.
+    @ViewBuilder
+    func cassetteHideTopScrollEdgeEffect() -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            self
+        }
+    }
 }
 
 // MARK: - View modifier: cover art style
