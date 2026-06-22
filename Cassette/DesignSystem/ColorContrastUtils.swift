@@ -31,6 +31,28 @@ extension CassetteColors {
         return lBg > 0.179 ? accentFgDark : accentFgLight
     }
 
+    /// Whether an over-cover control should sit on a LIGHT (white) surface — true for dark covers. Mirrors
+    /// the `accentForeground` light-variant decision (incl. the dead-zone default to dark), so the hero
+    /// buttons pick their variant from the COVER, not the device appearance.
+    static func prefersLightControl(on background: Color) -> Bool {
+        guard let lBg = sRGBLuminance(of: background) else { return false }
+        let lightPasses = contrastRatio(lBg, luminanceFgLight) >= contrastThreshold
+        let darkPasses  = contrastRatio(lBg, luminanceFgDark)  >= contrastThreshold
+        if lightPasses != darkPasses { return lightPasses }
+        if !lightPasses { return false }   // dead zone -> dark control
+        return lBg <= 0.179                 // both pass -> light control only on a genuinely dark cover
+    }
+
+    /// Unified (background, glyph/label) for ALL hero over-cover buttons (chevron/pencil, transport, Play).
+    /// Dark cover -> WHITE surface + the cover's `dominantColor` glyph; light/mid/dead-zone -> the dark-violet
+    /// accent surface + white glyph. Single source so every hero button stays consistent.
+    static func heroButtonVariant(on dominantColor: Color) -> (background: Color, foreground: Color) {
+        if prefersLightControl(on: dominantColor) {
+            return (background: .white, foreground: dominantColor)
+        }
+        return (background: accentForeground(on: dominantColor), foreground: .white)
+    }
+
     // MARK: - WCAG 2.1 luminance
 
     private static func sRGBLuminance(of color: Color) -> Double? {

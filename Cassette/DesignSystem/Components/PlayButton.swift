@@ -11,6 +11,9 @@ struct PlayButton: View {
     var label: String = "Play"
     var isDisabled: Bool = false
     var accentColor: Color = CassetteColors.accent
+    /// Label/glyph color. Default white (`cassetteAccentText`) preserves existing callers; the hero passes the
+    /// contrast variant's foreground (the cover's dominant color on a dark cover).
+    var labelColor: Color = Color.cassetteAccentText
 
     var body: some View {
         Button {
@@ -19,7 +22,7 @@ struct PlayButton: View {
         } label: {
             Label(label, systemImage: "play.fill")
                 .font(.cassetteCellTitle)
-                .foregroundStyle(Color.cassetteAccentText)
+                .foregroundStyle(labelColor)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, CassetteSpacing.m)
                 .background(isDisabled ? accentColor.opacity(0.4) : accentColor)

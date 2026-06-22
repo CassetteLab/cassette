@@ -37,4 +37,15 @@ extension View {
             self.background(Capsule().fill(.ultraThinMaterial))
         }
     }
+
+    /// Over-cover HERO button surface: an OPAQUE solid circle of `background`. The single unified treatment for
+    /// the chevron/pencil + transport buttons (Play uses the same variant via PlayButton). The caller sets the
+    /// glyph color (`.foregroundStyle`). Opaque, so it covers any native toolbar glass behind it — one
+    /// background, no stacking.
+    func cassetteHeroButton(size: CGFloat = 44, background: Color) -> some View {
+        self
+            .frame(width: size, height: size)
+            .background(Circle().fill(background))
+            .contentShape(Circle())
+    }
 }

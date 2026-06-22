@@ -105,6 +105,11 @@ struct AlbumDetailView: View {
     private var heroIconColor: Color {
         colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
+    /// Unified (background, glyph/label) for every hero over-cover button — decided from the COVER's
+    /// dominantColor (dark cover -> white + dominant glyph; else -> dark-violet + white glyph).
+    private var heroButtonVariant: (background: Color, foreground: Color) {
+        CassetteColors.heroButtonVariant(on: dominantColor)
+    }
     private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
     private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackgroundColor }
     private var systemBackgroundColor: Color {
@@ -258,9 +263,11 @@ struct AlbumDetailView: View {
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(heroIconColor)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(heroButtonVariant.foreground)
+                        .cassetteHeroButton(size: 34, background: heroButtonVariant.background)
                 }
+                .buttonStyle(.plain)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -274,9 +281,11 @@ struct AlbumDetailView: View {
                     }
                 } label: {
                     Image(systemName: isAlbumFavorite ? "star.fill" : "star")
-                        .foregroundStyle(isAlbumFavorite ? CassetteColors.accentForeground(on: dominantColor) : heroIconColor)
+                        .foregroundStyle(heroButtonVariant.foreground)
                         .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isAlbumFavorite)
+                        .cassetteHeroButton(size: 34, background: heroButtonVariant.background)
                 }
+                .buttonStyle(.plain)
                 .disabled(!isOnline)
             }
         }
@@ -420,8 +429,8 @@ struct AlbumDetailView: View {
                 } label: {
                     Image(systemName: "shuffle")
                         .font(.cassetteCellTitle)
-                        .foregroundStyle(heroIconColor)
-                        .cassetteGlassButton(size: 44)
+                        .foregroundStyle(heroButtonVariant.foreground)
+                        .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                 }
                 .disabled(songs.isEmpty)
                 .opacity(vm == nil ? 0.4 : 1)
@@ -431,7 +440,7 @@ struct AlbumDetailView: View {
                         guard !songs.isEmpty else { return }
                         try? await container?.playerService.play(tracks: songs, startIndex: 0)
                     }
-                }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true), accentColor: heroIconColor)
+                }, isDisabled: songs.isEmpty || (mode == .full && vm?.isDownloadingAlbum == true), accentColor: heroButtonVariant.background, labelColor: heroButtonVariant.foreground)
                 .frame(maxWidth: 220)
 
                 if mode == .downloadedOnly {
@@ -447,8 +456,8 @@ struct AlbumDetailView: View {
                     } label: {
                         Image(systemName: "trash")
                             .font(.cassetteCellTitle)
-                            .foregroundStyle(heroIconColor)
-                            .cassetteGlassButton(size: 44)
+                            .foregroundStyle(heroButtonVariant.foreground)
+                            .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                     }
                 } else if vm?.isOffline != true {
                     if let vm {
@@ -456,8 +465,8 @@ struct AlbumDetailView: View {
                             Button { Task { await vm.cancelAlbumDownload() } } label: {
                                 Image(systemName: "xmark")
                                     .font(.cassetteCellTitle)
-                                    .foregroundStyle(heroIconColor)
-                                    .cassetteGlassButton(size: 44)
+                                    .foregroundStyle(heroButtonVariant.foreground)
+                                    .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                             }
                         } else {
                             switch downloadState(for: vm) {
@@ -465,16 +474,16 @@ struct AlbumDetailView: View {
                                 Button { Task { await vm.downloadAlbum() } } label: {
                                     Image(systemName: "arrow.down.circle")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(heroIconColor)
-                                        .cassetteGlassButton(size: 44)
+                                        .foregroundStyle(heroButtonVariant.foreground)
+                                        .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                                 }
                                 .disabled(vm.songs.isEmpty)
                             case .partiallyDownloaded:
                                 Button { Task { await vm.downloadMissingTracks() } } label: {
                                     Image(systemName: "arrow.down.circle.dotted")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(heroIconColor)
-                                        .cassetteGlassButton(size: 44)
+                                        .foregroundStyle(heroButtonVariant.foreground)
+                                        .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                                 }
                             case .fullyDownloaded:
                                 Button {
@@ -483,8 +492,8 @@ struct AlbumDetailView: View {
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(heroIconColor)
-                                        .cassetteGlassButton(size: 44)
+                                        .foregroundStyle(heroButtonVariant.foreground)
+                                        .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                                 }
                             }
                         }
@@ -492,8 +501,8 @@ struct AlbumDetailView: View {
                         Button { } label: {
                             Image(systemName: "arrow.down.circle")
                                 .font(.cassetteCellTitle)
-                                .foregroundStyle(heroIconColor)
-                                .cassetteGlassButton(size: 44)
+                                .foregroundStyle(heroButtonVariant.foreground)
+                                .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
                         }
                         .disabled(true)
                         .opacity(0.4)
