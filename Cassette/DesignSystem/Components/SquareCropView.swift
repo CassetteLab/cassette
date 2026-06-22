@@ -6,10 +6,10 @@
 #if os(iOS)
 import SwiftUI
 
-/// Apple-Music-style "Move and Scale" square cropper for playlist cover photos: a dark screen, the photo
-/// fills a square viewport, pan + pinch to position it (clamped so the image always covers the square — no
-/// black gaps), then "Choose" renders exactly what's framed. Replaces UIImagePickerController's clunky
-/// built-in crop. iOS-only.
+/// Apple-Photos-style square cropper for playlist cover photos. The WHOLE photo stays visible — the area
+/// outside the square crop frame is dimmed (not clipped) so you keep your bearings — with a rule-of-thirds
+/// grid inside the frame. Drag to move, pinch to resize/zoom; the pan/zoom is clamped so the square is always
+/// covered (no gaps). "Choose" renders exactly what the frame contains (~1024px). iOS-only.
 struct SquareCropView: View {
     let image: UIImage
     let onCrop: (UIImage) -> Void
@@ -18,30 +18,52 @@ struct SquareCropView: View {
     @State private var scale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @GestureState private var pinch: CGFloat = 1
-    @GestureState private var drag: CGSize = .zero
-    @State private var viewport: CGFloat = 0
+    @GestureState private var dragT: CGSize = .zero
+    @State private var cropSide: CGFloat = 0
 
     var body: some View {
         NavigationStack {
             GeometryReader { geo in
-                let side = min(geo.size.width, geo.size.height) - CassetteSpacing.xl * 2
+                let F = min(geo.size.width, geo.size.height) - CassetteSpacing.l * 2
+                let base = baseSize(forFrame: F)
                 ZStack {
                     Color.black.ignoresSafeArea()
-                    imageLayer(side)
-                        .frame(width: side, height: side)
-                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous)
-                                .strokeBorder(.white.opacity(0.6), lineWidth: 1)
-                        )
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    // The photo — full, NOT clipped to the frame (the overflow stays visible, just dimmed).
+                    Image(uiImage: image)
+                        .resizable()
+                        .frame(width: base.width, height: base.height)
+                        .scaleEffect(scale * pinch)
+                        .offset(x: offset.width + dragT.width, y: offset.height + dragT.height)
+
+                    dimAndGrid(in: geo.size, frame: F)
+                        .allowsHitTesting(false)
                 }
-                .onAppear { viewport = side }
-                .onChange(of: side) { _, new in viewport = new }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(
+                    MagnificationGesture()
+                        .updating($pinch) { v, s, _ in s = v }
+                        .onEnded { v in
+                            scale = min(max(scale * v, 1), 8)
+                            offset = clampedOffset(offset, frame: F)
+                        }
+                        .simultaneously(with:
+                            DragGesture()
+                                .updating($dragT) { v, s, _ in s = v.translation }
+                                .onEnded { v in
+                                    offset = clampedOffset(
+                                        CGSize(width: offset.width + v.translation.width,
+                                               height: offset.height + v.translation.height),
+                                        frame: F
+                                    )
+                                }
+                        )
+                )
+                .onAppear { cropSide = F }
+                .onChange(of: F) { _, new in cropSide = new }
             }
             .background(Color.black)
-            .navigationTitle("Move and Scale")
-            .navigationBarTitleDisplayModeInline()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onCancel() }.tint(.white)
@@ -57,70 +79,69 @@ struct SquareCropView: View {
         .preferredColorScheme(.dark)
     }
 
-    private func imageLayer(_ side: CGFloat) -> some View {
-        Color.clear
-            .overlay {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .scaleEffect(scale * pinch)
-                    .offset(x: offset.width + drag.width, y: offset.height + drag.height)
-            }
-            .frame(width: side, height: side)
-            .clipped()
-            .contentShape(Rectangle())
-            .gesture(
-                MagnificationGesture()
-                    .updating($pinch) { value, state, _ in state = value }
-                    .onEnded { value in
-                        scale = clampedScale(scale * value)
-                        offset = clampedOffset(offset, side: side)
-                    }
-                    .simultaneously(with:
-                        DragGesture()
-                            .updating($drag) { value, state, _ in state = value.translation }
-                            .onEnded { value in
-                                offset = clampedOffset(
-                                    CGSize(width: offset.width + value.translation.width,
-                                           height: offset.height + value.translation.height),
-                                    side: side
-                                )
-                            }
-                    )
-            )
+    // MARK: - Geometry
+
+    /// The photo's on-screen size that exactly fills the crop frame on its short edge (overflow on the long edge).
+    private func baseSize(forFrame F: CGFloat) -> CGSize {
+        let minDim = max(min(image.size.width, image.size.height), 1)
+        let f = F / minDim
+        return CGSize(width: image.size.width * f, height: image.size.height * f)
     }
 
-    private func clampedScale(_ s: CGFloat) -> CGFloat { min(max(s, 1), 6) }
-
-    /// Keep the (scaledToFill, scaled) image covering the square: cap the pan to the overflow on each axis.
-    private func clampedOffset(_ o: CGSize, side: CGFloat) -> CGSize {
-        let minDim = min(image.size.width, image.size.height)
-        guard minDim > 0 else { return .zero }
-        let fill = side / minDim
-        let dispW = image.size.width * fill * scale
-        let dispH = image.size.height * fill * scale
-        let maxX = max(0, (dispW - side) / 2)
-        let maxY = max(0, (dispH - side) / 2)
+    /// Clamp the pan so the (scaled) photo always covers the square frame.
+    private func clampedOffset(_ o: CGSize, frame F: CGFloat) -> CGSize {
+        let base = baseSize(forFrame: F)
+        let maxX = max(0, (base.width * scale - F) / 2)
+        let maxY = max(0, (base.height * scale - F) / 2)
         return CGSize(width: min(max(o.width, -maxX), maxX),
                       height: min(max(o.height, -maxY), maxY))
     }
 
+    // MARK: - Overlay (dim + frame + rule-of-thirds grid)
+
+    private func dimAndGrid(in size: CGSize, frame F: CGFloat) -> some View {
+        let rect = CGRect(x: (size.width - F) / 2, y: (size.height - F) / 2, width: F, height: F)
+        return ZStack {
+            // Dim everything except the crop square (even-odd hole).
+            Path { p in
+                p.addRect(CGRect(origin: .zero, size: size))
+                p.addRect(rect)
+            }
+            .fill(Color.black.opacity(0.5), style: FillStyle(eoFill: true))
+
+            // Crop frame border.
+            Path { $0.addRect(rect) }
+                .stroke(Color.white.opacity(0.9), lineWidth: 1)
+
+            // Rule-of-thirds grid.
+            Path { p in
+                for i in 1...2 {
+                    let x = rect.minX + rect.width * CGFloat(i) / 3
+                    p.move(to: CGPoint(x: x, y: rect.minY)); p.addLine(to: CGPoint(x: x, y: rect.maxY))
+                    let y = rect.minY + rect.height * CGFloat(i) / 3
+                    p.move(to: CGPoint(x: rect.minX, y: y)); p.addLine(to: CGPoint(x: rect.maxX, y: y))
+                }
+            }
+            .stroke(Color.white.opacity(0.35), lineWidth: 0.5)
+        }
+    }
+
+    // MARK: - Render
+
     @MainActor
     private func performCrop() {
-        let side = viewport
-        guard side > 0 else { onCancel(); return }
-        let framed = Color.clear
-            .overlay {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .scaleEffect(scale)
-                    .offset(offset)
-            }
-            .frame(width: side, height: side)
+        let F = cropSide
+        guard F > 0 else { onCancel(); return }
+        let base = baseSize(forFrame: F)
+        let framed = Image(uiImage: image)
+            .resizable()
+            .frame(width: base.width, height: base.height)
+            .scaleEffect(scale)
+            .offset(offset)
+            .frame(width: F, height: F)
             .clipped()
         let renderer = ImageRenderer(content: framed)
-        renderer.scale = max(2, 1024 / side)   // ~1024px output
+        renderer.scale = max(2, 1024 / F)
         if let ui = renderer.uiImage {
             onCrop(ui)
         } else {
