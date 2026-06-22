@@ -14,6 +14,9 @@ struct CreatePlaylistSheet: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: CreatePlaylistViewModel?
     @State private var selectedGradient: PlaylistGradientShape?
+    /// Whether the PHOTO is the chosen cover. Separate from "a photo is picked" (pendingImage) so a picked
+    /// photo's preview survives switching to another cover and back.
+    @State private var photoIsCover = false
     @FocusState private var nameFieldFocused: Bool
 
     var onCreated: ((PlaylistWithSongs) -> Void)? = nil
@@ -175,27 +178,29 @@ struct CreatePlaylistSheet: View {
         PlaylistCoverCarousel(
             title: vm.name,
             selectedGradient: selectedGradient,
-            isPhotoSelected: hasPhoto,
+            isPhotoSelected: photoIsCover,
             photoPreview: photoPreviewImage,
             showsPhotoOption: showsPhotoOption,
             leadingLabel: "None",
             onSelectLeading: {
                 selectedGradient = nil
-                #if os(iOS)
-                pendingImage = nil
-                #endif
+                photoIsCover = false        // keep pendingImage so the photo card preview survives
             },
             onSelectPhoto: {
+                // Swipe settled on the photo card → focus the photo as cover, NO modal.
                 selectedGradient = nil
+                photoIsCover = true
+            },
+            onRequestPhotoPicker: {
+                selectedGradient = nil
+                photoIsCover = true
                 #if os(iOS)
                 showImageOptions = true
                 #endif
             },
             onSelectGradient: { shape in
                 selectedGradient = shape
-                #if os(iOS)
-                pendingImage = nil
-                #endif
+                photoIsCover = false        // keep pendingImage so the photo card preview survives
             }
         )
     }
@@ -220,7 +225,7 @@ struct CreatePlaylistSheet: View {
             return
         }
         #if os(iOS)
-        if let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
+        if photoIsCover, let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
             await manager.applyImageCover(data, playlistId: playlistId)
         }
         #endif

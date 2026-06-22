@@ -23,7 +23,11 @@ struct PlaylistCoverCarousel: View {
     /// Edit flow: the leading card shows the current cover instead of the empty glyph.
     var leadingCoverArtId: String? = nil
     let onSelectLeading: () -> Void
+    /// Focus the photo option (swipe settled on the photo card) — selects it as the cover, NO modal.
     var onSelectPhoto: () -> Void = {}
+    /// Explicit request to open the system photo picker (tap the photo card or the camera button) — distinct
+    /// from onSelectPhoto so swiping past/onto the photo card never auto-opens the picker.
+    var onRequestPhotoPicker: () -> Void = {}
     let onSelectGradient: (PlaylistGradientShape) -> Void
 
     @State private var scrolledOption: CoverOption?
@@ -101,7 +105,11 @@ struct PlaylistCoverCarousel: View {
                 }
             case .photo:
                 if let photoPreview {
-                    platformImage(photoPreview).resizable().aspectRatio(contentMode: .fill)
+                    platformImage(photoPreview)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                 } else {
                     Color.secondary.opacity(0.12)
                     Circle()
@@ -119,6 +127,14 @@ struct PlaylistCoverCarousel: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+        .onTapGesture { handleTap(option) }
+    }
+
+    /// Tap centers the card; tapping the photo card ALSO opens the picker (the only path that opens the modal).
+    private func handleTap(_ option: CoverOption) {
+        withAnimation(.snappy) { scrolledOption = option }
+        if case .photo = option { onRequestPhotoPicker() }
     }
 
     /// The live title rendered over the gradient — the WrappedCoverRenderer pattern (white, bold, rounded,
@@ -149,7 +165,7 @@ struct PlaylistCoverCarousel: View {
                 }
             }
             HStack {
-                Button(action: onSelectPhoto) {
+                Button(action: onRequestPhotoPicker) {
                     Image(systemName: "camera.fill")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
