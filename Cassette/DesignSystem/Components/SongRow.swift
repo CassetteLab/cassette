@@ -53,6 +53,17 @@ struct SongRow: View {
         HStack(spacing: CassetteSpacing.s) {
             if showCoverArt {
                 CoverArtCard(id: song.coverArtId ?? song.id, size: 44)
+                    .overlay {
+                        // Now-playing equalizer over the thumbnail (with a scrim) for the current track —
+                        // restores the playing cue lost when rows switched to album thumbnails (showCoverArt).
+                        if isCurrentTrack {
+                            ZStack {
+                                Color.black.opacity(0.45)
+                                NowPlayingBarsIndicator(isPlaying: isPlaying)
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard))
+                        }
+                    }
                     .overlay(alignment: .topLeading) {
                         if isFavorite {
                             Image(systemName: "heart.fill")
