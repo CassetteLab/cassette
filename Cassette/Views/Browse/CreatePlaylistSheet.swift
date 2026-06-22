@@ -248,11 +248,3 @@ struct CreatePlaylistSheet: View {
         #endif
     }
 }
-
-#if os(iOS)
-/// Identifiable wrapper so a picked image can drive `.fullScreenCover(item:)` for the crop screen.
-private struct CroppableImage: Identifiable {
-    let id = UUID()
-    let image: UIImage
-}
-#endif

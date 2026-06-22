@@ -38,6 +38,8 @@ struct EditPlaylistSheet: View {
     /// Multi-select set (song ids) for the remove action.
     @State private var selectedSongIds: Set<String> = []
     @State private var selectedGradient: PlaylistGradientShape?
+    /// Whether the PHOTO is the chosen cover (separate from "a photo is picked" so the preview survives).
+    @State private var photoIsCover = false
     @State private var coverDirty = false
     @State private var isSaving = false
     @State private var showDeleteConfirm = false
@@ -50,64 +52,31 @@ struct EditPlaylistSheet: View {
     @State private var showImagePicker = false
     @State private var showCamera = false
     @State private var showFilePicker = false
+    @State private var imageToCrop: CroppableImage?
     #endif
 
     var body: some View {
         NavigationStack {
             List(selection: $selectedSongIds) {
                 Section {
-                    PlaylistCoverPicker(
-                        selectedGradient: selectedGradient,
-                        isPhotoSelected: hasPhoto,
-                        photoPreview: photoPreviewImage,
-                        showsPhotoOption: showsPhotoOption,
-                        leadingLabel: "Current",
-                        leadingCoverArtId: currentCoverArtId ?? playlistId,
-                        onSelectLeading: {
-                            selectedGradient = nil
-                            coverDirty = true
-                            #if os(iOS)
-                            pendingImage = nil
-                            #endif
-                        },
-                        onSelectPhoto: {
-                            selectedGradient = nil
-                            coverDirty = true
-                            #if os(iOS)
-                            showImageOptions = true
-                            #endif
-                        },
-                        onSelectGradient: { shape in
-                            selectedGradient = shape
-                            coverDirty = true
-                            #if os(iOS)
-                            pendingImage = nil
-                            #endif
-                        }
-                    )
-                    .listRowInsets(EdgeInsets(top: CassetteSpacing.s, leading: CassetteSpacing.m,
-                                              bottom: CassetteSpacing.s, trailing: CassetteSpacing.m))
-                }
-
-                Section("Name") {
-                    TextField("Playlist Name", text: $editName)
-                }
-                Section("Description") {
-                    TextField("Add a description…", text: $editComment, axis: .vertical)
-                        .lineLimit(3...6)
+                    coverCarousel
+                        .listRowInsets(EdgeInsets(top: CassetteSpacing.s, leading: 0, bottom: CassetteSpacing.s, trailing: 0))
+                        .listRowSeparator(.hidden)
                 }
 
                 Section {
-                    Button {
-                        showAddMusic = true
-                    } label: {
-                        Label("Add Music", systemImage: "plus.circle.fill")
-                            .foregroundStyle(Color.cassetteAccent)
-                    }
-                    .disabled(container?.serverState.isOnline != true)
+                    // Editorial centered title + discreet description, no field chrome / labels (AM style).
+                    TextField("Playlist Title", text: $editName)
+                        .font(.system(.title2, design: .rounded, weight: .semibold))
+                        .multilineTextAlignment(.center)
+                        .padding(.vertical, CassetteSpacing.xs)
+                    TextField("Description", text: $editComment, axis: .vertical)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1...4)
                 }
+                .listRowSeparator(.hidden)
 
-                Section("Songs") {
+                Section {
                     ForEach(editSongs) { song in
                         trackRow(song)
                             .tag(song.id)
@@ -117,6 +86,7 @@ struct EditPlaylistSheet: View {
                     }
                 }
             }
+            .listStyle(.plain)
             .navigationTitle("Edit Playlist")
             .navigationBarTitleDisplayModeInline()
             // Always-on edit mode so the Songs rows show drag-reorder handles (and, in B2, selection circles).
@@ -164,18 +134,21 @@ struct EditPlaylistSheet: View {
                 Button("Cancel", role: .cancel) {}
             }
             .fullScreenCover(isPresented: $showImagePicker) {
-                ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
+                ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
                     .ignoresSafeArea()
             }
             .fullScreenCover(isPresented: $showCamera) {
-                ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
+                ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
                     .ignoresSafeArea()
+            }
+            .fullScreenCover(item: $imageToCrop) { croppable in
+                SquareCropView(image: croppable.image, onCrop: { pendingImage = $0; imageToCrop = nil }, onCancel: { imageToCrop = nil })
             }
             .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.jpeg, .png, .heic, .webP], allowsMultipleSelection: false) { result in
                 guard case .success(let urls) = result, let url = urls.first else { return }
                 let accessed = url.startAccessingSecurityScopedResource()
                 defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-                if let data = try? Data(contentsOf: url) { pendingImage = UIImage(data: data) }
+                if let data = try? Data(contentsOf: url), let img = UIImage(data: data) { presentCrop(img) }
             }
             #endif
             .task {
@@ -192,15 +165,18 @@ struct EditPlaylistSheet: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
-            Button { dismiss() } label: { Image(systemName: "xmark") }
+            Button { dismiss() } label: { circleIcon("xmark", filled: false) }
+                .buttonStyle(.plain)
                 .disabled(isSaving)
         }
         ToolbarItem(placement: .confirmationAction) {
             if isSaving {
                 ProgressView().controlSize(.small)
             } else {
-                Button { Task { await commit() } } label: { Image(systemName: "checkmark").fontWeight(.semibold) }
-                    .disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                Button { Task { await commit() } } label: { circleIcon("checkmark", filled: canSave) }
+                    .buttonStyle(.plain)
+                    .disabled(!canSave)
             }
         }
         #if os(iOS)
@@ -210,9 +186,13 @@ struct EditPlaylistSheet: View {
             }
             .disabled(isSaving)
             Spacer()
-            // Multi-select REMOVE TRACKS (distinct from the trash above = delete the whole playlist). Only the
-            // local working list is mutated here; the commit persists it via the one atomic replace.
-            if !selectedSongIds.isEmpty {
+            // Bottom-right: add music when nothing is selected, else multi-select REMOVE TRACKS (distinct from
+            // the trash = delete the whole playlist). Both mutate only the local working list; the commit
+            // persists via the one atomic replace.
+            if selectedSongIds.isEmpty {
+                Button { showAddMusic = true } label: { Image(systemName: "plus") }
+                    .disabled(isSaving || container?.serverState.isOnline != true)
+            } else {
                 Button(role: .destructive) { removeSelectedTracks() } label: {
                     Text("Remove \(selectedSongIds.count)")
                 }
@@ -220,6 +200,15 @@ struct EditPlaylistSheet: View {
             }
         }
         #endif
+    }
+
+    /// AM-style circular toolbar action — accent-filled when active (✓), subtle grey otherwise (X / disabled).
+    private func circleIcon(_ name: String, filled: Bool) -> some View {
+        Image(systemName: name)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(filled ? Color.white : Color.primary)
+            .frame(width: 30, height: 30)
+            .background(Circle().fill(filled ? Color.cassetteAccent : Color.secondary.opacity(0.15)))
     }
 
     private func trackRow(_ song: DisplayableSong) -> some View {
@@ -242,6 +231,42 @@ struct EditPlaylistSheet: View {
     private func removeSelectedTracks() {
         editSongs.removeAll { selectedSongIds.contains($0.id) }
         selectedSongIds.removeAll()
+    }
+
+    /// Edit-flow cover carousel (Apple-Music direction): leading "Current" card + photo + gradients, live title.
+    private var coverCarousel: some View {
+        PlaylistCoverCarousel(
+            title: editName,
+            selectedGradient: selectedGradient,
+            isPhotoSelected: photoIsCover,
+            photoPreview: photoPreviewImage,
+            showsPhotoOption: showsPhotoOption,
+            leadingLabel: "Current",
+            leadingCoverArtId: currentCoverArtId ?? playlistId,
+            onSelectLeading: {
+                selectedGradient = nil
+                photoIsCover = false
+                coverDirty = true
+            },
+            onSelectPhoto: {
+                selectedGradient = nil
+                photoIsCover = true
+                coverDirty = true
+            },
+            onRequestPhotoPicker: {
+                selectedGradient = nil
+                photoIsCover = true
+                coverDirty = true
+                #if os(iOS)
+                showImageOptions = true
+                #endif
+            },
+            onSelectGradient: { shape in
+                selectedGradient = shape
+                photoIsCover = false
+                coverDirty = true
+            }
+        )
     }
 
     // MARK: - State
@@ -267,6 +292,15 @@ struct EditPlaylistSheet: View {
         return nil
         #endif
     }
+
+    #if os(iOS)
+    /// Defer presenting the crop screen so the picker fully dismisses first (sequential full-screen covers).
+    private func presentCrop(_ image: UIImage) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            imageToCrop = CroppableImage(image: image)
+        }
+    }
+    #endif
 
     private func loadCurrentChoice() {
         guard let c = container else { return }
@@ -346,7 +380,7 @@ struct EditPlaylistSheet: View {
             return
         }
         #if os(iOS)
-        if let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
+        if photoIsCover, let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
             await manager.applyImageCover(data, playlistId: playlistId)
             // A photo supersedes any gradient choice → drop the stored gradient.
             store.remove(playlistId: playlistId, serverId: serverId)

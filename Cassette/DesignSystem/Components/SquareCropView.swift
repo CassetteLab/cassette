@@ -149,4 +149,11 @@ struct SquareCropView: View {
         }
     }
 }
+
+/// Identifiable wrapper so a picked image can drive `.fullScreenCover(item:)` for the crop screen — shared by
+/// the create + edit cover flows.
+struct CroppableImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
 #endif
