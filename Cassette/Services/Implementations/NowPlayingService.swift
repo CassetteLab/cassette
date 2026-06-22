@@ -6,6 +6,10 @@
 import Foundation
 import MediaPlayer
 import OSLog
+#if os(iOS)
+import AVFoundation
+import UIKit
+#endif
 
 /// Manages MPNowPlayingInfoCenter + MPRemoteCommandCenter.
 /// Active from v1 (lockscreen, Control Center, AirPods, Apple Watch).
@@ -14,6 +18,11 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     private let playerService: any PlayerServiceProtocol
     private let artworkLoader = ArtworkLoader()
     private let artworkImageCache: ArtworkImageCache
+    #if os(iOS)
+    private var interruptionObserver: Any?
+    private var routeChangeObserver: Any?
+    private var foregroundObserver: Any?
+    #endif
 
     init(playerService: any PlayerServiceProtocol, artworkImageCache: ArtworkImageCache) {
         self.playerService = playerService
@@ -23,6 +32,15 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     // MARK: - Lifecycle
 
     func start() async {
+        #if os(iOS)
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback)
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            Logger.nowPlaying.warning("AVAudioSession early setup failed: \(error, privacy: .public)")
+        }
+        #endif
+
         let center = MPRemoteCommandCenter.shared()
         let playerService = playerService
 
@@ -79,6 +97,23 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             }
             return .success
         }
+
+        center.nextTrackCommand.isEnabled = true
+        center.previousTrackCommand.isEnabled = true
+        center.changePlaybackPositionCommand.isEnabled = true
+        #if os(iOS)
+        registerAudioSessionObservers()
+        if foregroundObserver == nil {
+            foregroundObserver = NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                guard let self else { return }
+                Task { await self.reRegisterRemoteCommands() }
+            }
+        }
+        #endif
     }
 
     func stop() async {
@@ -91,6 +126,11 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         center.nextTrackCommand.removeTarget(nil)
         center.previousTrackCommand.removeTarget(nil)
         center.changePlaybackPositionCommand.removeTarget(nil)
+        #if os(iOS)
+        if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs); interruptionObserver = nil }
+        if let obs = routeChangeObserver  { NotificationCenter.default.removeObserver(obs); routeChangeObserver  = nil }
+        if let obs = foregroundObserver   { NotificationCenter.default.removeObserver(obs); foregroundObserver   = nil }
+        #endif
     }
 
     // MARK: - Update
@@ -207,4 +247,39 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         center.previousTrackCommand.isEnabled = !isLiveStream
         center.changePlaybackPositionCommand.isEnabled = !isLiveStream
     }
+
+    #if os(iOS)
+    // MARK: - Audio session re-registration
+
+    private func registerAudioSessionObservers() {
+        let session = AVAudioSession.sharedInstance()
+        if interruptionObserver == nil {
+            interruptionObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.interruptionNotification,
+                object: session,
+                queue: nil
+            ) { [weak self] notification in
+                guard let self else { return }
+                guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                      AVAudioSession.InterruptionType(rawValue: typeValue) == .ended else { return }
+                Task { await self.reRegisterRemoteCommands() }
+            }
+        }
+        if routeChangeObserver == nil {
+            routeChangeObserver = NotificationCenter.default.addObserver(
+                forName: AVAudioSession.routeChangeNotification,
+                object: session,
+                queue: nil
+            ) { [weak self] _ in
+                guard let self else { return }
+                Task { await self.reRegisterRemoteCommands() }
+            }
+        }
+    }
+
+    private func reRegisterRemoteCommands() async {
+        let isLiveStream = await MainActor.run { playerService.state.isLiveStream }
+        updateRemoteCommandsAvailability(isLiveStream: isLiveStream)
+    }
+    #endif
 }

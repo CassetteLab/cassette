@@ -955,6 +955,25 @@ actor PlayerService: PlayerServiceProtocol {
         ))
     }
 
+    private func pushNowPlayingSnapshot(playbackRate: Float) async {
+        let track = await MainActor.run { state.currentTrack }
+        guard let track else { return }
+        let duration = await MainActor.run { state.duration }
+        await nowPlayingService?.update(with: NowPlayingSnapshot(
+            title: track.title,
+            artist: track.artist,
+            album: track.albumName,
+            duration: duration,
+            position: audioPlayer.progress,
+            playbackRate: playbackRate,
+            artworkURL: nil,
+            artworkHeaders: [:],
+            coverArtId: nil,
+            isLiveStream: false,
+            radioStationName: nil
+        ))
+    }
+
     func handleNetworkRestored() async {
         // Don't race with an in-progress session restore; prepareCurrentTrackForRestoration
         // sets isRestoringSession before its first await so this check is reliable.
@@ -1184,6 +1203,9 @@ actor PlayerService: PlayerServiceProtocol {
                 self.stopProgressTimer()
                 self.isRestoringSession = false
                 Logger.player.info("[RESTORE] seek landed — paused at \(self.audioPlayer.progress, format: .fixed(precision: 1))s")
+                // Notify NowPlayingInfoCenter so iOS registers the app
+                // as active Now Playing and enables remote commands.
+                await self.pushNowPlayingSnapshot(playbackRate: 0.0)
             }
         case .error:
             Logger.player.error("[PLAYER] AudioStreaming entered error state")
@@ -1341,6 +1363,7 @@ extension PlayerService {
                 Task {
                     try? await Task.sleep(for: .seconds(0.5))
                     try? AVAudioSession.sharedInstance().setActive(true)
+                    await pushPositionSnapshot()
                 }
             } else {
                 Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
