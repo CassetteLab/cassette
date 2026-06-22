@@ -109,7 +109,11 @@ struct EditPlaylistSheet: View {
             .navigationTitle("Edit Playlist")
             .navigationBarTitleDisplayModeInline()
             // Always-on edit mode so the Songs rows show drag-reorder handles (and, in B2, selection circles).
+            // iOS-only: `editMode` is unavailable on macOS, and EditPlaylistSheet is never presented there
+            // (macOS uses its own PlaylistEditSheet) — gate so the file still compiles for the macOS target.
+            #if os(iOS)
             .environment(\.editMode, .constant(.active))
+            #endif
             .toolbar { toolbar }
             .confirmationDialog("Delete \"\(currentName)\"?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { Task { await deletePlaylist() } }
