@@ -27,7 +27,9 @@ enum PlaylistGradientResolver {
             return .neutral(shape: form)
         }
         if let cached = colorExtractor.cachedColor(for: coverArtId), cached != .clear {
-            return PlaylistGradientSpec(shape: form, baseColor: cached)
+            // Vibrance-boost the DERIVED (averaged, muddy) color so the gradient pops; baked into the frozen
+            // spec, so it propagates to the crisp hero + the JPEG. The neutral/brand-default path is untouched.
+            return PlaylistGradientSpec(shape: form, baseColor: cached.vibranceBoosted())
         }
         guard let image = await artworkImageCache.load(coverArtId: coverArtId, tier: .thumb) else {
             return .neutral(shape: form)
@@ -37,6 +39,6 @@ enum PlaylistGradientResolver {
         }.value
         guard let packed else { return .neutral(shape: form) }
         let color = colorExtractor.storeColor(packed: packed, for: coverArtId)
-        return color == .clear ? .neutral(shape: form) : PlaylistGradientSpec(shape: form, baseColor: color)
+        return color == .clear ? .neutral(shape: form) : PlaylistGradientSpec(shape: form, baseColor: color.vibranceBoosted())
     }
 }

@@ -43,4 +43,27 @@ extension Color {
             brightness: min(max(Double(b) + db, 0), 1)
         )
     }
+
+    /// Vibrance-boosted variant for a DERIVED (averaged, often muddy) gradient base color so the gradient
+    /// pops. Raises saturation MORE for low-saturation colors and less for already-saturated ones
+    /// (`s' = s + (1 - s)·k`, asymptotic to 1 — never blows out), with a gentle brightness floor so very dark
+    /// averages don't read as mud. Already-vibrant colors barely move; the brand default is never routed here
+    /// (it's the neutral path). Returns `self` if the color can't resolve to HSB.
+    func vibranceBoosted(_ k: Double = 0.5) -> Color {
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        #if canImport(UIKit)
+        guard UIColor(self).getHue(&h, saturation: &s, brightness: &b, alpha: &a) else { return self }
+        #elseif canImport(AppKit)
+        guard let ns = NSColor(self).usingColorSpace(.deviceRGB) else { return self }
+        ns.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        #else
+        return self
+        #endif
+        let boosted = Double(s) + (1 - Double(s)) * max(0, k)
+        return Color(
+            hue: Double(h),
+            saturation: min(boosted, 1),
+            brightness: min(max(Double(b), 0.30), 1)
+        )
+    }
 }
