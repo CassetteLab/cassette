@@ -41,6 +41,7 @@ struct EditPlaylistSheet: View {
     @State private var coverDirty = false
     @State private var isSaving = false
     @State private var showDeleteConfirm = false
+    @State private var showAddMusic = false
     @State private var loaded = false
 
     #if os(iOS)
@@ -96,6 +97,16 @@ struct EditPlaylistSheet: View {
                         .lineLimit(3...6)
                 }
 
+                Section {
+                    Button {
+                        showAddMusic = true
+                    } label: {
+                        Label("Add Music", systemImage: "plus.circle.fill")
+                            .foregroundStyle(Color.cassetteAccent)
+                    }
+                    .disabled(container?.serverState.isOnline != true)
+                }
+
                 Section("Songs") {
                     ForEach(editSongs) { song in
                         trackRow(song)
@@ -115,6 +126,22 @@ struct EditPlaylistSheet: View {
             .environment(\.editMode, .constant(.active))
             #endif
             .toolbar { toolbar }
+            .sheet(isPresented: $showAddMusic) {
+                if let c = container {
+                    // The "+" adds to the LOCAL working list (Apple-Music style); the sheet's Done persists
+                    // everything (reorder + remove + add) in one atomic replace, and derives the first-track
+                    // color if this add filled a previously-empty playlist.
+                    AddMusicSheet(
+                        playlistName: currentName,
+                        existingTrackIds: editSongs.map(\.id)
+                    ) { added in
+                        editSongs.append(contentsOf: added)
+                    }
+                    .environment(colorExtractor)
+                    .environment(c.artworkImageCache)
+                    .environment(\.appContainer, c)
+                }
+            }
             .confirmationDialog("Delete \"\(currentName)\"?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) { Task { await deletePlaylist() } }
                 Button("Cancel", role: .cancel) {}
@@ -280,6 +307,18 @@ struct EditPlaylistSheet: View {
         if coverDirty {
             await applyCover(container: c)
         }
+        // First-track derivation: if "Add Music" filled a previously-empty playlist, derive the gradient color
+        // from the new first track — the SAME hook the add-music detail flow uses (Phase 3). Runs after
+        // applyCover so a simultaneous re-pick (which resolves from the OLD empty first track = neutral) is
+        // corrected to the real first track. No-op unless the playlist was empty.
+        await AddMusicCommitter.deriveFirstTrackCoverIfNeeded(
+            wasEmpty: songs.isEmpty,
+            firstSong: editSongs.first,
+            playlistId: playlistId,
+            serverId: serverId,
+            container: c,
+            colorExtractor: colorExtractor
+        )
         // Dismiss first, then notify — mirrors deletePlaylist(). The sheet's dismiss and the detail view's
         // dismiss (inside onCommitted/onDeleted) are independent environments, so this ordering is safe.
         dismiss()

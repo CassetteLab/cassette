@@ -22,10 +22,12 @@ struct PlaylistDetailMacOS: View {
     }
 
     @Environment(\.appContainer) private var container
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.dismiss) private var dismiss
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
     @State private var showEditSheet = false
+    @State private var showAddMusic = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
     var body: some View {
@@ -53,6 +55,29 @@ struct PlaylistDetailMacOS: View {
                     Task { await saveEdit(name: newName, description: newDesc) }
                 }
             )
+        }
+        .sheet(isPresented: $showAddMusic) {
+            if let vm, let c = container, let serverId = c.serverState.activeServer?.id {
+                AddMusicSheet(
+                    playlistName: vm.name.isEmpty ? name : vm.name,
+                    existingTrackIds: vm.songs.map(\.id)
+                ) { added in
+                    await AddMusicCommitter.commit(
+                        addedSongs: added,
+                        playlistId: playlistId,
+                        serverId: serverId,
+                        existingTrackIds: vm.songs.map(\.id),
+                        currentComment: vm.playlistDetail?.comment ?? "",
+                        container: c,
+                        colorExtractor: colorExtractor
+                    )
+                    await vm.load()
+                }
+                .environment(colorExtractor)
+                .environment(c.artworkImageCache)
+                .environment(\.appContainer, c)
+                .frame(minWidth: 480, minHeight: 580)
+            }
         }
         .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
@@ -189,6 +214,21 @@ struct PlaylistDetailMacOS: View {
             }
             .cassetteSharedBackgroundVisibility(.hidden)
         }
+
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                showAddMusic = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .cassetteGlassButton(size: 28)
+            }
+            .buttonStyle(.borderless)
+            .disabled(vm?.isOffline == true || container?.serverState.isOnline != true || vm?.playlistDetail == nil)
+            .help("Add Music")
+        }
+        .cassetteSharedBackgroundVisibility(.hidden)
 
         ToolbarItem(placement: .primaryAction) {
             Button {

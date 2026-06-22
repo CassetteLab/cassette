@@ -67,6 +67,7 @@ struct PlaylistDetailView: View {
     @State private var gradientSpec: PlaylistGradientSpec?
     @State private var showDeleteAlert = false
     @State private var showEditSheet = false
+    @State private var showAddMusic = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
     @State private var coverRefreshID = UUID()
@@ -262,6 +263,30 @@ struct PlaylistDetailView: View {
                 .environment(\.appContainer, c)
             }
         }
+        .sheet(isPresented: $showAddMusic) {
+            if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
+                AddMusicSheet(
+                    playlistName: vm.name,
+                    existingTrackIds: resolvedSongs(vm).map(\.id)
+                ) { added in
+                    await AddMusicCommitter.commit(
+                        addedSongs: added,
+                        playlistId: playlistId,
+                        serverId: serverId,
+                        existingTrackIds: resolvedSongs(vm).map(\.id),
+                        currentComment: vm.playlistDetail?.comment ?? "",
+                        container: c,
+                        colorExtractor: colorExtractor
+                    )
+                    await vm.load()
+                    coverRefreshID = UUID()
+                    coverArtUploadVersion += 1
+                }
+                .environment(colorExtractor)
+                .environment(c.artworkImageCache)
+                .environment(\.appContainer, c)
+            }
+        }
         // Solid page color the track list always sits on. The cover itself now lives in the (scrolling)
         // header row, so it scrolls up with the content instead of staying fixed behind it.
         .background(bodyColor.ignoresSafeArea())
@@ -346,6 +371,15 @@ struct PlaylistDetailView: View {
                 navBarIcon("chevron.left")
             }
             .buttonStyle(.plain)
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                showAddMusic = true
+            } label: {
+                navBarIcon("plus")
+            }
+            .buttonStyle(.plain)
+            .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
         }
         ToolbarItem(placement: .primaryAction) {
             Button {

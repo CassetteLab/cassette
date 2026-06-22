@@ -655,17 +655,36 @@ enum AddMusicCommitter {
             try? await container.playlistService.updateDescription(id: playlistId, description: trimmedComment)
         }
 
-        // First-track derivation (piège #1). Only on empty→first-track, only when the cover is a gradient spec
-        // (an empty playlist's gradient color is necessarily the neutral default — there was no track to derive
-        // from). Photo covers have no spec → skipped. Route through the resolver so caching + neutral fallback
-        // stay consistent with the re-pick path.
-        guard wasEmpty, let firstAdded = addedSongs.first, firstAdded.coverArtId != nil else { return }
+        await deriveFirstTrackCoverIfNeeded(
+            wasEmpty: wasEmpty,
+            firstSong: addedSongs.first,
+            playlistId: playlistId,
+            serverId: serverId,
+            container: container,
+            colorExtractor: colorExtractor
+        )
+    }
+
+    /// Piège #1 — the empty→first-track color derivation, shared by `commit` (detail entry points) AND the
+    /// EditPlaylistSheet commit (its "+" appends locally, then its Done persists). Only on empty→first-track,
+    /// only when the cover is a gradient spec (an empty playlist's gradient color is necessarily the neutral
+    /// default — there was no track to derive from). Photo covers have no spec → skipped. Routes through the
+    /// SAME PlaylistGradientResolver hook the re-pick uses, so caching + the neutral fallback stay consistent.
+    static func deriveFirstTrackCoverIfNeeded(
+        wasEmpty: Bool,
+        firstSong: DisplayableSong?,
+        playlistId: String,
+        serverId: UUID,
+        container: AppContainer,
+        colorExtractor: DominantColorExtractor
+    ) async {
+        guard wasEmpty, let firstSong, firstSong.coverArtId != nil else { return }
         let store = PlaylistCoverStore(modelContainer: container.modelContainer)
         guard let choice = store.choice(playlistId: playlistId, serverId: serverId),
               let spec = choice.spec else { return }
         let derived = await PlaylistGradientResolver.resolve(
             form: spec.shape,
-            firstTrackCoverArtId: firstAdded.coverArtId,
+            firstTrackCoverArtId: firstSong.coverArtId,
             artworkImageCache: container.artworkImageCache,
             colorExtractor: colorExtractor
         )
