@@ -57,10 +57,12 @@ struct PlaylistGradientSpec: Codable, Equatable, Sendable {
         self.blue = blue
     }
 
-    /// Neutral default for an empty playlist (no first track to derive a color from yet) — a calm slate.
-    /// Marked elsewhere as a *system* default (not a user pick), so a real choice never gets overwritten.
+    /// Default/example base for a playlist with no derived color yet (empty playlist) AND the picker's example
+    /// swatches — the Cassette brand accent (Electric Violet), so the default reads vibrant + on-brand. Marked
+    /// elsewhere as a *system* default (not a user pick), so a real choice never gets overwritten; the
+    /// derived-from-track path is separate and unaffected.
     static func neutral(shape: PlaylistGradientShape = .verticalFade) -> PlaylistGradientSpec {
-        PlaylistGradientSpec(shape: shape, baseColor: Color(red: 0.30, green: 0.32, blue: 0.40))
+        PlaylistGradientSpec(shape: shape, baseColor: Color.cassetteAccent)
     }
 }
 
