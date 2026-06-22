@@ -35,6 +35,8 @@ struct EditPlaylistSheet: View {
     /// Local, mutable working copy of the track list — reorder (drag) and multi-select remove both mutate this;
     /// the commit does ONE atomic full-list replace (createPlaylist replace) if it differs from `songs`.
     @State private var editSongs: [DisplayableSong] = []
+    /// Multi-select set (song ids) for the remove action.
+    @State private var selectedSongIds: Set<String> = []
     @State private var selectedGradient: PlaylistGradientShape?
     @State private var coverDirty = false
     @State private var isSaving = false
@@ -51,7 +53,7 @@ struct EditPlaylistSheet: View {
 
     var body: some View {
         NavigationStack {
-            List {
+            List(selection: $selectedSongIds) {
                 Section {
                     PlaylistCoverPicker(
                         selectedGradient: selectedGradient,
@@ -97,6 +99,7 @@ struct EditPlaylistSheet: View {
                 Section("Songs") {
                     ForEach(editSongs) { song in
                         trackRow(song)
+                            .tag(song.id)
                     }
                     .onMove { from, to in
                         editSongs.move(fromOffsets: from, toOffset: to)
@@ -176,6 +179,14 @@ struct EditPlaylistSheet: View {
             }
             .disabled(isSaving)
             Spacer()
+            // Multi-select REMOVE TRACKS (distinct from the trash above = delete the whole playlist). Only the
+            // local working list is mutated here; the commit persists it via the one atomic replace.
+            if !selectedSongIds.isEmpty {
+                Button(role: .destructive) { removeSelectedTracks() } label: {
+                    Text("Remove \(selectedSongIds.count)")
+                }
+                .disabled(isSaving)
+            }
         }
         #endif
     }
@@ -191,6 +202,15 @@ struct EditPlaylistSheet: View {
                 }
             }
         }
+    }
+
+    /// Multi-select remove: drop the selected tracks from the local working list. NO per-index server delete —
+    /// the commit replaces the whole list atomically (final list = `editSongs` minus the selection), so it's
+    /// immune to index drift. Distinct from the detail-view swipe-remove (Phase 1) and the trash (delete
+    /// playlist).
+    private func removeSelectedTracks() {
+        editSongs.removeAll { selectedSongIds.contains($0.id) }
+        selectedSongIds.removeAll()
     }
 
     // MARK: - State
