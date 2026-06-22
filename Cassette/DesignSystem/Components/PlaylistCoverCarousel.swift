@@ -47,22 +47,30 @@ struct PlaylistCoverCarousel: View {
         return .leading
     }
 
+    /// Card width as a fraction of the carousel width — the rest is the peek of the neighbouring cards.
+    private let cardFraction: CGFloat = 0.74
+
     var body: some View {
         VStack(spacing: CassetteSpacing.m) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: CassetteSpacing.m) {
-                    ForEach(options, id: \.self) { option in
-                        card(option)
-                            .containerRelativeFrame(.horizontal, count: 4, span: 3, spacing: CassetteSpacing.m)
-                            .id(option)
+            GeometryReader { geo in
+                let cardSize = geo.size.width * cardFraction
+                let sidePeek = max(0, (geo.size.width - cardSize) / 2)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.m) {
+                        ForEach(options, id: \.self) { option in
+                            card(option)
+                                .frame(width: cardSize, height: cardSize)   // SQUARE
+                                .id(option)
+                        }
                     }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
+                .contentMargins(.horizontal, sidePeek, for: .scrollContent)
+                .scrollTargetBehavior(.viewAligned)
+                .scrollPosition(id: $scrolledOption)
             }
-            .contentMargins(.horizontal, CassetteSpacing.l, for: .scrollContent)
-            .scrollTargetBehavior(.viewAligned)
-            .scrollPosition(id: $scrolledOption)
-            .frame(height: 240)
+            // Container height == card height (square) so the geometry resolves: width × cardFraction·width.
+            .aspectRatio(1 / cardFraction, contentMode: .fit)
 
             dotRow
         }

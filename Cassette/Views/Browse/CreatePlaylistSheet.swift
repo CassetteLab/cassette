@@ -124,21 +124,18 @@ struct CreatePlaylistSheet: View {
                 coverCarousel(vm)
                     .padding(.top, CassetteSpacing.s)
 
-                VStack(spacing: 0) {
-                    // Editorial centered title, no visible field chrome, hairline separator below (AM style).
+                VStack(spacing: CassetteSpacing.s) {
+                    // Editorial centered title + discreet description, no field chrome, no separators (AM style).
                     TextField("Playlist Title", text: Bindable(vm).name)
                         .font(.system(.title2, design: .rounded, weight: .semibold))
                         .multilineTextAlignment(.center)
                         .focused($nameFieldFocused)
                         .submitLabel(.done)
                         .padding(.vertical, CassetteSpacing.s)
-                    Divider()
 
                     TextField("Description", text: Bindable(vm).description, axis: .vertical)
                         .multilineTextAlignment(.center)
                         .lineLimit(1...4)
-                        .padding(.vertical, CassetteSpacing.s)
-                    Divider()
                 }
                 .padding(.horizontal, CassetteSpacing.l)
             }
