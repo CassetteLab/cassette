@@ -5,7 +5,6 @@
 
 import SwiftUI
 import SwiftSonic
-import PhotosUI
 #if os(iOS)
 import UniformTypeIdentifiers
 #endif
@@ -24,8 +23,10 @@ struct CreatePlaylistSheet: View {
 
     #if os(iOS)
     @State private var pendingImage: UIImage?
-    @State private var showPhotosPicker = false
-    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var showImageOptions = false
+    @State private var showImagePicker = false
+    @State private var showCamera = false
+    @State private var showFilePicker = false
     #endif
 
     var body: some View {
@@ -69,16 +70,41 @@ struct CreatePlaylistSheet: View {
         }
         .tint(Color.cassetteAccent)
         #if os(iOS)
-        // Tap the photo card → straight to the modern out-of-process PhotosPicker (native sheet, NO
-        // library-permission prompt). Presented directly (no intermediary action-sheet) so it reliably appears.
-        .photosPicker(isPresented: $showPhotosPicker, selection: $photoPickerItem, matching: .images)
-        .onChange(of: photoPickerItem) { _, item in
-            guard let item else { return }
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    pendingImage = image
+        .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
+            Button("Choose from Library") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showImagePicker = true }
+            }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take a Photo") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showCamera = true }
                 }
+            }
+            Button("Browse Files") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showFilePicker = true }
+            }
+            if pendingImage != nil {
+                Button("Remove Image", role: .destructive) { pendingImage = nil }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .fullScreenCover(isPresented: $showImagePicker) {
+            ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { pendingImage = squareCropped($0) }, onCancel: {})
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { pendingImage = squareCropped($0) }, onCancel: {})
+                .ignoresSafeArea()
+        }
+        .fileImporter(
+            isPresented: $showFilePicker,
+            allowedContentTypes: [.jpeg, .png, .heic, .webP],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                pendingImage = squareCropped(img)
             }
         }
         #endif
@@ -145,6 +171,19 @@ struct CreatePlaylistSheet: View {
         #endif
     }
 
+    #if os(iOS)
+    /// Center-square crop so any picked image becomes a clean square cover — replaces UIImagePickerController's
+    /// clunky built-in crop (now disabled via allowsEditing: false). Orientation is normalised by the renderer.
+    private func squareCropped(_ image: UIImage) -> UIImage {
+        let side = min(image.size.width, image.size.height)
+        let origin = CGPoint(x: (image.size.width - side) / 2, y: (image.size.height - side) / 2)
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side))
+        return renderer.image { _ in
+            image.draw(at: CGPoint(x: -origin.x, y: -origin.y))
+        }
+    }
+    #endif
+
     /// Create-flow cover carousel (Apple-Music direction). The gradient previews show the neutral base color
     /// (an empty playlist has no first track to derive from yet — that derivation is the edit flow's job);
     /// forms differ by geometry. The live title renders into the gradient cards.
@@ -169,7 +208,7 @@ struct CreatePlaylistSheet: View {
                 selectedGradient = nil
                 photoIsCover = true
                 #if os(iOS)
-                showPhotosPicker = true
+                showImageOptions = true
                 #endif
             },
             onSelectGradient: { shape in
