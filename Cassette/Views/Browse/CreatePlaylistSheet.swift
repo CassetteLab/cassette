@@ -24,11 +24,8 @@ struct CreatePlaylistSheet: View {
 
     #if os(iOS)
     @State private var pendingImage: UIImage?
-    @State private var showImageOptions = false
     @State private var showPhotosPicker = false
     @State private var photoPickerItem: PhotosPickerItem?
-    @State private var showCamera = false
-    @State private var showFilePicker = false
     #endif
 
     var body: some View {
@@ -72,24 +69,9 @@ struct CreatePlaylistSheet: View {
         }
         .tint(Color.cassetteAccent)
         #if os(iOS)
-        .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
-            Button("Choose from Library") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showPhotosPicker = true }
-            }
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button("Take a Photo") {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showCamera = true }
-                }
-            }
-            Button("Browse Files") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showFilePicker = true }
-            }
-            if pendingImage != nil {
-                Button("Remove Image", role: .destructive) { pendingImage = nil }
-            }
-            Button("Cancel", role: .cancel) {}
-        }
-        .photosPicker(isPresented: $showPhotosPicker, selection: $photoPickerItem, matching: .images, photoLibrary: .shared())
+        // Tap the photo card → straight to the modern out-of-process PhotosPicker (native sheet, NO
+        // library-permission prompt). Presented directly (no intermediary action-sheet) so it reliably appears.
+        .photosPicker(isPresented: $showPhotosPicker, selection: $photoPickerItem, matching: .images)
         .onChange(of: photoPickerItem) { _, item in
             guard let item else { return }
             Task {
@@ -97,22 +79,6 @@ struct CreatePlaylistSheet: View {
                    let image = UIImage(data: data) {
                     pendingImage = image
                 }
-            }
-        }
-        .fullScreenCover(isPresented: $showCamera) {
-            ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
-                .ignoresSafeArea()
-        }
-        .fileImporter(
-            isPresented: $showFilePicker,
-            allowedContentTypes: [.jpeg, .png, .heic, .webP],
-            allowsMultipleSelection: false
-        ) { result in
-            guard case .success(let urls) = result, let url = urls.first else { return }
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            if let data = try? Data(contentsOf: url) {
-                pendingImage = UIImage(data: data)
             }
         }
         #endif
@@ -203,7 +169,7 @@ struct CreatePlaylistSheet: View {
                 selectedGradient = nil
                 photoIsCover = true
                 #if os(iOS)
-                showImageOptions = true
+                showPhotosPicker = true
                 #endif
             },
             onSelectGradient: { shape in
