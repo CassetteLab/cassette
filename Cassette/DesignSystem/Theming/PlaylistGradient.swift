@@ -129,33 +129,59 @@ struct AnimatedGradientHeroView: View {
     let spec: PlaylistGradientSpec
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var phase: CGFloat = 0
+    @State private var isVisible = false
 
     var body: some View {
         let base = spec.baseColor
         let light = base.adjusted(saturation: -0.04, brightness: 0.18)
         let dark = base.adjusted(saturation: 0.06, brightness: -0.24)
-        MeshGradient(
-            width: 3, height: 3,
-            points: Self.points(phase),
-            colors: Self.meshColors(spec.shape, base: base, light: light, dark: dark)
-        )
-        .onAppear {
-            phase = 0
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 7).repeatForever(autoreverses: true)) { phase = 1 }
+        let colors = Self.meshColors(spec.shape, base: base, light: light, dark: dark)
+
+        Group {
+            if isVisible && !reduceMotion {
+                TimelineView(.animation) { context in
+                    MeshGradient(width: 3, height: 3,
+                                 points: Self.points(at: context.date.timeIntervalSinceReferenceDate),
+                                 colors: colors)
+                }
+            } else {
+                MeshGradient(width: 3, height: 3, points: Self.restPoints, colors: colors)
+            }
         }
-        .onDisappear { phase = 0 }
+        // Overfill + clip: the mesh renders ~1.25x the frame, so the outer control points (biased outward) can
+        // roam fully without ever exposing a frame edge — that's what unlocks the motion vs pinned corners. The
+        // center roams free (bounded so colors never collapse into hard bands). Foreground only -> cheap.
+        .scaleEffect(1.25)
+        .clipped()
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
     }
 
-    /// Corners pinned (fill the frame); the edge-midpoints + center drift by ±0.05 as `phase` oscillates.
-    private static func points(_ phase: CGFloat) -> [SIMD2<Float>] {
-        let p = Float(phase)
-        return [
-            [0.0, 0.0],            [0.5 + 0.05 * p, 0.0],             [1.0, 0.0],
-            [0.0, 0.5 - 0.04 * p], [0.5 - 0.05 * p, 0.5 + 0.05 * p],  [1.0, 0.5 + 0.04 * p],
-            [0.0, 1.0],            [0.5 + 0.04 * p, 1.0],             [1.0, 1.0],
-        ]
+    /// Per node: a base biased OUTWARD for the outer points (pushed into the overfill margin so their inward
+    /// swing never crosses the frame edge) + independent per-axis amplitude / angular frequency / phase ->
+    /// organic Lissajous drift (no uniform pulse). Periods ~4-6s; the center has the largest, bounded amplitude.
+    private static let nodes: [(bx: Double, by: Double, ax: Double, ay: Double, wx: Double, wy: Double, px: Double, py: Double)] = [
+        (-0.05, -0.05, 0.10, 0.10, 1.10, 1.43, 0.0, 1.9),  // 0 TL corner
+        ( 0.50, -0.06, 0.13, 0.09, 1.27, 1.02, 2.3, 0.5),  // 1 T edge
+        ( 1.05, -0.05, 0.10, 0.10, 0.97, 1.51, 3.6, 2.8),  // 2 TR corner
+        (-0.06,  0.50, 0.09, 0.13, 1.33, 1.13, 1.3, 4.2),  // 3 L edge
+        ( 0.50,  0.50, 0.16, 0.16, 1.04, 1.39, 0.7, 3.3),  // 4 center
+        ( 1.06,  0.50, 0.09, 0.13, 1.49, 0.99, 4.8, 1.2),  // 5 R edge
+        (-0.05,  1.05, 0.10, 0.10, 1.06, 1.21, 5.3, 0.3),  // 6 BL corner
+        ( 0.50,  1.06, 0.13, 0.09, 1.18, 1.46, 2.9, 5.6),  // 7 B edge
+        ( 1.05,  1.05, 0.10, 0.10, 1.41, 0.95, 2.0, 4.0),  // 8 BR corner
+    ]
+
+    private static func points(at t: TimeInterval) -> [SIMD2<Float>] {
+        nodes.map { n in
+            SIMD2<Float>(Float(n.bx + n.ax * sin(t * n.wx + n.px)),
+                         Float(n.by + n.ay * sin(t * n.wy + n.py)))
+        }
+    }
+
+    /// Rest position (Reduce Motion / off-screen): the un-drifted biased grid.
+    private static var restPoints: [SIMD2<Float>] {
+        nodes.map { SIMD2<Float>(Float($0.bx), Float($0.by)) }
     }
 
     /// Per-form 9-color arrangement echoing the static `PlaylistGradientView` look of each shape.
