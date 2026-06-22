@@ -5,6 +5,7 @@
 
 import SwiftUI
 import SwiftSonic
+import PhotosUI
 #if os(iOS)
 import UniformTypeIdentifiers
 #endif
@@ -24,7 +25,8 @@ struct CreatePlaylistSheet: View {
     #if os(iOS)
     @State private var pendingImage: UIImage?
     @State private var showImageOptions = false
-    @State private var showImagePicker = false
+    @State private var showPhotosPicker = false
+    @State private var photoPickerItem: PhotosPickerItem?
     @State private var showCamera = false
     @State private var showFilePicker = false
     #endif
@@ -72,7 +74,7 @@ struct CreatePlaylistSheet: View {
         #if os(iOS)
         .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
             Button("Choose from Library") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showImagePicker = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showPhotosPicker = true }
             }
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button("Take a Photo") {
@@ -87,9 +89,15 @@ struct CreatePlaylistSheet: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .fullScreenCover(isPresented: $showImagePicker) {
-            ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
-                .ignoresSafeArea()
+        .photosPicker(isPresented: $showPhotosPicker, selection: $photoPickerItem, matching: .images, photoLibrary: .shared())
+        .onChange(of: photoPickerItem) { _, item in
+            guard let item else { return }
+            Task {
+                if let data = try? await item.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    pendingImage = image
+                }
+            }
         }
         .fullScreenCover(isPresented: $showCamera) {
             ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
