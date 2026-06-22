@@ -345,8 +345,8 @@ struct PlaylistDetailView: View {
     private func navBarIcon(_ systemName: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(heroButtonVariant.foreground)
-            .cassetteHeroButton(size: 34, background: heroButtonVariant.background)
+            .foregroundStyle(headerTextColor)
+            .cassetteHeroButton(size: 34)
     }
 
     // MARK: - Skeleton rows (list-compatible; kept with listRow modifiers since List is preserved)
@@ -451,8 +451,8 @@ struct PlaylistDetailView: View {
                     } label: {
                         Image(systemName: "shuffle")
                             .font(.cassetteCellTitle)
-                            .foregroundStyle(heroButtonVariant.foreground)
-                            .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
+                            .foregroundStyle(headerTextColor)
+                            .cassetteHeroButton(size: 44)
                     }
                     .disabled(resolvedSongs(vm).isEmpty)
                     .opacity(vm == nil ? 0.4 : 1)
@@ -472,8 +472,8 @@ struct PlaylistDetailView: View {
                                 Button { Task { await vm.cancelPlaylistDownload() } } label: {
                                     Image(systemName: "xmark")
                                         .font(.cassetteCellTitle)
-                                        .foregroundStyle(heroButtonVariant.foreground)
-                                        .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
+                                        .foregroundStyle(headerTextColor)
+                                        .cassetteHeroButton(size: 44)
                                 }
                             } else {
                                 switch downloadState(for: vm) {
@@ -481,16 +481,16 @@ struct PlaylistDetailView: View {
                                     Button { Task { await vm.downloadPlaylist() } } label: {
                                         Image(systemName: "arrow.down.circle")
                                             .font(.cassetteCellTitle)
-                                            .foregroundStyle(heroButtonVariant.foreground)
-                                            .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
+                                            .foregroundStyle(headerTextColor)
+                                            .cassetteHeroButton(size: 44)
                                     }
                                     .disabled(vm.songs.isEmpty)
                                 case .partiallyDownloaded:
                                     Button { Task { await vm.downloadMissingTracks() } } label: {
                                         Image(systemName: "arrow.down.circle.dotted")
                                             .font(.cassetteCellTitle)
-                                            .foregroundStyle(heroButtonVariant.foreground)
-                                            .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
+                                            .foregroundStyle(headerTextColor)
+                                            .cassetteHeroButton(size: 44)
                                     }
                                 case .fullyDownloaded:
                                     Button {
@@ -499,8 +499,8 @@ struct PlaylistDetailView: View {
                                     } label: {
                                         Image(systemName: "trash")
                                             .font(.cassetteCellTitle)
-                                            .foregroundStyle(heroButtonVariant.foreground)
-                                            .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
+                                            .foregroundStyle(headerTextColor)
+                                            .cassetteHeroButton(size: 44)
                                     }
                                 }
                             }
@@ -508,8 +508,8 @@ struct PlaylistDetailView: View {
                             Button { } label: {
                                 Image(systemName: "arrow.down.circle")
                                     .font(.cassetteCellTitle)
-                                    .foregroundStyle(heroButtonVariant.foreground)
-                                    .cassetteHeroButton(size: 44, background: heroButtonVariant.background)
+                                    .foregroundStyle(headerTextColor)
+                                    .cassetteHeroButton(size: 44)
                             }
                             .disabled(true)
                             .opacity(0.4)

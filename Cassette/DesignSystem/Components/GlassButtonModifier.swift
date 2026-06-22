@@ -38,14 +38,14 @@ extension View {
         }
     }
 
-    /// Over-cover HERO button surface: an OPAQUE solid circle of `background`. The single unified treatment for
-    /// the chevron/pencil + transport buttons (Play uses the same variant via PlayButton). The caller sets the
-    /// glyph color (`.foregroundStyle`). Opaque, so it covers any native toolbar glass behind it — one
-    /// background, no stacking.
-    func cassetteHeroButton(size: CGFloat = 44, background: Color) -> some View {
+    /// Over-cover HERO round button: TRANSPARENT — no surface/fill. Just the tap area + a soft shadow so the
+    /// glyph stays legible on a busy cover without a backing (the Apple-Music trick). The caller colors the
+    /// glyph for direct contrast on the cover (the over-cover title color). Pair with `.buttonStyle(.plain)`
+    /// to drop the native iOS 26 toolbar glass.
+    func cassetteHeroButton(size: CGFloat = 44) -> some View {
         self
+            .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
             .frame(width: size, height: size)
-            .background(Circle().fill(background))
             .contentShape(Circle())
     }
 }
