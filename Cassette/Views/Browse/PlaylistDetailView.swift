@@ -62,6 +62,9 @@ struct PlaylistDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
+    /// A user-picked gradient spec (if any) -> the hero renders CRISP from it instead of the JPEG. Resolved
+    /// from PlaylistCoverStore on appear + after an edit (coverRefreshID). Nil for photo / server cover.
+    @State private var gradientSpec: PlaylistGradientSpec?
     @State private var showDeleteAlert = false
     @State private var showEditSheet = false
     @State private var songToAddToPlaylist: DisplayableSong?
@@ -313,6 +316,13 @@ struct PlaylistDetailView: View {
             }
             await loadDominantColor(coverArtId: artId)
         }
+        .task(id: coverRefreshID) {
+            // A user-picked gradient -> render the hero CRISP from the spec (the JPEG stays the
+            // cards/cross-device truth). Re-resolves after an edit (coverRefreshID bumps). Nil -> JPEG/photo.
+            guard let container, let serverId = container.serverState.activeServer?.id else { gradientSpec = nil; return }
+            let choice = PlaylistCoverStore(modelContainer: container.modelContainer).choice(playlistId: playlistId, serverId: serverId)
+            gradientSpec = choice?.isUserPicked == true ? choice?.spec : nil
+        }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
@@ -404,7 +414,8 @@ struct PlaylistDetailView: View {
                     coverArtId: effectiveCoverArtId,
                     coverImage: initialCoverImage,
                     theme: theme,
-                    heroHeight: heroHeight
+                    heroHeight: heroHeight,
+                    gradientSpec: gradientSpec
                 )
                 .frame(width: geo.size.width, height: heroHeight + stretch)
                 .offset(y: -stretch)
