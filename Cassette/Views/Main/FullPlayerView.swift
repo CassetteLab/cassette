@@ -205,11 +205,11 @@ struct FullPlayerView: View {
                         flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
                                      isSource: !showingQueue)
                             .allowsHitTesting(!showingQueue)
-                            // Bleed the cover to the very top under the grabber. Top ONLY — ignoring the
-                            // horizontal safe area expands the slot past the screen and pushes the controls
-                            // (title/artist, transport) off-screen. The cover is already full-width via its
-                            // fill frame.
-                            .ignoresSafeArea(.container, edges: .top)
+                            // Bleed the cover up under the grabber with NEGATIVE top padding, NOT
+                            // ignoresSafeArea: ignoresSafeArea (any edge) propagated to the slot/innerVStack
+                            // and expanded it past the screen, pushing the title/artist + transport
+                            // off-screen. Negative padding is vertical only, so it can't widen the layout.
+                            .padding(.top, -60)
                             .transition(.opacity)
                     }
                 }
@@ -261,7 +261,8 @@ struct FullPlayerView: View {
                         .padding(.top, Self.playerControlsSpacing)
                 }
 
-                flowGap(CassetteSpacing.xs, filling: filling)
+                // Default player: a taller bottom gap shortens the greedy cover and lifts the controls up.
+                flowGap((showLyrics || showingQueue) ? CassetteSpacing.xs : 40, filling: filling)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // One animation for the whole flowing reflow, keyed to the surface / lyrics toggles only, so the
