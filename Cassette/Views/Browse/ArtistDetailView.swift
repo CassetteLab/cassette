@@ -120,6 +120,7 @@ struct ArtistDetailView: View {
                             .environment(\.colorScheme, theme.isThemed ? (theme.isLight ? .light : .dark) : colorScheme)
                         }
                         .ignoresSafeArea(.container, edges: .top)
+                        .cassetteHideTopScrollEdgeEffect()
                         .background(bodyColor.ignoresSafeArea())
                         .refreshable { await vm.load() }
                         .task(id: heroCoverArtId) {
