@@ -19,6 +19,8 @@ final class ArtistDetailViewModel {
     var outOfLibraryArtistImages: [String: URL?] = [:]
     /// Most-played songs (getTopSongs). Empty on bare self-hosted servers → the view hides the section.
     var topSongs: [DisplayableSong] = []
+    /// Starts true so the section shows a skeleton until the first load resolves (then empty → hidden).
+    var isLoadingTopSongs = true
 
     private let artistId: String
     private let libraryService: any LibraryServiceProtocol
@@ -50,7 +52,9 @@ final class ArtistDetailViewModel {
 
     /// Top songs (getTopSongs takes the artist NAME) — call after `load()` so `artist?.name` is set.
     func loadTopSongs() async {
-        guard let name = artist?.name else { return }
+        guard let name = artist?.name else { isLoadingTopSongs = false; return }
+        isLoadingTopSongs = true
+        defer { isLoadingTopSongs = false }
         do {
             topSongs = try await libraryService.topSongs(artist: name, count: 25)
         } catch {

@@ -95,7 +95,9 @@ struct ArtistDetailView: View {
                                 if let featured = latestRelease(vm) {
                                     featuredReleaseSection(featured)
                                 }
-                                if !vm.topSongs.isEmpty {
+                                if vm.isLoadingTopSongs {
+                                    topSongsSkeleton
+                                } else if !vm.topSongs.isEmpty {
                                     topSongsSection(vm: vm)
                                 }
                                 albumsSection(albums)
@@ -306,6 +308,26 @@ struct ArtistDetailView: View {
             }
             .padding(.horizontal, CassetteSpacing.l)
         }
+    }
+
+    private var topSongsSkeleton: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            sectionHeader("Top Songs")
+            VStack(spacing: CassetteSpacing.m) {
+                ForEach(0..<5, id: \.self) { _ in
+                    HStack(spacing: CassetteSpacing.m) {
+                        SkeletonBlock(width: 44, height: 44, cornerRadius: CassetteCornerRadius.standard)
+                        VStack(alignment: .leading, spacing: 6) {
+                            SkeletonBlock(width: 180, height: 13, cornerRadius: 4)
+                            SkeletonBlock(width: 120, height: 11, cornerRadius: 4)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+        .allowsHitTesting(false)
     }
 
     /// Albums — big covers, horizontal scroll, title + year.
