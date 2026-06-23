@@ -327,7 +327,8 @@ struct FullPlayerView: View {
                 // DEFINITE size from the geometry — NOT maxWidth/maxHeight .infinity. A greedy frame reports an
                 // unbounded ideal width which, flattened by drawingGroup, widened the slot and pushed the
                 // controls off-screen. Flexible (nil) on the queue side so matchedGeometry shrinks it to 56pt.
-                .frame(width: isSource ? geo.size.width : nil, height: isSource ? geo.size.height : nil)
+                // Square (the cover's own ratio) fitting the slot, so the full artwork shows without overflow.
+                .frame(width: isSource ? min(geo.size.width, geo.size.height) : nil, height: isSource ? min(geo.size.width, geo.size.height) : nil)
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
                 // Melt the bottom into the dominant body color so the cover fades into the controls area below.

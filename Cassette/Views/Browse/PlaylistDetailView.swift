@@ -381,8 +381,10 @@ struct PlaylistDetailView: View {
         .background {
             GeometryReader { proxy in
                 Color.clear
-                    .onAppear { heroHeight = max(proxy.size.height * 0.9, proxy.size.width) }
-                    .onChange(of: proxy.size.height) { _, h in heroHeight = max(h * 0.9, proxy.size.width) }
+                    // Square hero = the cover's own ratio, so the (square) artwork fits ENTIRELY without
+                    // overflowing/cropping. The immersive melt + floating content stay.
+                    .onAppear { heroHeight = proxy.size.width }
+                    .onChange(of: proxy.size.width) { _, w in heroHeight = w }
             }
         }
         .cassetteContentWidth()
