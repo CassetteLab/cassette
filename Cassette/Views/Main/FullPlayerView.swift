@@ -342,11 +342,12 @@ struct FullPlayerView: View {
                     if isSource {
                         LinearGradient(
                             stops: [
-                                // Soft top fade into the top-strip wash above, and the existing bottom melt.
+                                // Generous fades both ends so the cover dissolves into the wash (top-strip
+                                // colour above, dominant below) instead of meeting it on a hard edge.
                                 .init(color: vm.topColor, location: 0.0),
-                                .init(color: .clear, location: 0.10),
-                                .init(color: .clear, location: 0.50),
-                                .init(color: vm.dominantColor, location: 0.96),
+                                .init(color: .clear, location: 0.22),
+                                .init(color: .clear, location: 0.42),
+                                .init(color: vm.dominantColor, location: 0.94),
                             ],
                             startPoint: .top, endPoint: .bottom
                         )

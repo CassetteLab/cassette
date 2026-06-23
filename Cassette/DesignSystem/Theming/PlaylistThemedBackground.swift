@@ -79,7 +79,7 @@ struct PlaylistThemedBackground: View {
             // cover melting into the dominant tint) rather than a washed-out blurred-cover band.
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: lightMelt ? 0.82 : 0.30),
+                    .init(color: .clear, location: lightMelt ? 0.72 : 0.30),
                     .init(color: bodyColor, location: lightMelt ? 1.0 : 0.80),
                 ],
                 startPoint: .top,
@@ -92,7 +92,7 @@ struct PlaylistThemedBackground: View {
         .mask(
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: lightMelt ? 0.84 : 0.32),
+                    .init(color: .clear, location: lightMelt ? 0.74 : 0.32),
                     .init(color: .black, location: lightMelt ? 1.0 : 0.85),
                 ],
                 startPoint: .top,
