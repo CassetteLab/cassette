@@ -342,19 +342,48 @@ struct FullPlayerView: View {
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
                 // Melt the bottom into the dominant body color so the cover fades into the controls area below.
+                // Top fade dissolves the cover's top edge into the top-strip wash filling the gap above.
                 .overlay {
                     if isSource {
                         LinearGradient(
                             stops: [
-                                // Generous fades both ends so the cover dissolves into the wash (top-strip
-                                // colour above, dominant below) instead of meeting it on a hard edge.
                                 .init(color: vm.topColor, location: 0.0),
-                                .init(color: .clear, location: 0.22),
-                                .init(color: .clear, location: 0.42),
-                                .init(color: vm.dominantColor, location: 0.94),
+                                .init(color: .clear, location: 0.20),
                             ],
                             startPoint: .top, endPoint: .bottom
                         )
+                    }
+                }
+                // Concentrated, heavily-blurred bottom band: a thin strip of the cover, strongly blurred and
+                // melting to the dominant colour, diffuses the artwork into the body and masks the hard
+                // demarcation — instead of a long alpha gradient that washes the whole lower half.
+                .overlay {
+                    if isSource, let cover = vm.coverImage {
+                        ZStack {
+                            Image(platformImage: cover)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .blur(radius: 36)
+                                .clipped()
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0.84),
+                                    .init(color: vm.dominantColor, location: 1.0),
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        }
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0.84),
+                                    .init(color: .black, location: 0.97),
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        .allowsHitTesting(false)
                     }
                 }
                 .drawingGroup()
