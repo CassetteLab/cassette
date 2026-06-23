@@ -45,6 +45,10 @@ struct PlaylistThemedBackground: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: heroHeight)
                     .clipped()
+
+                    // Light blurred melt: the cover softly fades into the (now bottom-matched) body color toward
+                    // the bottom — a slight transition that gives the floating title/buttons a legible backdrop.
+                    blurredMelt(coverArtId: coverArtId)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
@@ -66,7 +70,7 @@ struct PlaylistThemedBackground: View {
             .frame(maxWidth: .infinity)
             .frame(height: heroHeight)
             .clipped()
-            .blur(radius: 26)
+            .blur(radius: 16)
 
             // Resolve to the dominant body color EARLY so the transition reads as a colour continuity (the
             // cover melting into the dominant tint) rather than a washed-out blurred-cover band.
