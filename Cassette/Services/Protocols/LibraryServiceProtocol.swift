@@ -90,4 +90,8 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Returns the first library artist whose name matches case-insensitively.
     /// Uses a lazy in-memory index built on first call; subsequent lookups are O(1).
     func findArtist(byName name: String) async -> ArtistID3?
+
+    /// The artist's top (most-played) songs via Subsonic `getTopSongs` (popularity/Last.fm-backed — may be
+    /// empty on bare self-hosted servers, in which case callers hide the section).
+    func topSongs(artist: String, count: Int) async throws -> [DisplayableSong]
 }

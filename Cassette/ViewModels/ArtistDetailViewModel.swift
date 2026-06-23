@@ -17,6 +17,8 @@ final class ArtistDetailViewModel {
     var similarArtists: [SimilarArtistRecommendation] = []
     var isLoadingSimilarArtists = false
     var outOfLibraryArtistImages: [String: URL?] = [:]
+    /// Most-played songs (getTopSongs). Empty on bare self-hosted servers → the view hides the section.
+    var topSongs: [DisplayableSong] = []
 
     private let artistId: String
     private let libraryService: any LibraryServiceProtocol
@@ -44,6 +46,17 @@ final class ArtistDetailViewModel {
             self.error = UserFacingError.from(error)
         }
         isLoading = false
+    }
+
+    /// Top songs (getTopSongs takes the artist NAME) — call after `load()` so `artist?.name` is set.
+    func loadTopSongs() async {
+        guard let name = artist?.name else { return }
+        do {
+            topSongs = try await libraryService.topSongs(artist: name, count: 25)
+        } catch {
+            Logger.recommendations.warning("topSongs failed for \(self.artistId): \(error)")
+            topSongs = []
+        }
     }
 
     // Called from the view's .task after load() returns so artist loading and

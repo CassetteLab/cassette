@@ -91,32 +91,22 @@ struct ArtistDetailView: View {
                     } else {
                         ScrollView {
                             artistHero(vm: vm)
-                            VStack(spacing: 0) {
-                                LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
-                                    ForEach(albums) { album in
-                                        NavigationLink(value: HomeDestination.album(album)) {
-                                            AlbumGridCell(
-                                                album: album,
-                                                zoomSourceId: album.id,
-                                                zoomNamespace: albumZoomNamespace
-                                            )
-                                        }
-                                        .buttonStyle(.plain)
-                                        .task(id: album.id) {
-                                            await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
-                                        }
-                                    }
+                            VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
+                                if let featured = latestRelease(vm) {
+                                    featuredReleaseSection(featured)
                                 }
-                                .padding(CassetteSpacing.l)
-
+                                if !vm.topSongs.isEmpty {
+                                    topSongsSection(vm: vm)
+                                }
+                                albumsSection(albums)
                                 if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
                                     similarArtistsSection(vm: vm)
-                                        .padding(.bottom, CassetteSpacing.l)
                                 }
                             }
+                            .padding(.vertical, CassetteSpacing.l)
                             .frame(maxWidth: .infinity)
                             .background(bodyColor)
-                            // Force the themed scheme so the shared album/similar cells contrast the tinted body.
+                            // Force the themed scheme so the shared cells contrast the tinted body.
                             .environment(\.colorScheme, theme.isThemed ? (theme.isLight ? .light : .dark) : colorScheme)
                         }
                         .ignoresSafeArea(.container, edges: .top)
@@ -155,6 +145,7 @@ struct ArtistDetailView: View {
                 )
             }
             await viewModel?.load()
+            await viewModel?.loadTopSongs()
             await viewModel?.loadSimilarArtists()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
@@ -243,6 +234,113 @@ struct ArtistDetailView: View {
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
             isLightBackground = color.luminance > 0.6
+        }
+    }
+
+    // MARK: - Body sections (Gate 2)
+
+    /// The most recent release (max year) — featured + the hero fallback cover.
+    private func latestRelease(_ vm: ArtistDetailViewModel) -> AlbumID3? {
+        (vm.artist?.album ?? []).max(by: { ($0.year ?? 0) < ($1.year ?? 0) })
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.cassetteSectionTitle)
+            .foregroundStyle(headerTextColor)
+            .padding(.horizontal, CassetteSpacing.l)
+    }
+
+    /// Featured (latest) release — a prominent card, Apple-Music style.
+    private func featuredReleaseSection(_ album: AlbumID3) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            sectionHeader("Latest Release")
+            NavigationLink(value: HomeDestination.album(album)) {
+                HStack(spacing: CassetteSpacing.m) {
+                    CoverArtView(id: album.coverArt ?? album.id, size: 200)
+                        .frame(width: 88, height: 88)
+                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+                    VStack(alignment: .leading, spacing: 4) {
+                        if let year = album.year {
+                            Text(verbatim: "\(year)")
+                                .font(.cassetteCaption)
+                                .foregroundStyle(headerSecondaryColor)
+                        }
+                        Text(album.name)
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(headerTextColor)
+                            .lineLimit(2)
+                        Text("\(album.songCount) song\(album.songCount == 1 ? "" : "s")")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(headerSecondaryColor)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(CassetteSpacing.m)
+                .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                .padding(.horizontal, CassetteSpacing.l)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Top (most-played) songs ranking.
+    private func topSongsSection(vm: ArtistDetailViewModel) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            sectionHeader("Top Songs")
+            VStack(spacing: 0) {
+                ForEach(Array(vm.topSongs.prefix(5).enumerated()), id: \.element.id) { index, song in
+                    Button {
+                        Task { try? await container?.playerService.play(tracks: vm.topSongs, startIndex: index) }
+                    } label: {
+                        SongRow(
+                            song: song,
+                            index: index + 1,
+                            showCoverArt: true,
+                            titleColor: headerTextColor,
+                            secondaryColor: headerSecondaryColor
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+    }
+
+    /// Albums — big covers, horizontal scroll, title + year.
+    private func albumsSection(_ albums: [AlbumID3]) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            sectionHeader("Albums")
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(alignment: .top, spacing: CassetteSpacing.m) {
+                    ForEach(albums) { album in
+                        NavigationLink(value: HomeDestination.album(album)) {
+                            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                                CoverArtView(id: album.coverArt ?? album.id, size: 320)
+                                    .frame(width: 160, height: 160)
+                                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                                    .cassetteMatchedTransitionSource(id: album.id, in: albumZoomNamespace)
+                                Text(album.name)
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(headerTextColor)
+                                    .lineLimit(1)
+                                if let year = album.year {
+                                    Text(verbatim: "\(year)")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(headerSecondaryColor)
+                                }
+                            }
+                            .frame(width: 160, alignment: .leading)
+                            .task(id: album.id) {
+                                await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, CassetteSpacing.l)
+            }
         }
     }
 
