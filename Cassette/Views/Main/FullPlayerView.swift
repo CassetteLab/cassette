@@ -342,47 +342,22 @@ struct FullPlayerView: View {
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
                 // Melt the bottom into the dominant body color so the cover fades into the controls area below.
-                // Top fade dissolves the cover's top edge into the top-strip wash filling the gap above.
-                .overlay {
+                // Dissolve the cover's top and bottom EDGES to transparent so the artwork melts gracefully into
+                // the background wash (top-strip colour above the cover, dominant below it) — the cover stays
+                // fully intact, no overlaid colour band or blur, just its edges fading into the body.
+                .mask {
                     if isSource {
                         LinearGradient(
                             stops: [
-                                .init(color: vm.topColor, location: 0.0),
-                                .init(color: .clear, location: 0.20),
+                                .init(color: .clear, location: 0.0),
+                                .init(color: .black, location: 0.13),
+                                .init(color: .black, location: 0.80),
+                                .init(color: .clear, location: 1.0),
                             ],
                             startPoint: .top, endPoint: .bottom
                         )
-                    }
-                }
-                // Mesh merge: the cover's sampled bottom-edge colours (top row) blend down into the body colour
-                // (bottom row), so the artwork dissolves into a smooth harmonious gradient — like a gradient
-                // playlist — instead of an alpha-faded image band that shows a demarcation.
-                .overlay {
-                    if isSource, vm.bottomColors.count == 5 {
-                        let edge = vm.bottomColors
-                        let dom = vm.dominantColor
-                        // Middle row: the edge colours eased a little toward the body, so they persist most of
-                        // the band and only resolve to the body at the very bottom — a soft, non-linear blend.
-                        let mid = edge.map { $0.mix(with: dom, by: 0.4) }
-                        MeshGradient(
-                            width: 5, height: 3,
-                            points: [
-                                SIMD2<Float>(0, 0.80), SIMD2<Float>(0.25, 0.80), SIMD2<Float>(0.5, 0.80), SIMD2<Float>(0.75, 0.80), SIMD2<Float>(1, 0.80),
-                                SIMD2<Float>(0, 0.92), SIMD2<Float>(0.25, 0.92), SIMD2<Float>(0.5, 0.92), SIMD2<Float>(0.75, 0.92), SIMD2<Float>(1, 0.92),
-                                SIMD2<Float>(0, 1), SIMD2<Float>(0.25, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(0.75, 1), SIMD2<Float>(1, 1),
-                            ],
-                            colors: edge + mid + Array(repeating: dom, count: 5)
-                        )
-                        .mask(
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .clear, location: 0.78),
-                                    .init(color: .black, location: 0.94),
-                                ],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        )
-                        .allowsHitTesting(false)
+                    } else {
+                        Rectangle()
                     }
                 }
                 .drawingGroup()
