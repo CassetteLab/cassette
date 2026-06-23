@@ -348,7 +348,6 @@ struct PlaylistDetailView: View {
                 // before — see the toast overlay fix).
                 .environment(colorExtractor)
                 .environment(c.artworkImageCache)
-                .environment(c.coverVersionRegistry)
                 .environment(\.appContainer, c)
             }
         }
@@ -372,7 +371,6 @@ struct PlaylistDetailView: View {
                 }
                 .environment(colorExtractor)
                 .environment(c.artworkImageCache)
-                .environment(c.coverVersionRegistry)
                 .environment(\.appContainer, c)
             }
         }
@@ -712,8 +710,7 @@ struct PlaylistDetailView: View {
             serverState: c.serverState,
             serverService: c.serverService,
             downloadService: c.downloadService,
-            artworkImageCache: c.artworkImageCache,
-            coverVersionRegistry: c.coverVersionRegistry
+            artworkImageCache: c.artworkImageCache
         )
         let store = PlaylistCoverStore(modelContainer: c.modelContainer)
         if let shape = selectedGradient {

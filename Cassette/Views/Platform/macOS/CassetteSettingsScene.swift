@@ -17,7 +17,6 @@ struct CassetteSettingsScene: Scene {
                     MacOSSettingsView()
                         .environment(\.appContainer, container)
                         .environment(container.dominantColorExtractor)
-                        .environment(container.coverVersionRegistry)
                         .environment(container.artworkImageCache)
                         .modelContainer(container.modelContainer)
                         // ToastService is intentionally absent: no Settings view or sheet

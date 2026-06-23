@@ -229,8 +229,7 @@ struct CreatePlaylistSheet: View {
             serverState: c.serverState,
             serverService: c.serverService,
             downloadService: c.downloadService,
-            artworkImageCache: c.artworkImageCache,
-            coverVersionRegistry: c.coverVersionRegistry
+            artworkImageCache: c.artworkImageCache
         )
         if let shape = selectedGradient {
             // Empty playlist at creation → neutral base color now; first-track derivation is Phase 2b.

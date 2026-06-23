@@ -78,7 +78,6 @@ struct CassetteApp: App {
                         .toastOverlay()
                         .environment(\.appContainer, container)
                         .environment(container.dominantColorExtractor)
-                        .environment(container.coverVersionRegistry)
                         .environment(container.artworkImageCache)
                         .modelContainer(container.modelContainer)
                         .environment(container.toastService)
@@ -190,7 +189,6 @@ struct CassetteApp: App {
                     MiniPlayerWindowView()
                         .environment(\.appContainer, container)
                         .environment(container.dominantColorExtractor)
-                        .environment(container.coverVersionRegistry)
                         .environment(container.artworkImageCache)
                         .modelContainer(container.modelContainer)
                 } else {
