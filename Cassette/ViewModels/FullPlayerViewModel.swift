@@ -52,7 +52,7 @@ final class FullPlayerViewModel {
             guard let image = PlatformImage(data: data) else { return nil }
             let packed = cachedColor == nil ? DominantColorExtractor.packedAverageColor(from: image) : nil
             let topPacked = DominantColorExtractor.packedAverageColor(from: image, fromTop: true)
-            let edge = DominantColorExtractor.bottomEdgeColors(from: image, count: 3)
+            let edge = DominantColorExtractor.bottomEdgeColors(from: image, count: 5)
             return (image, packed, topPacked, edge)
         }.value
         guard let processed else { return }
@@ -63,7 +63,7 @@ final class FullPlayerViewModel {
             coverImage = processed.image
             dominantColor = color
             topColor = top
-            bottomColors = edge.isEmpty ? [color, color, color] : edge
+            bottomColors = edge.count == 5 ? edge : Array(repeating: color, count: 5)
             isLightBackground = color.luminance > 0.6
         }
     }

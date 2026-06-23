@@ -358,23 +358,26 @@ struct FullPlayerView: View {
                 // (bottom row), so the artwork dissolves into a smooth harmonious gradient — like a gradient
                 // playlist — instead of an alpha-faded image band that shows a demarcation.
                 .overlay {
-                    if isSource, vm.bottomColors.count == 3 {
+                    if isSource, vm.bottomColors.count == 5 {
+                        let edge = vm.bottomColors
+                        let dom = vm.dominantColor
+                        // Middle row: the edge colours eased a little toward the body, so they persist most of
+                        // the band and only resolve to the body at the very bottom — a soft, non-linear blend.
+                        let mid = edge.map { $0.mix(with: dom, by: 0.4) }
                         MeshGradient(
-                            width: 3, height: 2,
+                            width: 5, height: 3,
                             points: [
-                                SIMD2<Float>(0, 0.74), SIMD2<Float>(0.5, 0.74), SIMD2<Float>(1, 0.74),
-                                SIMD2<Float>(0, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(1, 1),
+                                SIMD2<Float>(0, 0.80), SIMD2<Float>(0.25, 0.80), SIMD2<Float>(0.5, 0.80), SIMD2<Float>(0.75, 0.80), SIMD2<Float>(1, 0.80),
+                                SIMD2<Float>(0, 0.92), SIMD2<Float>(0.25, 0.92), SIMD2<Float>(0.5, 0.92), SIMD2<Float>(0.75, 0.92), SIMD2<Float>(1, 0.92),
+                                SIMD2<Float>(0, 1), SIMD2<Float>(0.25, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(0.75, 1), SIMD2<Float>(1, 1),
                             ],
-                            colors: [
-                                vm.bottomColors[0], vm.bottomColors[1], vm.bottomColors[2],
-                                vm.dominantColor, vm.dominantColor, vm.dominantColor,
-                            ]
+                            colors: edge + mid + Array(repeating: dom, count: 5)
                         )
                         .mask(
                             LinearGradient(
                                 stops: [
-                                    .init(color: .clear, location: 0.72),
-                                    .init(color: .black, location: 0.85),
+                                    .init(color: .clear, location: 0.78),
+                                    .init(color: .black, location: 0.94),
                                 ],
                                 startPoint: .top, endPoint: .bottom
                             )
