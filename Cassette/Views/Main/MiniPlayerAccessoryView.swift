@@ -106,10 +106,6 @@ struct MiniPlayerAccessoryView: View {
                                 .foregroundStyle(typoSecondaryColor)
                                 .lineLimit(1)
                         }
-                        if !isLiveStream, let format = audioFormat {
-                            AudioFormatBadge(format: format)
-                                .layoutPriority(1)
-                        }
                     }
                 }
             }
@@ -150,10 +146,6 @@ struct MiniPlayerAccessoryView: View {
                                     .font(.cassetteCaption)
                                     .foregroundStyle(typoSecondaryColor)
                                     .lineLimit(1)
-                            }
-                            if !isLiveStream, let format = audioFormat {
-                                AudioFormatBadge(format: format)
-                                    .layoutPriority(1)
                             }
                         }
                     }
