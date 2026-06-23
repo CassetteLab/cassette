@@ -65,8 +65,8 @@ struct PlaylistCoverManager {
         }
         // The SINGLE cross-surface refresh signal: bumping here (the shared apply path) means all three change
         // paths — re-pick, first-track derivation, upload — and both platforms emit it consistently, and every
-        // CoverArtView folding version(for:) into its task key re-resolves the freshly-cached cover.
-        coverVersionRegistry.bump(playlistId)
+        // CoverArtView folding `generation` into its task key re-resolves the freshly-cached cover.
+        coverVersionRegistry.bump()
     }
 
     private func uploadIfPossible(_ jpegData: Data, playlistId: String) async {

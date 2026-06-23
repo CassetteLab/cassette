@@ -131,7 +131,7 @@ private struct CoverArtViewContent: View {
         }
         // Keyed on (loadingEnabled, id) so deferring/undeferring re-runs the load: a deferred row shows its
         // placeholder/initial image and fires NO artwork task until it becomes visible (loadingEnabled flips).
-        .task(id: "\(loadingEnabled):\(id):\(coverVersionRegistry?.version(for: id) ?? 0)") {
+        .task(id: "\(loadingEnabled):\(id):\(coverVersionRegistry?.generation ?? 0)") {
             guard loadingEnabled else { return }
             url = nil
             let t = resolvedTier
