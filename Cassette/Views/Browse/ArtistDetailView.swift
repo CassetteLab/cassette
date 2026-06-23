@@ -20,7 +20,7 @@ struct ArtistDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground = false
-    @State private var heroHeight: CGFloat = 680
+    @State private var heroHeight: CGFloat = 540
 
     init(artist: ArtistID3) {
         self.artist = artist
@@ -189,6 +189,9 @@ struct ArtistDetailView: View {
                     .foregroundStyle(headerSecondaryColor)
                     .padding(.bottom, CassetteSpacing.xs)
                 HStack(spacing: CassetteSpacing.l) {
+                    // Invisible block the size of the favorite button so the Play disc sits truly centred.
+                    Color.clear.frame(width: 42, height: 42)
+
                     // Big white round Play (= shuffle) — just the play glyph.
                     Button {
                         Task { await playAll(shuffled: true) }
@@ -222,7 +225,7 @@ struct ArtistDetailView: View {
                     } label: {
                         Image(systemName: isArtistFavorite ? "star.fill" : "star")
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(isArtistFavorite ? Color.cassetteAccent : headerTextColor)
+                            .foregroundStyle(isArtistFavorite ? .white : headerTextColor)
                             .frame(width: 42, height: 42)
                             .background(.ultraThinMaterial, in: Circle())
                     }

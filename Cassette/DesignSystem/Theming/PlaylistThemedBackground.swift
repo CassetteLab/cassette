@@ -69,14 +69,14 @@ struct PlaylistThemedBackground: View {
             .frame(maxWidth: .infinity)
             .frame(height: heroHeight)
             .clipped()
-            .blur(radius: 44)
+            .blur(radius: 26)
 
             // Resolve to the dominant body color EARLY so the transition reads as a colour continuity (the
             // cover melting into the dominant tint) rather than a washed-out blurred-cover band.
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.38),
-                    .init(color: bodyColor, location: 0.74),
+                    .init(color: .clear, location: 0.30),
+                    .init(color: bodyColor, location: 0.80),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -88,8 +88,8 @@ struct PlaylistThemedBackground: View {
         .mask(
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.50),
-                    .init(color: .black, location: 0.80),
+                    .init(color: .clear, location: 0.32),
+                    .init(color: .black, location: 0.85),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
