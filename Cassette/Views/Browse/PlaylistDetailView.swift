@@ -461,7 +461,7 @@ struct PlaylistDetailView: View {
                 Button(role: .destructive) {
                     if selectedSongIds.isEmpty { showDeletePlaylistConfirm = true } else { removeSelectedTracks() }
                 } label: {
-                    navBarIcon("trash")
+                    navBarIcon("trash", tint: .red)
                 }
                 .buttonStyle(.plain)
                 .disabled(isSaving)
@@ -514,10 +514,10 @@ struct PlaylistDetailView: View {
     /// A nav-bar icon on the unified hero button surface (opaque solid circle, same variant as the transport
     /// + Play). The opaque circle + `.buttonStyle(.plain)` on the ToolbarItem button replace the native
     /// toolbar Liquid-Glass, so there is a SINGLE background, not two stacked layers.
-    private func navBarIcon(_ systemName: String) -> some View {
+    private func navBarIcon(_ systemName: String, tint: Color? = nil) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(headerTextColor)
+            .foregroundStyle(tint ?? headerTextColor)
             .cassetteHeroButton(size: 34)
     }
 
