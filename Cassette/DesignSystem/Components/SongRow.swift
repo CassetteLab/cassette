@@ -14,6 +14,9 @@ struct SongRow: View {
     let song: DisplayableSong
     let index: Int
     var showCoverArt: Bool = false
+    /// Show the artist as the subtitle. Default true; pass false where the artist is implied (e.g. the artist
+    /// detail page) so the row isn't redundant.
+    var showArtist: Bool = true
     var isFavorite: Bool = false
     var titleColor: Color = .primary
     var secondaryColor: Color = .secondary
@@ -31,10 +34,11 @@ struct SongRow: View {
     @State private var isHovered = false
     #endif
 
-    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil) {
+    init(song: DisplayableSong, index: Int, showCoverArt: Bool = false, showArtist: Bool = true, isFavorite: Bool = false, titleColor: Color = .primary, secondaryColor: Color = .secondary, onDownload: (() -> Void)? = nil, onRemoveDownload: (() -> Void)? = nil, isDownloading: Bool = false, onRemoveFromPlaylist: (() -> Void)? = nil, onAddToPlaylist: ((DisplayableSong) -> Void)? = nil) {
         self.song = song
         self.index = index
         self.showCoverArt = showCoverArt
+        self.showArtist = showArtist
         self.isFavorite = isFavorite
         self.titleColor = titleColor
         self.secondaryColor = secondaryColor
@@ -107,7 +111,7 @@ struct SongRow: View {
                     #endif
                     .foregroundStyle(isCurrentTrack ? playingAccent : titleColor)
                     .lineLimit(1)
-                if let artist = song.artist {
+                if showArtist, let artist = song.artist {
                     Text(artist)
                         #if os(macOS)
                         .font(.system(size: 12))

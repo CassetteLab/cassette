@@ -130,7 +130,7 @@ struct ArtistDetailView: View {
                 skeletonGrid
             }
         }
-        .navigationTitle(artist.name)
+        .navigationTitle("")
         .navigationBarTitleDisplayModeInline()
         #if os(iOS)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -299,6 +299,7 @@ struct ArtistDetailView: View {
                             song: song,
                             index: index + 1,
                             showCoverArt: true,
+                            showArtist: false,
                             titleColor: headerTextColor,
                             secondaryColor: headerSecondaryColor
                         )
