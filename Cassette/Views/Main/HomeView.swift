@@ -471,9 +471,13 @@ private struct HomePinnedCard: View {
         NavigationLink(value: homeNavDestination) {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 GeometryReader { geo in
-                    CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
-                        .frame(width: geo.size.width, height: geo.size.width)
-                        .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                    if PinnedItemType(rawValue: item.itemType) == .playlist {
+                        PlaylistCoverThumbnail(playlistId: item.itemId, serverId: item.serverId, coverArtId: item.coverArtId ?? item.itemId, title: item.displayName, size: geo.size.width)
+                    } else {
+                        CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
+                            .frame(width: geo.size.width, height: geo.size.width)
+                            .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                    }
                 }
                 .aspectRatio(1, contentMode: .fit)
                 .cassetteMatchedTransitionSource(id: item.itemId, in: namespace)
@@ -588,9 +592,13 @@ private struct HomeDownloadedItemCard: View {
         NavigationLink(value: destination) {
             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                 GeometryReader { geo in
-                    CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
-                        .frame(width: geo.size.width, height: geo.size.width)
-                        .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                    if item.type == .playlist {
+                        PlaylistCoverThumbnail(playlistId: item.itemId, serverId: nil, coverArtId: item.coverArtId ?? item.itemId, title: item.name, size: geo.size.width)
+                    } else {
+                        CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
+                            .frame(width: geo.size.width, height: geo.size.width)
+                            .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+                    }
                 }
                 .aspectRatio(1, contentMode: .fit)
                 Text(item.name)

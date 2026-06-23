@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-/// Rebrand playlist cover thumbnail for the library surfaces. A user-picked GRADIENT cover renders LIVE
+/// Rebrand playlist cover thumbnail for the library surfaces (iOS). A user-picked GRADIENT cover renders LIVE
 /// (the static `PlaylistGradientView` + the title drawn on the gradient — the `PlaylistCoverCarousel` look) so
 /// it matches the editor and follows re-picks/derivation; a PHOTO or server cover stays RASTER (`CoverArtView`,
 /// no title). 12pt continuous corners.
@@ -14,20 +14,37 @@ import SwiftUI
 /// — the SAME signal every cover change already emits via `PlaylistCoverManager` — so a re-pick / first-track
 /// derivation refreshes the thumbnail without pulling a reactive `@Query`/`@Model` into the cell's view tree
 /// (which the codebase avoids for scroll perf). The live gradient is animation-free (static GPU shader), so N
-/// cells do not hitch. iOS-focused; compiles cross-platform (macOS keeps its raster cards).
+/// cells do not hitch.
+///
+/// macOS keeps the OLD raster card (Phase 5) — the live-gradient treatment is iOS-only; the macOS branch is a
+/// plain raster `CoverArtView` so the macOS rendering is unchanged.
 struct PlaylistCoverThumbnail: View {
     let playlistId: String
     let serverId: UUID?
-    /// Cover id for the RASTER (photo / server) path — used only when there is no user-picked gradient.
+    /// Cover id for the RASTER (photo / server) path — used when there is no user-picked gradient (and on macOS).
     let coverArtId: String
     let title: String
     let size: CGFloat
 
+    #if os(iOS)
     @Environment(\.appContainer) private var container
     @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
     @State private var spec: PlaylistGradientSpec?
+    #endif
 
     var body: some View {
+        #if os(iOS)
+        iosBody
+        #else
+        // macOS keeps the old raster card (Phase 5) — no live gradient, no rebrand corners.
+        CoverArtView(id: coverArtId, size: Int(size * 2))
+            .frame(width: size, height: size)
+            .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+        #endif
+    }
+
+    #if os(iOS)
+    private var iosBody: some View {
         ZStack {
             if let spec {
                 PlaylistGradientView(spec: spec)
@@ -47,9 +64,11 @@ struct PlaylistCoverThumbnail: View {
     /// version bump so re-pick / first-track derivation re-resolve. A plain main-context fetch (fetchLimit 1),
     /// mirroring PlaylistDetailView's gradient-spec resolution.
     private func resolveSpec() -> PlaylistGradientSpec? {
-        guard let container, let serverId else { return nil }
+        guard let container else { return nil }
+        // Caller-provided serverId (downloaded/pinned models carry their own); else the active server.
+        guard let sid = serverId ?? container.serverState.activeServer?.id else { return nil }
         let choice = PlaylistCoverStore(modelContainer: container.modelContainer)
-            .choice(playlistId: playlistId, serverId: serverId)
+            .choice(playlistId: playlistId, serverId: sid)
         return choice?.isUserPicked == true ? choice?.spec : nil
     }
 
@@ -68,4 +87,5 @@ struct PlaylistCoverThumbnail: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(size * 0.09)
     }
+    #endif
 }
