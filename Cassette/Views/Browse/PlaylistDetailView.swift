@@ -448,9 +448,11 @@ struct PlaylistDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         if isEditing {
-            // Native liquid-glass toolbar capsules (no custom circle — that double-stacked with the glass).
+            // Same themed hero-button surface as view mode (navBarIcon: opaque circle + headerTextColor) so the
+            // edit CTAs match the non-edit ones — NOT system glass capsules, which read the wrong colour here.
             ToolbarItem(placement: .cancellationAction) {
-                Button { cancelEdit() } label: { Image(systemName: "xmark") }
+                Button { cancelEdit() } label: { navBarIcon("xmark") }
+                    .buttonStyle(.plain)
                     .disabled(isSaving)
             }
             ToolbarItem(placement: .primaryAction) {
@@ -459,21 +461,23 @@ struct PlaylistDetailView: View {
                 Button(role: .destructive) {
                     if selectedSongIds.isEmpty { showDeletePlaylistConfirm = true } else { removeSelectedTracks() }
                 } label: {
-                    Image(systemName: "trash")
+                    navBarIcon("trash")
                 }
+                .buttonStyle(.plain)
                 .disabled(isSaving)
             }
             ToolbarItem(placement: .primaryAction) {
-                Button { showAddMusic = true } label: { Image(systemName: "plus") }
+                Button { showAddMusic = true } label: { navBarIcon("plus") }
+                    .buttonStyle(.plain)
                     .disabled(isSaving || container?.serverState.isOnline != true)
             }
             ToolbarItem(placement: .confirmationAction) {
                 if isSaving {
-                    ProgressView().controlSize(.small)
+                    ProgressView().controlSize(.small).tint(headerTextColor)
                 } else {
                     let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    Button { Task { isSaving = true; await commitEdit(); isSaving = false } } label: { Image(systemName: "checkmark") }
-                        .tint(Color.cassetteAccent)
+                    Button { Task { isSaving = true; await commitEdit(); isSaving = false } } label: { navBarIcon("checkmark") }
+                        .buttonStyle(.plain)
                         .disabled(!canSave)
                 }
             }
