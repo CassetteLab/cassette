@@ -12,6 +12,8 @@ final class FullPlayerViewModel {
     var dominantColor: Color = .black
     /// Average colour of the cover's TOP strip — fills the gap ABOVE the fitted square cover in the player.
     var topColor: Color = .black
+    /// Per-segment average colours of the cover's BOTTOM edge — feed the mesh that merges the cover into the body.
+    var bottomColors: [Color] = []
     var isLightBackground: Bool = false
 
     private let session: URLSession = {
@@ -31,6 +33,7 @@ final class FullPlayerViewModel {
                 coverImage = nil
                 dominantColor = .black
                 topColor = .black
+                bottomColors = []
                 isLightBackground = false
             }
             return
@@ -45,19 +48,22 @@ final class FullPlayerViewModel {
         // Skip re-extraction if the color is already memoized (the image is still decoded for coverImage).
         let cachedColor = colorExtractor.cachedColor(for: coverArtId)
         // Decode + average OFF the main actor so a track change does not hitch the UI on the main thread.
-        let processed: (image: PlatformImage, packed: Int?, topPacked: Int?)? = await Task.detached(priority: .userInitiated) {
+        let processed: (image: PlatformImage, packed: Int?, topPacked: Int?, edge: [Int])? = await Task.detached(priority: .userInitiated) {
             guard let image = PlatformImage(data: data) else { return nil }
             let packed = cachedColor == nil ? DominantColorExtractor.packedAverageColor(from: image) : nil
             let topPacked = DominantColorExtractor.packedAverageColor(from: image, fromTop: true)
-            return (image, packed, topPacked)
+            let edge = DominantColorExtractor.bottomEdgeColors(from: image, count: 3)
+            return (image, packed, topPacked, edge)
         }.value
         guard let processed else { return }
         let color = cachedColor ?? colorExtractor.storeColor(packed: processed.packed, for: coverArtId)
         let top = processed.topPacked.map { DominantColorExtractor.unpack($0) } ?? color
+        let edge = processed.edge.map { DominantColorExtractor.unpack($0) }
         withAnimation(.easeInOut(duration: 0.4)) {
             coverImage = processed.image
             dominantColor = color
             topColor = top
+            bottomColors = edge.isEmpty ? [color, color, color] : edge
             isLightBackground = color.luminance > 0.6
         }
     }

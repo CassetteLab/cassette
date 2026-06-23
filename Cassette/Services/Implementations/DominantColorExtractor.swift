@@ -120,6 +120,32 @@ final class DominantColorExtractor {
         return (Int(bitmap[0]) << 16) | (Int(bitmap[1]) << 8) | Int(bitmap[2])
     }
 
+    /// Average colours of `count` equal horizontal segments of the cover's BOTTOM strip. Used to build a smooth
+    /// mesh that merges the cover's bottom edge into the body colour (a true gradient blend, not an alpha fade).
+    nonisolated static func bottomEdgeColors(from image: PlatformImage, count: Int) -> [Int] {
+        #if canImport(UIKit)
+        guard let cgImage = image.cgImage else { return [] }
+        #elseif canImport(AppKit)
+        var proposedRect = NSRect(origin: .zero, size: image.size)
+        guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: nil) else { return [] }
+        #endif
+        let ciImage = CIImage(cgImage: cgImage)
+        let extent = ciImage.extent
+        let stripH = max(1, extent.size.height * 0.20)
+        let segW = extent.size.width / CGFloat(max(1, count))
+        let context = CIContext(options: [.workingColorSpace: kCFNull as Any])
+        var result: [Int] = []
+        for i in 0..<count {
+            let rect = CIVector(x: extent.origin.x + CGFloat(i) * segW, y: extent.origin.y, z: segW, w: stripH)
+            guard let filter = CIFilter(name: "CIAreaAverage", parameters: [kCIInputImageKey: ciImage, kCIInputExtentKey: rect]),
+                  let out = filter.outputImage else { continue }
+            var bitmap = [UInt8](repeating: 0, count: 4)
+            context.render(out, toBitmap: &bitmap, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: nil)
+            result.append((Int(bitmap[0]) << 16) | (Int(bitmap[1]) << 8) | Int(bitmap[2]))
+        }
+        return result
+    }
+
     /// Returns all persisted packed 0xRRGGBB colors keyed by coverArtId.
     /// Used by WidgetSyncService to mirror the cache to the App Group shared container.
     func cachedColors() -> [String: Int] {

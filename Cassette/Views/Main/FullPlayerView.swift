@@ -354,31 +354,27 @@ struct FullPlayerView: View {
                         )
                     }
                 }
-                // Concentrated, heavily-blurred bottom band: a thin strip of the cover, strongly blurred and
-                // melting to the dominant colour, diffuses the artwork into the body and masks the hard
-                // demarcation — instead of a long alpha gradient that washes the whole lower half.
+                // Mesh merge: the cover's sampled bottom-edge colours (top row) blend down into the body colour
+                // (bottom row), so the artwork dissolves into a smooth harmonious gradient — like a gradient
+                // playlist — instead of an alpha-faded image band that shows a demarcation.
                 .overlay {
-                    if isSource, let cover = vm.coverImage {
-                        ZStack {
-                            Image(platformImage: cover)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .blur(radius: 16)
-                                .clipped()
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .clear, location: 0.72),
-                                    .init(color: vm.dominantColor, location: 1.0),
-                                ],
-                                startPoint: .top, endPoint: .bottom
-                            )
-                        }
+                    if isSource, vm.bottomColors.count == 3 {
+                        MeshGradient(
+                            width: 3, height: 2,
+                            points: [
+                                SIMD2<Float>(0, 0.74), SIMD2<Float>(0.5, 0.74), SIMD2<Float>(1, 0.74),
+                                SIMD2<Float>(0, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(1, 1),
+                            ],
+                            colors: [
+                                vm.bottomColors[0], vm.bottomColors[1], vm.bottomColors[2],
+                                vm.dominantColor, vm.dominantColor, vm.dominantColor,
+                            ]
+                        )
                         .mask(
                             LinearGradient(
                                 stops: [
-                                    .init(color: .clear, location: 0.74),
-                                    .init(color: .black, location: 1.0),
+                                    .init(color: .clear, location: 0.72),
+                                    .init(color: .black, location: 0.85),
                                 ],
                                 startPoint: .top, endPoint: .bottom
                             )
