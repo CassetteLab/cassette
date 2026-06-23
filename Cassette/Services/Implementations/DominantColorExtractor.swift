@@ -25,7 +25,10 @@ import AppKit
 @MainActor
 @Observable
 final class DominantColorExtractor {
-    private static let userDefaultsKey = "cassette.dominantColor.cache"
+    // v2: the cache now stores BOTTOM-strip averages (not whole-image) — a fresh key so old whole-image colors
+    // are dropped and every cover re-extracts with the new method.
+    private static let userDefaultsKey = "cassette.dominantColor.cache.v2"
+    private static let legacyUserDefaultsKey = "cassette.dominantColor.cache"
 
     // Pure memoization store — not UI state. @ObservationIgnored so a cache write (on a cold-cover miss)
     // never invalidates a view that called dominantColor() during its body. Colors that drive UI flow
@@ -34,6 +37,7 @@ final class DominantColorExtractor {
     private let ciContext = CIContext(options: [.workingColorSpace: kCFNull as Any])
 
     init() {
+        UserDefaults.standard.removeObject(forKey: Self.legacyUserDefaultsKey)
         let stored = UserDefaults.standard.dictionary(forKey: Self.userDefaultsKey) ?? [:]
         var hydrated: [String: Color] = [:]
         hydrated.reserveCapacity(stored.count)
@@ -87,11 +91,15 @@ final class DominantColorExtractor {
 
         let ciImage = CIImage(cgImage: cgImage)
         let extent = ciImage.extent
+        // Average only the BOTTOM strip of the cover (CIImage origin is bottom-left → origin.y is the visual
+        // bottom), not the whole image — so the themed body color matches where the cover MEETS it: a seamless
+        // dark/black continuity for a dark-bottomed photo (Apple-Music style), not a muddy whole-image average.
+        let stripHeight = max(1, extent.size.height * 0.20)
         let inputExtent = CIVector(
             x: extent.origin.x,
             y: extent.origin.y,
             z: extent.size.width,
-            w: extent.size.height
+            w: stripHeight
         )
         guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
             kCIInputImageKey: ciImage,
@@ -167,11 +175,15 @@ final class DominantColorExtractor {
 
         let ciImage = CIImage(cgImage: cgImage)
         let extent = ciImage.extent
+        // Average only the BOTTOM strip of the cover (CIImage origin is bottom-left → origin.y is the visual
+        // bottom), not the whole image — so the themed body color matches where the cover MEETS it: a seamless
+        // dark/black continuity for a dark-bottomed photo (Apple-Music style), not a muddy whole-image average.
+        let stripHeight = max(1, extent.size.height * 0.20)
         let inputExtent = CIVector(
             x: extent.origin.x,
             y: extent.origin.y,
             z: extent.size.width,
-            w: extent.size.height
+            w: stripHeight
         )
 
         guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
