@@ -956,7 +956,7 @@ struct PlaylistDetailView: View {
             }
             }
             .padding(.top, CassetteSpacing.m)
-            .padding(.bottom, CassetteSpacing.l)
+            .padding(.bottom, CassetteSpacing.xl)
         }
         .frame(maxWidth: .infinity)
     }

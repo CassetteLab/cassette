@@ -30,6 +30,7 @@ struct ImmersiveCoverHero<Content: View>: View {
                 coverHero
                 content()
                     .padding(.top, CassetteSpacing.m)
+                    .padding(.bottom, CassetteSpacing.xl)
             }
             .frame(maxWidth: .infinity)
         } else {
