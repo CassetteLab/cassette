@@ -89,6 +89,7 @@ struct PlaylistDetailView: View {
     @State private var photoIsCover = false
     @State private var coverDirty = false
     @State private var showDeletePlaylistConfirm = false
+    @State private var showRemoveSongsConfirm = false
     @State private var isSaving = false
     @Namespace private var heroEditNamespace
     #if os(iOS)
@@ -316,11 +317,17 @@ struct PlaylistDetailView: View {
             if let data = try? Data(contentsOf: url), let img = UIImage(data: data) { presentCrop(img) }
         }
         #endif
-        .confirmationDialog("Delete \"\(viewModel?.name ?? initialName)\"?", isPresented: $showDeletePlaylistConfirm, titleVisibility: .visible) {
+        .alert("Delete \"\(viewModel?.name ?? initialName)\"?", isPresented: $showDeletePlaylistConfirm) {
             Button("Delete", role: .destructive) { Task { await deletePlaylistInPlace() } }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes the playlist everywhere, including any downloaded copy.")
+        }
+        .alert("Remove \(selectedSongIds.count) Song\(selectedSongIds.count == 1 ? "" : "s")?", isPresented: $showRemoveSongsConfirm) {
+            Button("Remove", role: .destructive) { removeSelectedTracks() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They'll be removed from the playlist when you save.")
         }
         .sheet(isPresented: $showEditSheet) {
             if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
@@ -458,7 +465,7 @@ struct PlaylistDetailView: View {
                 // Trash: multi-remove the selected tracks; with nothing selected, delete the whole playlist
                 // (confirmed via dialog). Both mutate only the local working list until Done persists.
                 Button(role: .destructive) {
-                    if selectedSongIds.isEmpty { showDeletePlaylistConfirm = true } else { removeSelectedTracks() }
+                    if selectedSongIds.isEmpty { showDeletePlaylistConfirm = true } else { showRemoveSongsConfirm = true }
                 } label: {
                     navBarIcon("trash", tint: .red)
                 }
