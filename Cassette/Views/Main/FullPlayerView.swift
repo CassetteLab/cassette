@@ -341,26 +341,50 @@ struct FullPlayerView: View {
                 .frame(width: isSource ? min(geo.size.width, geo.size.height) : nil, height: isSource ? min(geo.size.width, geo.size.height) : nil)
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
-                .drawingGroup()
-                // Dissolve the cover's top and bottom EDGES to transparent so the artwork melts gracefully into
-                // the background wash (top-strip colour above the cover, dominant below it) — the cover stays
-                // fully intact, no overlaid colour band or blur. The mask sits AFTER drawingGroup so its
-                // transparency composites with the wash behind, rather than being flattened into the raster.
-                .mask {
+                // Top fade dissolves the cover's top edge into the top-strip wash filling the gap above.
+                .overlay {
                     if isSource {
                         LinearGradient(
                             stops: [
-                                .init(color: .clear, location: 0.0),
-                                .init(color: .black, location: 0.13),
-                                .init(color: .black, location: 0.80),
-                                .init(color: .clear, location: 1.0),
+                                .init(color: vm.topColor, location: 0.0),
+                                .init(color: .clear, location: 0.20),
                             ],
                             startPoint: .top, endPoint: .bottom
                         )
-                    } else {
-                        Rectangle()
                     }
                 }
+                // Light blurred melt at the bottom: a thin strip of the cover blurs and fades into the dominant
+                // body colour, so the cover dissolves into the body (same recipe as album/playlist).
+                .overlay {
+                    if isSource, let cover = vm.coverImage {
+                        ZStack {
+                            Image(platformImage: cover)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .blur(radius: 16)
+                                .clipped()
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0.72),
+                                    .init(color: vm.dominantColor, location: 1.0),
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        }
+                        .mask(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .clear, location: 0.74),
+                                    .init(color: .black, location: 1.0),
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                        .allowsHitTesting(false)
+                    }
+                }
+                .drawingGroup()
                 // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
                 // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
                 .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
