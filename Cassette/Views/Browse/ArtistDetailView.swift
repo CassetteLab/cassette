@@ -193,12 +193,17 @@ struct ArtistDetailView: View {
                     Button {
                         Task { await playAll(shuffled: true) }
                     } label: {
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 26, weight: .bold))
-                            .foregroundStyle(Color.cassetteAccent)
-                            .offset(x: 2)
+                        Circle()
+                            .fill(.white)
                             .frame(width: 66, height: 66)
-                            .background(.white, in: Circle())
+                            .overlay {
+                                // The play glyph is KNOCKED OUT of the white disc (transparent — the hero shows
+                                // through it), centred.
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 26, weight: .bold))
+                                    .blendMode(.destinationOut)
+                            }
+                            .compositingGroup()
                             .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
                     }
                     .buttonStyle(.plain)

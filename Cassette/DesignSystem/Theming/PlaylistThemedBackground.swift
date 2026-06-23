@@ -71,11 +71,12 @@ struct PlaylistThemedBackground: View {
             .clipped()
             .blur(radius: 44)
 
-            // Resolve to pure body color at the very bottom of the hero region.
+            // Resolve to the dominant body color EARLY so the transition reads as a colour continuity (the
+            // cover melting into the dominant tint) rather than a washed-out blurred-cover band.
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.42),
-                    .init(color: bodyColor, location: 0.97),
+                    .init(color: .clear, location: 0.38),
+                    .init(color: bodyColor, location: 0.74),
                 ],
                 startPoint: .top,
                 endPoint: .bottom

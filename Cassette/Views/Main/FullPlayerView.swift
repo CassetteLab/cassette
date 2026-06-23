@@ -335,8 +335,8 @@ struct FullPlayerView: View {
                     if isSource {
                         LinearGradient(
                             stops: [
-                                .init(color: .clear, location: 0.68),
-                                .init(color: vm.dominantColor, location: 1.0),
+                                .init(color: .clear, location: 0.58),
+                                .init(color: vm.dominantColor, location: 0.92),
                             ],
                             startPoint: .top, endPoint: .bottom
                         )
