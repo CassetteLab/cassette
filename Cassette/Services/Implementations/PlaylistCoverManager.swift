@@ -22,17 +22,20 @@ struct PlaylistCoverManager {
     private let serverService: any ServerServiceProtocol
     private let downloadService: any DownloadServiceProtocol
     private let artworkImageCache: ArtworkImageCache
+    private let coverVersionRegistry: CoverVersionRegistry
 
     init(
         serverState: ServerState,
         serverService: any ServerServiceProtocol,
         downloadService: any DownloadServiceProtocol,
-        artworkImageCache: ArtworkImageCache
+        artworkImageCache: ArtworkImageCache,
+        coverVersionRegistry: CoverVersionRegistry
     ) {
         self.serverState = serverState
         self.serverService = serverService
         self.downloadService = downloadService
         self.artworkImageCache = artworkImageCache
+        self.coverVersionRegistry = coverVersionRegistry
     }
 
     /// Render a gradient spec → JPEG, cache it on-device, best-effort upload. Returns the JPEG bytes.
@@ -60,6 +63,10 @@ struct PlaylistCoverManager {
         for tier in [ArtworkTier.thumb, .hero] {
             await downloadService.persistCover(data, forId: "\(playlistId)@\(tier.rawValue)")
         }
+        // The SINGLE cross-surface refresh signal: bumping here (the shared apply path) means all three change
+        // paths — re-pick, first-track derivation, upload — and both platforms emit it consistently, and every
+        // CoverArtView folding version(for:) into its task key re-resolves the freshly-cached cover.
+        coverVersionRegistry.bump(playlistId)
     }
 
     private func uploadIfPossible(_ jpegData: Data, playlistId: String) async {

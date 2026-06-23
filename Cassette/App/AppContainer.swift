@@ -36,6 +36,7 @@ final class AppContainer {
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
     let dominantColorExtractor = DominantColorExtractor()
+    let coverVersionRegistry = CoverVersionRegistry()
     let artworkImageCache: ArtworkImageCache
     let statsService: StatsService
     private let _player: PlayerService

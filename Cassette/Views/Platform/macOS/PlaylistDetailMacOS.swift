@@ -75,6 +75,7 @@ struct PlaylistDetailMacOS: View {
                 }
                 .environment(colorExtractor)
                 .environment(c.artworkImageCache)
+                .environment(c.coverVersionRegistry)
                 .environment(\.appContainer, c)
                 .frame(minWidth: 480, minHeight: 580)
             }

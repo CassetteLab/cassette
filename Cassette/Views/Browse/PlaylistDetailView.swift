@@ -74,7 +74,6 @@ struct PlaylistDetailView: View {
     @State private var songToAddToPlaylist: DisplayableSong?
 
     @State private var coverRefreshID = UUID()
-    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     // MARK: In-place edit mode (iOS only — macOS keeps EditPlaylistSheet). The detail view becomes the editor:
     // hero → editable cover carousel, title/description → fields, track list (Gate 2) → reorder + multi-select.
@@ -335,7 +334,6 @@ struct PlaylistDetailView: View {
                     onCommitted: {
                         Task { await vm.load() }
                         coverRefreshID = UUID()
-                        coverArtUploadVersion += 1
                     },
                     onDeleted: { dismiss() }
                 )
@@ -343,6 +341,7 @@ struct PlaylistDetailView: View {
                 // before — see the toast overlay fix).
                 .environment(colorExtractor)
                 .environment(c.artworkImageCache)
+                .environment(c.coverVersionRegistry)
                 .environment(\.appContainer, c)
             }
         }
@@ -363,10 +362,10 @@ struct PlaylistDetailView: View {
                     )
                     await vm.load()
                     coverRefreshID = UUID()
-                    coverArtUploadVersion += 1
                 }
                 .environment(colorExtractor)
                 .environment(c.artworkImageCache)
+                .environment(c.coverVersionRegistry)
                 .environment(\.appContainer, c)
             }
         }
@@ -698,7 +697,6 @@ struct PlaylistDetailView: View {
         )
         await viewModel?.load()
         coverRefreshID = UUID()
-        coverArtUploadVersion += 1
         withAnimation(.smooth) { isEditing = false }
     }
 
@@ -707,7 +705,8 @@ struct PlaylistDetailView: View {
             serverState: c.serverState,
             serverService: c.serverService,
             downloadService: c.downloadService,
-            artworkImageCache: c.artworkImageCache
+            artworkImageCache: c.artworkImageCache,
+            coverVersionRegistry: c.coverVersionRegistry
         )
         let store = PlaylistCoverStore(modelContainer: c.modelContainer)
         if let shape = selectedGradient {

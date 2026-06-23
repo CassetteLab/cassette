@@ -455,7 +455,6 @@ private struct HomePinnedCard: View {
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var coverImage: PlatformImage?
-    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     private var homeNavDestination: HomeDestination {
         switch PinnedItemType(rawValue: item.itemType) {
@@ -475,7 +474,6 @@ private struct HomePinnedCard: View {
                     CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
                         .frame(width: geo.size.width, height: geo.size.width)
                         .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
-                        .id("\(item.coverArtId ?? item.itemId)_\(coverArtUploadVersion)")
                 }
                 .aspectRatio(1, contentMode: .fit)
                 .cassetteMatchedTransitionSource(id: item.itemId, in: namespace)
@@ -585,7 +583,6 @@ private struct HomeDownloadedItemCard: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var coverImage: PlatformImage?
-    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
 
     var body: some View {
         NavigationLink(value: destination) {
@@ -594,7 +591,6 @@ private struct HomeDownloadedItemCard: View {
                     CoverArtView(id: item.coverArtId ?? item.itemId, size: Int(geo.size.width * 2))
                         .frame(width: geo.size.width, height: geo.size.width)
                         .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
-                        .id("\(item.coverArtId ?? item.itemId)_\(coverArtUploadVersion)")
                 }
                 .aspectRatio(1, contentMode: .fit)
                 Text(item.name)

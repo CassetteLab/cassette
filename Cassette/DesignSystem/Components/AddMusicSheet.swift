@@ -696,7 +696,8 @@ enum AddMusicCommitter {
             serverState: container.serverState,
             serverService: container.serverService,
             downloadService: container.downloadService,
-            artworkImageCache: container.artworkImageCache
+            artworkImageCache: container.artworkImageCache,
+            coverVersionRegistry: container.coverVersionRegistry
         )
         _ = await manager.applyGradientCover(derived, playlistId: playlistId)
         // Preserve the existing user-pick flag so the cover-store overwrite guard never blocks the derived save.

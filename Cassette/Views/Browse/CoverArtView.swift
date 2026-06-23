@@ -71,6 +71,9 @@ private struct CoverArtViewContent: View {
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkCache
+    /// The shared per-cover generation signal (optional so a CoverArtView without it injected degrades to "no
+    /// refresh on change" instead of crashing). Folded into the load-task key so a cover change re-resolves.
+    @Environment(CoverVersionRegistry.self) private var coverVersionRegistry: CoverVersionRegistry?
     @State private var cachedImage: PlatformImage?
     @State private var url: URL?
     /// The id whose image `cachedImage` currently represents. Lets a track change resolve the
@@ -128,7 +131,7 @@ private struct CoverArtViewContent: View {
         }
         // Keyed on (loadingEnabled, id) so deferring/undeferring re-runs the load: a deferred row shows its
         // placeholder/initial image and fires NO artwork task until it becomes visible (loadingEnabled flips).
-        .task(id: "\(loadingEnabled):\(id)") {
+        .task(id: "\(loadingEnabled):\(id):\(coverVersionRegistry?.version(for: id) ?? 0)") {
             guard loadingEnabled else { return }
             url = nil
             let t = resolvedTier

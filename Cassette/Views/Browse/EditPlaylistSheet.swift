@@ -109,6 +109,7 @@ struct EditPlaylistSheet: View {
                     }
                     .environment(colorExtractor)
                     .environment(c.artworkImageCache)
+                    .environment(c.coverVersionRegistry)
                     .environment(\.appContainer, c)
                 }
             }
@@ -356,7 +357,8 @@ struct EditPlaylistSheet: View {
             serverState: c.serverState,
             serverService: c.serverService,
             downloadService: c.downloadService,
-            artworkImageCache: c.artworkImageCache
+            artworkImageCache: c.artworkImageCache,
+            coverVersionRegistry: c.coverVersionRegistry
         )
         let store = PlaylistCoverStore(modelContainer: c.modelContainer)
         if let shape = selectedGradient {
