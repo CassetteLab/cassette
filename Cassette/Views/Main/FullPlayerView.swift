@@ -113,7 +113,13 @@ struct FullPlayerView: View {
             #if os(iOS)
             ZStack {
                 Color.black
-                vm.dominantColor
+                // Vertical wash: the cover's TOP-strip colour at the top fills the gap ABOVE the fitted square
+                // cover, melting down into the dominant (bottom-strip) colour the cover's bottom meets.
+                LinearGradient(
+                    colors: [vm.topColor, vm.dominantColor],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
             .ignoresSafeArea()
             #else
@@ -336,6 +342,9 @@ struct FullPlayerView: View {
                     if isSource {
                         LinearGradient(
                             stops: [
+                                // Soft top fade into the top-strip wash above, and the existing bottom melt.
+                                .init(color: vm.topColor, location: 0.0),
+                                .init(color: .clear, location: 0.10),
                                 .init(color: .clear, location: 0.50),
                                 .init(color: vm.dominantColor, location: 0.96),
                             ],

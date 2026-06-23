@@ -10,6 +10,8 @@ import SwiftUI
 final class FullPlayerViewModel {
     var coverImage: PlatformImage? = nil
     var dominantColor: Color = .black
+    /// Average colour of the cover's TOP strip — fills the gap ABOVE the fitted square cover in the player.
+    var topColor: Color = .black
     var isLightBackground: Bool = false
 
     private let session: URLSession = {
@@ -28,6 +30,7 @@ final class FullPlayerViewModel {
             withAnimation(.easeInOut(duration: 0.4)) {
                 coverImage = nil
                 dominantColor = .black
+                topColor = .black
                 isLightBackground = false
             }
             return
@@ -42,16 +45,19 @@ final class FullPlayerViewModel {
         // Skip re-extraction if the color is already memoized (the image is still decoded for coverImage).
         let cachedColor = colorExtractor.cachedColor(for: coverArtId)
         // Decode + average OFF the main actor so a track change does not hitch the UI on the main thread.
-        let processed: (image: PlatformImage, packed: Int?)? = await Task.detached(priority: .userInitiated) {
+        let processed: (image: PlatformImage, packed: Int?, topPacked: Int?)? = await Task.detached(priority: .userInitiated) {
             guard let image = PlatformImage(data: data) else { return nil }
             let packed = cachedColor == nil ? DominantColorExtractor.packedAverageColor(from: image) : nil
-            return (image, packed)
+            let topPacked = DominantColorExtractor.packedAverageColor(from: image, fromTop: true)
+            return (image, packed, topPacked)
         }.value
         guard let processed else { return }
         let color = cachedColor ?? colorExtractor.storeColor(packed: processed.packed, for: coverArtId)
+        let top = processed.topPacked.map { DominantColorExtractor.unpack($0) } ?? color
         withAnimation(.easeInOut(duration: 0.4)) {
             coverImage = processed.image
             dominantColor = color
+            topColor = top
             isLightBackground = color.luminance > 0.6
         }
     }

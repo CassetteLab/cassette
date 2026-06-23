@@ -81,7 +81,7 @@ final class DominantColorExtractor {
     /// Off-main average-color extraction (packed 0xRRGGBB). `nonisolated` so it runs inside `Task.detached`,
     /// keeping the CoreImage decode/average off the main actor. Mirrors `extract(from:)` but uses a local
     /// CIContext (cheap next to the image decode it follows) instead of the MainActor-isolated instance one.
-    nonisolated static func packedAverageColor(from image: PlatformImage) -> Int? {
+    nonisolated static func packedAverageColor(from image: PlatformImage, fromTop: Bool = false) -> Int? {
         #if canImport(UIKit)
         guard let cgImage = image.cgImage else { return nil }
         #elseif canImport(AppKit)
@@ -91,13 +91,13 @@ final class DominantColorExtractor {
 
         let ciImage = CIImage(cgImage: cgImage)
         let extent = ciImage.extent
-        // Average only the BOTTOM strip of the cover (CIImage origin is bottom-left → origin.y is the visual
-        // bottom), not the whole image — so the themed body color matches where the cover MEETS it: a seamless
-        // dark/black continuity for a dark-bottomed photo (Apple-Music style), not a muddy whole-image average.
+        // Average a 20% horizontal strip — the BOTTOM by default (where a cover meets the themed body), or the
+        // TOP when fromTop (to fill the gap ABOVE a fitted square cover). CIImage origin is bottom-left.
         let stripHeight = max(1, extent.size.height * 0.20)
+        let stripY = fromTop ? (extent.origin.y + extent.size.height - stripHeight) : extent.origin.y
         let inputExtent = CIVector(
             x: extent.origin.x,
-            y: extent.origin.y,
+            y: stripY,
             z: extent.size.width,
             w: stripHeight
         )
@@ -145,7 +145,7 @@ final class DominantColorExtractor {
 
     // MARK: - Private
 
-    private static func unpack(_ packed: Int) -> Color {
+    static func unpack(_ packed: Int) -> Color {
         Color(
             red: Double((packed >> 16) & 0xFF) / 255.0,
             green: Double((packed >> 8) & 0xFF) / 255.0,
