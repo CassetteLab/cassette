@@ -341,10 +341,11 @@ struct FullPlayerView: View {
                 .frame(width: isSource ? min(geo.size.width, geo.size.height) : nil, height: isSource ? min(geo.size.width, geo.size.height) : nil)
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
-                // Melt the bottom into the dominant body color so the cover fades into the controls area below.
+                .drawingGroup()
                 // Dissolve the cover's top and bottom EDGES to transparent so the artwork melts gracefully into
                 // the background wash (top-strip colour above the cover, dominant below it) — the cover stays
-                // fully intact, no overlaid colour band or blur, just its edges fading into the body.
+                // fully intact, no overlaid colour band or blur. The mask sits AFTER drawingGroup so its
+                // transparency composites with the wash behind, rather than being flattened into the raster.
                 .mask {
                     if isSource {
                         LinearGradient(
@@ -360,7 +361,6 @@ struct FullPlayerView: View {
                         Rectangle()
                     }
                 }
-                .drawingGroup()
                 // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
                 // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
                 .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
