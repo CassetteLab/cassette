@@ -16,8 +16,22 @@ struct MiniPlayerAccessoryView: View {
     private let swipeThreshold: CGFloat = 100
     private let velocityThreshold: CGFloat = 200
 
-    private var typoColor: Color { colorScheme == .light ? .black : .white }
-    private var typoSecondaryColor: Color { colorScheme == .light ? Color.black.opacity(0.6) : Color.white.opacity(0.7) }
+    @State private var dominantColor: Color = .clear
+
+    /// The bar tints itself with the current track's dominant colour, so the typography contrast is
+    /// DETERMINISTIC (white on a dark cover, black on a light one) instead of following the system scheme over
+    /// a glass that darkens on themed detail views.
+    private var isBackgroundLight: Bool {
+        dominantColor == .clear ? (colorScheme == .light) : (dominantColor.luminance > 0.6)
+    }
+    private var typoColor: Color { isBackgroundLight ? .black : .white }
+    private var typoSecondaryColor: Color { isBackgroundLight ? Color.black.opacity(0.6) : Color.white.opacity(0.7) }
+
+    private var currentCoverArtId: String {
+        guard let ps = container?.playerState else { return "" }
+        if ps.isLiveStream { return ps.currentRadio?.coverArt ?? "" }
+        return ps.currentTrack?.coverArtId ?? ps.currentTrack?.id ?? ""
+    }
 
     var body: some View {
         if let playerState = container?.playerState {
@@ -58,6 +72,15 @@ struct MiniPlayerAccessoryView: View {
         .contentShape(Rectangle())
         .onTapGesture { showingFullPlayer = true }
         .gesture(isAvailable && !isLiveStream ? swipeSkipGesture : nil)
+        .task(id: currentCoverArtId) {
+            let id = currentCoverArtId
+            guard !id.isEmpty, let container else { dominantColor = .clear; return }
+            if let cached = container.dominantColorExtractor.cachedColor(for: id), cached != .clear {
+                dominantColor = cached
+            } else if let image = await container.artworkImageCache.load(coverArtId: id) {
+                dominantColor = container.dominantColorExtractor.dominantColor(for: id, image: image)
+            }
+        }
     }
 
     private func inlineBar(coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool, isLiveStream: Bool) -> some View {
@@ -95,6 +118,7 @@ struct MiniPlayerAccessoryView: View {
         }
         .padding(.horizontal, CassetteSpacing.m)
         .padding(.vertical, CassetteSpacing.s)
+        .background(dominantColor, in: Capsule())
     }
 
     private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool, isLiveStream: Bool) -> some View {
@@ -180,6 +204,7 @@ struct MiniPlayerAccessoryView: View {
                 .accessibilityHidden(true)
             }
         }
+        .background(dominantColor)
     }
 
     private func playPauseButton(isPlaying: Bool, isAvailable: Bool) -> some View {
