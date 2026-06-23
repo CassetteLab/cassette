@@ -45,9 +45,6 @@ struct PlaylistThemedBackground: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: heroHeight)
                     .clipped()
-
-                    // Blurred melt: the cover bleeds + blurs into the body color toward the bottom.
-                    blurredMelt(coverArtId: coverArtId)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
