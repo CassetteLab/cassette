@@ -114,7 +114,6 @@ struct MiniPlayerAccessoryView: View {
         }
         .padding(.horizontal, CassetteSpacing.m)
         .padding(.vertical, CassetteSpacing.s)
-        .background(dominantColor, in: Capsule())
     }
 
     private func expandedBar(playerState: PlayerState, coverArtId: String, title: String, artist: String?, audioFormat: String?, isPlaying: Bool, isAvailable: Bool, isLiveStream: Bool) -> some View {
@@ -196,7 +195,6 @@ struct MiniPlayerAccessoryView: View {
                 .accessibilityHidden(true)
             }
         }
-        .background(dominantColor)
     }
 
     private func playPauseButton(isPlaying: Bool, isAvailable: Bool) -> some View {
