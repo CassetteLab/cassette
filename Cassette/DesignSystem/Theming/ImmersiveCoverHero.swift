@@ -19,32 +19,48 @@ struct ImmersiveCoverHero<Content: View>: View {
     let heroHeight: CGFloat
     /// Re-mount key so the cover reloads when it changes (e.g. an edit upload). Defaults to a constant.
     var coverRefreshID: AnyHashable = 0
+    /// When true the cover keeps its square ratio and the content sits BELOW it (album/playlist covers shown in
+    /// full); when false (default) the content floats over the full-bleed cover (artist photos).
+    var contentBelow: Bool = false
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            GeometryReader { geo in
-                // Stretchy header: on over-scroll at the top, grow the cover UPWARD to fill the bounce
-                // instead of revealing the solid page color behind it.
-                let stretch = max(0, geo.frame(in: .global).minY)
-                PlaylistThemedBackground(
-                    coverArtId: coverArtId,
-                    coverImage: coverImage,
-                    theme: theme,
-                    heroHeight: heroHeight
-                )
-                .frame(width: geo.size.width, height: heroHeight + stretch)
-                .offset(y: -stretch)
-                .id(coverRefreshID)
+        if contentBelow {
+            VStack(spacing: 0) {
+                coverHero
+                content()
+                    .padding(.top, CassetteSpacing.m)
+            }
+            .frame(maxWidth: .infinity)
+        } else {
+            ZStack(alignment: .bottom) {
+                coverHero
+                // Floating content over the cover's lower part. Non-interactive cover behind it stays out of
+                // the way of taps (artist links, transport buttons).
+                content()
+                    .padding(.bottom, CassetteSpacing.l)
             }
             .frame(height: heroHeight)
+            .frame(maxWidth: .infinity)
+        }
+    }
 
-            // Floating content over the cover's lower part. Non-interactive cover behind it stays out of the
-            // way of taps (artist links, transport buttons).
-            content()
-                .padding(.bottom, CassetteSpacing.l)
+    private var coverHero: some View {
+        GeometryReader { geo in
+            // Stretchy header: on over-scroll at the top, grow the cover UPWARD to fill the bounce instead of
+            // revealing the solid page color behind it.
+            let stretch = max(0, geo.frame(in: .global).minY)
+            PlaylistThemedBackground(
+                coverArtId: coverArtId,
+                coverImage: coverImage,
+                theme: theme,
+                heroHeight: heroHeight,
+                lightMelt: contentBelow
+            )
+            .frame(width: geo.size.width, height: heroHeight + stretch)
+            .offset(y: -stretch)
+            .id(coverRefreshID)
         }
         .frame(height: heroHeight)
-        .frame(maxWidth: .infinity)
     }
 }

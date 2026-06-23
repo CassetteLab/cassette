@@ -24,6 +24,9 @@ struct PlaylistThemedBackground: View {
     /// of the uploaded JPEG. The JPEG stays the cards/cross-device source of truth; this is a local crisp
     /// enrichment. Default nil keeps every other caller (photo / server cover / ImmersiveCoverHero) unchanged.
     var gradientSpec: PlaylistGradientSpec? = nil
+    /// Fade ONLY the bottom edge (square covers shown in full with content sitting below) instead of the lower
+    /// ~half (full-bleed covers with content floating over them).
+    var lightMelt: Bool = false
 
     private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackground }
 
@@ -76,8 +79,8 @@ struct PlaylistThemedBackground: View {
             // cover melting into the dominant tint) rather than a washed-out blurred-cover band.
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.30),
-                    .init(color: bodyColor, location: 0.80),
+                    .init(color: .clear, location: lightMelt ? 0.82 : 0.30),
+                    .init(color: bodyColor, location: lightMelt ? 1.0 : 0.80),
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -89,8 +92,8 @@ struct PlaylistThemedBackground: View {
         .mask(
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0.32),
-                    .init(color: .black, location: 0.85),
+                    .init(color: .clear, location: lightMelt ? 0.84 : 0.32),
+                    .init(color: .black, location: lightMelt ? 1.0 : 0.85),
                 ],
                 startPoint: .top,
                 endPoint: .bottom

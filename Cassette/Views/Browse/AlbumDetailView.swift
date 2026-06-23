@@ -374,7 +374,8 @@ struct AlbumDetailView: View {
             coverArtId: vm?.coverArtId ?? coverArtId ?? albumId,
             coverImage: effectiveInitialImage,
             theme: theme,
-            heroHeight: heroHeight
+            heroHeight: heroHeight,
+            contentBelow: true
         ) {
             VStack(spacing: CassetteSpacing.l) {
                 VStack(spacing: 0) {

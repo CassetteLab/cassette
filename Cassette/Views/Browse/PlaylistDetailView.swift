@@ -816,7 +816,7 @@ struct PlaylistDetailView: View {
     // MARK: - Header
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 0) {
             // The cover + blurred melt live HERE, in the scroll content (the first row), so they scroll up
             // with the list. ignoresSafeArea(.container, .top) bleeds the cover under the transparent nav bar.
             GeometryReader { geo in
@@ -828,7 +828,8 @@ struct PlaylistDetailView: View {
                     coverImage: initialCoverImage,
                     theme: theme,
                     heroHeight: heroHeight,
-                    gradientSpec: gradientSpec
+                    gradientSpec: gradientSpec,
+                    lightMelt: true
                 )
                 .frame(width: geo.size.width, height: heroHeight + stretch)
                 .offset(y: -stretch)
@@ -954,9 +955,9 @@ struct PlaylistDetailView: View {
                 }
             }
             }
+            .padding(.top, CassetteSpacing.m)
             .padding(.bottom, CassetteSpacing.l)
         }
-        .frame(height: heroHeight)
         .frame(maxWidth: .infinity)
     }
 
