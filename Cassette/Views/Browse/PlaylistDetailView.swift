@@ -561,7 +561,7 @@ struct PlaylistDetailView: View {
     // MARK: - In-place edit header (iOS in-place editor; reuses the validated carousel + fields)
 
     private var editHeader: some View {
-        VStack(spacing: CassetteSpacing.l) {
+        VStack(spacing: CassetteSpacing.xl) {
             editCoverCarousel
                 // Clear the (edit-mode) nav bar since the list bleeds under it via ignoresSafeArea(.top).
                 .padding(.top, 100)
@@ -569,6 +569,7 @@ struct PlaylistDetailView: View {
                 TextField("Playlist Title", text: $editName)
                     .font(.system(.title2, design: .rounded, weight: .semibold))
                     .multilineTextAlignment(.center)
+                    .padding(.vertical, CassetteSpacing.s)
                 TextField("Description", text: $editComment, axis: .vertical)
                     .multilineTextAlignment(.center)
                     .lineLimit(1...4)
