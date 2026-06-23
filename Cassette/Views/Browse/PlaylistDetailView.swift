@@ -735,10 +735,18 @@ struct PlaylistDetailView: View {
             editTrackRow(song)
                 .tag(song.id)
                 .listRowBackground(bodyColor)
+                .environment(\.colorScheme, dragHandleScheme)
         }
         .onMove { from, to in
             editSongs.move(fromOffsets: from, toOffset: to)
         }
+    }
+
+    /// Force the editable rows' color scheme to the theme's luminance so the SYSTEM reorder handles (≡) and
+    /// selection circles contrast the themed row background — they render system-grey (low contrast) otherwise.
+    /// The rows' own text uses explicit theme colors, so it is unaffected.
+    private var dragHandleScheme: ColorScheme {
+        theme.isThemed ? (theme.isLight ? .light : .dark) : colorScheme
     }
 
     private func editTrackRow(_ song: DisplayableSong) -> some View {
