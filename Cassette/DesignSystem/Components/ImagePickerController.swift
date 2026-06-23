@@ -11,15 +11,19 @@ import UIKit
 // UIImagePickerController's built-in square crop UI is available.
 struct ImagePickerController: UIViewControllerRepresentable {
     let sourceType: UIImagePickerController.SourceType
+    /// UIImagePickerController's built-in square crop is clunky — callers that crop themselves pass `false`.
+    var allowsEditing: Bool = true
     let onPick: (UIImage) -> Void
     let onCancel: () -> Void
 
     init(
         sourceType: UIImagePickerController.SourceType = .photoLibrary,
+        allowsEditing: Bool = true,
         onPick: @escaping (UIImage) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.sourceType = sourceType
+        self.allowsEditing = allowsEditing
         self.onPick = onPick
         self.onCancel = onCancel
     }
@@ -31,7 +35,7 @@ struct ImagePickerController: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = sourceType
-        picker.allowsEditing = true
+        picker.allowsEditing = allowsEditing
         picker.delegate = context.coordinator
         return picker
     }

@@ -71,6 +71,10 @@ private struct CoverArtViewContent: View {
 
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkCache
+    /// Global cover-refresh counter (UserDefaults-backed → reliably observed, no @Observable-in-body / optional-
+    /// @Environment pitfalls). Bumped by PlaylistCoverManager on any cover change; folded into the load-task key
+    /// so a cover change re-resolves the freshly-cached cover on EVERY surface (incl. Home Pinned).
+    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
     @State private var cachedImage: PlatformImage?
     @State private var url: URL?
     /// The id whose image `cachedImage` currently represents. Lets a track change resolve the
@@ -128,7 +132,7 @@ private struct CoverArtViewContent: View {
         }
         // Keyed on (loadingEnabled, id) so deferring/undeferring re-runs the load: a deferred row shows its
         // placeholder/initial image and fires NO artwork task until it becomes visible (loadingEnabled flips).
-        .task(id: "\(loadingEnabled):\(id)") {
+        .task(id: "\(loadingEnabled):\(id):\(coverArtUploadVersion)") {
             guard loadingEnabled else { return }
             url = nil
             let t = resolvedTier

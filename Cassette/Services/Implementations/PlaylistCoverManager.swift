@@ -60,6 +60,11 @@ struct PlaylistCoverManager {
         for tier in [ArtworkTier.thumb, .hero] {
             await downloadService.persistCover(data, forId: "\(playlistId)@\(tier.rawValue)")
         }
+        // The SINGLE cross-surface refresh signal — a UserDefaults-backed global counter every CoverArtView
+        // observes via @AppStorage (reliable; the @Environment @Observable didn't re-fire). Bumping here (the
+        // shared apply path) means all three change paths and both platforms emit it consistently.
+        let key = "coverArtUploadVersion"
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: key) + 1, forKey: key)
     }
 
     private func uploadIfPossible(_ jpegData: Data, playlistId: String) async {

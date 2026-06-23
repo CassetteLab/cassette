@@ -7,6 +7,9 @@ import SwiftUI
 import SwiftSonic
 import SwiftData
 import OSLog
+#if os(iOS)
+import UniformTypeIdentifiers
+#endif
 
 struct PlaylistDetailView: View {
     private let playlistId: String
@@ -62,12 +65,41 @@ struct PlaylistDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: PlaylistDetailViewModel?
     @State private var dominantColor: Color = .clear
+    /// A user-picked gradient spec (if any) -> the hero renders CRISP from it instead of the JPEG. Resolved
+    /// from PlaylistCoverStore on appear + after an edit (coverRefreshID). Nil for photo / server cover.
+    @State private var gradientSpec: PlaylistGradientSpec?
     @State private var showDeleteAlert = false
     @State private var showEditSheet = false
+    @State private var showAddMusic = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
     @State private var coverRefreshID = UUID()
-    @AppStorage("coverArtUploadVersion") private var coverArtUploadVersion = 0
+
+    // MARK: In-place edit mode (iOS only — macOS keeps EditPlaylistSheet). The detail view becomes the editor:
+    // hero → editable cover carousel, title/description → fields, track list (Gate 2) → reorder + multi-select.
+    // Reuses the validated PlaylistCoverCarousel + the mutation committer — only the CONTAINER changes.
+    @State private var isEditing = false
+    @State private var editName: String = ""
+    @State private var editComment: String = ""
+    /// Local mutable working copy of the track list — reorder (drag) + multi-select remove both mutate this;
+    /// the commit does ONE atomic full-list replace (Gate 3) if it differs from the loaded songs.
+    @State private var editSongs: [DisplayableSong] = []
+    @State private var selectedSongIds: Set<String> = []
+    @State private var selectedGradient: PlaylistGradientShape?
+    @State private var photoIsCover = false
+    @State private var coverDirty = false
+    @State private var showDeletePlaylistConfirm = false
+    @State private var showRemoveSongsConfirm = false
+    @State private var isSaving = false
+    @Namespace private var heroEditNamespace
+    #if os(iOS)
+    @State private var pendingImage: UIImage?
+    @State private var showImageOptions = false
+    @State private var showImagePicker = false
+    @State private var showCamera = false
+    @State private var showFilePicker = false
+    @State private var imageToCrop: CroppableImage?
+    #endif
 
     // Immersive hero geometry (captured from the view; tunable). `heroHeight` = the cover region height; the
     // cover lives in the first SCROLLING row and bleeds under the nav bar via ignoresSafeArea.
@@ -147,14 +179,24 @@ struct PlaylistDetailView: View {
     var body: some View {
         // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove).
         // ScrollView + LazyVStack refactor is deferred until that interaction is re-implemented outside List.
-        List {
-            playlistHeader(vm: viewModel)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
+        List(selection: $selectedSongIds) {
+            Group {
+                if isEditing {
+                    editHeader
+                        .transition(.opacity)
+                } else {
+                    playlistHeader(vm: viewModel)
+                        .transition(.opacity)
+                }
+            }
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
 
             if isLoadingSkeleton {
                 skeletonRows
+            } else if isEditing {
+                editableSongRows
             } else if let vm = viewModel {
                 let songs = resolvedSongs(vm)
                 if songs.isEmpty, let error = vm.error {
@@ -219,6 +261,11 @@ struct PlaylistDetailView: View {
             }
         }
         .listStyle(.plain)
+        #if os(iOS)
+        // Edit mode ONLY while editing — nil otherwise. Forcing an editMode binding (even .inactive) in view
+        // mode broke the List's scrolling; nil restores the default (normal scroll) for the read-only view.
+        .environment(\.editMode, isEditing ? Binding.constant(EditMode.active) : nil)
+        #endif
         .scrollContentBackground(.hidden)
         // Extend the scroll content under the transparent nav bar so the first row's cover reaches the
         // screen top (and scrolls up under the bar). The bottom safe area / mini-player margin is preserved.
@@ -236,6 +283,52 @@ struct PlaylistDetailView: View {
         .sheet(item: $songToAddToPlaylist) { song in
             AddToPlaylistSheet(song: song)
         }
+        #if os(iOS)
+        // In-place edit cover photo flow (mirrors the create/edit sheets: pick → Apple-Photos crop).
+        .confirmationDialog("Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
+            Button("Choose from Library") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showImagePicker = true }
+            }
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button("Take a Photo") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showCamera = true }
+                }
+            }
+            Button("Browse Files") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { showFilePicker = true }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .fullScreenCover(isPresented: $showImagePicker) {
+            ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
+                .ignoresSafeArea()
+        }
+        .fullScreenCover(item: $imageToCrop) { croppable in
+            SquareCropView(image: croppable.image, onCrop: { pendingImage = $0; imageToCrop = nil }, onCancel: { imageToCrop = nil })
+        }
+        .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.jpeg, .png, .heic, .webP], allowsMultipleSelection: false) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            if let data = try? Data(contentsOf: url), let img = UIImage(data: data) { presentCrop(img) }
+        }
+        #endif
+        .alert("Delete \"\(viewModel?.name ?? initialName)\"?", isPresented: $showDeletePlaylistConfirm) {
+            Button("Delete", role: .destructive) { Task { await deletePlaylistInPlace() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the playlist everywhere, including any downloaded copy.")
+        }
+        .alert("Remove \(selectedSongIds.count) Song\(selectedSongIds.count == 1 ? "" : "s")?", isPresented: $showRemoveSongsConfirm) {
+            Button("Remove", role: .destructive) { removeSelectedTracks() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("They'll be removed from the playlist when you save.")
+        }
         .sheet(isPresented: $showEditSheet) {
             if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
                 EditPlaylistSheet(
@@ -248,12 +341,34 @@ struct PlaylistDetailView: View {
                     onCommitted: {
                         Task { await vm.load() }
                         coverRefreshID = UUID()
-                        coverArtUploadVersion += 1
                     },
                     onDeleted: { dismiss() }
                 )
                 // Inject explicitly so the sheet never misses these (sheet env propagation has bitten us
                 // before — see the toast overlay fix).
+                .environment(colorExtractor)
+                .environment(c.artworkImageCache)
+                .environment(\.appContainer, c)
+            }
+        }
+        .sheet(isPresented: $showAddMusic) {
+            if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
+                AddMusicSheet(
+                    playlistName: vm.name,
+                    existingTrackIds: resolvedSongs(vm).map(\.id)
+                ) { added in
+                    await AddMusicCommitter.commit(
+                        addedSongs: added,
+                        playlistId: playlistId,
+                        serverId: serverId,
+                        existingTrackIds: resolvedSongs(vm).map(\.id),
+                        currentComment: vm.playlistDetail?.comment ?? "",
+                        container: c,
+                        colorExtractor: colorExtractor
+                    )
+                    await vm.load()
+                    coverRefreshID = UUID()
+                }
                 .environment(colorExtractor)
                 .environment(c.artworkImageCache)
                 .environment(\.appContainer, c)
@@ -305,6 +420,9 @@ struct PlaylistDetailView: View {
             await viewModel?.load()
         }
         .task(id: effectiveCoverArtId) {
+            // Photo / server cover -> extract the dominant. Gradient playlists are themed from the spec base
+            // color (cover-refresh task), not the JPEG, so gradient + body stay coherent.
+            guard gradientSpec == nil else { return }
             let artId = effectiveCoverArtId
             let cached = colorExtractor.dominantColor(for: artId, image: nil)
             if cached != .clear {
@@ -313,6 +431,19 @@ struct PlaylistDetailView: View {
             }
             await loadDominantColor(coverArtId: artId)
         }
+        .task(id: coverRefreshID) {
+            // A user-picked gradient -> render the hero CRISP from the spec (the JPEG stays the
+            // cards/cross-device truth), AND theme the body straight from the (vibrance-boosted) spec base
+            // color so gradient + background + body stay coherent, no JPEG re-extraction. Re-resolves after an
+            // edit (coverRefreshID bumps). Nil -> JPEG/photo path keeps the extractor.
+            guard let container, let serverId = container.serverState.activeServer?.id else { gradientSpec = nil; return }
+            let choice = PlaylistCoverStore(modelContainer: container.modelContainer).choice(playlistId: playlistId, serverId: serverId)
+            let spec = choice?.isUserPicked == true ? choice?.spec : nil
+            gradientSpec = spec
+            if let spec {
+                withAnimation(.easeIn(duration: 0.2)) { dominantColor = spec.baseColor }
+            }
+        }
         .cassetteZoomTransition(sourceID: zoomSourceId, in: zoomNamespace)
     }
 
@@ -320,32 +451,77 @@ struct PlaylistDetailView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
-            Button {
-                dismiss()
-            } label: {
-                navBarIcon("chevron.left")
+        if isEditing {
+            // Same themed hero-button surface as view mode (navBarIcon: opaque circle + headerTextColor) so the
+            // edit CTAs match the non-edit ones — NOT system glass capsules, which read the wrong colour here.
+            ToolbarItem(placement: .cancellationAction) {
+                Button { cancelEdit() } label: { navBarIcon("xmark") }
+                    .buttonStyle(.plain)
+                    .disabled(isSaving)
             }
-            .buttonStyle(.plain)
-        }
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                showEditSheet = true
-            } label: {
-                navBarIcon("pencil")
+            ToolbarItem(placement: .primaryAction) {
+                // Trash: multi-remove the selected tracks; with nothing selected, delete the whole playlist
+                // (confirmed via dialog). Both mutate only the local working list until Done persists.
+                Button(role: .destructive) {
+                    if selectedSongIds.isEmpty { showDeletePlaylistConfirm = true } else { showRemoveSongsConfirm = true }
+                } label: {
+                    navBarIcon("trash", tint: .red)
+                }
+                .buttonStyle(.plain)
+                .disabled(isSaving)
             }
-            .buttonStyle(.plain)
-            .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            ToolbarItem(placement: .primaryAction) {
+                Button { showAddMusic = true } label: { navBarIcon("plus") }
+                    .buttonStyle(.plain)
+                    .disabled(isSaving || container?.serverState.isOnline != true)
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                if isSaving {
+                    ProgressView().controlSize(.small).tint(headerTextColor)
+                } else {
+                    let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    Button { Task { isSaving = true; await commitEdit(); isSaving = false } } label: { navBarIcon("checkmark") }
+                        .buttonStyle(.plain)
+                        .disabled(!canSave)
+                }
+            }
+        } else {
+            ToolbarItem(placement: .navigation) {
+                Button {
+                    dismiss()
+                } label: {
+                    navBarIcon("chevron.left")
+                }
+                .buttonStyle(.plain)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showAddMusic = true
+                } label: {
+                    navBarIcon("plus")
+                }
+                .buttonStyle(.plain)
+                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    enterEdit()
+                } label: {
+                    navBarIcon("pencil")
+                }
+                .buttonStyle(.plain)
+                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+            }
         }
     }
 
     /// A nav-bar icon on the unified hero button surface (opaque solid circle, same variant as the transport
     /// + Play). The opaque circle + `.buttonStyle(.plain)` on the ToolbarItem button replace the native
     /// toolbar Liquid-Glass, so there is a SINGLE background, not two stacked layers.
-    private func navBarIcon(_ systemName: String) -> some View {
+    private func navBarIcon(_ systemName: String, tint: Color? = nil) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 15, weight: .semibold))
-            .foregroundStyle(headerTextColor)
+            .foregroundStyle(tint ?? headerTextColor)
             .cassetteHeroButton(size: 34)
     }
 
@@ -390,6 +566,251 @@ struct PlaylistDetailView: View {
         return .partiallyDownloaded(downloaded: downloaded, total: total)
     }
 
+    // MARK: - In-place edit header (iOS in-place editor; reuses the validated carousel + fields)
+
+    private var editHeader: some View {
+        VStack(spacing: CassetteSpacing.xl) {
+            editCoverCarousel
+                // Clear the (edit-mode) nav bar since the list bleeds under it via ignoresSafeArea(.top).
+                .padding(.top, 100)
+            VStack(spacing: CassetteSpacing.s) {
+                TextField("Playlist Title", text: $editName)
+                    .font(.system(.title2, design: .rounded, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .padding(.vertical, CassetteSpacing.s)
+                TextField("Description", text: $editComment, axis: .vertical)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(1...4)
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+        .padding(.bottom, CassetteSpacing.l)
+    }
+
+    private var editCoverCarousel: some View {
+        PlaylistCoverCarousel(
+            title: editName,
+            selectedGradient: selectedGradient,
+            isPhotoSelected: photoIsCover,
+            photoPreview: editPhotoPreview,
+            showsPhotoOption: editShowsPhotoOption,
+            leadingLabel: "Current",
+            leadingCoverArtId: effectiveCoverArtId,
+            onSelectLeading: {
+                selectedGradient = nil
+                photoIsCover = false
+                coverDirty = true
+            },
+            onSelectPhoto: {
+                selectedGradient = nil
+                photoIsCover = true
+                coverDirty = true
+            },
+            onRequestPhotoPicker: {
+                selectedGradient = nil
+                photoIsCover = true
+                coverDirty = true
+                #if os(iOS)
+                showImageOptions = true
+                #endif
+            },
+            onSelectGradient: { shape in
+                selectedGradient = shape
+                photoIsCover = false
+                coverDirty = true
+            }
+        )
+    }
+
+    private var editShowsPhotoOption: Bool {
+        #if os(iOS)
+        return true
+        #else
+        return false
+        #endif
+    }
+
+    private var editPhotoPreview: PlatformImage? {
+        #if os(iOS)
+        return pendingImage
+        #else
+        return nil
+        #endif
+    }
+
+    /// Enter in-place edit: snapshot the current metadata + cover choice into the working edit state, animate in.
+    private func enterEdit() {
+        editName = viewModel?.name ?? initialName
+        editComment = viewModel?.playlistDetail?.comment ?? ""
+        editSongs = resolvedSongs(viewModel)
+        selectedSongIds = []
+        selectedGradient = nil
+        photoIsCover = false
+        coverDirty = false
+        #if os(iOS)
+        pendingImage = nil
+        #endif
+        loadEditGradientChoice()
+        withAnimation(.smooth) { isEditing = true }
+    }
+
+    /// Cancel in-place edit: discard the working state without mutating anything.
+    private func cancelEdit() {
+        withAnimation(.smooth) { isEditing = false }
+    }
+
+    /// Commit in-place edit: the SAME mutation sequence as EditPlaylistSheet.commit() — rename, the atomic
+    /// full-list replace (reorder + multi-remove), the R1 comment re-assert, the cover apply, and the
+    /// first-track color derivation — then refresh the detail view and animate back to view mode.
+    private func commitEdit() async {
+        guard let c = container, let serverId = c.serverState.activeServer?.id else {
+            withAnimation(.smooth) { isEditing = false }
+            return
+        }
+        let trimmedName = editName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedComment = editComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentName = viewModel?.name ?? initialName
+        let currentComment = viewModel?.playlistDetail?.comment ?? ""
+        let commentChanged = trimmedComment != currentComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let originalSongs = resolvedSongs(viewModel)
+        let songsChanged = editSongs.map(\.id) != originalSongs.map(\.id)
+
+        if !trimmedName.isEmpty && trimmedName != currentName.trimmingCharacters(in: .whitespacesAndNewlines) {
+            try? await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
+        }
+        // Atomic full-list replace — the single track-mutation path (reorder + multi-select remove).
+        if songsChanged {
+            try? await c.playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: editSongs.map(\.id))
+        }
+        // R1 guard: re-assert a non-empty comment after the replace (it doesn't survive createPlaylist); always
+        // write a changed comment. One write covers the guard + a description edit. NO name re-assert.
+        if (songsChanged && !trimmedComment.isEmpty) || commentChanged {
+            try? await c.playlistService.updateDescription(id: playlistId, description: trimmedComment)
+        }
+        if coverDirty {
+            await applyCoverInPlace(container: c, serverId: serverId, originalSongs: originalSongs)
+        }
+        // First-track derivation: empty→first-track fills the gradient color (frozen after). Runs after
+        // applyCover so a simultaneous re-pick (resolved from the OLD empty first track) is corrected.
+        await AddMusicCommitter.deriveFirstTrackCoverIfNeeded(
+            wasEmpty: originalSongs.isEmpty,
+            firstSong: editSongs.first,
+            playlistId: playlistId,
+            serverId: serverId,
+            container: c,
+            colorExtractor: colorExtractor
+        )
+        await viewModel?.load()
+        coverRefreshID = UUID()
+        withAnimation(.smooth) { isEditing = false }
+    }
+
+    private func applyCoverInPlace(container c: AppContainer, serverId: UUID, originalSongs: [DisplayableSong]) async {
+        let manager = PlaylistCoverManager(
+            serverState: c.serverState,
+            serverService: c.serverService,
+            downloadService: c.downloadService,
+            artworkImageCache: c.artworkImageCache
+        )
+        let store = PlaylistCoverStore(modelContainer: c.modelContainer)
+        if let shape = selectedGradient {
+            // Re-pick → resolve the color from the CURRENT first track (neutral if the playlist is empty).
+            let spec = await PlaylistGradientResolver.resolve(
+                form: shape,
+                firstTrackCoverArtId: originalSongs.first?.coverArtId,
+                artworkImageCache: c.artworkImageCache,
+                colorExtractor: colorExtractor
+            )
+            await manager.applyGradientCover(spec, playlistId: playlistId)
+            store.save(spec, playlistId: playlistId, serverId: serverId, isUserPicked: true)
+            return
+        }
+        #if os(iOS)
+        if photoIsCover, let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
+            await manager.applyImageCover(data, playlistId: playlistId)
+            // A photo supersedes any gradient choice → drop the stored gradient.
+            store.remove(playlistId: playlistId, serverId: serverId)
+        }
+        #endif
+    }
+
+    // MARK: - In-place editable track list (Gate 2 — mirrors the edit sheet's reorder + multi-select remove)
+
+    @ViewBuilder
+    private var editableSongRows: some View {
+        ForEach(editSongs) { song in
+            editTrackRow(song)
+                .tag(song.id)
+                .listRowBackground(bodyColor)
+                .environment(\.colorScheme, dragHandleScheme)
+        }
+        .onMove { from, to in
+            editSongs.move(fromOffsets: from, toOffset: to)
+        }
+    }
+
+    /// Force the editable rows' color scheme to the theme's luminance so the SYSTEM reorder handles (≡) and
+    /// selection circles contrast the themed row background — they render system-grey (low contrast) otherwise.
+    /// The rows' own text uses explicit theme colors, so it is unaffected.
+    private var dragHandleScheme: ColorScheme {
+        theme.isThemed ? (theme.isLight ? .light : .dark) : colorScheme
+    }
+
+    private func editTrackRow(_ song: DisplayableSong) -> some View {
+        HStack(spacing: CassetteSpacing.m) {
+            CoverArtView(id: song.coverArtId ?? song.id, size: 80, cornerRadius: CassetteCornerRadius.standard)
+                .frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(song.title)
+                    .font(.cassetteCellTitle)
+                    .foregroundStyle(headerTextColor)
+                    .lineLimit(1)
+                if let artist = song.artist {
+                    Text(artist)
+                        .font(.cassetteCellSubtitle)
+                        .foregroundStyle(headerSecondaryColor)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    /// Multi-select remove: drop the selected tracks from the local working list. NO per-index server delete —
+    /// the commit (Gate 3) replaces the whole list atomically (final list = editSongs − selection), so it's
+    /// immune to index drift. Mirrors the edit sheet's removeSelectedTracks (Gate B).
+    private func removeSelectedTracks() {
+        editSongs.removeAll { selectedSongIds.contains($0.id) }
+        selectedSongIds.removeAll()
+    }
+
+    private func deletePlaylistInPlace() async {
+        guard let c = container else { return }
+        do {
+            try await c.playlistService.deletePlaylist(id: playlistId)
+            dismiss()
+        } catch {
+            Logger.playlist.error("PlaylistDetailView: in-place delete failed: \(error, privacy: .public)")
+            c.toastService.showError("Failed to delete playlist")
+        }
+    }
+
+    private func loadEditGradientChoice() {
+        guard let c = container, let serverId = c.serverState.activeServer?.id else { return }
+        if let choice = PlaylistCoverStore(modelContainer: c.modelContainer).choice(playlistId: playlistId, serverId: serverId),
+           choice.isUserPicked, let spec = choice.spec {
+            selectedGradient = spec.shape
+        }
+    }
+
+    #if os(iOS)
+    /// Defer presenting the crop screen so the picker fully dismisses first (sequential full-screen covers).
+    private func presentCrop(_ image: UIImage) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            imageToCrop = CroppableImage(image: image)
+        }
+    }
+    #endif
+
     // MARK: - Header
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
@@ -404,7 +825,8 @@ struct PlaylistDetailView: View {
                     coverArtId: effectiveCoverArtId,
                     coverImage: initialCoverImage,
                     theme: theme,
-                    heroHeight: heroHeight
+                    heroHeight: heroHeight,
+                    gradientSpec: gradientSpec
                 )
                 .frame(width: geo.size.width, height: heroHeight + stretch)
                 .offset(y: -stretch)

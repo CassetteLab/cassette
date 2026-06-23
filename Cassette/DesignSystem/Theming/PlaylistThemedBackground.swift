@@ -20,6 +20,10 @@ struct PlaylistThemedBackground: View {
     let theme: PlaylistTheme
     /// Height of the full-bleed cover region (from the screen top), beyond which it's solid body color.
     var heroHeight: CGFloat = 460
+    /// When set (a user-picked gradient playlist), the hero renders the gradient CRISP from the spec instead
+    /// of the uploaded JPEG. The JPEG stays the cards/cross-device source of truth; this is a local crisp
+    /// enrichment. Default nil keeps every other caller (photo / server cover / ImmersiveCoverHero) unchanged.
+    var gradientSpec: PlaylistGradientSpec? = nil
 
     private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackground }
 
@@ -29,11 +33,18 @@ struct PlaylistThemedBackground: View {
 
             if theme.isThemed, let coverArtId {
                 ZStack(alignment: .top) {
-                    // Sharp full-bleed cover — the crisp artwork, edge-to-edge.
-                    CoverArtView(id: coverArtId, size: 1000, initialImage: coverImage)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: heroHeight)
-                        .clipped()
+                    // Sharp full-bleed cover — an ANIMATED mesh gradient from the spec (foreground only, cheap;
+                    // the melt below stays static), else the artwork. Edge-to-edge.
+                    Group {
+                        if let gradientSpec {
+                            AnimatedGradientHeroView(spec: gradientSpec)
+                        } else {
+                            CoverArtView(id: coverArtId, size: 1000, initialImage: coverImage)
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: heroHeight)
+                    .clipped()
 
                     // Blurred melt: the cover bleeds + blurs into the body color toward the bottom.
                     blurredMelt(coverArtId: coverArtId)
@@ -48,11 +59,17 @@ struct PlaylistThemedBackground: View {
     @ViewBuilder
     private func blurredMelt(coverArtId: String) -> some View {
         ZStack {
-            CoverArtView(id: coverArtId, size: 600, initialImage: coverImage)
-                .frame(maxWidth: .infinity)
-                .frame(height: heroHeight)
-                .clipped()
-                .blur(radius: 44)
+            Group {
+                if let gradientSpec {
+                    PlaylistGradientView(spec: gradientSpec)
+                } else {
+                    CoverArtView(id: coverArtId, size: 600, initialImage: coverImage)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: heroHeight)
+            .clipped()
+            .blur(radius: 44)
 
             // Resolve to pure body color at the very bottom of the hero region.
             LinearGradient(

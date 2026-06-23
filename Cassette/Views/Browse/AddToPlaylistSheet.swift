@@ -185,7 +185,7 @@ private struct AddToPlaylistRow: View {
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
-            CoverArtCard(id: playlist.coverArt ?? playlist.id, size: 44)
+            PlaylistCoverThumbnail(playlistId: playlist.id, serverId: nil, coverArtId: playlist.coverArt ?? playlist.id, title: playlist.name, size: 44)
             VStack(alignment: .leading, spacing: 2) {
                 Text(playlist.name)
                     .font(.cassetteCellTitle)

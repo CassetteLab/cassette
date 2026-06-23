@@ -14,6 +14,9 @@ struct CreatePlaylistSheet: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: CreatePlaylistViewModel?
     @State private var selectedGradient: PlaylistGradientShape?
+    /// Whether the PHOTO is the chosen cover. Separate from "a photo is picked" (pendingImage) so a picked
+    /// photo's preview survives switching to another cover and back.
+    @State private var photoIsCover = false
     @FocusState private var nameFieldFocused: Bool
 
     var onCreated: ((PlaylistWithSongs) -> Void)? = nil
@@ -24,6 +27,7 @@ struct CreatePlaylistSheet: View {
     @State private var showImagePicker = false
     @State private var showCamera = false
     @State private var showFilePicker = false
+    @State private var imageToCrop: CroppableImage?
     #endif
 
     var body: some View {
@@ -65,6 +69,7 @@ struct CreatePlaylistSheet: View {
                 }
             }
         }
+        .tint(Color.cassetteAccent)
         #if os(iOS)
         .confirmationDialog("Add Cover Art", isPresented: $showImageOptions, titleVisibility: .visible) {
             Button("Choose from Library") {
@@ -84,12 +89,19 @@ struct CreatePlaylistSheet: View {
             Button("Cancel", role: .cancel) {}
         }
         .fullScreenCover(isPresented: $showImagePicker) {
-            ImagePickerController(sourceType: .photoLibrary, onPick: { pendingImage = $0 }, onCancel: {})
+            ImagePickerController(sourceType: .photoLibrary, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
                 .ignoresSafeArea()
         }
         .fullScreenCover(isPresented: $showCamera) {
-            ImagePickerController(sourceType: .camera, onPick: { pendingImage = $0 }, onCancel: {})
+            ImagePickerController(sourceType: .camera, allowsEditing: false, onPick: { presentCrop($0) }, onCancel: {})
                 .ignoresSafeArea()
+        }
+        .fullScreenCover(item: $imageToCrop) { croppable in
+            SquareCropView(
+                image: croppable.image,
+                onCrop: { pendingImage = $0; imageToCrop = nil },
+                onCancel: { imageToCrop = nil }
+            )
         }
         .fileImporter(
             isPresented: $showFilePicker,
@@ -99,8 +111,8 @@ struct CreatePlaylistSheet: View {
             guard case .success(let urls) = result, let url = urls.first else { return }
             let accessed = url.startAccessingSecurityScopedResource()
             defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            if let data = try? Data(contentsOf: url) {
-                pendingImage = UIImage(data: data)
+            if let data = try? Data(contentsOf: url), let img = UIImage(data: data) {
+                presentCrop(img)
             }
         }
         #endif
@@ -118,24 +130,27 @@ struct CreatePlaylistSheet: View {
 
     @ViewBuilder
     private func content(_ vm: CreatePlaylistViewModel) -> some View {
-        Form {
-            Section("Cover") {
-                coverPicker
-            }
+        ScrollView {
+            VStack(spacing: CassetteSpacing.xl) {
+                coverCarousel(vm)
+                    .padding(.top, CassetteSpacing.s)
 
-            Section("Name") {
-                TextField("My Awesome Playlist", text: Bindable(vm).name)
-                    .focused($nameFieldFocused)
-                    .submitLabel(.next)
+                VStack(spacing: CassetteSpacing.s) {
+                    // Editorial centered title + discreet description, no field chrome, no separators (AM style).
+                    TextField("Playlist Title", text: Bindable(vm).name)
+                        .font(.system(.title2, design: .rounded, weight: .semibold))
+                        .multilineTextAlignment(.center)
+                        .focused($nameFieldFocused)
+                        .submitLabel(.done)
+                        .padding(.vertical, CassetteSpacing.s)
+
+                    TextField("Description", text: Bindable(vm).description, axis: .vertical)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(1...4)
+                }
+                .padding(.horizontal, CassetteSpacing.l)
             }
-            Section("Description (optional)") {
-                TextField(
-                    "What's this playlist about?",
-                    text: Bindable(vm).description,
-                    axis: .vertical
-                )
-                .lineLimit(3...6)
-            }
+            .padding(.top, CassetteSpacing.m)
         }
         .scrollDismissesKeyboard(.interactively)
     }
@@ -164,32 +179,45 @@ struct CreatePlaylistSheet: View {
         #endif
     }
 
-    /// Create-flow cover picker. The gradient previews show the neutral base color (an empty playlist has no
-    /// first track to derive from yet — that derivation is the edit flow's job); forms differ by geometry.
-    private var coverPicker: some View {
-        PlaylistCoverPicker(
+    #if os(iOS)
+    /// Defer presenting the crop screen so the picker fully dismisses first (sequential full-screen covers).
+    private func presentCrop(_ image: UIImage) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            imageToCrop = CroppableImage(image: image)
+        }
+    }
+    #endif
+
+    /// Create-flow cover carousel (Apple-Music direction). The gradient previews show the neutral base color
+    /// (an empty playlist has no first track to derive from yet — that derivation is the edit flow's job);
+    /// forms differ by geometry. The live title renders into the gradient cards.
+    private func coverCarousel(_ vm: CreatePlaylistViewModel) -> some View {
+        PlaylistCoverCarousel(
+            title: vm.name,
             selectedGradient: selectedGradient,
-            isPhotoSelected: hasPhoto,
+            isPhotoSelected: photoIsCover,
             photoPreview: photoPreviewImage,
             showsPhotoOption: showsPhotoOption,
             leadingLabel: "None",
             onSelectLeading: {
                 selectedGradient = nil
-                #if os(iOS)
-                pendingImage = nil
-                #endif
+                photoIsCover = false        // keep pendingImage so the photo card preview survives
             },
             onSelectPhoto: {
+                // Swipe settled on the photo card → focus the photo as cover, NO modal.
                 selectedGradient = nil
+                photoIsCover = true
+            },
+            onRequestPhotoPicker: {
+                selectedGradient = nil
+                photoIsCover = true
                 #if os(iOS)
                 showImageOptions = true
                 #endif
             },
             onSelectGradient: { shape in
                 selectedGradient = shape
-                #if os(iOS)
-                pendingImage = nil
-                #endif
+                photoIsCover = false        // keep pendingImage so the photo card preview survives
             }
         )
     }
@@ -214,7 +242,7 @@ struct CreatePlaylistSheet: View {
             return
         }
         #if os(iOS)
-        if let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
+        if photoIsCover, let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
             await manager.applyImageCover(data, playlistId: playlistId)
         }
         #endif
