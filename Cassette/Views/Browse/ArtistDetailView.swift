@@ -16,6 +16,11 @@ struct ArtistDetailView: View {
     @State private var viewModel: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
+    @Environment(DominantColorExtractor.self) private var colorExtractor
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var dominantColor: Color = .clear
+    @State private var isLightBackground = false
+    @State private var heroHeight: CGFloat = 680
 
     init(artist: ArtistID3) {
         self.artist = artist
@@ -29,6 +34,37 @@ struct ArtistDetailView: View {
 
     private var isArtistFavorite: Bool { !artistFavoriteMatches.isEmpty }
     private var isOnline: Bool { container?.serverState.isOnline == true }
+
+    // MARK: Theming — reuses the playlist/album dominant-color theme + ColorContrastUtils (no reimplementation).
+    private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
+    private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackgroundColor }
+    private var headerTextColor: Color {
+        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
+    }
+    private var headerSecondaryColor: Color {
+        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
+    }
+    private var heroButtonVariant: (background: Color, foreground: Color) {
+        CassetteColors.heroButtonVariant(on: dominantColor)
+    }
+    private var systemBackgroundColor: Color {
+        #if canImport(UIKit)
+        Color(UIColor.systemBackground)
+        #else
+        Color(NSColor.windowBackgroundColor)
+        #endif
+    }
+    /// The artist photo (server artist cover) drives the hero; falls back to the latest release's cover, then
+    /// the artist id (placeholder glyph).
+    private var heroCoverArtId: String {
+        if let cover = viewModel?.artist?.coverArt, !cover.isEmpty { return cover }
+        if let latest = latestReleaseCoverArtId { return latest }
+        return artist.id
+    }
+    /// Cover of the most recent release (max year) — hero fallback + the featured release (Gate 2).
+    private var latestReleaseCoverArtId: String? {
+        (viewModel?.artist?.album ?? []).max(by: { ($0.year ?? 0) < ($1.year ?? 0) })?.coverArt
+    }
 
     private let columns = [
         GridItem(.adaptive(minimum: 150, maximum: 200), spacing: CassetteSpacing.l)
@@ -54,59 +90,59 @@ struct ArtistDetailView: View {
                         )
                     } else {
                         ScrollView {
-                            heroSection(vm: vm)
-                            LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
-                                ForEach(albums) { album in
-                                    NavigationLink(value: HomeDestination.album(album)) {
-                                        AlbumGridCell(
-                                            album: album,
-                                            zoomSourceId: album.id,
-                                            zoomNamespace: albumZoomNamespace
-                                        )
-                                    }
-                                    .buttonStyle(.plain)
-                                    .task(id: album.id) {
-                                        await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+                            artistHero(vm: vm)
+                            VStack(spacing: 0) {
+                                LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                                    ForEach(albums) { album in
+                                        NavigationLink(value: HomeDestination.album(album)) {
+                                            AlbumGridCell(
+                                                album: album,
+                                                zoomSourceId: album.id,
+                                                zoomNamespace: albumZoomNamespace
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+                                        .task(id: album.id) {
+                                            await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+                                        }
                                     }
                                 }
-                            }
-                            .padding(CassetteSpacing.l)
+                                .padding(CassetteSpacing.l)
 
-                            if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
-                                similarArtistsSection(vm: vm)
-                                    .padding(.bottom, CassetteSpacing.l)
+                                if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
+                                    similarArtistsSection(vm: vm)
+                                        .padding(.bottom, CassetteSpacing.l)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .background(bodyColor)
+                            // Force the themed scheme so the shared album/similar cells contrast the tinted body.
+                            .environment(\.colorScheme, theme.isThemed ? (theme.isLight ? .light : .dark) : colorScheme)
+                        }
+                        .ignoresSafeArea(.container, edges: .top)
+                        .background(bodyColor.ignoresSafeArea())
+                        .refreshable { await vm.load() }
+                        .task(id: heroCoverArtId) {
+                            let cached = colorExtractor.dominantColor(for: heroCoverArtId, image: nil)
+                            if cached != .clear {
+                                dominantColor = cached
+                                isLightBackground = cached.luminance > 0.6
+                            } else {
+                                await loadDominantColor(coverArtId: heroCoverArtId)
                             }
                         }
-                        .refreshable { await vm.load() }
                     }
                 }
             } else {
                 skeletonGrid
             }
         }
-        .cassetteContentWidth()
         .navigationTitle(artist.name)
-        .navigationBarTitleDisplayModeLarge()
-        .toolbar {
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    HapticFeedback.light.trigger()
-                    Task {
-                        if isArtistFavorite {
-                            try? await container?.favoritesService.unstar(itemType: .artist, itemId: artist.id)
-                        } else {
-                            try? await container?.favoritesService.star(itemType: .artist, itemId: artist.id)
-                        }
-                    }
-                } label: {
-                    Image(systemName: isArtistFavorite ? "heart.fill" : "heart")
-                        .foregroundStyle(isArtistFavorite ? Color.cassetteAccent : Color.primary)
-                        .scaleEffect(isArtistFavorite ? 1.1 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isArtistFavorite)
-                }
-                .disabled(!isOnline)
-            }
-        }
+        .navigationBarTitleDisplayModeInline()
+        #if os(iOS)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbarColorScheme(theme.isThemed ? (theme.isLight ? .light : .dark) : nil, for: .navigationBar)
+        #endif
         .task {
             guard let c = container else { return }
             if viewModel == nil {
@@ -131,51 +167,74 @@ struct ArtistDetailView: View {
 
     // MARK: - Hero
 
-    private func heroSection(vm: ArtistDetailViewModel) -> some View {
+    /// Immersive artist hero (reuses ImmersiveCoverHero + the dominant-color theme): the artist photo (server
+    /// cover, else latest-release cover) full-bleed + the name + Play(=shuffle) + Favorite star floating over it.
+    private func artistHero(vm: ArtistDetailViewModel) -> some View {
         let albums = vm.artist?.album ?? []
         let count = albums.count
-        return HStack(alignment: .center, spacing: CassetteSpacing.l) {
-            CoverArtView(
-                id: vm.artist?.coverArt ?? artist.id,
-                size: 240,
-                tier: .hero,
-                placeholderSystemImage: "person.fill"
-            )
-            .frame(width: 100, height: 100)
-            .clipShape(Circle())
-            .shadow(color: .black.opacity(0.2), radius: 8, y: 4)
-
-            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+        return ImmersiveCoverHero(
+            coverArtId: heroCoverArtId,
+            coverImage: nil,
+            theme: theme,
+            heroHeight: heroHeight
+        ) {
+            VStack(spacing: CassetteSpacing.s) {
+                Text(artist.name)
+                    .font(.system(.title, design: .rounded, weight: .semibold))
+                    .foregroundStyle(headerTextColor)
+                    .multilineTextAlignment(.center)
                 Text("\(count) album\(count == 1 ? "" : "s")")
                     .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                HStack(spacing: CassetteSpacing.s) {
-                    Button {
-                        Task { await playAll(shuffled: false) }
-                    } label: {
-                        Label("Play", systemImage: "play.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.cassetteAccent)
-                    .disabled(vm.isPlayLoading || albums.isEmpty)
-
+                    .foregroundStyle(headerSecondaryColor)
+                    .padding(.bottom, CassetteSpacing.xs)
+                HStack(spacing: CassetteSpacing.m) {
+                    // Play = shuffle (rebrand decision).
                     Button {
                         Task { await playAll(shuffled: true) }
                     } label: {
-                        Label("Shuffle", systemImage: "shuffle")
-                            .font(.system(size: 14, weight: .semibold))
+                        Label("Play", systemImage: "play.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, CassetteSpacing.s)
+                            .background(heroButtonVariant.background, in: Capsule())
+                            .foregroundStyle(heroButtonVariant.foreground)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: 220)
                     .disabled(vm.isPlayLoading || albums.isEmpty)
+
+                    Button {
+                        HapticFeedback.light.trigger()
+                        Task {
+                            if isArtistFavorite {
+                                try? await container?.favoritesService.unstar(itemType: .artist, itemId: artist.id)
+                            } else {
+                                try? await container?.favoritesService.star(itemType: .artist, itemId: artist.id)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: isArtistFavorite ? "star.fill" : "star")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(isArtistFavorite ? Color.cassetteAccent : headerTextColor)
+                            .frame(width: 44, height: 44)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!isOnline)
                 }
+                .padding(.horizontal, CassetteSpacing.l)
             }
-            .frame(height: 100)
+            .padding(.horizontal, CassetteSpacing.l)
         }
-        .padding(.horizontal, CassetteSpacing.l)
-        .padding(.top, CassetteSpacing.m)
-        .padding(.bottom, CassetteSpacing.s)
+    }
+
+    private func loadDominantColor(coverArtId: String) async {
+        guard let image = await container?.artworkImageCache.load(coverArtId: coverArtId) else { return }
+        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
+        withAnimation(.easeIn(duration: 0.2)) {
+            dominantColor = color
+            isLightBackground = color.luminance > 0.6
+        }
     }
 
     private func playAll(shuffled: Bool) async {
