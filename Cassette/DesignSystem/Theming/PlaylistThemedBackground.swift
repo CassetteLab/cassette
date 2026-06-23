@@ -73,15 +73,13 @@ struct PlaylistThemedBackground: View {
             .frame(maxWidth: .infinity)
             .frame(height: heroHeight)
             .clipped()
-            // Strong blur for the light melt: a concentrated, heavily-diffused bottom band reads better across
-            // detailed covers than a long, washed gradient.
-            .blur(radius: lightMelt ? 34 : 16)
+            .blur(radius: 16)
 
             // Resolve to the dominant body color EARLY so the transition reads as a colour continuity (the
             // cover melting into the dominant tint) rather than a washed-out blurred-cover band.
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: lightMelt ? 0.86 : 0.30),
+                    .init(color: .clear, location: lightMelt ? 0.72 : 0.30),
                     .init(color: bodyColor, location: lightMelt ? 1.0 : 0.80),
                 ],
                 startPoint: .top,
@@ -94,7 +92,7 @@ struct PlaylistThemedBackground: View {
         .mask(
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: lightMelt ? 0.88 : 0.32),
+                    .init(color: .clear, location: lightMelt ? 0.74 : 0.32),
                     .init(color: .black, location: lightMelt ? 1.0 : 0.85),
                 ],
                 startPoint: .top,

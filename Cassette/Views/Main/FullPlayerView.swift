@@ -364,11 +364,11 @@ struct FullPlayerView: View {
                                 .resizable()
                                 .scaledToFill()
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .blur(radius: 36)
+                                .blur(radius: 16)
                                 .clipped()
                             LinearGradient(
                                 stops: [
-                                    .init(color: .clear, location: 0.84),
+                                    .init(color: .clear, location: 0.72),
                                     .init(color: vm.dominantColor, location: 1.0),
                                 ],
                                 startPoint: .top, endPoint: .bottom
@@ -377,8 +377,8 @@ struct FullPlayerView: View {
                         .mask(
                             LinearGradient(
                                 stops: [
-                                    .init(color: .clear, location: 0.84),
-                                    .init(color: .black, location: 0.97),
+                                    .init(color: .clear, location: 0.74),
+                                    .init(color: .black, location: 1.0),
                                 ],
                                 startPoint: .top, endPoint: .bottom
                             )
