@@ -187,22 +187,23 @@ struct ArtistDetailView: View {
                     .font(.cassetteCaption)
                     .foregroundStyle(headerSecondaryColor)
                     .padding(.bottom, CassetteSpacing.xs)
-                HStack(spacing: CassetteSpacing.m) {
-                    // Play = shuffle (rebrand decision).
+                HStack(spacing: CassetteSpacing.l) {
+                    // Big white round Play (= shuffle) — just the play glyph.
                     Button {
                         Task { await playAll(shuffled: true) }
                     } label: {
-                        Label("Play", systemImage: "play.fill")
-                            .font(.system(size: 15, weight: .semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, CassetteSpacing.s)
-                            .background(heroButtonVariant.background, in: Capsule())
-                            .foregroundStyle(heroButtonVariant.foreground)
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(Color.cassetteAccent)
+                            .offset(x: 2)
+                            .frame(width: 66, height: 66)
+                            .background(.white, in: Circle())
+                            .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
                     }
                     .buttonStyle(.plain)
-                    .frame(maxWidth: 220)
                     .disabled(vm.isPlayLoading || albums.isEmpty)
 
+                    // Smaller favorite star.
                     Button {
                         HapticFeedback.light.trigger()
                         Task {
@@ -214,15 +215,14 @@ struct ArtistDetailView: View {
                         }
                     } label: {
                         Image(systemName: isArtistFavorite ? "star.fill" : "star")
-                            .font(.cassetteCellTitle)
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(isArtistFavorite ? Color.cassetteAccent : headerTextColor)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 42, height: 42)
                             .background(.ultraThinMaterial, in: Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(!isOnline)
                 }
-                .padding(.horizontal, CassetteSpacing.l)
             }
             .padding(.horizontal, CassetteSpacing.l)
         }
