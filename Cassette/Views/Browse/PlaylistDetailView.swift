@@ -82,9 +82,15 @@ struct PlaylistDetailView: View {
     @State private var isEditing = false
     @State private var editName: String = ""
     @State private var editComment: String = ""
+    /// Local mutable working copy of the track list — reorder (drag) + multi-select remove both mutate this;
+    /// the commit does ONE atomic full-list replace (Gate 3) if it differs from the loaded songs.
+    @State private var editSongs: [DisplayableSong] = []
+    @State private var selectedSongIds: Set<String> = []
     @State private var selectedGradient: PlaylistGradientShape?
     @State private var photoIsCover = false
     @State private var coverDirty = false
+    @State private var showDeletePlaylistConfirm = false
+    @State private var isSaving = false
     @Namespace private var heroEditNamespace
     #if os(iOS)
     @State private var pendingImage: UIImage?
@@ -173,7 +179,7 @@ struct PlaylistDetailView: View {
     var body: some View {
         // Kept as List to preserve PlaylistSongRows' .onDelete (swipe-to-remove).
         // ScrollView + LazyVStack refactor is deferred until that interaction is re-implemented outside List.
-        List {
+        List(selection: $selectedSongIds) {
             Group {
                 if isEditing {
                     editHeader
@@ -189,6 +195,8 @@ struct PlaylistDetailView: View {
 
             if isLoadingSkeleton {
                 skeletonRows
+            } else if isEditing {
+                editableSongRows
             } else if let vm = viewModel {
                 let songs = resolvedSongs(vm)
                 if songs.isEmpty, let error = vm.error {
@@ -253,6 +261,11 @@ struct PlaylistDetailView: View {
             }
         }
         .listStyle(.plain)
+        #if os(iOS)
+        // Edit mode ONLY while editing — nil otherwise. Forcing an editMode binding (even .inactive) in view
+        // mode broke the List's scrolling; nil restores the default (normal scroll) for the read-only view.
+        .environment(\.editMode, isEditing ? Binding.constant(EditMode.active) : nil)
+        #endif
         .scrollContentBackground(.hidden)
         // Extend the scroll content under the transparent nav bar so the first row's cover reaches the
         // screen top (and scrolls up under the bar). The bottom safe area / mini-player margin is preserved.
@@ -304,6 +317,12 @@ struct PlaylistDetailView: View {
             if let data = try? Data(contentsOf: url), let img = UIImage(data: data) { presentCrop(img) }
         }
         #endif
+        .confirmationDialog("Delete \"\(viewModel?.name ?? initialName)\"?", isPresented: $showDeletePlaylistConfirm, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { Task { await deletePlaylistInPlace() } }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the playlist everywhere, including any downloaded copy.")
+        }
         .sheet(isPresented: $showEditSheet) {
             if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
                 EditPlaylistSheet(
@@ -429,15 +448,34 @@ struct PlaylistDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         if isEditing {
+            // Native liquid-glass toolbar capsules (no custom circle — that double-stacked with the glass).
             ToolbarItem(placement: .cancellationAction) {
-                Button { cancelEdit() } label: { CircleToolbarLabel(systemName: "xmark") }
-                    .buttonStyle(.plain)
+                Button { cancelEdit() } label: { Image(systemName: "xmark") }
+                    .disabled(isSaving)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                // Trash: multi-remove the selected tracks; with nothing selected, delete the whole playlist
+                // (confirmed via dialog). Both mutate only the local working list until Done persists.
+                Button(role: .destructive) {
+                    if selectedSongIds.isEmpty { showDeletePlaylistConfirm = true } else { removeSelectedTracks() }
+                } label: {
+                    Image(systemName: "trash")
+                }
+                .disabled(isSaving)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Button { showAddMusic = true } label: { Image(systemName: "plus") }
+                    .disabled(isSaving || container?.serverState.isOnline != true)
             }
             ToolbarItem(placement: .confirmationAction) {
-                let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                Button { commitEdit() } label: { CircleToolbarLabel(systemName: "checkmark", filled: canSave) }
-                    .buttonStyle(.plain)
-                    .disabled(!canSave)
+                if isSaving {
+                    ProgressView().controlSize(.small)
+                } else {
+                    let canSave = !editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    Button { Task { isSaving = true; await commitEdit(); isSaving = false } } label: { Image(systemName: "checkmark") }
+                        .tint(Color.cassetteAccent)
+                        .disabled(!canSave)
+                }
             }
         } else {
             ToolbarItem(placement: .navigation) {
@@ -595,6 +633,8 @@ struct PlaylistDetailView: View {
     private func enterEdit() {
         editName = viewModel?.name ?? initialName
         editComment = viewModel?.playlistDetail?.comment ?? ""
+        editSongs = resolvedSongs(viewModel)
+        selectedSongIds = []
         selectedGradient = nil
         photoIsCover = false
         coverDirty = false
@@ -610,10 +650,132 @@ struct PlaylistDetailView: View {
         withAnimation(.smooth) { isEditing = false }
     }
 
-    /// Commit in-place edit. Gate 1 scaffolds the exit; Gate 3 wires the real persistence (atomic-replace +
-    /// R1 comment guard + first-track derivation) and the cover apply through the shared committer.
-    private func commitEdit() {
+    /// Commit in-place edit: the SAME mutation sequence as EditPlaylistSheet.commit() — rename, the atomic
+    /// full-list replace (reorder + multi-remove), the R1 comment re-assert, the cover apply, and the
+    /// first-track color derivation — then refresh the detail view and animate back to view mode.
+    private func commitEdit() async {
+        guard let c = container, let serverId = c.serverState.activeServer?.id else {
+            withAnimation(.smooth) { isEditing = false }
+            return
+        }
+        let trimmedName = editName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedComment = editComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentName = viewModel?.name ?? initialName
+        let currentComment = viewModel?.playlistDetail?.comment ?? ""
+        let commentChanged = trimmedComment != currentComment.trimmingCharacters(in: .whitespacesAndNewlines)
+        let originalSongs = resolvedSongs(viewModel)
+        let songsChanged = editSongs.map(\.id) != originalSongs.map(\.id)
+
+        if !trimmedName.isEmpty && trimmedName != currentName.trimmingCharacters(in: .whitespacesAndNewlines) {
+            try? await c.playlistService.renamePlaylist(id: playlistId, newName: trimmedName)
+        }
+        // Atomic full-list replace — the single track-mutation path (reorder + multi-select remove).
+        if songsChanged {
+            try? await c.playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: editSongs.map(\.id))
+        }
+        // R1 guard: re-assert a non-empty comment after the replace (it doesn't survive createPlaylist); always
+        // write a changed comment. One write covers the guard + a description edit. NO name re-assert.
+        if (songsChanged && !trimmedComment.isEmpty) || commentChanged {
+            try? await c.playlistService.updateDescription(id: playlistId, description: trimmedComment)
+        }
+        if coverDirty {
+            await applyCoverInPlace(container: c, serverId: serverId, originalSongs: originalSongs)
+        }
+        // First-track derivation: empty→first-track fills the gradient color (frozen after). Runs after
+        // applyCover so a simultaneous re-pick (resolved from the OLD empty first track) is corrected.
+        await AddMusicCommitter.deriveFirstTrackCoverIfNeeded(
+            wasEmpty: originalSongs.isEmpty,
+            firstSong: editSongs.first,
+            playlistId: playlistId,
+            serverId: serverId,
+            container: c,
+            colorExtractor: colorExtractor
+        )
+        await viewModel?.load()
+        coverRefreshID = UUID()
+        coverArtUploadVersion += 1
         withAnimation(.smooth) { isEditing = false }
+    }
+
+    private func applyCoverInPlace(container c: AppContainer, serverId: UUID, originalSongs: [DisplayableSong]) async {
+        let manager = PlaylistCoverManager(
+            serverState: c.serverState,
+            serverService: c.serverService,
+            downloadService: c.downloadService,
+            artworkImageCache: c.artworkImageCache
+        )
+        let store = PlaylistCoverStore(modelContainer: c.modelContainer)
+        if let shape = selectedGradient {
+            // Re-pick → resolve the color from the CURRENT first track (neutral if the playlist is empty).
+            let spec = await PlaylistGradientResolver.resolve(
+                form: shape,
+                firstTrackCoverArtId: originalSongs.first?.coverArtId,
+                artworkImageCache: c.artworkImageCache,
+                colorExtractor: colorExtractor
+            )
+            await manager.applyGradientCover(spec, playlistId: playlistId)
+            store.save(spec, playlistId: playlistId, serverId: serverId, isUserPicked: true)
+            return
+        }
+        #if os(iOS)
+        if photoIsCover, let image = pendingImage, let data = image.jpegData(compressionQuality: 0.85) {
+            await manager.applyImageCover(data, playlistId: playlistId)
+            // A photo supersedes any gradient choice → drop the stored gradient.
+            store.remove(playlistId: playlistId, serverId: serverId)
+        }
+        #endif
+    }
+
+    // MARK: - In-place editable track list (Gate 2 — mirrors the edit sheet's reorder + multi-select remove)
+
+    @ViewBuilder
+    private var editableSongRows: some View {
+        ForEach(editSongs) { song in
+            editTrackRow(song)
+                .tag(song.id)
+                .listRowBackground(bodyColor)
+        }
+        .onMove { from, to in
+            editSongs.move(fromOffsets: from, toOffset: to)
+        }
+    }
+
+    private func editTrackRow(_ song: DisplayableSong) -> some View {
+        HStack(spacing: CassetteSpacing.m) {
+            CoverArtView(id: song.coverArtId ?? song.id, size: 80, cornerRadius: CassetteCornerRadius.standard)
+                .frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(song.title)
+                    .font(.cassetteCellTitle)
+                    .foregroundStyle(headerTextColor)
+                    .lineLimit(1)
+                if let artist = song.artist {
+                    Text(artist)
+                        .font(.cassetteCellSubtitle)
+                        .foregroundStyle(headerSecondaryColor)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
+
+    /// Multi-select remove: drop the selected tracks from the local working list. NO per-index server delete —
+    /// the commit (Gate 3) replaces the whole list atomically (final list = editSongs − selection), so it's
+    /// immune to index drift. Mirrors the edit sheet's removeSelectedTracks (Gate B).
+    private func removeSelectedTracks() {
+        editSongs.removeAll { selectedSongIds.contains($0.id) }
+        selectedSongIds.removeAll()
+    }
+
+    private func deletePlaylistInPlace() async {
+        guard let c = container else { return }
+        do {
+            try await c.playlistService.deletePlaylist(id: playlistId)
+            dismiss()
+        } catch {
+            Logger.playlist.error("PlaylistDetailView: in-place delete failed: \(error, privacy: .public)")
+            c.toastService.showError("Failed to delete playlist")
+        }
     }
 
     private func loadEditGradientChoice() {
