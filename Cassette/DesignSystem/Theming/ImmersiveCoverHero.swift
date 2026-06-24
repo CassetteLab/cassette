@@ -22,14 +22,19 @@ struct ImmersiveCoverHero<Content: View>: View {
     /// When true the cover keeps its square ratio and the content sits BELOW it (album/playlist covers shown in
     /// full); when false (default) the content floats over the full-bleed cover (artist photos).
     var contentBelow: Bool = false
+    /// When set (5 colours sampled from the cover's bottom edge), a multi-colour gradient band is laid between
+    /// the cover and the content (the mix at top → the dominant body colour), and the cover's bottom melt is
+    /// dropped so its sharp edge meets the matching mix. Empty keeps the plain behaviour.
+    var junctionColors: [Color] = []
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         if contentBelow {
             VStack(spacing: 0) {
                 coverHero
+                junctionBand
                 content()
-                    .padding(.top, CassetteSpacing.m)
+                    .padding(.top, junctionColors.isEmpty ? CassetteSpacing.m : CassetteSpacing.s)
                     .padding(.bottom, CassetteSpacing.xl)
             }
             .frame(maxWidth: .infinity)
@@ -56,12 +61,29 @@ struct ImmersiveCoverHero<Content: View>: View {
                 coverImage: coverImage,
                 theme: theme,
                 heroHeight: heroHeight,
-                lightMelt: contentBelow
+                lightMelt: contentBelow && junctionColors.isEmpty
             )
             .frame(width: geo.size.width, height: heroHeight + stretch)
             .offset(y: -stretch)
             .id(coverRefreshID)
         }
         .frame(height: heroHeight)
+    }
+
+    /// A short multi-colour gradient band: the cover's sampled bottom-edge colours (top) melting into the
+    /// dominant body colour (bottom), so the artwork's bottom line continues into a matching, organic mix.
+    @ViewBuilder
+    private var junctionBand: some View {
+        if junctionColors.count == 5 {
+            MeshGradient(
+                width: 5, height: 2,
+                points: [
+                    SIMD2<Float>(0, 0), SIMD2<Float>(0.25, 0), SIMD2<Float>(0.5, 0), SIMD2<Float>(0.75, 0), SIMD2<Float>(1, 0),
+                    SIMD2<Float>(0, 1), SIMD2<Float>(0.25, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(0.75, 1), SIMD2<Float>(1, 1),
+                ],
+                colors: junctionColors + Array(repeating: theme.dominantColor, count: 5)
+            )
+            .frame(height: 130)
+        }
     }
 }
