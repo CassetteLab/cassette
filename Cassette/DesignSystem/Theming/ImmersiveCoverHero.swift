@@ -61,7 +61,8 @@ struct ImmersiveCoverHero<Content: View>: View {
                 coverImage: coverImage,
                 theme: theme,
                 heroHeight: heroHeight,
-                lightMelt: contentBelow && junctionColors.isEmpty
+                lightMelt: contentBelow,
+                meltEnabled: junctionColors.isEmpty
             )
             .frame(width: geo.size.width, height: heroHeight + stretch)
             .offset(y: -stretch)

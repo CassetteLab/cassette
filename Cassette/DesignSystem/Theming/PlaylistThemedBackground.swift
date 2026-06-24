@@ -27,6 +27,9 @@ struct PlaylistThemedBackground: View {
     /// Fade ONLY the bottom edge (square covers shown in full with content sitting below) instead of the lower
     /// ~half (full-bleed covers with content floating over them).
     var lightMelt: Bool = false
+    /// When false, NO blurred melt is drawn — the cover keeps a sharp bottom edge (a junction gradient handles
+    /// the cover→body transition instead).
+    var meltEnabled: Bool = true
 
     private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackground }
 
@@ -49,9 +52,11 @@ struct PlaylistThemedBackground: View {
                     .frame(height: heroHeight)
                     .clipped()
 
-                    // Light blurred melt: the cover softly fades into the (now bottom-matched) body color toward
-                    // the bottom — a slight transition that gives the floating title/buttons a legible backdrop.
-                    blurredMelt(coverArtId: coverArtId)
+                    // Blurred melt fades the cover into the body — skipped when a junction gradient handles the
+                    // transition instead (a sharp cover edge meeting the matching colour mix).
+                    if meltEnabled {
+                        blurredMelt(coverArtId: coverArtId)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
