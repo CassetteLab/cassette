@@ -280,6 +280,9 @@ struct ArtistDetailView: View {
                 }
                 .padding(CassetteSpacing.m)
                 .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                // Make the WHOLE card (incl. the Spacer / background) tappable — a styled label in a plain
+                // NavigationLink otherwise only registers taps on the opaque content (cover/text), not the gaps.
+                .contentShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
                 .padding(.horizontal, CassetteSpacing.l)
             }
             .buttonStyle(.plain)
@@ -337,7 +340,8 @@ struct ArtistDetailView: View {
             sectionHeader("Albums")
             ScrollView(.horizontal, showsIndicators: false) {
                 LazyHStack(alignment: .top, spacing: CassetteSpacing.m) {
-                    ForEach(albums) { album in
+                    // Most recent first (albums without a year sort last).
+                    ForEach(albums.sorted { ($0.year ?? 0) > ($1.year ?? 0) }) { album in
                         NavigationLink(value: HomeDestination.album(album)) {
                             VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
                                 CoverArtView(id: album.coverArt ?? album.id, size: 320)
