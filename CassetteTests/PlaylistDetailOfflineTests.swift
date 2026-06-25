@@ -45,6 +45,7 @@ private final class PDLibraryStub: LibraryServiceProtocol {
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo { throw URLError(.unknown) }
     func getArtistMBID(forArtistID artistID: String) async throws -> String? { nil }
     func findArtist(byName name: String) async -> ArtistID3? { nil }
+    func topSongs(artist: String, count: Int) async throws -> [DisplayableSong] { [] }
 }
 
 /// Serves a configurable LocalPlaylistData; everything else is inert.
@@ -87,7 +88,7 @@ private final class PDPlaylistStub: PlaylistServiceProtocol {
     func addTracks(playlistId: String, songs: [Song]) async throws { throw URLError(.unknown) }
     func removeTracks(playlistId: String, indices: [Int]) async throws { throw URLError(.unknown) }
     func reorderTracks(playlistId: String, orderedSongIds: [String]) async throws { throw URLError(.unknown) }
-    func deletePlaylist(id: String) async throws { throw URLError(.unknown) }
+    func deletePlaylist(id: String, purgeDownloads: Bool) async throws { throw URLError(.unknown) }
 }
 
 // MARK: - Tests

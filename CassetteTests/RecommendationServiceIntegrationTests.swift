@@ -105,6 +105,7 @@ private final class RSILibraryNullStub: LibraryServiceProtocol {
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo { throw URLError(.unknown) }
     func getArtistMBID(forArtistID artistID: String) async throws -> String? { nil }
     func findArtist(byName name: String) async -> ArtistID3? { nil }
+    func topSongs(artist: String, count: Int) async throws -> [DisplayableSong] { [] }
 }
 
 private func makeLBComponents(serviceTransport: any ListenBrainzTransport, providerTransport: any ListenBrainzTransport) -> (ListenBrainzRecommendationProvider, ListenBrainzService) {
