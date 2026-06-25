@@ -16,5 +16,8 @@ protocol PlaylistServiceProtocol: AnyObject, Sendable {
     func addTracks(playlistId: String, songs: [Song]) async throws
     func removeTracks(playlistId: String, indices: [Int]) async throws
     func reorderTracks(playlistId: String, orderedSongIds: [String]) async throws
-    func deletePlaylist(id: String) async throws
+    /// Deletes the playlist on the server. `purgeDownloads`: when true, also removes the downloaded files and the
+    /// client-side cover choice for this playlist; when false, the server delete keeps any local downloads (an
+    /// intentional offline orphan). Local state is only touched after a confirmed server delete.
+    func deletePlaylist(id: String, purgeDownloads: Bool) async throws
 }

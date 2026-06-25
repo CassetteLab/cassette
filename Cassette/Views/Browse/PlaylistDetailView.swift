@@ -316,11 +316,12 @@ struct PlaylistDetailView: View {
             if let data = try? Data(contentsOf: url), let img = UIImage(data: data) { presentCrop(img) }
         }
         #endif
-        .alert("Delete \"\(viewModel?.name ?? initialName)\"?", isPresented: $showDeletePlaylistConfirm) {
-            Button("Delete", role: .destructive) { Task { await deletePlaylistInPlace() } }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes the playlist everywhere, including any downloaded copy.")
+        .deletePlaylistConfirmation(
+            playlistName: viewModel?.name ?? initialName,
+            isPresented: $showDeletePlaylistConfirm,
+            hasDownloads: (viewModel?.songs.contains { $0.isDownloaded } ?? false) || !downloadedPlaylistMatches.isEmpty
+        ) { purgeDownloads in
+            Task { await deletePlaylistInPlace(purgeDownloads: purgeDownloads) }
         }
         .alert("Remove \(selectedSongIds.count) Song\(selectedSongIds.count == 1 ? "" : "s")?", isPresented: $showRemoveSongsConfirm) {
             Button("Remove", role: .destructive) { removeSelectedTracks() }
@@ -762,10 +763,10 @@ struct PlaylistDetailView: View {
         selectedSongIds.removeAll()
     }
 
-    private func deletePlaylistInPlace() async {
+    private func deletePlaylistInPlace(purgeDownloads: Bool) async {
         guard let c = container else { return }
         do {
-            try await c.playlistService.deletePlaylist(id: playlistId)
+            try await c.playlistService.deletePlaylist(id: playlistId, purgeDownloads: purgeDownloads)
             dismiss()
         } catch {
             Logger.playlist.error("PlaylistDetailView: in-place delete failed: \(error, privacy: .public)")

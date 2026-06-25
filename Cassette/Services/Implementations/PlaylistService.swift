@@ -67,22 +67,20 @@ actor PlaylistService: PlaylistServiceProtocol {
         return result
     }
 
-    func deletePlaylist(id: String) async throws {
+    func deletePlaylist(id: String, purgeDownloads: Bool) async throws {
         let previousList = listCache
         let previousDetail = detailCache[id]
         listCache?.removeAll { $0.id == id }
         detailCache[id] = nil
         do {
             try await client().deletePlaylist(id: id)
-            Logger.playlist.info("Deleted playlist id=\(id, privacy: .public)")
-            // Server delete confirmed → purge any offline download record so Offline keeps no orphan copy
-            // ("delete = delete everywhere"). Best-effort (remove logs its own failures internally) and
-            // NEVER reached when the server refused — we are past the throwing call — so a refused delete
-            // never touches local download state.
-            if let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) {
+            Logger.playlist.info("Deleted playlist id=\(id, privacy: .public) purgeDownloads=\(purgeDownloads, privacy: .public)")
+            // Only when the user chose "playlist & downloads": purge the offline copy + the client-side
+            // gradient-cover choice. "Playlist only" (purgeDownloads == false) intentionally KEEPS the local
+            // files (an offline orphan). This block is NEVER reached when the server refused — we are past the
+            // throwing call — so a refused delete never touches local state either way.
+            if purgeDownloads, let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) {
                 try? await downloadService.remove(playlistId: id, serverId: serverId)
-                // Purge any client-side gradient-cover choice too — same "delete = delete everywhere"
-                // orphan-cleanup discipline as the offline download record above.
                 let container = modelContainer
                 await MainActor.run {
                     PlaylistCoverStore(modelContainer: container).remove(playlistId: id, serverId: serverId)
