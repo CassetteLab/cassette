@@ -112,22 +112,7 @@ final class AlbumDetailViewModel {
         isDownloadingAlbum = true
         try? await downloadService.download(album: album, serverId: serverId)
         let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
-        songs = songs.map { song in
-            DisplayableSong(
-                id: song.id, title: song.title, artist: song.artist,
-                albumId: song.albumId, albumName: song.albumName,
-                artistId: song.artistId, genre: song.genre,
-                duration: song.duration, trackNumber: song.trackNumber,
-                isDownloaded: downloadedIds.contains(song.id),
-                coverArtId: song.coverArtId, audioFormat: song.audioFormat,
-                replayGainTrackGain: song.replayGainTrackGain,
-                replayGainTrackPeak: song.replayGainTrackPeak,
-                replayGainAlbumGain: song.replayGainAlbumGain,
-                replayGainAlbumPeak: song.replayGainAlbumPeak,
-                replayGainBaseGain: song.replayGainBaseGain,
-                replayGainFallbackGain: song.replayGainFallbackGain
-            )
-        }
+        songs = songs.map { $0.withDownloaded(downloadedIds.contains($0.id)) }
         isDownloadingAlbum = false
     }
 
@@ -147,21 +132,7 @@ final class AlbumDetailViewModel {
         try? await downloadService.download(song: song, serverId: serverId)
         let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
         if let idx = songs.firstIndex(where: { $0.id == id }) {
-            let s = songs[idx]
-            songs[idx] = DisplayableSong(
-                id: s.id, title: s.title, artist: s.artist,
-                albumId: s.albumId, albumName: s.albumName,
-                artistId: s.artistId, genre: s.genre,
-                duration: s.duration, trackNumber: s.trackNumber,
-                isDownloaded: allDownloaded.contains(id),
-                coverArtId: s.coverArtId, audioFormat: s.audioFormat,
-                replayGainTrackGain: s.replayGainTrackGain,
-                replayGainTrackPeak: s.replayGainTrackPeak,
-                replayGainAlbumGain: s.replayGainAlbumGain,
-                replayGainAlbumPeak: s.replayGainAlbumPeak,
-                replayGainBaseGain: s.replayGainBaseGain,
-                replayGainFallbackGain: s.replayGainFallbackGain
-            )
+            songs[idx] = songs[idx].withDownloaded(allDownloaded.contains(id))
         }
     }
 
@@ -177,39 +148,13 @@ final class AlbumDetailViewModel {
             try? await downloadService.download(song: song, serverId: serverId)
         }
         let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
-        songs = songs.map {
-            DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
-                            albumId: $0.albumId, albumName: $0.albumName,
-                            artistId: $0.artistId, genre: $0.genre,
-                            duration: $0.duration, trackNumber: $0.trackNumber,
-                            isDownloaded: allDownloaded.contains($0.id),
-                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat,
-                            replayGainTrackGain: $0.replayGainTrackGain,
-                            replayGainTrackPeak: $0.replayGainTrackPeak,
-                            replayGainAlbumGain: $0.replayGainAlbumGain,
-                            replayGainAlbumPeak: $0.replayGainAlbumPeak,
-                            replayGainBaseGain: $0.replayGainBaseGain,
-                            replayGainFallbackGain: $0.replayGainFallbackGain)
-        }
+        songs = songs.map { $0.withDownloaded(allDownloaded.contains($0.id)) }
         isDownloadingAlbum = false
     }
 
     func deleteDownload() async {
         guard let serverId = serverState.activeServer?.id else { return }
         try? await downloadService.remove(albumId: albumId, serverId: serverId)
-        songs = songs.map {
-            DisplayableSong(id: $0.id, title: $0.title, artist: $0.artist,
-                            albumId: $0.albumId, albumName: $0.albumName,
-                            artistId: $0.artistId, genre: $0.genre,
-                            duration: $0.duration, trackNumber: $0.trackNumber,
-                            isDownloaded: false,
-                            coverArtId: $0.coverArtId, audioFormat: $0.audioFormat,
-                            replayGainTrackGain: $0.replayGainTrackGain,
-                            replayGainTrackPeak: $0.replayGainTrackPeak,
-                            replayGainAlbumGain: $0.replayGainAlbumGain,
-                            replayGainAlbumPeak: $0.replayGainAlbumPeak,
-                            replayGainBaseGain: $0.replayGainBaseGain,
-                            replayGainFallbackGain: $0.replayGainFallbackGain)
-        }
+        songs = songs.map { $0.withDownloaded(false) }
     }
 }

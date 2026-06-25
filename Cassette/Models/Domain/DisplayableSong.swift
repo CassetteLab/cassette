@@ -21,7 +21,7 @@ nonisolated struct DisplayableSong: Identifiable, Hashable, Sendable, Codable {
     let genre: String?
     let duration: TimeInterval
     let trackNumber: Int?
-    let isDownloaded: Bool
+    var isDownloaded: Bool
     let coverArtId: String?
     let audioFormat: String?
     let replayGainTrackGain: Double?
@@ -76,5 +76,13 @@ extension DisplayableSong {
         self.replayGainAlbumPeak = track.replayGainAlbumPeak
         self.replayGainBaseGain = track.replayGainBaseGain
         self.replayGainFallbackGain = track.replayGainFallbackGain
+    }
+
+    /// A copy with `isDownloaded` flipped — the 16 fields are otherwise identical. Rebuilding it by hand (as 10
+    /// sites did) risks silently dropping a newly-added optional field; this can't.
+    func withDownloaded(_ flag: Bool) -> DisplayableSong {
+        var copy = self
+        copy.isDownloaded = flag
+        return copy
     }
 }

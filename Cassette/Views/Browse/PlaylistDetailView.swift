@@ -1103,26 +1103,7 @@ struct PlaylistSongRows: View {
     @ViewBuilder
     private func makeRow(index: Int, song: DisplayableSong) -> some View {
         let liveDownloaded = downloadedSongIds.contains(song.id)
-        let liveSong = DisplayableSong(
-            id: song.id,
-            title: song.title,
-            artist: song.artist,
-            albumId: song.albumId,
-            albumName: song.albumName,
-            artistId: song.artistId,
-            genre: song.genre,
-            duration: song.duration,
-            trackNumber: song.trackNumber,
-            isDownloaded: liveDownloaded,
-            coverArtId: song.coverArtId,
-            audioFormat: song.audioFormat,
-            replayGainTrackGain: song.replayGainTrackGain,
-            replayGainTrackPeak: song.replayGainTrackPeak,
-            replayGainAlbumGain: song.replayGainAlbumGain,
-            replayGainAlbumPeak: song.replayGainAlbumPeak,
-            replayGainBaseGain: song.replayGainBaseGain,
-            replayGainFallbackGain: song.replayGainFallbackGain
-        )
+        let liveSong = song.withDownloaded(liveDownloaded)
         let isDownloading = downloadingIds.contains(song.id)
         let downloadAction: (() -> Void)? = (liveDownloaded || isDownloading) ? nil : onDownload.map { action in { action(song.id) } }
         let removeAction: (() -> Void)? = liveDownloaded ? onRemoveDownload.map { action in { action(song.id) } } : nil
