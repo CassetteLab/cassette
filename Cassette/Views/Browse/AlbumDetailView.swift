@@ -95,6 +95,11 @@ struct AlbumDetailView: View {
     private var isOnline: Bool { container?.serverState.isOnline == true }
     /// Cover id the album theme is keyed on — the colour override is stored under the same id so it takes effect.
     private var albumCoverId: String { viewModel?.coverArtId ?? coverArtId ?? albumId }
+    /// Every cover id the override must cover so it's resolved from ANY surface: the album cover + each song's
+    /// own cover id (these can differ from the album's while pointing at the same artwork — e.g. the full player).
+    private var albumThemeIds: [String] {
+        [albumCoverId] + (viewModel?.songs.compactMap { $0.coverArtId } ?? [])
+    }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
@@ -279,7 +284,7 @@ struct AlbumDetailView: View {
                 ColorPicker("", selection: Binding(
                     get: { colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor },
                     set: { newColor in
-                        colorExtractor.setColorOverride(newColor, for: albumCoverId)
+                        colorExtractor.setColorOverride(newColor, forIds: albumThemeIds)
                         dominantColor = newColor
                         isLightBackground = newColor.luminance > 0.6
                     }
@@ -289,7 +294,7 @@ struct AlbumDetailView: View {
                 .contextMenu {
                     if colorExtractor.colorOverride(for: albumCoverId) != nil {
                         Button("Reset to cover colour", systemImage: "arrow.uturn.backward") {
-                            colorExtractor.setColorOverride(nil, for: albumCoverId)
+                            colorExtractor.setColorOverride(nil, forIds: albumThemeIds)
                             let extracted = colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor
                             dominantColor = extracted
                             isLightBackground = extracted.luminance > 0.6

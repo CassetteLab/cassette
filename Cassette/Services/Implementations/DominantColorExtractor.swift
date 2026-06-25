@@ -85,18 +85,24 @@ final class DominantColorExtractor {
 
     /// Set (or clear, with nil) the user colour override for a cover — persisted; takes precedence everywhere.
     func setColorOverride(_ color: Color?, for coverArtId: String) {
-        if let color {
-            colorOverrides[coverArtId] = color
-            persistOverride(Self.pack(color), forKey: coverArtId)
-        } else {
-            colorOverrides.removeValue(forKey: coverArtId)
-            persistOverride(nil, forKey: coverArtId)
-        }
+        setColorOverride(color, forIds: [coverArtId])
     }
 
-    private func persistOverride(_ packed: Int?, forKey key: String) {
+    /// Set (or clear) the override for SEVERAL cover ids at once. An album cover and its songs can carry
+    /// distinct cover-art ids for the SAME artwork (e.g. "al-…" vs "mf-…" on Navidrome), so the user's pick is
+    /// stored under all of them — the full player (keyed on the song's id) then resolves it too. One persist.
+    func setColorOverride(_ color: Color?, forIds ids: [String]) {
+        let packed = color.flatMap(Self.pack)
         var dict = UserDefaults.standard.dictionary(forKey: Self.overridesKey) ?? [:]
-        if let packed { dict[key] = packed } else { dict.removeValue(forKey: key) }
+        for id in ids where !id.isEmpty {
+            if let color {
+                colorOverrides[id] = color
+                if let packed { dict[id] = packed }
+            } else {
+                colorOverrides.removeValue(forKey: id)
+                dict.removeValue(forKey: id)
+            }
+        }
         UserDefaults.standard.set(dict, forKey: Self.overridesKey)
     }
 
