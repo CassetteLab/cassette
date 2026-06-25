@@ -1088,6 +1088,18 @@ actor PlayerService: PlayerServiceProtocol {
             state.playbackState = .paused
         }
 
+        // If the saved session was parked at the END of the last track (the queue had finished, repeat off),
+        // mark it so resume() restarts from track 0 instead of replaying the last track's tail and immediately
+        // hitting EOF — a phantom transition at cold start. pauseAtEndOfQueue parks position exactly at duration,
+        // and a mid-track pause leaves position < duration, so the tight epsilon distinguishes the two.
+        if data.repeatMode == .off,
+           data.currentIndex == data.queue.count - 1,
+           data.currentTrackDuration > 0,
+           data.currentPosition >= data.currentTrackDuration - 0.1 {
+            stoppedAtEndOfQueue = true
+            Logger.player.info("[RESTORE] session was parked at end of queue — resume will restart from track 0")
+        }
+
         await prepareCurrentTrackForRestoration(track: track, position: data.currentPosition)
         Logger.player.info("Session restored: \(data.queue.count) tracks, index \(data.currentIndex), pos=\(data.currentPosition, format: .fixed(precision: 1))s")
     }
