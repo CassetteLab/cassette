@@ -767,6 +767,7 @@ struct PlaylistDetailView: View {
         guard let c = container else { return }
         do {
             try await c.playlistService.deletePlaylist(id: playlistId, purgeDownloads: purgeDownloads)
+            postPlaylistDeleted()
             dismiss()
         } catch {
             Logger.playlist.error("PlaylistDetailView: in-place delete failed: \(error, privacy: .public)")

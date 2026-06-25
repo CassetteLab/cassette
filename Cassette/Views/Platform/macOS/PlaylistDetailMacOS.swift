@@ -210,6 +210,7 @@ struct PlaylistDetailMacOS: View {
         guard let c = container else { return }
         do {
             try await c.playlistService.deletePlaylist(id: playlistId, purgeDownloads: purgeDownloads)
+            postPlaylistDeleted()
             dismiss()
         } catch {
             Logger.playlist.error("PlaylistDetailMacOS: delete failed: \(error, privacy: .public)")

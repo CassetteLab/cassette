@@ -46,6 +46,11 @@ struct PlaylistListView: View {
             guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
         }
+        // Deleting a playlist from a detail surface posts this — reload so the list reflects it on return,
+        // without a blanket `.onAppear` reload (which would re-fetch on every navigation).
+        .onReceive(NotificationCenter.default.publisher(for: .cassettePlaylistDeleted)) { _ in
+            Task { await viewModel?.load() }
+        }
     }
 
     @ViewBuilder

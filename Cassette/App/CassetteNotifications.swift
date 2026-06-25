@@ -49,6 +49,12 @@ func postNavigateToPlaylist(playlistId: String, name: String, coverArtId: String
     )
 }
 
+/// A playlist was deleted (server-confirmed) from a detail surface. The playlist list observes this to reload,
+/// so the deleted playlist disappears on return without a manual refresh — and without an `.onAppear` reload.
+func postPlaylistDeleted() {
+    NotificationCenter.default.post(name: .cassettePlaylistDeleted, object: nil)
+}
+
 extension Notification.Name {
     static let cassetteTogglePlayPause = Notification.Name("cassette.togglePlayPause")
     static let cassetteSkipNext = Notification.Name("cassette.skipNext")
@@ -63,4 +69,5 @@ extension Notification.Name {
     static let cassetteNavigateToAlbum    = Notification.Name("cassetteNavigateToAlbum")
     static let cassetteNavigateToArtist   = Notification.Name("cassetteNavigateToArtist")
     static let cassetteNavigateToPlaylist = Notification.Name("cassetteNavigateToPlaylist")
+    static let cassettePlaylistDeleted    = Notification.Name("cassette.playlistDeleted")
 }
