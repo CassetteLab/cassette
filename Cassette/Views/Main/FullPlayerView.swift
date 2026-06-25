@@ -33,7 +33,6 @@ struct FullPlayerView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
 
     @State private var vm = FullPlayerViewModel()
     @State private var showLyrics = false
@@ -55,9 +54,14 @@ struct FullPlayerView: View {
 
     var body: some View {
         if let playerState = container?.playerState {
+            // Theme from the playing track's cover OR, for a live stream, the radio's cover — so radio surfaces
+            // theme too and the task re-fires between stations (currentTrack is nil for radio).
+            let themeCoverId: String? = playerState.isLiveStream
+                ? playerState.currentRadio?.coverArt
+                : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id)
             content(playerState)
-                .task(id: playerState.currentTrack?.coverArtId) {
-                    await vm.updateColors(for: playerState.currentTrack?.coverArtId, colorExtractor: colorExtractor, container: container)
+                .task(id: themeCoverId) {
+                    await vm.updateColors(for: themeCoverId, colorExtractor: colorExtractor, container: container)
                 }
                 .task(id: playerState.currentTrack?.id) {
                     guard let track = playerState.currentTrack,
@@ -91,14 +95,8 @@ struct FullPlayerView: View {
         let isPlaying = playerState.playbackState == .playing
         let showingQueue = isQueueVisible(playerState)
 
-        // Morph keyed to `surface` ONLY, so it never composes with the isPlaying / showLyrics animations.
-        // Reduce Motion degrades to a plain opacity crossfade (no matchedGeometry fly).
-        let morphAnimation: Animation = reduceMotion
-            ? .easeInOut(duration: 0.22)
-            : .spring(response: 0.45, dampingFraction: 0.82)
-
         surfaceStack(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
-                     showingQueue: showingQueue, morphAnimation: morphAnimation)
+                     showingQueue: showingQueue)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .cassetteContentWidth()
             #if os(macOS)
@@ -154,16 +152,14 @@ struct FullPlayerView: View {
     /// applied in `content`.
     @ViewBuilder
     private func surfaceStack(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool,
-                              showingQueue: Bool, morphAnimation: Animation) -> some View {
+                              showingQueue: Bool) -> some View {
         #if os(iOS)
-        // Flowing iOS player: cover → title → scrubber → transport → volume flow and FILL the screen, with
-        // NO fixed footer. Lyrics and the queue reuse ONE mechanism — their content takes the cover's slot
-        // and fills it (maxHeight .infinity), pushing the flowing controls below toward the bottom. The
-        // mini→full zoom's matchedGeometry lives in MainTabView (separate); the player↔queue morphCover is
-        // gone. `morphAnimation` is the macOS-only morph spring and is unused here.
-        // The cover now FILLS the upper space full-bleed (album/playlist look) instead of being a centered
-        // square, so the slot is greedy and the gaps are fixed on every surface (cover, lyrics, queue).
-        let filling = true
+        // Flowing iOS player: cover → title → scrubber → transport → volume flow and FILL the screen, with NO
+        // fixed footer. Lyrics and the queue reuse ONE mechanism — their content takes the cover's slot and
+        // fills it (maxHeight .infinity), pushing the flowing controls below toward the bottom. The mini→full
+        // zoom's matchedGeometry lives in MainTabView; the player↔queue morphCover is gone. The cover FILLS the
+        // upper space full-bleed (album/playlist look), so the slot is the SOLE greedy element and the gaps are
+        // fixed floors that distribute the slack to push the controls down.
         VStack(spacing: 0) {
             VStack(spacing: 0) {
                 // Each gap is flexible in the flowing default (distributes the slack so the content fills the
@@ -172,7 +168,7 @@ struct FullPlayerView: View {
                 // controls toward the bottom.
                 // No top gap for the cover (it bleeds to the very top under the grabber); clear the grabber
                 // for lyrics/queue so their content isn't hidden behind it.
-                flowGap((showLyrics || showingQueue) ? 44 : 0, filling: filling)
+                flowGap((showLyrics || showingQueue) ? 44 : 0)
 
                 // The slot: the cover by default; lyrics or the queue fill it and push the controls down.
                 ZStack {
@@ -207,8 +203,7 @@ struct FullPlayerView: View {
                     // Hit testing (cover swipe-to-skip) is off while the queue is up, so the flown cover does
                     // not intercept the list's scroll/reorder gestures.
                     if !showLyrics {
-                        flowingCover(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
-                                     isSource: !showingQueue)
+                        flowingCover(playerState, coverArtId: coverArtId, isSource: !showingQueue)
                             .allowsHitTesting(!showingQueue)
                             // Bleed the cover up under the grabber to the very top edge (covers the white
                             // status-bar strip). Safe now that the cover has a DEFINITE frame (GeometryReader):
@@ -218,9 +213,9 @@ struct FullPlayerView: View {
                             .transition(.opacity)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: filling ? CGFloat.infinity : nil)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                flowGap(Self.playerCoverToTitleGap, filling: filling)
+                flowGap(Self.playerCoverToTitleGap)
 
                 // The queue shows the title in its header on top, so drop this row when the queue is open —
                 // it would otherwise render a SECOND live TrackInfoSection (duplicate @Query, heart/menu, and
@@ -241,8 +236,7 @@ struct FullPlayerView: View {
                         playerState: playerState,
                         playerService: container?.playerService,
                         contentColor: vm.contentColor,
-                        secondaryContentColor: vm.secondaryContentColor,
-                        animatesFill: scenePhase == .active
+                        secondaryContentColor: vm.secondaryContentColor
                     )
                     .padding(.horizontal, CassetteSpacing.l)
                     .padding(.top, CassetteSpacing.m)
@@ -267,7 +261,7 @@ struct FullPlayerView: View {
                 }
 
                 // Default player: a taller bottom gap shortens the greedy cover and lifts the controls up.
-                flowGap((showLyrics || showingQueue) ? CassetteSpacing.xs : 40, filling: filling)
+                flowGap((showLyrics || showingQueue) ? CassetteSpacing.xs : 40)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             // One animation for the whole flowing reflow, keyed to the surface / lyrics toggles only, so the
@@ -294,6 +288,11 @@ struct FullPlayerView: View {
                 .padding(.top, CassetteSpacing.s)
         }
         #else
+        // Morph keyed to `surface` ONLY; Reduce Motion degrades to a plain opacity crossfade. macOS-only — the
+        // iOS player↔queue uses its own .smooth reflow (below).
+        let morphAnimation: Animation = reduceMotion
+            ? .easeInOut(duration: 0.22)
+            : .spring(response: 0.45, dampingFraction: 0.82)
         VStack(spacing: 0) {
             topBar
                 .padding(.top, CassetteSpacing.s)
@@ -315,18 +314,16 @@ struct FullPlayerView: View {
     }
 
     #if os(iOS)
-    /// A vertical gap in the flowing layout: flexible (distributes slack so the content fills the screen) in
-    /// the default state, collapsed to a fixed `floor` once the slot fills. It stays the SAME view type in
-    /// both states, so its height animates with the surface / lyrics toggle instead of popping.
-    private func flowGap(_ floor: CGFloat, filling: Bool) -> some View {
-        Color.clear.frame(minHeight: floor, maxHeight: filling ? floor : .infinity)
+    /// A fixed-height vertical gap (`floor`) in the flowing layout. The slot above is the sole greedy element,
+    /// so it absorbs the slack and pushes the controls toward the bottom; these gaps stay a constant floor.
+    private func flowGap(_ floor: CGFloat) -> some View {
+        Color.clear.frame(minHeight: floor, maxHeight: floor)
     }
 
     /// The default player cover — FILLS the upper space full-bleed (album/playlist look), melting into the
     /// dominant color at the bottom. No `morphCover` — the mini→full zoom matchedGeometry lives in MainTabView;
-    /// the `queueCover` matchedGeometry flies the cover to the queue header on queue toggle. `isPlaying` is no
-    /// longer used (the play/pause scale was removed).
-    private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool, isSource: Bool) -> some View {
+    /// the `queueCover` matchedGeometry flies the cover to the queue header on queue toggle.
+    private func flowingCover(_ playerState: PlayerState, coverArtId: String, isSource: Bool) -> some View {
         GeometryReader { geo in
             // Memoized dominant so the melt's colour appears on the FIRST frame, in sync with the page background.
             let dominant = colorExtractor.cachedColor(for: coverArtId) ?? vm.dominantColor
@@ -672,10 +669,7 @@ struct FullPlayerView: View {
                     playerState: playerState,
                     playerService: container?.playerService,
                     contentColor: vm.contentColor,
-                    secondaryContentColor: vm.secondaryContentColor,
-                    // Stop the fill's continuous per-tick animation when the app isn't foreground-active
-                    // (off-screen) — zero visible change, just no idle Core Animation commits while hidden.
-                    animatesFill: scenePhase == .active
+                    secondaryContentColor: vm.secondaryContentColor
                 )
                 .padding(.horizontal, CassetteSpacing.l)
                 .padding(.top, CassetteSpacing.m)
@@ -921,7 +915,6 @@ private struct ScrubberView: View {
     let playerService: (any PlayerServiceProtocol)?
     let contentColor: Color
     let secondaryContentColor: Color
-    var animatesFill: Bool = true
 
     @State private var isDragging = false
     @State private var isSeeking = false
@@ -965,8 +958,7 @@ private struct ScrubberView: View {
                 },
                 trackColor: contentColor.opacity(0.2),
                 fillColor: contentColor.opacity(0.95),
-                isInteracting: isDragging || isSeeking,
-                animatesFill: animatesFill
+                isInteracting: isDragging || isSeeking
             )
 
             ScrubberTimeLabels(
@@ -1013,8 +1005,6 @@ struct ProgressSlider: View {
     var height: CGFloat = 32
     var trackHeight: CGFloat = 5
     var isInteracting: Bool = false
-    var isAdvancing: Bool = false
-    var animatesFill: Bool = true
 
     @State private var isDragging = false
     @State private var dragValue: TimeInterval?
@@ -1030,7 +1020,9 @@ struct ProgressSlider: View {
                 Capsule()
                     .fill(fillColor)
                     .frame(width: progressWidth(in: trackW))
-                    .animation(isDragging || isInteracting || !isAdvancing || !animatesFill ? nil : .linear(duration: 0.5), value: value)
+                    // Stepped fill, NO implicit animation — re-arming a per-tick linear tween kept Core Animation
+                    // committing continuously (on-screen heat). Sub-pixel 2 Hz steps still read as smooth.
+                    .animation(nil, value: value)
             }
             .frame(height: isDragging ? 12 : trackHeight)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
