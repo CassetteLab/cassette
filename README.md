@@ -10,9 +10,9 @@
 
 ## Screenshots
 
-| Home | Album | Player | Playlist |
-|------|-------|--------|----------|
-| ![](docs/screenshots/home.jpeg) | ![](docs/screenshots/album.jpeg) | ![](docs/screenshots/player.jpeg) | ![](docs/screenshots/playlist.jpeg) |
+| Home | Album | Player | Playlist | Artist |
+|------|-------|--------|----------|--------|
+| ![](docs/screenshots/home.jpeg) | ![](docs/screenshots/album.jpeg) | ![](docs/screenshots/player.jpeg) | ![](docs/screenshots/playlist.jpeg) | ![](docs/screenshots/artist.jpeg) |
 
 ---
 
