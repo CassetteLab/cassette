@@ -740,6 +740,7 @@ private struct TrackInfoSection: View {
 
     @Query private var favoriteMatches: [FavoriteRecord]
     @Environment(ArtworkImageCache.self) private var artworkImageCache
+    @Environment(DominantColorExtractor.self) private var colorExtractor
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
 
@@ -756,6 +757,7 @@ private struct TrackInfoSection: View {
 
     private var isFavorite: Bool { !favoriteMatches.isEmpty }
     private var isOnline: Bool { container?.serverState.isOnline == true }
+    private var coverArtId: String { playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? "" }
 
     var body: some View {
         HStack(alignment: .top, spacing: CassetteSpacing.m) {
@@ -805,6 +807,21 @@ private struct TrackInfoSection: View {
 
             HStack(spacing: CassetteSpacing.s) {
                 if !playerState.isLiveStream {
+                    // Manual theme-colour override (defaults to the cover's dominant colour). Persisted per cover.
+                    ColorPicker("", selection: Binding(
+                        get: { colorExtractor.cachedColor(for: coverArtId) ?? Color(white: 0.5) },
+                        set: { colorExtractor.setColorOverride($0, for: coverArtId) }
+                    ), supportsOpacity: false)
+                    .labelsHidden()
+                    .accessibilityLabel("Theme colour")
+                    .contextMenu {
+                        if colorExtractor.colorOverride(for: coverArtId) != nil {
+                            Button("Reset to cover colour", systemImage: "arrow.uturn.backward") {
+                                colorExtractor.setColorOverride(nil, for: coverArtId)
+                            }
+                        }
+                    }
+
                     Button {
                         HapticFeedback.light.trigger()
                         let fav = isFavorite

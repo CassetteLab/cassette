@@ -29,11 +29,16 @@ final class DominantColorExtractor {
     // colours are dropped and every cover re-extracts with the whole-image method.
     private static let userDefaultsKey = "cassette.dominantColor.cache.v3"
     private static let legacyUserDefaultsKey = "cassette.dominantColor.cache.v2"
+    /// User-picked colour overrides (per coverArtId).
+    private static let overridesKey = "cassette.dominantColor.overrides"
 
     // Pure memoization store — not UI state. @ObservationIgnored so a cache write (on a cold-cover miss)
     // never invalidates a view that called dominantColor() during its body. Colors that drive UI flow
     // through observed @State / view-model properties (e.g. FullPlayerViewModel.dominantColor), never this.
     @ObservationIgnored private var cache: [String: Color] = [:]
+    /// User-picked colour overrides (per coverArtId), persisted, taking precedence over the extracted dominant.
+    /// OBSERVED (unlike `cache`) so themed surfaces re-render the instant the user changes a colour.
+    private var colorOverrides: [String: Color] = [:]
     private let ciContext = CIContext(options: [.workingColorSpace: kCFNull as Any])
 
     init() {
@@ -47,13 +52,21 @@ final class DominantColorExtractor {
             }
         }
         cache = hydrated
-        Logger.dominantColor.debug("Hydrated \(hydrated.count) dominant colors from UserDefaults.")
+
+        let storedOverrides = UserDefaults.standard.dictionary(forKey: Self.overridesKey) ?? [:]
+        var hydratedOverrides: [String: Color] = [:]
+        for (key, value) in storedOverrides {
+            if let packed = value as? Int { hydratedOverrides[key] = Self.unpack(packed) }
+        }
+        colorOverrides = hydratedOverrides
+        Logger.dominantColor.debug("Hydrated \(hydrated.count) dominant colors + \(hydratedOverrides.count) overrides.")
     }
 
     /// Returns the dominant color for the given image, or Color.clear if unavailable.
     /// Checks the in-memory cache (hydrated from UserDefaults at launch) before processing.
     func dominantColor(for coverArtId: String?, image: PlatformImage?) -> Color {
         guard let coverArtId else { return .clear }
+        if let override = colorOverrides[coverArtId] { return override }
         if let cached = cache[coverArtId] { return cached }
         guard let image else { return .clear }
         guard let result = extract(from: image) else { return .clear }
@@ -64,7 +77,39 @@ final class DominantColorExtractor {
 
     /// Synchronously returns the memoized color for an id, or nil if not yet extracted. No work.
     func cachedColor(for coverArtId: String) -> Color? {
-        cache[coverArtId]
+        colorOverrides[coverArtId] ?? cache[coverArtId]
+    }
+
+    /// The user-picked colour override for a cover, if any (nil → the extracted dominant is used).
+    func colorOverride(for coverArtId: String) -> Color? { colorOverrides[coverArtId] }
+
+    /// Set (or clear, with nil) the user colour override for a cover — persisted; takes precedence everywhere.
+    func setColorOverride(_ color: Color?, for coverArtId: String) {
+        if let color {
+            colorOverrides[coverArtId] = color
+            persistOverride(Self.pack(color), forKey: coverArtId)
+        } else {
+            colorOverrides.removeValue(forKey: coverArtId)
+            persistOverride(nil, forKey: coverArtId)
+        }
+    }
+
+    private func persistOverride(_ packed: Int?, forKey key: String) {
+        var dict = UserDefaults.standard.dictionary(forKey: Self.overridesKey) ?? [:]
+        if let packed { dict[key] = packed } else { dict.removeValue(forKey: key) }
+        UserDefaults.standard.set(dict, forKey: Self.overridesKey)
+    }
+
+    /// Resolves a SwiftUI Color to a packed 0xRRGGBB int (sRGB) for persistence; nil if it can't be resolved.
+    private static func pack(_ color: Color) -> Int? {
+        #if canImport(UIKit)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+        #elseif canImport(AppKit)
+        guard let rgb = NSColor(color).usingColorSpace(.sRGB) else { return nil }
+        let r = rgb.redComponent, g = rgb.greenComponent, b = rgb.blueComponent
+        #endif
+        return (Int(max(0, min(1, r)) * 255) << 16) | (Int(max(0, min(1, g)) * 255) << 8) | Int(max(0, min(1, b)) * 255)
     }
 
     /// Stores a packed color produced off-main by `packedAverageColor(from:)` and returns the Color,
