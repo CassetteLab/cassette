@@ -328,6 +328,8 @@ struct FullPlayerView: View {
     /// longer used (the play/pause scale was removed).
     private func flowingCover(_ playerState: PlayerState, coverArtId: String, isPlaying: Bool, isSource: Bool) -> some View {
         GeometryReader { geo in
+            // Memoized dominant so the melt's colour appears on the FIRST frame, in sync with the page background.
+            let dominant = colorExtractor.cachedColor(for: coverArtId) ?? vm.dominantColor
             CoverArtView(id: coverArtId, size: 1000)
                 // DEFINITE size from the geometry — NOT maxWidth/maxHeight .infinity. A greedy frame reports an
                 // unbounded ideal width which, flattened by drawingGroup, widened the slot and pushed the
@@ -340,18 +342,18 @@ struct FullPlayerView: View {
                 // Light blurred melt at the bottom: a thin strip of the cover blurs and fades into the dominant
                 // body colour, so the cover dissolves into the body (same recipe as album/playlist).
                 .overlay {
-                    if isSource, let cover = vm.coverImage {
+                    if isSource {
                         ZStack {
-                            Image(platformImage: cover)
-                                .resizable()
-                                .scaledToFill()
+                            // Blurred copy from the shared artwork cache (instant — the sharp cover already
+                            // warmed it) instead of a fresh per-track download via the view model.
+                            CoverArtView(id: coverArtId, size: 1000)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .blur(radius: 16)
                                 .clipped()
                             LinearGradient(
                                 stops: [
                                     .init(color: .clear, location: 0.82),
-                                    .init(color: vm.dominantColor, location: 1.0),
+                                    .init(color: dominant, location: 1.0),
                                 ],
                                 startPoint: .top, endPoint: .bottom
                             )
