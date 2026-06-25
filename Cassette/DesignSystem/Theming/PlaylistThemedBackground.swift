@@ -13,7 +13,8 @@ import SwiftUI
 /// Cover-agnostic — the same path renders a gradient JPEG, an uploaded photo, or a server album cover. The
 /// blurred melt is flattened into one Metal-backed bitmap via `.drawingGroup()` (the FullPlayer pattern), so
 /// the blur is rasterized once per cover change, never recomputed per frame. The only `#if os` is the
-/// system-background bridge. Static fade (no scroll-driven parallax — that's a post-rebrand polish).
+/// system-background bridge. The blurred melt is rasterized once via `.drawingGroup()` (static); the
+/// over-scroll stretch is applied by the hero wrapper (`ImmersiveCoverHero`).
 struct PlaylistThemedBackground: View {
     let coverArtId: String?
     let coverImage: PlatformImage?
@@ -49,8 +50,8 @@ struct PlaylistThemedBackground: View {
                     .frame(height: heroHeight)
                     .clipped()
 
-                    // Light blurred melt: the cover softly fades into the (bottom-matched) dominant body color
-                    // toward the bottom — a slight transition that reads as a gentle, themed junction.
+                    // Light blurred melt: the cover softly fades into the whole-image dominant body color toward
+                    // the bottom — a slight transition that reads as a gentle, themed junction.
                     blurredMelt(coverArtId: coverArtId)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)

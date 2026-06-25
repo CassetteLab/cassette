@@ -98,6 +98,11 @@ final class AlbumDetailViewModel {
         coverArtId = data.coverArtId
         songCount = data.songs.count
         songs = data.songs
+        // Offline records carry no year/genre/artistId — clear stale online values so a re-load after going
+        // offline (the long-lived VM re-runs load() on connectivity change) doesn't keep showing them.
+        year = nil
+        genre = nil
+        artistId = nil
         isOffline = true
         return true
     }

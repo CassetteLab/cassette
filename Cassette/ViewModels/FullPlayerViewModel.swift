@@ -35,13 +35,14 @@ final class FullPlayerViewModel {
         // mini player), so the background is coloured the moment the player opens — no black flash while the
         // cover downloads.
         let cachedColor = colorExtractor.cachedColor(for: coverArtId)
-        if let cachedColor, cachedColor != .clear {
+        if let cachedColor {
             withAnimation(.easeInOut(duration: 0.4)) {
                 dominantColor = cachedColor
                 isLightBackground = cachedColor.luminance > 0.6
             }
         }
-        // Then load the cover image (the bottom melt needs it) and extract the colour only if it wasn't cached.
+        // Then load the cover image — needed to extract the colour when it isn't cached, and (macOS only) for the
+        // blurred wash. The iOS melt reads CoverArtView(id:) from the shared cache, not this image.
         let url: URL?
         if let localURL = await container?.downloadService.localCoverArtURL(forId: coverArtId) {
             url = localURL
@@ -58,7 +59,9 @@ final class FullPlayerViewModel {
         guard let processed else { return }
         let color = cachedColor ?? colorExtractor.storeColor(packed: processed.packed, for: coverArtId)
         withAnimation(.easeInOut(duration: 0.4)) {
+            #if os(macOS)
             coverImage = processed.image
+            #endif
             dominantColor = color
             isLightBackground = color.luminance > 0.6
         }

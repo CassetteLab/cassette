@@ -183,7 +183,7 @@ struct ArtistDetailView: View {
 
                     // Big white round Play (= shuffle) — just the play glyph.
                     Button {
-                        Task { await playAll(shuffled: true) }
+                        Task { await playAll() }
                     } label: {
                         Circle()
                             .fill(.white)
@@ -366,14 +366,13 @@ struct ArtistDetailView: View {
         }
     }
 
-    private func playAll(shuffled: Bool) async {
+    private func playAll() async {
         guard let c = container else { return }
         viewModel?.isPlayLoading = true
         defer { viewModel?.isPlayLoading = false }
         do {
             let tracks = try await c.libraryService.fetchAllTracks(forArtistID: artist.id)
-            let queue = shuffled ? tracks.shuffled() : tracks
-            try await c.playerService.play(tracks: queue, startIndex: 0)
+            try await c.playerService.play(tracks: tracks.shuffled(), startIndex: 0)
         } catch CassetteError.artistTracksUnavailable {
             c.toastService.showError("Unable to load artist tracks. Please check your connection and try again.")
         } catch {

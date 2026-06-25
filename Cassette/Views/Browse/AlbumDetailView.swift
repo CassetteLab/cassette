@@ -377,7 +377,7 @@ struct AlbumDetailView: View {
         let downloaded = vm.songs.filter { $0.isDownloaded }.count
         if downloaded == 0 { return .notDownloaded }
         if downloaded == total { return .fullyDownloaded }
-        return .partiallyDownloaded(downloaded: downloaded, total: total)
+        return .partiallyDownloaded
     }
 
     // MARK: - Header
@@ -561,7 +561,7 @@ struct AlbumDetailView: View {
 
 private nonisolated enum AlbumDownloadState {
     case notDownloaded
-    case partiallyDownloaded(downloaded: Int, total: Int)
+    case partiallyDownloaded
     case fullyDownloaded
 }
 

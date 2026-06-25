@@ -31,7 +31,7 @@ final class ArtistDetailViewModel {
         artistId: String,
         libraryService: any LibraryServiceProtocol,
         recommendationService: RecommendationService,
-        imageResolver: ExternalArtistImageResolver = ExternalArtistImageResolver()
+        imageResolver: ExternalArtistImageResolver
     ) {
         self.artistId = artistId
         self.libraryService = libraryService

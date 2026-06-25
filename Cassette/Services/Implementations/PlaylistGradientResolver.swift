@@ -26,7 +26,7 @@ enum PlaylistGradientResolver {
         guard let coverArtId = firstTrackCoverArtId else {
             return .neutral(shape: form)
         }
-        if let cached = colorExtractor.cachedColor(for: coverArtId), cached != .clear {
+        if let cached = colorExtractor.cachedColor(for: coverArtId) {
             // Vibrance-boost the DERIVED (averaged, muddy) color so the gradient pops; baked into the frozen
             // spec, so it propagates to the crisp hero + the JPEG. The neutral/brand-default path is untouched.
             return PlaylistGradientSpec(shape: form, baseColor: cached.vibranceBoosted())
