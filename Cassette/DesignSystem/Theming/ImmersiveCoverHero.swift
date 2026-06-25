@@ -56,71 +56,55 @@ struct ImmersiveCoverHero<Content: View>: View {
             // Stretchy header: on over-scroll at the top, grow the cover UPWARD to fill the bounce instead of
             // revealing the solid page color behind it.
             let stretch = max(0, geo.frame(in: .global).minY)
-            PlaylistThemedBackground(
-                coverArtId: coverArtId,
-                coverImage: coverImage,
-                theme: theme,
-                heroHeight: heroHeight,
-                lightMelt: contentBelow,
-                meltEnabled: junctionColors.isEmpty
-            )
-            .frame(width: geo.size.width, height: heroHeight + stretch)
-            .offset(y: -stretch)
-            .id(coverRefreshID)
+            coverBackground(width: geo.size.width, stretch: stretch)
         }
         .frame(height: heroHeight)
     }
 
-    /// A multi-colour gradient band — the cover's sampled bottom-edge colours (top) melting into the dominant
-    /// body colour (bottom) — masked by a slow, organic LIQUID edge that interlocks with the cover's bottom so
-    /// the artwork dissolves into the body in soft animated waves.
+    @ViewBuilder
+    private func coverBackground(width: CGFloat, stretch: CGFloat) -> some View {
+        let bg = PlaylistThemedBackground(
+            coverArtId: coverArtId,
+            coverImage: coverImage,
+            theme: theme,
+            heroHeight: heroHeight,
+            lightMelt: contentBelow,
+            meltEnabled: junctionColors.isEmpty
+        )
+        .frame(width: width, height: heroHeight + stretch)
+        .offset(y: -stretch)
+        .id(coverRefreshID)
+
+        if junctionColors.isEmpty {
+            bg
+        } else {
+            // Metal liquid: ripple the cover's BOTTOM edge with the `liquidBottom` distortion shader so the
+            // artwork flows into the matching junction mix below in slow, organic, animated waves.
+            TimelineView(.animation) { timeline in
+                let time = Float(timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 628.318))
+                bg.distortionEffect(
+                    ShaderLibrary.liquidBottom(.boundingRect, .float(time), .float(26), .float(150)),
+                    maxSampleOffset: CGSize(width: 32, height: 32)
+                )
+            }
+        }
+    }
+
+    /// The multi-colour junction: the cover's sampled bottom-edge colours (top) melting into the dominant body
+    /// colour (bottom). The LIQUID motion is the Metal ripple on the cover above; this band just carries the
+    /// matching colour mix down into the flat body.
     @ViewBuilder
     private var junctionBand: some View {
         if junctionColors.count == 5 {
-            TimelineView(.animation) { timeline in
-                let phase = timeline.date.timeIntervalSinceReferenceDate * 1.1
-                MeshGradient(
-                    width: 5, height: 2,
-                    points: [
-                        SIMD2<Float>(0, 0), SIMD2<Float>(0.25, 0), SIMD2<Float>(0.5, 0), SIMD2<Float>(0.75, 0), SIMD2<Float>(1, 0),
-                        SIMD2<Float>(0, 1), SIMD2<Float>(0.25, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(0.75, 1), SIMD2<Float>(1, 1),
-                    ],
-                    colors: junctionColors + Array(repeating: theme.dominantColor, count: 5)
-                )
-                .frame(height: 150)
-                .mask(LiquidEdge(phase: phase, amplitude: 24))
-            }
-            .frame(height: 150)
-            // Overlap the cover by the wave amplitude so the liquid crests lick up INTO the artwork's bottom.
-            .padding(.top, -24)
+            MeshGradient(
+                width: 5, height: 2,
+                points: [
+                    SIMD2<Float>(0, 0), SIMD2<Float>(0.25, 0), SIMD2<Float>(0.5, 0), SIMD2<Float>(0.75, 0), SIMD2<Float>(1, 0),
+                    SIMD2<Float>(0, 1), SIMD2<Float>(0.25, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(0.75, 1), SIMD2<Float>(1, 1),
+                ],
+                colors: junctionColors + Array(repeating: theme.dominantColor, count: 5)
+            )
+            .frame(height: 120)
         }
-    }
-}
-
-/// A filled shape whose TOP edge is an organic liquid wave (a sum of sines), used to mask the junction band so
-/// the cover's bottom and the colour mix interlock in soft animated crests.
-private struct LiquidEdge: Shape {
-    var phase: Double
-    var amplitude: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let mid = amplitude  // the wavy edge oscillates around y = amplitude (crests reach the very top)
-        p.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: mid))
-        let steps = 64
-        for i in 0...steps {
-            let frac = CGFloat(i) / CGFloat(steps)
-            let x = rect.minX + rect.width * frac
-            let xx = Double(x)
-            let y = mid
-                + amplitude * 0.55 * CGFloat(sin(xx / 46 + phase))
-                + amplitude * 0.30 * CGFloat(sin(xx / 27 - phase * 1.4))
-                + amplitude * 0.15 * CGFloat(sin(xx / 15 + phase * 0.7))
-            p.addLine(to: CGPoint(x: x, y: y))
-        }
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.closeSubpath()
-        return p
     }
 }
