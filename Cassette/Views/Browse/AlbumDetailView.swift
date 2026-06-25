@@ -93,6 +93,8 @@ struct AlbumDetailView: View {
     private var isAlbumFavorite: Bool { !albumFavoriteMatches.isEmpty }
     private var downloadedCount: Int { downloadedAlbumTracks.count }
     private var isOnline: Bool { container?.serverState.isOnline == true }
+    /// Cover id the album theme is keyed on — the colour override is stored under the same id so it takes effect.
+    private var albumCoverId: String { viewModel?.coverArtId ?? coverArtId ?? albumId }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
@@ -270,6 +272,30 @@ struct AlbumDetailView: View {
                         .cassetteHeroButton(size: 34)
                 }
                 .buttonStyle(.plain)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                // Manual theme-colour override (defaults to the cover's dominant). Persisted per cover; applied
+                // live to the album theme and app-wide (e.g. the full player) via DominantColorExtractor.
+                ColorPicker("", selection: Binding(
+                    get: { colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor },
+                    set: { newColor in
+                        colorExtractor.setColorOverride(newColor, for: albumCoverId)
+                        dominantColor = newColor
+                        isLightBackground = newColor.luminance > 0.6
+                    }
+                ), supportsOpacity: false)
+                .labelsHidden()
+                .accessibilityLabel("Theme colour")
+                .contextMenu {
+                    if colorExtractor.colorOverride(for: albumCoverId) != nil {
+                        Button("Reset to cover colour", systemImage: "arrow.uturn.backward") {
+                            colorExtractor.setColorOverride(nil, for: albumCoverId)
+                            let extracted = colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor
+                            dominantColor = extracted
+                            isLightBackground = extracted.luminance > 0.6
+                        }
+                    }
+                }
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
