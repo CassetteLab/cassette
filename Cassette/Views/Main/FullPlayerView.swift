@@ -111,19 +111,11 @@ struct FullPlayerView: View {
         // legibility. A black base shows until the dominant color resolves.
         .background {
             #if os(iOS)
+            // Solid dominant body colour: the cover touches the top edge (no gap to fill), and its bottom melts
+            // into this flat colour exactly like the album/playlist heroes.
             ZStack {
                 Color.black
-                // Vertical wash: the cover's TOP-strip colour fills the gap ABOVE the fitted square cover, then
-                // resolves to the dominant (bottom-strip) colour by mid-height — so the gap BELOW the cover is
-                // solid dominant and the cover's bottom melt dissolves into it seamlessly (no hard band).
-                LinearGradient(
-                    stops: [
-                        .init(color: vm.topColor, location: 0.0),
-                        .init(color: vm.dominantColor, location: 0.5),
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
+                vm.dominantColor
             }
             .ignoresSafeArea()
             #else
@@ -341,18 +333,6 @@ struct FullPlayerView: View {
                 .frame(width: isSource ? min(geo.size.width, geo.size.height) : nil, height: isSource ? min(geo.size.width, geo.size.height) : nil)
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
-                // Top fade dissolves the cover's top edge into the top-strip wash filling the gap above.
-                .overlay {
-                    if isSource {
-                        LinearGradient(
-                            stops: [
-                                .init(color: vm.topColor, location: 0.0),
-                                .init(color: .clear, location: 0.20),
-                            ],
-                            startPoint: .top, endPoint: .bottom
-                        )
-                    }
-                }
                 // Light blurred melt at the bottom: a thin strip of the cover blurs and fades into the dominant
                 // body colour, so the cover dissolves into the body (same recipe as album/playlist).
                 .overlay {
@@ -388,7 +368,9 @@ struct FullPlayerView: View {
                 // Cover-fly endpoint (player side): flies to/from the queue header's 56pt anchor on queue toggle.
                 // Distinct id + namespace from the mini→full zoom (MainTabView's `playerZoom`).
                 .matchedGeometryEffect(id: "queueCover", in: morphNS, isSource: isSource)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Top-aligned so the cover reaches the very top edge of the screen (no gap above), like the
+                // album/playlist hero; its bottom melts into the dominant body colour below.
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
 
