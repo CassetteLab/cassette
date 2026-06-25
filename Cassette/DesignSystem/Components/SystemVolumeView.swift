@@ -46,6 +46,11 @@ struct SystemVolumeView: View {
         }
         .accessibilityLabel("Volume")
         .accessibilityValue("\(Int(observer.displayVolume * 100))%")
+        .task {
+            // Initialize from the REAL current volume on appear — covers a cold-start init that read a stale
+            // outputVolume before the session was configured. Display-only, so it can't clobber the system.
+            observer.refreshFromSystem()
+        }
     }
     #else
     var body: some View {
@@ -87,6 +92,13 @@ private final class SystemVolumeObserver {
                 }
             }
         }
+    }
+
+    /// Re-sync the displayed value to the real system volume — used on appear to correct a cold-start init that
+    /// read `outputVolume` before the audio session was configured (it can return a stale value then).
+    /// Display-only; never writes back (`userTarget` is untouched).
+    func refreshFromSystem() {
+        displayVolume = AVAudioSession.sharedInstance().outputVolume
     }
 
     // NSKeyValueObservation auto-invalidates on dealloc — no deinit needed.
