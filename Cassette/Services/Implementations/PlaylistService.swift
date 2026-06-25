@@ -67,31 +67,49 @@ actor PlaylistService: PlaylistServiceProtocol {
         return result
     }
 
-    func deletePlaylist(id: String) async throws {
+    func deletePlaylist(id: String, purgeDownloads: Bool) async throws {
         let previousList = listCache
         let previousDetail = detailCache[id]
         listCache?.removeAll { $0.id == id }
         detailCache[id] = nil
         do {
             try await client().deletePlaylist(id: id)
-            Logger.playlist.info("Deleted playlist id=\(id, privacy: .public)")
-            // Server delete confirmed → purge any offline download record so Offline keeps no orphan copy
-            // ("delete = delete everywhere"). Best-effort (remove logs its own failures internally) and
-            // NEVER reached when the server refused — we are past the throwing call — so a refused delete
-            // never touches local download state.
-            if let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) {
-                try? await downloadService.remove(playlistId: id, serverId: serverId)
-                // Purge any client-side gradient-cover choice too — same "delete = delete everywhere"
-                // orphan-cleanup discipline as the offline download record above.
-                let container = modelContainer
-                await MainActor.run {
-                    PlaylistCoverStore(modelContainer: container).remove(playlistId: id, serverId: serverId)
-                }
-            }
+            Logger.playlist.info("Deleted playlist id=\(id, privacy: .public) purgeDownloads=\(purgeDownloads, privacy: .public)")
         } catch {
-            listCache = previousList
-            detailCache[id] = previousDetail
-            throw error
+            // Idempotent: a "not found" (Subsonic error 70 / HTTP 404) means the playlist is ALREADY gone
+            // server-side — e.g. deleting a download orphan whose playlist was removed earlier. Treat it as a
+            // successful delete and fall through to the local purge. ANY OTHER error is a real failure: roll the
+            // optimistic cache removal back and rethrow so the caller surfaces it (local state stays untouched).
+            guard Self.isNotFound(error) else {
+                listCache = previousList
+                detailCache[id] = previousDetail
+                throw error
+            }
+            Logger.playlist.info("Playlist id=\(id, privacy: .public) already absent server-side — delete is a no-op")
+        }
+        // Server delete confirmed (or already gone) → purge the offline copy + the client-side gradient-cover
+        // choice ONLY when the user chose "playlist & downloads". Purely local (no server), so it's safe even for
+        // an orphan. "Playlist only" keeps the local files (an intentional offline orphan).
+        if purgeDownloads, let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) {
+            try? await downloadService.remove(playlistId: id, serverId: serverId)
+            let container = modelContainer
+            await MainActor.run {
+                PlaylistCoverStore(modelContainer: container).remove(playlistId: id, serverId: serverId)
+            }
+        }
+    }
+
+    /// Strictly a "not found" server response (Subsonic error code 70 or HTTP 404) — makes deletePlaylist
+    /// idempotent for an already-removed playlist. Deliberately NOT a broad catch.
+    private nonisolated static func isNotFound(_ error: Error) -> Bool {
+        guard let sse = error as? SwiftSonicError else { return false }
+        switch sse {
+        case .api(let apiError) where apiError.code == .notFound:
+            return true
+        case .httpError(let statusCode, _, _) where statusCode == 404:
+            return true
+        default:
+            return false
         }
     }
 

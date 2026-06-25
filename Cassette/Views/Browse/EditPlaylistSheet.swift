@@ -386,7 +386,7 @@ struct EditPlaylistSheet: View {
         isSaving = true
         defer { isSaving = false }
         do {
-            try await c.playlistService.deletePlaylist(id: playlistId)
+            try await c.playlistService.deletePlaylist(id: playlistId, purgeDownloads: true)
             dismiss()
             onDeleted()
         } catch {

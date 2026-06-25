@@ -46,6 +46,11 @@ struct PlaylistListView: View {
             guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
         }
+        // Deleting a playlist from a detail surface posts this — reload so the list reflects it on return,
+        // without a blanket `.onAppear` reload (which would re-fetch on every navigation).
+        .onReceive(NotificationCenter.default.publisher(for: .cassettePlaylistDeleted)) { _ in
+            Task { await viewModel?.load() }
+        }
     }
 
     @ViewBuilder
@@ -102,6 +107,17 @@ private struct OnlinePlaylistRow: View {
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var coverImage: PlatformImage?
     @State private var showDeleteConfirm = false
+    /// Drives the delete dialog's "playlist only / + downloads" choice — present only when the playlist has a
+    /// downloaded copy on this device.
+    @Query private var downloadedMatches: [DownloadedPlaylist]
+
+    init(playlist: Playlist, namespace: Namespace.ID? = nil, onActionCompleted: (() -> Void)? = nil) {
+        self.playlist = playlist
+        self.namespace = namespace
+        self.onActionCompleted = onActionCompleted
+        let pid = playlist.id
+        _downloadedMatches = Query(filter: #Predicate<DownloadedPlaylist> { $0.playlistId == pid })
+    }
 
     var body: some View {
         HStack(spacing: CassetteSpacing.m) {
@@ -130,31 +146,26 @@ private struct OnlinePlaylistRow: View {
             coverImage: coverImage,
             onDelete: { showDeleteConfirm = true }
         )
-        .confirmationDialog(
-            "Delete \"\(playlist.name)\"?",
+        .deletePlaylistConfirmation(
+            playlistName: playlist.name,
             isPresented: $showDeleteConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                Task {
-                    guard let container else { return }
-                    do {
-                        // The service deletes server-side first and rolls its own cache back on failure, so it
-                        // is safe to refresh the (server-fresh) list only AFTER a confirmed success.
-                        try await container.playlistService.deletePlaylist(id: playlist.id)
-                        onActionCompleted?()
-                        container.toastService.showConfirmation("Playlist deleted")
-                    } catch {
-                        // Server refused / unreachable: surface it and leave the playlist in place. Do NOT
-                        // refresh or remove anything locally — the deletion never happened.
-                        Logger.playlist.error("[PLAYLIST] delete failed id=\(playlist.id, privacy: .public): \(error, privacy: .public)")
-                        container.toastService.showError("Couldn't delete playlist. Please try again.")
-                    }
+            hasDownloads: !downloadedMatches.isEmpty
+        ) { purgeDownloads in
+            Task {
+                guard let container else { return }
+                do {
+                    // The service deletes server-side first and rolls its own cache back on failure, so it is
+                    // safe to refresh the (server-fresh) list only AFTER a confirmed success.
+                    try await container.playlistService.deletePlaylist(id: playlist.id, purgeDownloads: purgeDownloads)
+                    onActionCompleted?()
+                    container.toastService.showConfirmation("Playlist deleted")
+                } catch {
+                    // Server refused / unreachable: surface it and leave the playlist in place. Do NOT refresh
+                    // or remove anything locally — the deletion never happened.
+                    Logger.playlist.error("[PLAYLIST] delete failed id=\(playlist.id, privacy: .public): \(error, privacy: .public)")
+                    container.toastService.showError("Couldn't delete playlist. Please try again.")
                 }
             }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This will permanently delete the playlist. This action cannot be undone.")
         }
     }
 }

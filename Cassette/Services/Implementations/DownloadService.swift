@@ -628,16 +628,49 @@ actor DownloadService: DownloadServiceProtocol {
     }
 
     func remove(playlistId: String, serverId: UUID) async throws {
-        // Tracks are shared — removing a playlist record does NOT delete track files.
-        await MainActor.run {
+        // Refcount-safe LOCAL purge (mirrors remove(albumId:)): delete the playlist record AND the track files it
+        // owns — but KEEP any file still referenced by another downloaded playlist or a downloaded album, so a
+        // song shared between two playlists survives until the LAST one is removed. Purely local: never touches
+        // the server, so purging an orphan whose playlist is already gone is safe and idempotent.
+        let songsToPurge: [String] = await MainActor.run {
             let context = ModelContext(modelContainer)
-            let playlists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
-            playlists.filter { $0.playlistId == playlistId && $0.serverId == serverId }.forEach { context.delete($0) }
+            let sid = serverId
+            let allPlaylists = (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? []
+            let mine = allPlaylists.filter { $0.playlistId == playlistId && $0.serverId == sid }
+            let owned = Set(mine.flatMap { $0.songIds })
+            // Songs still referenced by ANOTHER downloaded playlist on this server → keep their files.
+            let sharedByOtherPlaylist = Set(
+                allPlaylists.filter { $0.serverId == sid && $0.playlistId != playlistId }.flatMap { $0.songIds }
+            )
+            // Albums downloaded on this server → keep any of their tracks (don't break a co-downloaded album).
+            let albums = (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? []
+            let downloadedAlbumIds = Set(albums.filter { $0.serverId == sid }.map(\.albumId))
+            let allTracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
+            let albumIdBySong = Dictionary(
+                allTracks.filter { $0.serverId == sid && owned.contains($0.songId) }
+                    .compactMap { track -> (String, String)? in
+                        guard let albumId = track.albumId else { return nil }
+                        return (track.songId, albumId)
+                    },
+                uniquingKeysWith: { first, _ in first }
+            )
+            let toPurge = owned.filter { songId in
+                if sharedByOtherPlaylist.contains(songId) { return false }
+                if let albumId = albumIdBySong[songId], downloadedAlbumIds.contains(albumId) { return false }
+                return true
+            }
+            // Delete the playlist record FIRST so remove(songId:)'s playlist-sync is a no-op for it.
+            mine.forEach { context.delete($0) }
             do {
                 try context.save()
             } catch {
                 Logger.download.debug("DownloadService: remove playlist save failed — \(error)")
             }
+            return Array(toPurge)
+        }
+        // Delete the files + DownloadedTrack records for the non-shared songs (local + idempotent).
+        for songId in songsToPurge {
+            try? await remove(songId: songId, serverId: serverId)
         }
     }
 

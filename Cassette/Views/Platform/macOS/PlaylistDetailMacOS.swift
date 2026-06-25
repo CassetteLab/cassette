@@ -26,6 +26,7 @@ struct PlaylistDetailMacOS: View {
     @Environment(\.dismiss) private var dismiss
     @State private var vm: PlaylistDetailViewModel?
     @State private var showDeleteAlert = false
+    @State private var showDeletePlaylistConfirm = false
     @State private var showEditSheet = false
     @State private var showAddMusic = false
     @State private var songToAddToPlaylist: DisplayableSong?
@@ -46,6 +47,13 @@ struct PlaylistDetailMacOS: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("The audio files will be deleted from this device.")
+        }
+        .deletePlaylistConfirmation(
+            playlistName: vm?.name ?? name,
+            isPresented: $showDeletePlaylistConfirm,
+            hasDownloads: vm?.songs.contains { $0.isDownloaded } ?? false
+        ) { purgeDownloads in
+            Task { await deletePlaylistMacOS(purgeDownloads: purgeDownloads) }
         }
         .sheet(isPresented: $showEditSheet) {
             PlaylistEditSheet(
@@ -198,6 +206,18 @@ struct PlaylistDetailMacOS: View {
         await vm?.load()
     }
 
+    private func deletePlaylistMacOS(purgeDownloads: Bool) async {
+        guard let c = container else { return }
+        do {
+            try await c.playlistService.deletePlaylist(id: playlistId, purgeDownloads: purgeDownloads)
+            postPlaylistDeleted()
+            dismiss()
+        } catch {
+            Logger.playlist.error("PlaylistDetailMacOS: delete failed: \(error, privacy: .public)")
+            c.toastService.showError("Failed to delete playlist")
+        }
+    }
+
     @ToolbarContentBuilder
     private var playlistToolbar: some ToolbarContent {
         if showBackButton {
@@ -257,6 +277,19 @@ struct PlaylistDetailMacOS: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Cancel Download")
+            } else if vm?.songs.contains(where: { $0.isDownloaded }) == true {
+                // Downloaded → this button manages the LOCAL copy (free space) — distinct from the trash, which
+                // deletes the playlist itself. Reuses the existing "Remove downloaded playlist?" confirmation.
+                Button {
+                    showDeleteAlert = true
+                } label: {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
+                }
+                .buttonStyle(.borderless)
+                .help("Remove Download")
             } else {
                 Button {
                     Task { await vm?.downloadPlaylist() }
@@ -275,7 +308,7 @@ struct PlaylistDetailMacOS: View {
 
         ToolbarItem(placement: .destructiveAction) {
             Button(role: .destructive) {
-                showDeleteAlert = true
+                showDeletePlaylistConfirm = true
             } label: {
                 Image(systemName: "trash")
                     .font(.system(size: 13, weight: .semibold))
@@ -283,8 +316,7 @@ struct PlaylistDetailMacOS: View {
                     .cassetteGlassButton(size: 28)
             }
             .buttonStyle(.borderless)
-            .disabled(!(vm?.songs.contains { $0.isDownloaded } ?? false))
-            .help("Remove Download")
+            .help("Delete Playlist")
         }
         .cassetteSharedBackgroundVisibility(.hidden)
     }
