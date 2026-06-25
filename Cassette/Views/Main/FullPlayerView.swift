@@ -85,6 +85,9 @@ struct FullPlayerView: View {
         let coverArtId = playerState.isLiveStream
             ? (playerState.currentRadio?.coverArt ?? "")
             : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id ?? "")
+        // Prefer the already-memoized dominant colour so the page is themed on the FIRST frame (no black flash
+        // while the view model's .task resolves); the vm catches up and handles not-yet-cached covers.
+        let dominant = colorExtractor.cachedColor(for: coverArtId) ?? vm.dominantColor
         let isPlaying = playerState.playbackState == .playing
         let showingQueue = isQueueVisible(playerState)
 
@@ -105,7 +108,7 @@ struct FullPlayerView: View {
                 sharedFooter(playerState)
             }
             #endif
-            .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: vm.dominantColor))
+            .environment(\.cassettePlayingAccent, CassetteColors.accentForeground(on: dominant))
         // Solid dominant-color page across all surfaces. The now-playing cover is full-bleed in the slot and
         // melts into this color (like the album/playlist heroes); queue + lyrics sit on the flat color for
         // legibility. A black base shows until the dominant color resolves.
@@ -115,7 +118,7 @@ struct FullPlayerView: View {
             // into this flat colour exactly like the album/playlist heroes.
             ZStack {
                 Color.black
-                vm.dominantColor
+                dominant
             }
             .ignoresSafeArea()
             #else
@@ -129,7 +132,7 @@ struct FullPlayerView: View {
                         .scaleEffect(1.3)
                         .blur(radius: 80, opaque: true)
                 }
-                vm.dominantColor.opacity(0.5)
+                dominant.opacity(0.5)
                 Color.black.opacity(0.25)
             }
             .drawingGroup()
@@ -331,7 +334,7 @@ struct FullPlayerView: View {
                 // controls off-screen. Flexible (nil) on the queue side so matchedGeometry shrinks it to 56pt.
                 // Fill the width and run slightly TALLER than square (1.12×) so the cover has more presence and
                 // its bottom melt starts lower down the screen. Definite size (not greedy) keeps the controls placed.
-                .frame(width: isSource ? min(geo.size.width, geo.size.height) : nil, height: isSource ? min(geo.size.width, geo.size.height) * 1.12 : nil)
+                .frame(width: isSource ? min(geo.size.width, geo.size.height) : nil, height: isSource ? min(geo.size.width, geo.size.height) * 1.20 : nil)
                 // Rounded corners on the small flown cover in the queue header; sharp full-bleed on the player.
                 .clipShape(RoundedRectangle(cornerRadius: isSource ? 0 : CassetteCornerRadius.standard))
                 // Light blurred melt at the bottom: a thin strip of the cover blurs and fades into the dominant
