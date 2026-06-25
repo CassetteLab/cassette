@@ -22,19 +22,14 @@ struct ImmersiveCoverHero<Content: View>: View {
     /// When true the cover keeps its square ratio and the content sits BELOW it (album/playlist covers shown in
     /// full); when false (default) the content floats over the full-bleed cover (artist photos).
     var contentBelow: Bool = false
-    /// When set (5 colours sampled from the cover's bottom edge), a multi-colour gradient band is laid between
-    /// the cover and the content (the mix at top → the dominant body colour), and the cover's bottom melt is
-    /// dropped so its sharp edge meets the matching mix. Empty keeps the plain behaviour.
-    var junctionColors: [Color] = []
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         if contentBelow {
             VStack(spacing: 0) {
                 coverHero
-                junctionBand
                 content()
-                    .padding(.top, junctionColors.isEmpty ? CassetteSpacing.m : CassetteSpacing.s)
+                    .padding(.top, CassetteSpacing.m)
                     .padding(.bottom, CassetteSpacing.xl)
             }
             .frame(maxWidth: .infinity)
@@ -56,55 +51,17 @@ struct ImmersiveCoverHero<Content: View>: View {
             // Stretchy header: on over-scroll at the top, grow the cover UPWARD to fill the bounce instead of
             // revealing the solid page color behind it.
             let stretch = max(0, geo.frame(in: .global).minY)
-            coverBackground(width: geo.size.width, stretch: stretch)
+            PlaylistThemedBackground(
+                coverArtId: coverArtId,
+                coverImage: coverImage,
+                theme: theme,
+                heroHeight: heroHeight,
+                lightMelt: contentBelow
+            )
+            .frame(width: geo.size.width, height: heroHeight + stretch)
+            .offset(y: -stretch)
+            .id(coverRefreshID)
         }
         .frame(height: heroHeight)
-    }
-
-    @ViewBuilder
-    private func coverBackground(width: CGFloat, stretch: CGFloat) -> some View {
-        let bg = PlaylistThemedBackground(
-            coverArtId: coverArtId,
-            coverImage: coverImage,
-            theme: theme,
-            heroHeight: heroHeight,
-            lightMelt: contentBelow,
-            meltEnabled: junctionColors.isEmpty
-        )
-        .frame(width: width, height: heroHeight + stretch)
-        .offset(y: -stretch)
-        .id(coverRefreshID)
-
-        if junctionColors.isEmpty {
-            bg
-        } else {
-            // Metal liquid: ripple the cover's BOTTOM edge with the `liquidBottom` distortion shader so the
-            // artwork flows into the matching junction mix below in slow, organic, animated waves.
-            TimelineView(.animation) { timeline in
-                let time = Float(timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 628.318))
-                bg.distortionEffect(
-                    ShaderLibrary.liquidBottom(.boundingRect, .float(time), .float(26), .float(150)),
-                    maxSampleOffset: CGSize(width: 32, height: 32)
-                )
-            }
-        }
-    }
-
-    /// The multi-colour junction: the cover's sampled bottom-edge colours (top) melting into the dominant body
-    /// colour (bottom). The LIQUID motion is the Metal ripple on the cover above; this band just carries the
-    /// matching colour mix down into the flat body.
-    @ViewBuilder
-    private var junctionBand: some View {
-        if junctionColors.count == 5 {
-            MeshGradient(
-                width: 5, height: 2,
-                points: [
-                    SIMD2<Float>(0, 0), SIMD2<Float>(0.25, 0), SIMD2<Float>(0.5, 0), SIMD2<Float>(0.75, 0), SIMD2<Float>(1, 0),
-                    SIMD2<Float>(0, 1), SIMD2<Float>(0.25, 1), SIMD2<Float>(0.5, 1), SIMD2<Float>(0.75, 1), SIMD2<Float>(1, 1),
-                ],
-                colors: junctionColors + Array(repeating: theme.dominantColor, count: 5)
-            )
-            .frame(height: 120)
-        }
     }
 }

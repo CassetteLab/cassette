@@ -84,8 +84,6 @@ struct AlbumDetailView: View {
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
     @State private var isLightBackground: Bool = false
-    /// Per-segment colours of the cover's bottom edge — feed the multi-colour junction gradient into the body.
-    @State private var bottomColors: [Color] = []
     @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
@@ -351,11 +349,9 @@ struct AlbumDetailView: View {
     private func loadDominantColor(coverArtId: String) async {
         guard let image = await container?.artworkImageCache.load(coverArtId: coverArtId) else { return }
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
-        let edge = DominantColorExtractor.bottomEdgeColors(from: image, count: 5).map { DominantColorExtractor.unpack($0) }
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
             isLightBackground = color.luminance > 0.6
-            bottomColors = edge.count == 5 ? edge : []
         }
     }
 
@@ -379,8 +375,7 @@ struct AlbumDetailView: View {
             coverImage: effectiveInitialImage,
             theme: theme,
             heroHeight: heroHeight,
-            contentBelow: true,
-            junctionColors: bottomColors
+            contentBelow: true
         ) {
             VStack(spacing: CassetteSpacing.l) {
                 VStack(spacing: 0) {
