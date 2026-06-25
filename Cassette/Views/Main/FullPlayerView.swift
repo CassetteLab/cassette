@@ -346,7 +346,7 @@ struct FullPlayerView: View {
                                 .clipped()
                             LinearGradient(
                                 stops: [
-                                    .init(color: .clear, location: 0.72),
+                                    .init(color: .clear, location: 0.82),
                                     .init(color: vm.dominantColor, location: 1.0),
                                 ],
                                 startPoint: .top, endPoint: .bottom
@@ -355,7 +355,7 @@ struct FullPlayerView: View {
                         .mask(
                             LinearGradient(
                                 stops: [
-                                    .init(color: .clear, location: 0.74),
+                                    .init(color: .clear, location: 0.84),
                                     .init(color: .black, location: 1.0),
                                 ],
                                 startPoint: .top, endPoint: .bottom
