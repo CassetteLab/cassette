@@ -69,7 +69,6 @@ struct PlaylistDetailView: View {
     /// from PlaylistCoverStore on appear + after an edit (coverRefreshID). Nil for photo / server cover.
     @State private var gradientSpec: PlaylistGradientSpec?
     @State private var showDeleteAlert = false
-    @State private var showEditSheet = false
     @State private var showAddMusic = false
     @State private var songToAddToPlaylist: DisplayableSong?
 
@@ -91,7 +90,6 @@ struct PlaylistDetailView: View {
     @State private var showDeletePlaylistConfirm = false
     @State private var showRemoveSongsConfirm = false
     @State private var isSaving = false
-    @Namespace private var heroEditNamespace
     #if os(iOS)
     @State private var pendingImage: UIImage?
     @State private var showImageOptions = false
@@ -328,28 +326,6 @@ struct PlaylistDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("They'll be removed from the playlist when you save.")
-        }
-        .sheet(isPresented: $showEditSheet) {
-            if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
-                EditPlaylistSheet(
-                    playlistId: playlistId,
-                    serverId: serverId,
-                    currentName: vm.name,
-                    currentComment: vm.playlistDetail?.comment ?? "",
-                    currentCoverArtId: effectiveCoverArtId,
-                    songs: resolvedSongs(vm),
-                    onCommitted: {
-                        Task { await vm.load() }
-                        coverRefreshID = UUID()
-                    },
-                    onDeleted: { dismiss() }
-                )
-                // Inject explicitly so the sheet never misses these (sheet env propagation has bitten us
-                // before — see the toast overlay fix).
-                .environment(colorExtractor)
-                .environment(c.artworkImageCache)
-                .environment(\.appContainer, c)
-            }
         }
         .sheet(isPresented: $showAddMusic) {
             if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
@@ -1051,41 +1027,6 @@ private struct PlaylistDownloadProgressView: View {
         .frame(minHeight: 44)
     }
 }
-
-// MARK: - Camera picker (iOS only)
-
-#if os(iOS)
-private struct CameraImagePicker: UIViewControllerRepresentable {
-    @Binding var image: UIImage?
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .camera
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator { Coordinator(self) }
-
-    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
-        let parent: CameraImagePicker
-
-        init(_ parent: CameraImagePicker) { self.parent = parent }
-
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            parent.image = info[.originalImage] as? UIImage
-            parent.dismiss()
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            parent.dismiss()
-        }
-    }
-}
-#endif
 
 // MARK: - Live download indicator rows
 

@@ -20,7 +20,6 @@ final class FullPlayerViewModel {
 
     var contentColor: Color { isLightBackground ? .black : .white }
     var secondaryContentColor: Color { isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7) }
-    var tertiaryContentColor: Color { isLightBackground ? Color.black.opacity(0.5) : Color.white.opacity(0.5) }
     var glassTint: Color { isLightBackground ? Color.black.opacity(0.1) : Color.white.opacity(0.15) }
 
     func updateColors(for coverArtId: String?, colorExtractor: DominantColorExtractor, container: AppContainer?) async {

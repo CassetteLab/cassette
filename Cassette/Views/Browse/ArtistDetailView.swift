@@ -10,7 +10,6 @@ import SwiftData
 struct ArtistDetailView: View {
     let artist: ArtistID3
 
-    @Namespace private var albumZoomNamespace
     @Environment(\.appContainer) private var container
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: ArtistDetailViewModel?
@@ -43,9 +42,6 @@ struct ArtistDetailView: View {
     }
     private var headerSecondaryColor: Color {
         dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
-    }
-    private var heroButtonVariant: (background: Color, foreground: Color) {
-        CassetteColors.heroButtonVariant(on: dominantColor)
     }
     private var systemBackgroundColor: Color {
         #if canImport(UIKit)
@@ -347,7 +343,6 @@ struct ArtistDetailView: View {
                                 CoverArtView(id: album.coverArt ?? album.id, size: 320)
                                     .frame(width: 160, height: 160)
                                     .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
-                                    .cassetteMatchedTransitionSource(id: album.id, in: albumZoomNamespace)
                                 Text(album.name)
                                     .font(.cassetteCellTitle)
                                     .foregroundStyle(headerTextColor)

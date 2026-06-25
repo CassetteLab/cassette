@@ -42,23 +42,6 @@ struct AlbumDetailView: View {
         _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
-    init(album: DownloadedAlbum, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil, mode: AlbumDetailMode = .full) {
-        albumId = album.albumId
-        initialName = album.name
-        self.coverArtId = coverArtId
-        self.initialDominantColor = initialDominantColor
-        self.initialCoverImage = initialCoverImage
-        let cid = "album:\(album.albumId)"
-        let aid = album.albumId
-        _albumFavoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
-        _downloadedAlbumTracks = Query(filter: #Predicate<DownloadedTrack> { $0.albumId == aid })
-        self.zoomSourceId = zoomSourceId
-        self.zoomNamespace = zoomNamespace
-        self.mode = mode
-        _dominantColor = State(initialValue: initialDominantColor)
-        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
-    }
-
     init(albumId: String, albumName: String, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil, mode: AlbumDetailMode = .full) {
         self.albumId = albumId
         self.initialName = albumName
