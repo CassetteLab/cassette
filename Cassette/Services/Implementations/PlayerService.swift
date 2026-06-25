@@ -64,6 +64,10 @@ actor PlayerService: PlayerServiceProtocol {
     #endif
 
     private var isHandlingEndOfTrack = false
+    /// True when playback stopped cleanly at the END of the queue (repeat off). `resume()` reads this to restart
+    /// from track 0 instead of replaying the last track (which would hit EOF and re-stop — the mini-loop).
+    /// Cleared by any real playback start (`play`).
+    private var stoppedAtEndOfQueue = false
     /// True during the URL-resolution phase of session restore (prepareCurrentTrackForRestoration).
     /// Blocks handleEndOfTrack() and handleNetworkRestored() during that window.
     private var isRestoringSession = false
@@ -190,6 +194,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     func play(tracks: [DisplayableSong], startIndex: Int) async throws {
         guard tracks.indices.contains(startIndex) else { return }
+        stoppedAtEndOfQueue = false
 
         // Reset shuffle only when starting a genuinely new queue, not on internal skips
         // (skipToNext/skipToPrevious pass state.queue unchanged, so IDs match).
@@ -701,6 +706,20 @@ actor PlayerService: PlayerServiceProtocol {
         // Lazily start the accumulator for session-restored tracks that resume for the first time.
         if trackPlayStartDate == nil { trackPlayStartDate = Date() }
         if currentPlaySegmentStart == nil { currentPlaySegmentStart = Date() }
+
+        // Resuming after the queue ended (stopped cleanly at the end, repeat off): restart from track 0, NOT
+        // the last track — replaying it would hit EOF immediately and re-stop (the mini-loop). A normal mid-track
+        // pause leaves this flag false and falls through to the regular resume below.
+        if stoppedAtEndOfQueue {
+            stoppedAtEndOfQueue = false
+            pendingRestoreInfo = nil
+            let queue = await MainActor.run { state.queue }
+            if !queue.isEmpty {
+                try? await play(tracks: queue, startIndex: 0)
+                return
+            }
+        }
+
         // Cold-restore path: session activation was deferred at launch, so the player was never
         // started. Start fresh now that the user has explicitly triggered playback.
         if audioPlayer.state == .ready, let source = currentSource {
@@ -836,7 +855,7 @@ actor PlayerService: PlayerServiceProtocol {
             Logger.player.info("[TRANSITION] skipToNext → wrap-around (repeatAll), restarting queue from index 0")
             try await play(tracks: queue, startIndex: 0)
         } else {
-            await rewindToFirstTrackPaused()
+            await pauseAtEndOfQueue()
         }
     }
 
@@ -1067,6 +1086,18 @@ actor PlayerService: PlayerServiceProtocol {
             state.duration = data.currentTrackDuration
             state.repeatMode = data.repeatMode
             state.playbackState = .paused
+        }
+
+        // If the saved session was parked at the END of the last track (the queue had finished, repeat off),
+        // mark it so resume() restarts from track 0 instead of replaying the last track's tail and immediately
+        // hitting EOF — a phantom transition at cold start. pauseAtEndOfQueue parks position exactly at duration,
+        // and a mid-track pause leaves position < duration, so the tight epsilon distinguishes the two.
+        if data.repeatMode == .off,
+           data.currentIndex == data.queue.count - 1,
+           data.currentTrackDuration > 0,
+           data.currentPosition >= data.currentTrackDuration - 0.1 {
+            stoppedAtEndOfQueue = true
+            Logger.player.info("[RESTORE] session was parked at end of queue — resume will restart from track 0")
         }
 
         await prepareCurrentTrackForRestoration(track: track, position: data.currentPosition)
@@ -1628,60 +1659,45 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
-    private func rewindToFirstTrackPaused() async {
-        // Last track of the queue ended naturally — record it before rewinding.
+    /// The last track of the queue ended naturally with repeat off. Stop cleanly AT THE END — no wrap, and no
+    /// muted "parking" play of track 1 (that muted play, plus its mute→pause race, was the phantom: a leaked
+    /// audio fragment / RCC churn). The queue + current index/track are kept and the position is parked at the
+    /// end; `stoppedAtEndOfQueue` makes `resume()` restart the queue from track 0 (option a).
+    private func pauseAtEndOfQueue() async {
+        // Record the last track's completion (it ended naturally), then reset the accumulators.
         await recordCurrentTrackPlayback(trigger: "end_of_queue")
         wasTrackCompletedNaturally = false
         accumulatedPlayedSeconds = 0
         currentPlaySegmentStart = nil
         trackPlayStartDate = nil
 
-        let queue = await MainActor.run { state.queue }
-        guard let firstTrack = queue.first else {
-            await stop()
-            return
-        }
-
-        Logger.player.info("[PLAYBACK] End of queue — rewinding to first track paused")
-
-        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
-            await stop()
-            return
-        }
-
-        let source: MediaSource
-        do {
-            source = try await mediaResolver.resolve(songId: firstTrack.id, serverId: serverId)
-        } catch {
-            Logger.player.error("[PLAYBACK] rewindToFirstTrackPaused: media resolve failed — \(error)")
-            await stop()
-            return
-        }
-
+        cancelFadeTasks()
         stopProgressTimer()
-        currentSource = source
-        // Start playing, seek to 0, then pause once the player reaches .playing.
-        pendingRestoreInfo = (seekTime: 0, pause: true)
-
-        // Mute the parking play — the engine must reach .playing before restorePauseTask
-        // can pause it; that window would otherwise leak an audible fragment of track 1.
-        audioPlayer.volume = 0
-        isMutedForRestore = true
-
-        audioPlayer.play(url: source.url, headers: source.customHeaders)
-
-        let duration = firstTrack.duration
-        await MainActor.run {
-            state.currentIndex = 0
-            state.currentTrack = firstTrack
-            state.position = 0
-            state.duration = duration
-            state.playbackState = .paused
-        }
-
         stopPositionSaveTimer()
+        // The engine is at EOF — stop it (NO parking play) and release the session.
+        audioPlayer.stop()
+        #if os(iOS)
+        sessionActivationRetryTask?.cancel()
+        sessionActivationRetryTask = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        #endif
+        pendingRestoreInfo = nil
+        stoppedAtEndOfQueue = true
+
+        Logger.player.info("[PLAYBACK] End of queue (repeat off) — stopped cleanly at end; resume restarts from track 0")
+
+        let duration = await MainActor.run { state.duration }
+        await MainActor.run {
+            state.playbackState = .paused
+            state.position = duration   // park at the very end of the still-selected last track
+        }
         await pushPositionSnapshot(rate: 0)
         await saveSession()
+
+        let endTrack = await MainActor.run { state.currentTrack }
+        if let ws = widgetSyncService {
+            Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: endTrack) }
+        }
     }
 
     // MARK: - Delegate callbacks
