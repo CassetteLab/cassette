@@ -18,7 +18,6 @@ struct ArtistDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.colorScheme) private var colorScheme
     @State private var dominantColor: Color = .clear
-    @State private var isLightBackground = false
     @State private var heroHeight: CGFloat = 540
 
     init(artist: ArtistID3) {
@@ -37,12 +36,8 @@ struct ArtistDetailView: View {
     // MARK: Theming — reuses the playlist/album dominant-color theme + ColorContrastUtils (no reimplementation).
     private var theme: PlaylistTheme { PlaylistTheme(dominantColor: dominantColor) }
     private var bodyColor: Color { theme.isThemed ? theme.dominantColor : systemBackgroundColor }
-    private var headerTextColor: Color {
-        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
-    }
-    private var headerSecondaryColor: Color {
-        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
-    }
+    private var headerTextColor: Color { theme.contentColor }
+    private var headerSecondaryColor: Color { theme.secondaryContentColor }
     private var systemBackgroundColor: Color {
         #if canImport(UIKit)
         Color(UIColor.systemBackground)
@@ -115,7 +110,6 @@ struct ArtistDetailView: View {
                             let cached = colorExtractor.dominantColor(for: heroCoverArtId, image: nil)
                             if cached != .clear {
                                 dominantColor = cached
-                                isLightBackground = cached.luminance > 0.6
                             } else {
                                 await loadDominantColor(coverArtId: heroCoverArtId)
                             }
@@ -231,7 +225,6 @@ struct ArtistDetailView: View {
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
-            isLightBackground = color.luminance > 0.6
         }
     }
 

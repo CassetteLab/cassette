@@ -39,7 +39,6 @@ struct AlbumDetailView: View {
         self.zoomNamespace = zoomNamespace
         self.mode = mode
         _dominantColor = State(initialValue: initialDominantColor)
-        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
     init(albumId: String, albumName: String, zoomSourceId: String? = nil, zoomNamespace: Namespace.ID? = nil, coverArtId: String? = nil, initialDominantColor: Color = .clear, initialCoverImage: PlatformImage? = nil, mode: AlbumDetailMode = .full) {
@@ -56,7 +55,6 @@ struct AlbumDetailView: View {
         self.zoomNamespace = zoomNamespace
         self.mode = mode
         _dominantColor = State(initialValue: initialDominantColor)
-        _isLightBackground = State(initialValue: initialDominantColor == .clear ? false : initialDominantColor.luminance > 0.6)
     }
 
     @Environment(\.appContainer) private var container
@@ -66,7 +64,6 @@ struct AlbumDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var viewModel: AlbumDetailViewModel?
     @State private var dominantColor: Color = .clear
-    @State private var isLightBackground: Bool = false
     @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
@@ -86,12 +83,8 @@ struct AlbumDetailView: View {
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
-    private var headerTextColor: Color {
-        dominantColor == .clear ? .primary : (isLightBackground ? .black : .white)
-    }
-    private var headerSecondaryColor: Color {
-        dominantColor == .clear ? .secondary : (isLightBackground ? Color.black.opacity(0.7) : Color.white.opacity(0.7))
-    }
+    private var headerTextColor: Color { theme.contentColor }
+    private var headerSecondaryColor: Color { theme.secondaryContentColor }
     private var heroIconColor: Color {
         colorScheme == .dark ? Color.cassetteAccentSecondary : CassetteColors.accentForeground(on: dominantColor)
     }
@@ -269,7 +262,6 @@ struct AlbumDetailView: View {
                     set: { newColor in
                         colorExtractor.setColorOverride(newColor, forIds: albumThemeIds)
                         dominantColor = newColor
-                        isLightBackground = newColor.luminance > 0.6
                     }
                 ), supportsOpacity: false)
                 .labelsHidden()
@@ -280,7 +272,6 @@ struct AlbumDetailView: View {
                             colorExtractor.setColorOverride(nil, forIds: albumThemeIds)
                             let extracted = colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor
                             dominantColor = extracted
-                            isLightBackground = extracted.luminance > 0.6
                         }
                     }
                 }
@@ -331,7 +322,6 @@ struct AlbumDetailView: View {
             let cached = colorExtractor.dominantColor(for: artId, image: nil)
             if cached != .clear {
                 dominantColor = cached
-                isLightBackground = cached.luminance > 0.6
                 return
             }
 
@@ -365,7 +355,6 @@ struct AlbumDetailView: View {
         let color = colorExtractor.dominantColor(for: coverArtId, image: image)
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
-            isLightBackground = color.luminance > 0.6
         }
     }
 
