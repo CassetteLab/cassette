@@ -59,6 +59,7 @@ private final class SearchLibraryStub: LibraryServiceProtocol {
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo { throw URLError(.unknown) }
     func getArtistMBID(forArtistID artistID: String) async throws -> String? { nil }
     func findArtist(byName name: String) async -> ArtistID3? { nil }
+    func topSongs(artist: String, count: Int) async throws -> [DisplayableSong] { [] }
 }
 
 // MARK: - Tests
