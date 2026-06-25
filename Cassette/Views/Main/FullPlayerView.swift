@@ -27,6 +27,13 @@ private extension View {
     }
 }
 
+/// Re-theme trigger for the colour `.task`: the cover id plus the user override, so changing the override
+/// (same track) re-runs the colour resolution, not just covers changing.
+private struct PlayerThemeKey: Equatable {
+    let coverId: String?
+    let override: Color?
+}
+
 struct FullPlayerView: View {
     @Environment(\.appContainer) private var container
     @Environment(DominantColorExtractor.self) private var colorExtractor
@@ -60,7 +67,10 @@ struct FullPlayerView: View {
                 ? playerState.currentRadio?.coverArt
                 : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id)
             content(playerState)
-                .task(id: themeCoverId) {
+                // Key on the cover id AND the user colour override, so picking a colour (e.g. via the album sheet
+                // opened over the player, same track) re-runs updateColors and refreshes the vm-derived text /
+                // control colours — not just the self-healing background.
+                .task(id: PlayerThemeKey(coverId: themeCoverId, override: colorExtractor.colorOverride(for: themeCoverId ?? ""))) {
                     await vm.updateColors(for: themeCoverId, colorExtractor: colorExtractor, container: container)
                 }
                 .task(id: playerState.currentTrack?.id) {

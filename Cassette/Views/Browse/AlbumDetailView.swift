@@ -147,13 +147,13 @@ struct AlbumDetailView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                albumHeader(vm: viewModel)
+                let songs = displaySongs()
+                albumHeader(vm: viewModel, songs: songs)
                     .frame(maxWidth: .infinity)
 
                 if isLoadingSkeleton {
                     skeletonRows
                 } else if let vm = viewModel {
-                    let songs = displaySongs()
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
                     if songs.isEmpty {
                         if mode == .downloadedOnly {
@@ -371,8 +371,7 @@ struct AlbumDetailView: View {
 
     // MARK: - Header
 
-    private func albumHeader(vm: AlbumDetailViewModel?) -> some View {
-        let songs = displaySongs()
+    private func albumHeader(vm: AlbumDetailViewModel?, songs: [DisplayableSong]) -> some View {
         return ImmersiveCoverHero(
             coverArtId: vm?.coverArtId ?? coverArtId ?? albumId,
             coverImage: effectiveInitialImage,

@@ -54,7 +54,7 @@ struct ArtistDetailView: View {
     }
     /// Cover of the most recent release (max year) — hero fallback + the featured release (Gate 2).
     private var latestReleaseCoverArtId: String? {
-        (viewModel?.artist?.album ?? []).max(by: { ($0.year ?? 0) < ($1.year ?? 0) })?.coverArt
+        viewModel.flatMap { latestRelease($0) }?.coverArt
     }
 
     private let columns = [

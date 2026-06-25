@@ -216,6 +216,11 @@ struct PlaylistDetailView: View {
                     .listRowBackground(bodyColor)
                 } else {
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
+                    // One closure shared by the swipe-delete (onRemove) and the context menu (onContextRemove) so
+                    // the two paths can't drift; nil offline (no edits).
+                    let removeTrack: ((Int) -> Void)? = vm.isOffline ? nil : { index in
+                        Task { await vm.removeTrack(at: index) }
+                    }
                     PlaylistSongRows(
                         songs: songs,
                         serverId: serverId,
@@ -237,12 +242,8 @@ struct PlaylistDetailView: View {
                         onRemoveDownload: { songId in
                             Task { try? await container?.downloadService.remove(songId: songId, serverId: serverId) }
                         },
-                        onRemove: !vm.isOffline ? { index in
-                            Task { await vm.removeTrack(at: index) }
-                        } : nil,
-                        onContextRemove: !vm.isOffline ? { index in
-                            Task { await vm.removeTrack(at: index) }
-                        } : nil,
+                        onRemove: removeTrack,
+                        onContextRemove: removeTrack,
                         onAddToPlaylist: { song in songToAddToPlaylist = song },
                         // Solid backing per row so the rows occlude the fixed full-bleed cover on scroll.
                         rowBackground: bodyColor
