@@ -25,10 +25,10 @@ import AppKit
 @MainActor
 @Observable
 final class DominantColorExtractor {
-    // v2: the cache now stores BOTTOM-strip averages (not whole-image) — a fresh key so old whole-image colors
-    // are dropped and every cover re-extracts with the new method.
-    private static let userDefaultsKey = "cassette.dominantColor.cache.v2"
-    private static let legacyUserDefaultsKey = "cassette.dominantColor.cache"
+    // v3: back to WHOLE-IMAGE averages (the representative dominant colour) — a fresh key so the v2 bottom-strip
+    // colours are dropped and every cover re-extracts with the whole-image method.
+    private static let userDefaultsKey = "cassette.dominantColor.cache.v3"
+    private static let legacyUserDefaultsKey = "cassette.dominantColor.cache.v2"
 
     // Pure memoization store — not UI state. @ObservationIgnored so a cache write (on a cold-cover miss)
     // never invalidates a view that called dominantColor() during its body. Colors that drive UI flow
@@ -81,7 +81,7 @@ final class DominantColorExtractor {
     /// Off-main average-color extraction (packed 0xRRGGBB). `nonisolated` so it runs inside `Task.detached`,
     /// keeping the CoreImage decode/average off the main actor. Mirrors `extract(from:)` but uses a local
     /// CIContext (cheap next to the image decode it follows) instead of the MainActor-isolated instance one.
-    nonisolated static func packedAverageColor(from image: PlatformImage, fromTop: Bool = false) -> Int? {
+    nonisolated static func packedAverageColor(from image: PlatformImage) -> Int? {
         #if canImport(UIKit)
         guard let cgImage = image.cgImage else { return nil }
         #elseif canImport(AppKit)
@@ -91,15 +91,12 @@ final class DominantColorExtractor {
 
         let ciImage = CIImage(cgImage: cgImage)
         let extent = ciImage.extent
-        // Average a 20% horizontal strip — the BOTTOM by default (where a cover meets the themed body), or the
-        // TOP when fromTop (to fill the gap ABOVE a fitted square cover). CIImage origin is bottom-left.
-        let stripHeight = max(1, extent.size.height * 0.20)
-        let stripY = fromTop ? (extent.origin.y + extent.size.height - stripHeight) : extent.origin.y
+        // Average the WHOLE image — the cover's representative dominant colour (not just its bottom edge).
         let inputExtent = CIVector(
             x: extent.origin.x,
-            y: stripY,
+            y: extent.origin.y,
             z: extent.size.width,
-            w: stripHeight
+            w: extent.size.height
         )
         guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
             kCIInputImageKey: ciImage,
@@ -201,15 +198,12 @@ final class DominantColorExtractor {
 
         let ciImage = CIImage(cgImage: cgImage)
         let extent = ciImage.extent
-        // Average only the BOTTOM strip of the cover (CIImage origin is bottom-left → origin.y is the visual
-        // bottom), not the whole image — so the themed body color matches where the cover MEETS it: a seamless
-        // dark/black continuity for a dark-bottomed photo (Apple-Music style), not a muddy whole-image average.
-        let stripHeight = max(1, extent.size.height * 0.20)
+        // Average the WHOLE image — the cover's representative dominant colour (not just its bottom edge).
         let inputExtent = CIVector(
             x: extent.origin.x,
             y: extent.origin.y,
             z: extent.size.width,
-            w: stripHeight
+            w: extent.size.height
         )
 
         guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
