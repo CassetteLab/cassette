@@ -1,21 +1,20 @@
-New in 1.8.3
+Cassette 1.8.4
 
-• Redesigned full-screen player — a flowing layout with a larger square (1:1) cover that fills the space, and the cover now flies between the player and the queue as you switch. On macOS, the background colors smoothly cross-fade when the track changes.
-• A new confirmation toast, Apple Music style — it shows a cover thumbnail and sits just above the mini player. The "added to playlist" toast is tappable and takes you straight to that playlist.
-• Offline playback for downloaded m4a tracks that weren't optimized for streaming — new downloads are fixed automatically, and existing downloads are migrated.
+NEW
+• Redesigned playlists — immersive full-screen artwork, color-matched theming, and a smoother editor. Edit a playlist right in place: swap the cover (photo or generated gradient), reorder and remove tracks, and add music without leaving the page.
+• Redesigned artist pages — immersive header, latest release, most-played tracks, large album artwork, and related artists.
+• Deleting a playlist now lets you choose: remove the playlist only, or also delete its downloaded files.
 
-Fixed and improved
+FIXED
+• Lock Screen / Control Center: skip and scrubber controls no longer show up greyed out.
+• End of an album/queue no longer triggers stray "phantom" playback — it now stops cleanly, and resumes from the top if you press play.
+• Volume slider no longer desyncs or jumps to random positions on launch.
+• Deleting a playlist from its detail view now updates the library right away.
+• Removing downloads now reliably frees up disk space.
+• Fixed a crash that could happen while scrubbing.
 
-• Deleting a playlist now tells you when it fails (instead of silently doing nothing), and a successful delete also removes that playlist's offline download so it doesn't linger.
-• Clearing your search history now asks you to confirm first.
-• Offline reliability: a flaky or empty server response no longer wipes a downloaded album or playlist, downloaded playlists with missing track info repair themselves, and the full-player cover no longer shows the previous track's artwork when you're offline.
-• Playback now resumes correctly when you reopen the app after it was fully closed.
-• Better contrast: the now-playing indicator and the macOS player controls stay legible on any cover, and the Home-screen widget keeps its text readable on light covers.
-• The Ko-fi support banner in Settings is now smaller and more discreet.
-
-Please focus on:
-• Opening, closing, and using the redesigned full player — the square cover, and the cover flying to and from the queue.
-• The new toast — add a song to a playlist, then tap the toast to open that playlist.
-• Offline playback of downloaded m4a tracks.
-• Deleting a playlist: a successful delete also removes its offline copy; a failed delete shows an error and keeps the playlist.
-• Clearing search history (the confirmation step).
+PLEASE TEST
+• Play an album to the very end with repeat off — it should stop cleanly with no stray audio, then start from the beginning when you press play.
+• Lock your device while playing, then try skip and scrubbing from the Lock Screen.
+• Edit a playlist's cover and tracks; delete a playlist both with and without downloaded files.
+• Check the volume slider right after a cold launch.
