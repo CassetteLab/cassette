@@ -107,7 +107,7 @@ struct ArtistDetailView: View {
                         .background(bodyColor.ignoresSafeArea())
                         .refreshable { await vm.load() }
                         .task(id: heroCoverArtId) {
-                            let cached = colorExtractor.dominantColor(for: heroCoverArtId, image: nil)
+                            let cached = colorExtractor.bottomStripColor(for: heroCoverArtId, image: nil)
                             if cached != .clear {
                                 dominantColor = cached
                             } else {
@@ -222,7 +222,7 @@ struct ArtistDetailView: View {
 
     private func loadDominantColor(coverArtId: String) async {
         guard let image = await container?.artworkImageCache.load(coverArtId: coverArtId) else { return }
-        let color = colorExtractor.dominantColor(for: coverArtId, image: image)
+        let color = colorExtractor.bottomStripColor(for: coverArtId, image: image)
         withAnimation(.easeIn(duration: 0.2)) {
             dominantColor = color
         }

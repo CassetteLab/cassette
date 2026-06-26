@@ -36,6 +36,10 @@ final class DominantColorExtractor {
     // never invalidates a view that called dominantColor() during its body. Colors that drive UI flow
     // through observed @State / view-model properties (e.g. FullPlayerViewModel.dominantColor), never this.
     @ObservationIgnored private var cache: [String: Color] = [:]
+    /// Bottom-strip (lower 20%) colours — the ARTIST hero only. Keyed by coverArtId but DISTINCT from `cache`, so
+    /// one cover can hold both a whole-image dominant (album/player) and a bottom-strip colour (artist) with no
+    /// clobber. In-memory only — re-extracted per launch, never mirrored to widgets.
+    @ObservationIgnored private var bottomStripCache: [String: Color] = [:]
     /// User-picked colour overrides (per coverArtId), persisted, taking precedence over the extracted dominant.
     /// OBSERVED (unlike `cache`) so themed surfaces re-render the instant the user changes a colour.
     private var colorOverrides: [String: Color] = [:]
@@ -72,6 +76,20 @@ final class DominantColorExtractor {
         guard let result = extract(from: image) else { return .clear }
         cache[coverArtId] = result.color
         persistColor(result.packed, forKey: coverArtId)
+        return result.color
+    }
+
+    /// Bottom-strip (lower 20%) average — the ARTIST hero only. An artist photo's whole-image average washes out
+    /// to a grey mid-tone; its bottom edge (what melts into the body) is the darker tone the hero needs for a
+    /// seamless meet. Override-first like `dominantColor`, cached separately so it can't clobber the whole-image
+    /// dominant of the same cover. Pass `image: nil` for a cache-only read (returns .clear if not yet extracted).
+    func bottomStripColor(for coverArtId: String?, image: PlatformImage?) -> Color {
+        guard let coverArtId else { return .clear }
+        if let override = colorOverrides[coverArtId] { return override }
+        if let cached = bottomStripCache[coverArtId] { return cached }
+        guard let image else { return .clear }
+        guard let result = extract(from: image, bottomStrip: true) else { return .clear }
+        bottomStripCache[coverArtId] = result.color
         return result.color
     }
 
@@ -203,7 +221,7 @@ final class DominantColorExtractor {
         UserDefaults.standard.set(dict, forKey: Self.userDefaultsKey)
     }
 
-    private func extract(from image: PlatformImage) -> (color: Color, packed: Int)? {
+    private func extract(from image: PlatformImage, bottomStrip: Bool = false) -> (color: Color, packed: Int)? {
         #if canImport(UIKit)
         guard let cgImage = image.cgImage else { return nil }
         #elseif canImport(AppKit)
@@ -213,12 +231,15 @@ final class DominantColorExtractor {
 
         let ciImage = CIImage(cgImage: cgImage)
         let extent = ciImage.extent
-        // Average the WHOLE image — the cover's representative dominant colour (not just its bottom edge).
+        // Whole image by default (the cover's representative dominant). The ARTIST hero passes bottomStrip=true
+        // to average only the lower 20% — CIImage's origin is bottom-left, so y = origin.y is the VISUAL bottom,
+        // giving the dark tone that melts seamlessly into the body (a photo's whole average washes out grey).
+        let stripHeight = bottomStrip ? max(1, extent.size.height * 0.20) : extent.size.height
         let inputExtent = CIVector(
             x: extent.origin.x,
             y: extent.origin.y,
             z: extent.size.width,
-            w: extent.size.height
+            w: stripHeight
         )
 
         guard let filter = CIFilter(name: "CIAreaAverage", parameters: [
