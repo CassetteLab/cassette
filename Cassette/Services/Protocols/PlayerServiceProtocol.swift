@@ -13,6 +13,10 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     var state: PlayerState { get }
 
     func play(tracks: [DisplayableSong], startIndex: Int) async throws
+    /// Plays the given tracks in shuffled order and marks the session shuffled in one step, so the
+    /// queue's shuffle toggle reflects ON immediately. Preserves the original (unshuffled) order so
+    /// the toggle can restore it. Replaces the current queue. Empty input is a no-op.
+    func playShuffled(tracks: [DisplayableSong]) async throws
     func resume() async
     func pause() async
     func stop() async
