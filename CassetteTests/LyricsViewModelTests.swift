@@ -17,6 +17,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     var seekCalledWith: TimeInterval?
 
     func play(tracks: [DisplayableSong], startIndex: Int) async throws {}
+    func playShuffled(tracks: [DisplayableSong]) async throws {}
     func resume() async {}
     func pause() async {}
     func stop() async {}

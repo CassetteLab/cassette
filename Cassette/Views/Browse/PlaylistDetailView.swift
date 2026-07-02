@@ -848,9 +848,9 @@ struct PlaylistDetailView: View {
                     Button {
                         HapticFeedback.medium.trigger()
                         Task {
-                            let shuffled = resolvedSongs(vm).shuffled()
-                            guard !shuffled.isEmpty else { return }
-                            try? await container?.playerService.play(tracks: shuffled, startIndex: 0)
+                            let songs = resolvedSongs(vm)
+                            guard !songs.isEmpty else { return }
+                            try? await container?.playerService.playShuffled(tracks: songs)
                         }
                     } label: {
                         Image(systemName: "shuffle")

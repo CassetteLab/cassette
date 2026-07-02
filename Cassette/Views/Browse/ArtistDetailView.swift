@@ -365,7 +365,7 @@ struct ArtistDetailView: View {
         defer { viewModel?.isPlayLoading = false }
         do {
             let tracks = try await c.libraryService.fetchAllTracks(forArtistID: artist.id)
-            try await c.playerService.play(tracks: tracks.shuffled(), startIndex: 0)
+            try await c.playerService.playShuffled(tracks: tracks)
         } catch CassetteError.artistTracksUnavailable {
             c.toastService.showError("Unable to load artist tracks. Please check your connection and try again.")
         } catch {

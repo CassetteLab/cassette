@@ -429,7 +429,7 @@ struct AlbumDetailView: View {
                     HapticFeedback.medium.trigger()
                     Task {
                         guard !songs.isEmpty else { return }
-                        try? await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0)
+                        try? await container?.playerService.playShuffled(tracks: songs)
                     }
                 } label: {
                     Image(systemName: "shuffle")

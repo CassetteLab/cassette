@@ -214,10 +214,9 @@ struct CollectionContextMenuModifier: ViewModifier {
                     }
 
                     Button {
-                        let shuffled = songs.shuffled()
                         Task {
                             do {
-                                try await container?.playerService.play(tracks: shuffled, startIndex: 0)
+                                try await container?.playerService.playShuffled(tracks: songs)
                             } catch {
                                 Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
                             }
@@ -364,7 +363,7 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
                     Task {
                         guard let songs = try? await songLoader(), !songs.isEmpty else { return }
                         do {
-                            try await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0)
+                            try await container?.playerService.playShuffled(tracks: songs)
                         } catch {
                             Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
                         }

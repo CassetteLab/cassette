@@ -193,27 +193,48 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Play
 
     func play(tracks: [DisplayableSong], startIndex: Int) async throws {
+        try await play(tracks: tracks, startIndex: startIndex, markShuffled: false)
+    }
+
+    /// Plays `tracks` shuffled and marks the session shuffled in one step, so the queue toggle
+    /// reflects ON immediately. The original (unshuffled) order is recorded in `originalQueueOrder`
+    /// (so the toggle can restore it) only AFTER `play` commits the new queue — a failed start
+    /// (e.g. server unavailable, which throws before any mutation) must leave the existing
+    /// session's shuffle state untouched, and `originalQueueOrder` is only ever consistent with the
+    /// live queue once playback has actually taken it.
+    func playShuffled(tracks: [DisplayableSong]) async throws {
+        guard !tracks.isEmpty else { return }
+        try await play(tracks: tracks.shuffled(), startIndex: 0, markShuffled: true)
+        originalQueueOrder = tracks
+    }
+
+    private func play(tracks: [DisplayableSong], startIndex: Int, markShuffled: Bool) async throws {
         guard tracks.indices.contains(startIndex) else { return }
+
+        // Resolve the target server BEFORE mutating any queue/shuffle state, so an early failure
+        // leaves the current session fully intact (no half-applied shuffle/smart-shuffle flags).
+        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
+            await MainActor.run { state.playbackState = .error(.serverNotConfigured) }
+            throw CassetteError.serverNotConfigured
+        }
+
         stoppedAtEndOfQueue = false
 
         // Reset shuffle only when starting a genuinely new queue, not on internal skips
-        // (skipToNext/skipToPrevious pass state.queue unchanged, so IDs match).
+        // (skipToNext/skipToPrevious pass state.queue unchanged, so IDs match). markShuffled makes
+        // this the shuffle entry point: the new queue is already shuffled, so adopt isShuffled=true
+        // in the same MainActor block as the reset (playShuffled records the original order after).
         let currentQueueIds = await MainActor.run { state.queue.map(\.id) }
         if tracks.map(\.id) != currentQueueIds {
             originalQueueOrder = nil
             await MainActor.run {
-                state.isShuffled = false
+                state.isShuffled = markShuffled
                 state.originalQueueEndIndex = nil
                 if state.isSmartShuffleActive {
                     state.isSmartShuffleActive = false
                     Logger.player.debug("Ending Smart Shuffle session — starting new explicit queue")
                 }
             }
-        }
-
-        guard let serverId = await MainActor.run(body: { serverService.state.activeServer?.id }) else {
-            await MainActor.run { state.playbackState = .error(.serverNotConfigured) }
-            throw CassetteError.serverNotConfigured
         }
 
         await MainActor.run {

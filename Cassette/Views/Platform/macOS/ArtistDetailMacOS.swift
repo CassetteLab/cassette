@@ -215,8 +215,11 @@ struct ArtistDetailMacOS: View {
         defer { vm?.isPlayLoading = false }
         do {
             let tracks = try await c.libraryService.fetchAllTracks(forArtistID: artistId)
-            let queue = shuffle ? tracks.shuffled() : tracks
-            try await c.playerService.play(tracks: queue, startIndex: 0)
+            if shuffle {
+                try await c.playerService.playShuffled(tracks: tracks)
+            } else {
+                try await c.playerService.play(tracks: tracks, startIndex: 0)
+            }
         } catch CassetteError.artistTracksUnavailable {
             c.toastService.showError("Unable to load artist tracks. Please check your connection and try again.")
         } catch {
