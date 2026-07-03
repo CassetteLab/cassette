@@ -182,3 +182,13 @@ Dependencies: [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (MIT) an
 ---
 
 Built by [Mathieu Dubart](https://github.com/MathieuDubart).
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=Mathieudubart%2FCassette&type=timeline&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Mathieudubart/Cassette&type=timeline&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Mathieudubart/Cassette&type=timeline&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Mathieudubart/Cassette&type=timeline&legend=top-left" />
+ </picture>
+</a>
