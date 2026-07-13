@@ -146,7 +146,7 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           DMG="$RUNNER_TEMP/$APP_NAME-$VERSION.dmg"
           SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/MathieuDubart/homebrew-cassette.git" tap
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/CassetteLab/homebrew-cassette.git" tap
           cd tap
           CASK="Casks/cassette.rb"
           /usr/bin/sed -i '' -E "s/^  version \".*\"/  version \"$VERSION\"/" "$CASK"
