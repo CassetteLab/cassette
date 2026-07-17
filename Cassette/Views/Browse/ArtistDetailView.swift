@@ -95,6 +95,9 @@ struct ArtistDetailView: View {
                                 if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
                                     similarArtistsSection(vm: vm)
                                 }
+                                if let bio = vm.biography {
+                                    aboutSection(bio: bio, lastFmURL: vm.lastFmURL)
+                                }
                             }
                             .padding(.vertical, CassetteSpacing.l)
                             .frame(maxWidth: .infinity)
@@ -139,6 +142,7 @@ struct ArtistDetailView: View {
             await viewModel?.load()
             await viewModel?.loadTopSongs()
             await viewModel?.loadSimilarArtists()
+            await viewModel?.loadArtistInfo()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
@@ -431,6 +435,65 @@ struct ArtistDetailView: View {
                         }
                     }
                     .padding(.horizontal, CassetteSpacing.m)
+                }
+            }
+        }
+    }
+
+    // MARK: - About Section
+
+    @ViewBuilder
+    private func aboutSection(bio: String, lastFmURL: URL?) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            Text("About")
+                .font(.cassetteSectionTitle)
+                .padding(.horizontal, CassetteSpacing.m)
+
+            ArtistBioView(bio: bio, lastFmURL: lastFmURL)
+                .padding(.horizontal, CassetteSpacing.m)
+        }
+    }
+}
+
+// MARK: - Artist biography
+
+/// The server biography, clamped to a few lines with a "Show more" toggle. Its own
+/// view so the expand state never re-renders the whole artist screen. Shared by the
+/// iOS and macOS artist screens.
+struct ArtistBioView: View {
+    let bio: String
+    let lastFmURL: URL?
+
+    @State private var expanded = false
+    @Environment(\.openURL) private var openURL
+
+    /// Only offer the toggle when there is enough text to be worth clamping.
+    private var isLong: Bool { bio.count > 280 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            Text(bio)
+                .font(.cassetteBody)
+                .foregroundStyle(.secondary)
+                .lineLimit(expanded ? nil : 6)
+                .animation(.easeInOut(duration: 0.2), value: expanded)
+
+            HStack(spacing: CassetteSpacing.m) {
+                if isLong {
+                    Button(expanded ? "Show less" : "Show more") { expanded.toggle() }
+                        .font(.cassetteCaption.weight(.semibold))
+                        .buttonStyle(.plain)
+                }
+
+                Spacer()
+
+                if let lastFmURL {
+                    Button { openURL(lastFmURL) } label: {
+                        Label("Last.fm", systemImage: "arrow.up.right")
+                            .font(.cassetteCaption)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                 }
             }
         }

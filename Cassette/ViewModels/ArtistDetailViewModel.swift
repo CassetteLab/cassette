@@ -22,6 +22,11 @@ final class ArtistDetailViewModel {
     /// Starts true so the section shows a skeleton until the first load resolves (then empty → hidden).
     var isLoadingTopSongs = true
 
+    /// Server-provided biography (getArtistInfo). nil/empty on bare servers → section hidden.
+    var biography: String?
+    /// Last.fm link from getArtistInfo, when the server returns one.
+    var lastFmURL: URL?
+
     private let artistId: String
     private let libraryService: any LibraryServiceProtocol
     private let recommendationService: RecommendationService
@@ -63,6 +68,20 @@ final class ArtistDetailViewModel {
         }
     }
 
+    /// Biography and Last.fm link from getArtistInfo. Independent of similar artists,
+    /// which come from `recommendationService`. Slow external lookups are already
+    /// guarded by the service's 15s timeout, so this loads in the background.
+    func loadArtistInfo() async {
+        do {
+            let info = try await libraryService.getArtistInfo(forArtistID: artistId, count: 20)
+            let cleaned = info.biography?.strippingArtistBioMarkup
+            biography = (cleaned?.isEmpty ?? true) ? nil : cleaned
+            lastFmURL = info.lastFmUrl.flatMap(URL.init(string:))
+        } catch {
+            Logger.recommendations.warning("artistInfo failed for \(self.artistId): \(error)")
+        }
+    }
+
     // Called from the view's .task after load() returns so artist loading and
     // index/network calls from similar artists never compete on the same server.
     func loadSimilarArtists() async {
@@ -82,5 +101,27 @@ final class ArtistDetailViewModel {
             let url = await imageResolver.resolveImageURL(for: rec)
             outOfLibraryArtistImages[rec.id] = url
         }
+    }
+}
+
+private extension String {
+    /// Turns a Last.fm/MusicBrainz biography into plain text: drops HTML tags and the
+    /// trailing "Read more on Last.fm" link that Subsonic servers pass through verbatim.
+    var strippingArtistBioMarkup: String {
+        var text = self
+
+        // Cut the Last.fm read-more tail (everything from the last <a ...>Read more…</a>)
+        if let range = text.range(of: "<a", options: .backwards),
+           text[range.lowerBound...].localizedCaseInsensitiveContains("last.fm") {
+            text = String(text[..<range.lowerBound])
+        }
+
+        // Strip remaining tags and decode the few entities Last.fm emits
+        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+        for (entity, char) in ["&amp;": "&", "&quot;": "\"", "&#39;": "'", "&lt;": "<", "&gt;": ">", "&apos;": "'"] {
+            text = text.replacingOccurrences(of: entity, with: char)
+        }
+
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

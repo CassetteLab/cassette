@@ -50,6 +50,7 @@ struct ArtistDetailMacOS: View {
             }
             await vm?.load()
             await vm?.loadSimilarArtists()
+            await vm?.loadArtistInfo()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
@@ -77,6 +78,16 @@ struct ArtistDetailMacOS: View {
                 let similar = vm.similarArtists
                 if vm.isLoadingSimilarArtists || !similar.isEmpty {
                     similarArtistsSection(vm: vm)
+                }
+
+                if let bio = vm.biography {
+                    VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+                        Text("About")
+                            .font(.cassetteSectionTitle)
+                            .padding(.horizontal, 32)
+                        ArtistBioView(bio: bio, lastFmURL: vm.lastFmURL)
+                            .padding(.horizontal, 32)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
