@@ -338,6 +338,19 @@ actor LibraryService: LibraryServiceProtocol {
         try await client().getTopSongs(artist: artist, count: count).map { DisplayableSong(from: $0) }
     }
 
+    func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong] {
+        let c = try await client()
+        let songs: [Song]
+        switch seed {
+        case .song(let id), .album(let id):
+            songs = try await c.getSimilarSongs(id: id, count: count)
+        case .artist(let id):
+            songs = try await c.getSimilarSongs2(id: id, count: count)
+        }
+        Logger.library.debug("Instant Mix: \(songs.count) similar tracks for seed \(String(describing: seed), privacy: .public)")
+        return songs.map { DisplayableSong(from: $0) }
+    }
+
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo {
         if let cached = artistInfoCache[artistID] {
             Logger.library.debug("[ARTIST-INFO] cache hit artistId=\(artistID, privacy: .public) similarCount=\(cached.similarArtist?.count ?? 0, privacy: .public)")

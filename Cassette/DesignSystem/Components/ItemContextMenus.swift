@@ -144,6 +144,12 @@ struct SongContextMenuModifier: ViewModifier {
                 Label("Add to Queue", systemImage: "text.append")
             }
 
+            Button {
+                startInstantMix(from: .song(id: song.id), using: container)
+            } label: {
+                Label("Instant Mix", systemImage: instantMixSymbol)
+            }
+
             Divider()
 
             Button {
@@ -236,6 +242,17 @@ struct CollectionContextMenuModifier: ViewModifier {
                         Task { await container?.playerService.addToQueue(songs) }
                     } label: {
                         Label("Add to Queue", systemImage: "text.append")
+                    }
+
+                    Divider()
+                }
+
+                // Instant Mix seeds from the album itself (similarity), so only albums — not playlists.
+                if itemType == .album {
+                    Button {
+                        startInstantMix(from: .album(id: itemId), using: container)
+                    } label: {
+                        Label("Instant Mix", systemImage: instantMixSymbol)
                     }
 
                     Divider()

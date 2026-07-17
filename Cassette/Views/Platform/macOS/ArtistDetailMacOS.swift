@@ -209,6 +209,16 @@ struct ArtistDetailMacOS: View {
                 .buttonStyle(.bordered)
                 .controlSize(.large)
                 .disabled(vm.isPlayLoading || vm.artist?.album?.isEmpty ?? true)
+
+                Button {
+                    startInstantMix(from: .artist(id: artistId), using: container)
+                } label: {
+                    Label("Instant Mix", systemImage: instantMixSymbol)
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .disabled(vm.artist?.album?.isEmpty ?? true)
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)

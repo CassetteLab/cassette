@@ -25,6 +25,8 @@ nonisolated enum CassetteError: Error, Sendable {
     case offlineUnavailable(songId: String)
     /// Smart Shuffle returned no eligible tracks (library too small or no downloads offline).
     case smartShuffleEmpty
+    /// Instant Mix returned no similar tracks (server has no similarity data / plugin unavailable).
+    case instantMixEmpty
     /// All album fetches failed while building the artist's full track list.
     case artistTracksUnavailable
     /// An operation exceeded its allowed time budget and was cancelled.
@@ -64,6 +66,8 @@ extension CassetteError: LocalizedError {
             return "'\(id)' is not downloaded and device is offline."
         case .smartShuffleEmpty:
             return "Your library is too small for Smart Shuffle. Try downloading more music or playing some tracks first."
+        case .instantMixEmpty:
+            return "No similar tracks found for an Instant Mix. Your server may not have similarity data for this yet."
         case .artistTracksUnavailable:
             return "Unable to load tracks for this artist. Please check your connection and try again."
         case .timeout:

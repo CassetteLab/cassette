@@ -232,8 +232,18 @@ struct ArtistDetailView: View {
             }
 
             HStack(spacing: CassetteSpacing.l) {
-                // Invisible block the size of the favorite button so the Play disc sits truly centred.
-                Color.clear.frame(width: 42, height: 42)
+                // Instant Mix — mirrors the favorite button on the right so the Play disc stays centred.
+                Button {
+                    startInstantMix(from: .artist(id: artist.id), using: container)
+                } label: {
+                    Image(systemName: instantMixSymbol)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(headerTextColor)
+                        .frame(width: 42, height: 42)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isOnline || albums.isEmpty)
 
                 // Big white round Play (= shuffle) — just the play glyph.
                 Button {

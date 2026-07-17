@@ -6,6 +6,15 @@
 import Foundation
 import SwiftSonic
 
+/// A seed for an AudioMuse-AI Instant Mix. The case decides which Subsonic similarity endpoint is used:
+/// song/album seeds go through the folder-based `getSimilarSongs`, an artist seed through the ID3-based
+/// `getSimilarSongs2`. ("Radio" is deliberately avoided — it means Internet radio stations elsewhere.)
+nonisolated enum InstantMixSeed: Sendable, Hashable {
+    case song(id: String)
+    case album(id: String)
+    case artist(id: String)
+}
+
 protocol LibraryServiceProtocol: AnyObject, Sendable {
     func artists() async throws -> [ArtistIndex]
     func artist(id: String) async throws -> ArtistID3
@@ -94,4 +103,9 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// The artist's top (most-played) songs via Subsonic `getTopSongs` (popularity/Last.fm-backed — may be
     /// empty on bare self-hosted servers, in which case callers hide the section).
     func topSongs(artist: String, count: Int) async throws -> [DisplayableSong]
+
+    /// Builds an Instant Mix from a seed via the Subsonic similarity endpoints (AudioMuse-AI plugin).
+    /// Returns an empty array when the server has no similarity data — callers surface `instantMixEmpty`.
+    /// Not gated on a capability: it simply calls the endpoint and lets an empty/failed result degrade.
+    func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong]
 }

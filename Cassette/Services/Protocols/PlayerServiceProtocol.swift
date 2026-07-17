@@ -36,6 +36,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Builds a Smart Shuffle queue via LibraryService and starts playback. Replaces the current queue.
     /// Throws `CassetteError.smartShuffleEmpty` if no eligible tracks (library too small / no downloads offline).
     func playSmartShuffle() async throws
+    /// Builds an Instant Mix from a seed (song/album/artist) via LibraryService similarity and starts playback.
+    /// Replaces the current queue. Throws `CassetteError.instantMixEmpty` when the server returns no similar tracks.
+    func playInstantMix(from seed: InstantMixSeed) async throws
     /// Toggles the auto-extend preference and persists it to UserDefaults.
     /// When enabled and ≤15 tracks remain, the player appends a fresh smart shuffle batch automatically.
     func setAutoExtendEnabled(_ enabled: Bool) async

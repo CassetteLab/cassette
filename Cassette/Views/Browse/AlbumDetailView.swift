@@ -440,6 +440,18 @@ struct AlbumDetailView: View {
                 .disabled(songs.isEmpty)
                 .opacity(vm == nil ? 0.4 : 1)
 
+                Button {
+                    HapticFeedback.medium.trigger()
+                    startInstantMix(from: .album(id: albumId), using: container)
+                } label: {
+                    Image(systemName: instantMixSymbol)
+                        .font(.cassetteCellTitle)
+                        .foregroundStyle(headerTextColor)
+                        .cassetteGlassButton(size: 44)
+                }
+                .disabled(songs.isEmpty)
+                .opacity(vm == nil ? 0.4 : 1)
+
                 PlayButton(action: {
                     Task {
                         guard !songs.isEmpty else { return }

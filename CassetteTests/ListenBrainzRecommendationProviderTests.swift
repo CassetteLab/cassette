@@ -110,6 +110,7 @@ private final class PRLibraryNullStub: LibraryServiceProtocol {
     func getArtistMBID(forArtistID artistID: String) async throws -> String? { nil }
     func findArtist(byName name: String) async -> ArtistID3? { nil }
     func topSongs(artist: String, count: Int) async throws -> [DisplayableSong] { [] }
+    func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong] { [] }
 }
 
 // Configurable library stub for similar artists tests.
@@ -147,6 +148,7 @@ private final class PRLibraryConfigurableStub: LibraryServiceProtocol {
     func getArtistMBID(forArtistID artistID: String) async throws -> String? { try mbidResult.get() }
     func findArtist(byName name: String) async -> ArtistID3? { artistsByName[name] }
     func topSongs(artist: String, count: Int) async throws -> [DisplayableSong] { [] }
+    func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong] { [] }
 }
 
 // MARK: - Fixtures

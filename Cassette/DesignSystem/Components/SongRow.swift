@@ -187,6 +187,12 @@ struct SongRow: View {
                 Label("Add to Queue", systemImage: "text.append")
             }
 
+            Button {
+                startInstantMix(from: .song(id: song.id), using: container)
+            } label: {
+                Label("Instant Mix", systemImage: instantMixSymbol)
+            }
+
             Divider()
 
             Button {

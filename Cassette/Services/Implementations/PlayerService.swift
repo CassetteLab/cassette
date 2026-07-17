@@ -571,6 +571,18 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("Started Smart Shuffle session with \(tracks.count) tracks")
     }
 
+    // MARK: - Instant Mix
+
+    func playInstantMix(from seed: InstantMixSeed) async throws {
+        let tracks = try await libraryService.instantMix(from: seed, count: 50)
+        guard !tracks.isEmpty else {
+            Logger.player.info("Instant Mix returned empty — no similarity data for seed")
+            throw CassetteError.instantMixEmpty
+        }
+        try await play(tracks: tracks, startIndex: 0)
+        Logger.player.info("Started Instant Mix with \(tracks.count) tracks")
+    }
+
     func setVolume(_ volume: Float) async {
         let clamped = max(0, min(1, volume))
         audioPlayer.volume = clamped
