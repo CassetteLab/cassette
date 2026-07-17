@@ -18,7 +18,7 @@ struct ArtistDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.colorScheme) private var colorScheme
     @State private var dominantColor: Color = .clear
-    @State private var heroHeight: CGFloat = 540
+    @State private var heroHeight: CGFloat = 460
 
     init(artist: ArtistID3) {
         self.artist = artist
@@ -94,9 +94,6 @@ struct ArtistDetailView: View {
                                 albumsSection(albums)
                                 if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
                                     similarArtistsSection(vm: vm)
-                                }
-                                if let bio = vm.biography {
-                                    aboutSection(bio: bio, lastFmURL: vm.lastFmURL)
                                 }
                             }
                             .padding(.vertical, CassetteSpacing.l)
@@ -175,6 +172,20 @@ struct ArtistDetailView: View {
                     .font(.cassetteCaption)
                     .foregroundStyle(headerSecondaryColor)
                     .padding(.bottom, CassetteSpacing.xs)
+
+                // Biography sits between the name and the Play disc, over the cover.
+                if let bio = vm.biography {
+                    ArtistBioView(
+                        bio: bio,
+                        lastFmURL: vm.lastFmURL,
+                        textColor: headerSecondaryColor,
+                        linkColor: headerTextColor,
+                        centered: true
+                    )
+                    .frame(maxWidth: 440)
+                    .padding(.bottom, CassetteSpacing.xs)
+                }
+
                 HStack(spacing: CassetteSpacing.l) {
                     // Invisible block the size of the favorite button so the Play disc sits truly centred.
                     Color.clear.frame(width: 42, height: 42)
@@ -440,19 +451,6 @@ struct ArtistDetailView: View {
         }
     }
 
-    // MARK: - About Section
-
-    @ViewBuilder
-    private func aboutSection(bio: String, lastFmURL: URL?) -> some View {
-        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            Text("About")
-                .font(.cassetteSectionTitle)
-                .padding(.horizontal, CassetteSpacing.m)
-
-            ArtistBioView(bio: bio, lastFmURL: lastFmURL)
-                .padding(.horizontal, CassetteSpacing.m)
-        }
-    }
 }
 
 // MARK: - Artist biography
@@ -463,19 +461,27 @@ struct ArtistDetailView: View {
 struct ArtistBioView: View {
     let bio: String
     let lastFmURL: URL?
+    /// Body text colour. Defaults to `.secondary` (over the solid body); the hero passes a
+    /// themed colour so the bio reads over the cover.
+    var textColor: Color = .secondary
+    /// Colour of the "Show more" / Last.fm controls.
+    var linkColor: Color = .secondary
+    /// When true the bio centres itself (hero placement over the cover) instead of left-aligning.
+    var centered: Bool = false
 
     @State private var expanded = false
     @Environment(\.openURL) private var openURL
 
-    /// Only offer the toggle when there is enough text to be worth clamping.
-    private var isLong: Bool { bio.count > 280 }
+    /// Only offer the toggle when there is enough text to overflow three lines.
+    private var isLong: Bool { bio.count > 140 }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+        VStack(alignment: centered ? .center : .leading, spacing: CassetteSpacing.s) {
             Text(bio)
                 .font(.cassetteBody)
-                .foregroundStyle(.secondary)
-                .lineLimit(expanded ? nil : 6)
+                .foregroundStyle(textColor)
+                .multilineTextAlignment(centered ? .center : .leading)
+                .lineLimit(expanded ? nil : 3)
                 .animation(.easeInOut(duration: 0.2), value: expanded)
 
             HStack(spacing: CassetteSpacing.m) {
@@ -483,9 +489,10 @@ struct ArtistBioView: View {
                     Button(expanded ? "Show less" : "Show more") { expanded.toggle() }
                         .font(.cassetteCaption.weight(.semibold))
                         .buttonStyle(.plain)
+                        .foregroundStyle(linkColor)
                 }
 
-                Spacer()
+                if !centered { Spacer() }
 
                 if let lastFmURL {
                     Button { openURL(lastFmURL) } label: {
@@ -493,7 +500,7 @@ struct ArtistBioView: View {
                             .font(.cassetteCaption)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(linkColor)
                 }
             }
         }

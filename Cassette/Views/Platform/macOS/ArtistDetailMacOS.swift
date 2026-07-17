@@ -66,6 +66,13 @@ struct ArtistDetailMacOS: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: 32) {
                 heroSection(vm: vm)
+
+                // Biography sits right under the hero (the artist name), no header.
+                if let bio = vm.biography {
+                    ArtistBioView(bio: bio, lastFmURL: vm.lastFmURL)
+                        .padding(.horizontal, 32)
+                }
+
                 if !albums.isEmpty {
                     CarouselSection(title: "Albums") {
                         ForEach(albums) { album in
@@ -78,16 +85,6 @@ struct ArtistDetailMacOS: View {
                 let similar = vm.similarArtists
                 if vm.isLoadingSimilarArtists || !similar.isEmpty {
                     similarArtistsSection(vm: vm)
-                }
-
-                if let bio = vm.biography {
-                    VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-                        Text("About")
-                            .font(.cassetteSectionTitle)
-                            .padding(.horizontal, 32)
-                        ArtistBioView(bio: bio, lastFmURL: vm.lastFmURL)
-                            .padding(.horizontal, 32)
-                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
