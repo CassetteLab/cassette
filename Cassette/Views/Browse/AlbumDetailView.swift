@@ -67,6 +67,7 @@ struct AlbumDetailView: View {
     @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
+    @State private var isGeneratingMix = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -441,15 +442,26 @@ struct AlbumDetailView: View {
                 .opacity(vm == nil ? 0.4 : 1)
 
                 Button {
+                    guard !isGeneratingMix else { return }
                     HapticFeedback.medium.trigger()
-                    startInstantMix(from: .album(id: albumId), using: container)
+                    Task {
+                        isGeneratingMix = true
+                        await runInstantMix(from: .album(id: albumId), using: container)
+                        isGeneratingMix = false
+                    }
                 } label: {
-                    Image(systemName: instantMixSymbol)
-                        .font(.cassetteCellTitle)
-                        .foregroundStyle(headerTextColor)
-                        .cassetteGlassButton(size: 44)
+                    Group {
+                        if isGeneratingMix {
+                            ProgressView().controlSize(.small).tint(headerTextColor)
+                        } else {
+                            Image(systemName: instantMixSymbol)
+                                .font(.cassetteCellTitle)
+                                .foregroundStyle(headerTextColor)
+                        }
+                    }
+                    .cassetteGlassButton(size: 44)
                 }
-                .disabled(songs.isEmpty)
+                .disabled(songs.isEmpty || isGeneratingMix)
                 .opacity(vm == nil ? 0.4 : 1)
 
                 PlayButton(action: {

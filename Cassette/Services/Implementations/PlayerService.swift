@@ -574,13 +574,16 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Instant Mix
 
     func playInstantMix(from seed: InstantMixSeed) async throws {
-        let tracks = try await libraryService.instantMix(from: seed, count: 50)
+        let tracks = try await libraryService.instantMix(from: seed, count: 100)
         guard !tracks.isEmpty else {
             Logger.player.info("Instant Mix returned empty — no similarity data for seed")
             throw CassetteError.instantMixEmpty
         }
         try await play(tracks: tracks, startIndex: 0)
-        Logger.player.info("Started Instant Mix with \(tracks.count) tracks")
+        // An Instant Mix is meant to be endless — turn on auto-extend so the queue keeps growing with
+        // similar tracks (same mechanism as the automix) instead of running in circles on a short seed set.
+        await setAutoExtendEnabled(true)
+        Logger.player.info("Started Instant Mix with \(tracks.count) tracks (auto-extend on)")
     }
 
     func setVolume(_ volume: Float) async {

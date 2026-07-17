@@ -20,12 +20,13 @@ struct ArtistDetailView: View {
     @State private var dominantColor: Color = .clear
     /// Fixed cover height — the artist photo NEVER resizes when the content below it grows.
     private let heroCoverHeight: CGFloat = 680
-    /// Live and collapsed measurements of the hero's floating content (name → bio → transport).
-    /// The hero grows DOWNWARD by their difference, so expanding the bio pushes the page down while
-    /// the cover stays put; collapsed artists (no/short bio) keep the transport at the cover's foot.
     /// Height of the collapsed content, measured while collapsed (also catches the async bio arriving).
+    /// The hero grows DOWNWARD by the delta so expanding the bio pushes the page down while the cover
+    /// stays put; collapsed artists (no/short bio) keep the transport at the cover's foot.
     @State private var heroCollapsedContentHeight: CGFloat = 336
     @State private var bioExpanded = false
+    /// Shows a spinner in place of the Instant Mix button while a mix is being generated (anti-spam).
+    @State private var isGeneratingMix = false
     /// Offset that bottom-aligns the COLLAPSED content to the cover's foot. Because it depends only on the
     /// collapsed height (frozen while expanded), the name stays put when the bio expands — the extra lines
     /// reveal downward from a fixed top instead of the whole block jumping. The hero itself has NO fixed
@@ -233,17 +234,29 @@ struct ArtistDetailView: View {
 
             HStack(spacing: CassetteSpacing.l) {
                 // Instant Mix — mirrors the favorite button on the right so the Play disc stays centred.
+                // Shows a spinner while generating so a slow mix can't be spam-tapped.
                 Button {
-                    startInstantMix(from: .artist(id: artist.id), using: container)
+                    guard !isGeneratingMix else { return }
+                    Task {
+                        isGeneratingMix = true
+                        await runInstantMix(from: .artist(id: artist.id), using: container)
+                        isGeneratingMix = false
+                    }
                 } label: {
-                    Image(systemName: instantMixSymbol)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(headerTextColor)
-                        .frame(width: 42, height: 42)
-                        .background(.ultraThinMaterial, in: Circle())
+                    Group {
+                        if isGeneratingMix {
+                            ProgressView().controlSize(.small).tint(headerTextColor)
+                        } else {
+                            Image(systemName: instantMixSymbol)
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(headerTextColor)
+                        }
+                    }
+                    .frame(width: 42, height: 42)
+                    .background(.ultraThinMaterial, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .disabled(!isOnline || albums.isEmpty)
+                .disabled(!isOnline || albums.isEmpty || isGeneratingMix)
 
                 // Big white round Play (= shuffle) — just the play glyph.
                 Button {

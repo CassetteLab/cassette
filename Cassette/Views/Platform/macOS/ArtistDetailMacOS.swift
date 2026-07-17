@@ -24,6 +24,7 @@ struct ArtistDetailMacOS: View {
     @Environment(\.dismiss) private var dismiss
     @State private var vm: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
+    @State private var isGeneratingMix = false
 
     private var effectiveCoverArtId: String? { vm?.artist?.coverArt ?? coverArtId }
 
@@ -211,14 +212,23 @@ struct ArtistDetailMacOS: View {
                 .disabled(vm.isPlayLoading || vm.artist?.album?.isEmpty ?? true)
 
                 Button {
-                    startInstantMix(from: .artist(id: artistId), using: container)
+                    guard !isGeneratingMix else { return }
+                    Task {
+                        isGeneratingMix = true
+                        await runInstantMix(from: .artist(id: artistId), using: container)
+                        isGeneratingMix = false
+                    }
                 } label: {
-                    Label("Instant Mix", systemImage: instantMixSymbol)
-                        .font(.system(size: 13, weight: .semibold))
+                    if isGeneratingMix {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Label("Instant Mix", systemImage: instantMixSymbol)
+                            .font(.system(size: 13, weight: .semibold))
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
-                .disabled(vm.artist?.album?.isEmpty ?? true)
+                .disabled(vm.artist?.album?.isEmpty ?? true || isGeneratingMix)
             }
         }
         .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)

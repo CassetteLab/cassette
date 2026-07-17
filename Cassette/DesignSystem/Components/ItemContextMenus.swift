@@ -410,6 +410,17 @@ struct LazyCollectionContextMenuModifier: ViewModifier {
 
                 Divider()
 
+                // Instant Mix seeds from the album itself (similarity), so only albums — not playlists.
+                if itemType == .album {
+                    Button {
+                        startInstantMix(from: .album(id: itemId), using: container)
+                    } label: {
+                        Label("Instant Mix", systemImage: instantMixSymbol)
+                    }
+
+                    Divider()
+                }
+
                 if isPinned {
                     Button {
                         HapticFeedback.light.trigger()
