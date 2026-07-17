@@ -340,15 +340,77 @@ actor LibraryService: LibraryServiceProtocol {
 
     func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong] {
         let c = try await client()
-        let songs: [Song]
+
+        // 1) Base similar songs from the seed. AudioMuse clusters tightly, so this alone tends to
+        //    cover only one or two artists.
+        let base: [Song]
         switch seed {
         case .song(let id), .album(let id):
-            songs = try await c.getSimilarSongs(id: id, count: count)
+            base = try await c.getSimilarSongs(id: id, count: count)
         case .artist(let id):
-            songs = try await c.getSimilarSongs2(id: id, count: count)
+            base = try await c.getSimilarSongs2(id: id, count: count)
         }
-        Logger.library.debug("Instant Mix: \(songs.count) similar tracks for seed \(String(describing: seed), privacy: .public)")
-        return songs.map { DisplayableSong(from: $0) }
+        guard !base.isEmpty else { return [] }
+
+        // 2) Fan out on the distinct artists we found (plus the seed artist) to broaden the pool —
+        //    each getSimilarSongs2 pulls the neighbourhood around a different artist.
+        var fanArtists: [String] = []
+        var seenArtists = Set<String>()
+        if case .artist(let id) = seed, seenArtists.insert(id).inserted { fanArtists.append(id) }
+        for song in base {
+            guard let aid = song.artistId, seenArtists.insert(aid).inserted else { continue }
+            fanArtists.append(aid)
+        }
+        fanArtists = Array(fanArtists.prefix(Self.instantMixFanOutArtists))
+
+        var expansions: [Song] = []
+        await withTaskGroup(of: [Song].self) { group in
+            for aid in fanArtists {
+                group.addTask { (try? await c.getSimilarSongs2(id: aid, count: Self.instantMixFanOutCount)) ?? [] }
+            }
+            for await songs in group { expansions.append(contentsOf: songs) }
+        }
+
+        // 3) Merge + dedup by song id (base first so seed relevance leads).
+        var seenIds = Set<String>()
+        let merged = (base + expansions).filter { seenIds.insert($0.id).inserted }
+
+        // 4) Round-robin by artist so different artists surface early and none dominates.
+        let diversified = Self.diversifyByArtist(merged, maxPerArtist: Self.instantMixMaxPerArtist)
+        let distinctArtists = Set(diversified.prefix(count).compactMap { $0.artistId ?? $0.artist }).count
+        Logger.library.debug("Instant Mix: \(diversified.count) tracks / \(distinctArtists) artists (base \(base.count), fan-out \(fanArtists.count)) for seed \(String(describing: seed), privacy: .public)")
+        return diversified.prefix(count).map { DisplayableSong(from: $0) }
+    }
+
+    /// Fan-out tuning for Instant Mix diversity.
+    private static let instantMixFanOutArtists = 8
+    private static let instantMixFanOutCount = 25
+    private static let instantMixMaxPerArtist = 4
+
+    /// Interleaves songs so consecutive tracks come from different artists (round-robin over per-artist
+    /// buckets, capped at `maxPerArtist`). Preserves each artist's first-seen relevance order.
+    private static func diversifyByArtist(_ songs: [Song], maxPerArtist: Int) -> [Song] {
+        var buckets: [String: [Song]] = [:]
+        var artistOrder: [String] = []
+        for song in songs {
+            let key = song.artistId ?? song.artist ?? song.id
+            if buckets[key] == nil { artistOrder.append(key) }
+            buckets[key, default: []].append(song)
+        }
+        var result: [Song] = []
+        var taken: [String: Int] = [:]
+        var progressed = true
+        while progressed {
+            progressed = false
+            for key in artistOrder {
+                let n = taken[key] ?? 0
+                guard n < maxPerArtist, let bucket = buckets[key], n < bucket.count else { continue }
+                result.append(bucket[n])
+                taken[key] = n + 1
+                progressed = true
+            }
+        }
+        return result
     }
 
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo {
