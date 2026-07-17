@@ -18,7 +18,19 @@ struct ArtistDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.colorScheme) private var colorScheme
     @State private var dominantColor: Color = .clear
-    @State private var heroHeight: CGFloat = 460
+    /// Fixed cover height — the artist photo NEVER resizes when the content below it grows.
+    private let heroCoverHeight: CGFloat = 680
+    /// Live and collapsed measurements of the hero's floating content (name → bio → transport).
+    /// The hero grows DOWNWARD by their difference, so expanding the bio pushes the page down while
+    /// the cover stays put; collapsed artists (no/short bio) keep the transport at the cover's foot.
+    /// Height of the collapsed content, measured while collapsed (also catches the async bio arriving).
+    @State private var heroCollapsedContentHeight: CGFloat = 336
+    @State private var bioExpanded = false
+    /// Offset that bottom-aligns the COLLAPSED content to the cover's foot. Because it depends only on the
+    /// collapsed height (frozen while expanded), the name stays put when the bio expands — the extra lines
+    /// reveal downward from a fixed top instead of the whole block jumping. The hero itself has NO fixed
+    /// height: the ZStack grows to fit the content, so the text is never height-constrained (no deadlock).
+    private var heroContentTopInset: CGFloat { max(0, heroCoverHeight - heroCollapsedContentHeight) }
 
     init(artist: ArtistID3) {
         self.artist = artist
@@ -152,86 +164,117 @@ struct ArtistDetailView: View {
 
     // MARK: - Hero
 
-    /// Immersive artist hero (reuses ImmersiveCoverHero + the dominant-color theme): the artist photo (server
-    /// cover, else latest-release cover) full-bleed + the name + Play(=shuffle) + Favorite star floating over it.
+    /// Immersive artist hero: a FIXED-height artist photo (server cover, else latest-release cover) with the
+    /// name + Play(=shuffle) + Favorite floating over its lower part. Unlike `ImmersiveCoverHero`, the cover
+    /// height is decoupled from the hero height — expanding the bio grows the hero DOWNWARD (pushing the page
+    /// down) while the photo stays exactly the same size.
     private func artistHero(vm: ArtistDetailViewModel) -> some View {
         let albums = vm.artist?.album ?? []
         let count = albums.count
-        return ImmersiveCoverHero(
-            coverArtId: heroCoverArtId,
-            coverImage: nil,
-            theme: theme,
-            heroHeight: heroHeight
-        ) {
-            VStack(spacing: CassetteSpacing.s) {
-                Text(artist.name)
-                    .font(.system(.title, design: .rounded, weight: .semibold))
-                    .foregroundStyle(headerTextColor)
-                    .multilineTextAlignment(.center)
-                Text("\(count) album\(count == 1 ? "" : "s")")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(headerSecondaryColor)
-                    .padding(.bottom, CassetteSpacing.xs)
-
-                // Biography sits between the name and the Play disc, over the cover.
-                if let bio = vm.biography {
-                    ArtistBioView(
-                        bio: bio,
-                        lastFmURL: vm.lastFmURL,
-                        textColor: headerSecondaryColor,
-                        linkColor: headerTextColor,
-                        centered: true
-                    )
-                    .frame(maxWidth: 440)
-                    .padding(.bottom, CassetteSpacing.xs)
-                }
-
-                HStack(spacing: CassetteSpacing.l) {
-                    // Invisible block the size of the favorite button so the Play disc sits truly centred.
-                    Color.clear.frame(width: 42, height: 42)
-
-                    // Big white round Play (= shuffle) — just the play glyph.
-                    Button {
-                        Task { await playAll() }
-                    } label: {
-                        Circle()
-                            .fill(.white)
-                            .frame(width: 66, height: 66)
-                            .overlay {
-                                // The play glyph is KNOCKED OUT of the white disc (transparent — the hero shows
-                                // through it), centred.
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 26, weight: .bold))
-                                    .blendMode(.destinationOut)
-                            }
-                            .compositingGroup()
-                            .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(vm.isPlayLoading || albums.isEmpty)
-
-                    // Smaller favorite star.
-                    Button {
-                        HapticFeedback.light.trigger()
-                        Task {
-                            if isArtistFavorite {
-                                try? await container?.favoritesService.unstar(itemType: .artist, itemId: artist.id)
-                            } else {
-                                try? await container?.favoritesService.star(itemType: .artist, itemId: artist.id)
-                            }
-                        }
-                    } label: {
-                        Image(systemName: isArtistFavorite ? "star.fill" : "star")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(isArtistFavorite ? .white : headerTextColor)
-                            .frame(width: 42, height: 42)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!isOnline)
-                }
+        return ZStack(alignment: .top) {
+            // Fixed cover pinned to the top; it never resizes when the content below grows.
+            GeometryReader { geo in
+                // Stretchy header: grow the cover UPWARD on over-scroll instead of revealing the page color.
+                let stretch = max(0, geo.frame(in: .global).minY)
+                PlaylistThemedBackground(
+                    coverArtId: heroCoverArtId,
+                    coverImage: nil,
+                    theme: theme,
+                    heroHeight: heroCoverHeight
+                )
+                .frame(width: geo.size.width, height: heroCoverHeight + stretch)
+                .offset(y: -stretch)
             }
-            .padding(.horizontal, CassetteSpacing.l)
+            .frame(height: heroCoverHeight)
+
+            // Content offset so its collapsed form bottom-aligns to the cover's foot. Expanding reveals the
+            // extra lines DOWNWARD from this fixed top (the name doesn't move); the ZStack (no fixed height)
+            // grows to fit, pushing the page down while the cover stays put.
+            VStack(spacing: 0) {
+                Color.clear.frame(height: heroContentTopInset)
+                heroContent(vm: vm, count: count, albums: albums)
+                    .padding(.horizontal, CassetteSpacing.l)
+                    .padding(.bottom, CassetteSpacing.l)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                        // Only track the collapsed baseline (drives the top inset). While expanded the
+                        // baseline is frozen, so the name/top of the bio never move.
+                        if !bioExpanded { heroCollapsedContentHeight = height }
+                    }
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// The floating name / album count / biography / transport block that sits over the cover's lower part.
+    private func heroContent(vm: ArtistDetailViewModel, count: Int, albums: [AlbumID3]) -> some View {
+        VStack(spacing: CassetteSpacing.s) {
+            Text(artist.name)
+                .font(.system(.title, design: .rounded, weight: .semibold))
+                .foregroundStyle(headerTextColor)
+                .multilineTextAlignment(.center)
+            Text("\(count) album\(count == 1 ? "" : "s")")
+                .font(.cassetteCaption)
+                .foregroundStyle(headerSecondaryColor)
+                .padding(.bottom, CassetteSpacing.xs)
+
+            // Biography sits between the name and the Play disc, over the cover.
+            if let bio = vm.biography {
+                ArtistBioView(
+                    bio: bio,
+                    lastFmURL: vm.lastFmURL,
+                    textColor: headerSecondaryColor,
+                    linkColor: headerTextColor,
+                    centered: true,
+                    onExpandedChange: { bioExpanded = $0 }
+                )
+                .frame(maxWidth: 440)
+                .padding(.bottom, CassetteSpacing.xs)
+            }
+
+            HStack(spacing: CassetteSpacing.l) {
+                // Invisible block the size of the favorite button so the Play disc sits truly centred.
+                Color.clear.frame(width: 42, height: 42)
+
+                // Big white round Play (= shuffle) — just the play glyph.
+                Button {
+                    Task { await playAll() }
+                } label: {
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 66, height: 66)
+                        .overlay {
+                            // The play glyph is KNOCKED OUT of the white disc (transparent — the hero shows
+                            // through it), centred.
+                            Image(systemName: "play.fill")
+                                .font(.system(size: 26, weight: .bold))
+                                .blendMode(.destinationOut)
+                        }
+                        .compositingGroup()
+                        .shadow(color: .black.opacity(0.22), radius: 10, y: 4)
+                }
+                .buttonStyle(.plain)
+                .disabled(vm.isPlayLoading || albums.isEmpty)
+
+                // Smaller favorite star.
+                Button {
+                    HapticFeedback.light.trigger()
+                    Task {
+                        if isArtistFavorite {
+                            try? await container?.favoritesService.unstar(itemType: .artist, itemId: artist.id)
+                        } else {
+                            try? await container?.favoritesService.star(itemType: .artist, itemId: artist.id)
+                        }
+                    }
+                } label: {
+                    Image(systemName: isArtistFavorite ? "star.fill" : "star")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(isArtistFavorite ? .white : headerTextColor)
+                        .frame(width: 42, height: 42)
+                        .background(.ultraThinMaterial, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .disabled(!isOnline)
+            }
         }
     }
 
@@ -468,6 +511,8 @@ struct ArtistBioView: View {
     var linkColor: Color = .secondary
     /// When true the bio centres itself (hero placement over the cover) instead of left-aligning.
     var centered: Bool = false
+    /// Notifies the parent when the expand state flips (the hero uses it to grow downward, not upward).
+    var onExpandedChange: (Bool) -> Void = { _ in }
 
     @State private var expanded = false
     @Environment(\.openURL) private var openURL
@@ -482,14 +527,18 @@ struct ArtistBioView: View {
                 .foregroundStyle(textColor)
                 .multilineTextAlignment(centered ? .center : .leading)
                 .lineLimit(expanded ? nil : 3)
-                .animation(.easeInOut(duration: 0.2), value: expanded)
 
             HStack(spacing: CassetteSpacing.m) {
                 if isLong {
-                    Button(expanded ? "Show less" : "Show more") { expanded.toggle() }
-                        .font(.cassetteCaption.weight(.semibold))
-                        .buttonStyle(.plain)
-                        .foregroundStyle(linkColor)
+                    Button(expanded ? "Show less" : "Show more") {
+                        let willExpand = !expanded
+                        // Freeze the collapsed baseline BEFORE the layout grows, so the top inset stays put.
+                        onExpandedChange(willExpand)
+                        withAnimation(.easeInOut(duration: 0.3)) { expanded = willExpand }
+                    }
+                    .font(.cassetteCaption.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(linkColor)
                 }
 
                 if !centered { Spacer() }
