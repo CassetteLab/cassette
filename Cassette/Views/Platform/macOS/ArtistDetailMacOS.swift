@@ -70,8 +70,12 @@ struct ArtistDetailMacOS: View {
             VStack(alignment: .leading, spacing: 32) {
                 heroSection(vm: vm)
 
-                // Biography sits right under the hero (the artist name), no header.
-                if let bio = vm.biography {
+                // Biography — a 3-line skeleton while it loads, then the bio fades in (or collapses if none).
+                if vm.isLoadingArtistInfo {
+                    ArtistBioSkeleton()
+                        .padding(.horizontal, 32)
+                        .transition(.opacity)
+                } else if let bio = vm.biography {
                     ArtistBioView(bio: bio, lastFmURL: vm.lastFmURL)
                         .padding(.horizontal, 32)
                         .transition(.opacity)
@@ -88,8 +92,8 @@ struct ArtistDetailMacOS: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight / 2)
-            // Fade the bio in smoothly when it arrives, rather than popping.
-            .animation(.easeInOut(duration: 0.35), value: vm.biography)
+            // Cross-fade the skeleton into the bio smoothly when it resolves.
+            .animation(.easeInOut(duration: 0.35), value: vm.isLoadingArtistInfo)
         }
         .refreshable { await vm.load() }
     }

@@ -26,6 +26,9 @@ final class ArtistDetailViewModel {
     var biography: String?
     /// Last.fm link from getArtistInfo, when the server returns one.
     var lastFmURL: URL?
+    /// Starts true so the bio area shows a 3-line skeleton until getArtistInfo resolves (then the bio
+    /// fades in, or the area collapses if the server has none).
+    var isLoadingArtistInfo = true
 
     private let artistId: String
     private let libraryService: any LibraryServiceProtocol
@@ -72,6 +75,7 @@ final class ArtistDetailViewModel {
     /// which come from `recommendationService`. Slow external lookups are already
     /// guarded by the service's 15s timeout, so this loads in the background.
     func loadArtistInfo() async {
+        defer { isLoadingArtistInfo = false }
         do {
             let info = try await libraryService.getArtistInfo(forArtistID: artistId, count: 20)
             let cleaned = info.biography?.strippingArtistBioMarkup

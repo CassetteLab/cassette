@@ -220,8 +220,14 @@ struct ArtistDetailView: View {
                 .foregroundStyle(headerSecondaryColor)
                 .padding(.bottom, CassetteSpacing.xs)
 
-            // Biography sits between the name and the Play disc, over the cover.
-            if let bio = vm.biography {
+            // Biography sits between the name and the Play disc, over the cover — a 3-line skeleton while
+            // it loads, then the justified bio fades in (or the area collapses if there is none).
+            if vm.isLoadingArtistInfo {
+                ArtistBioSkeleton(centered: true)
+                    .frame(maxWidth: 440)
+                    .padding(.bottom, CassetteSpacing.xs)
+                    .transition(.opacity)
+            } else if let bio = vm.biography {
                 ArtistBioView(
                     bio: bio,
                     lastFmURL: vm.lastFmURL,
@@ -302,8 +308,8 @@ struct ArtistDetailView: View {
                 .disabled(!isOnline)
             }
         }
-        // Fade the bio in (and grow the hero) smoothly when it arrives, rather than popping.
-        .animation(.easeInOut(duration: 0.35), value: vm.biography)
+        // Cross-fade the skeleton into the bio (and grow the hero) smoothly when it resolves.
+        .animation(.easeInOut(duration: 0.35), value: vm.isLoadingArtistInfo)
     }
 
     private func loadDominantColor(coverArtId: String) async {
@@ -613,6 +619,20 @@ struct ArtistBioView: View {
                 }
             }
         }
+    }
+}
+
+/// A 3-line placeholder shown while the bio loads, so the area reserves ~3 lines of height and the bio
+/// fades in (resizing if shorter) instead of popping — mirroring the similar-artists skeleton.
+struct ArtistBioSkeleton: View {
+    var centered: Bool = false
+    var body: some View {
+        VStack(alignment: centered ? .center : .leading, spacing: CassetteSpacing.s) {
+            SkeletonBlock(height: 13)
+            SkeletonBlock(height: 13)
+            SkeletonBlock(width: 200, height: 13)
+        }
+        .frame(maxWidth: .infinity, alignment: centered ? .center : .leading)
     }
 }
 
