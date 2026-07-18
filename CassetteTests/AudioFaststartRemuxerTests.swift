@@ -68,6 +68,34 @@ struct AudioFaststartRemuxerTests {
         #expect(AudioFaststartRemuxer.classify(boxTypes: ["ftyp", "moov"]) == .faststart)   // nothing to move
     }
 
+    // MARK: - Output acceptance (pure)
+    //
+    // The rule that decides whether a fresh export may overwrite the original download.
+    // It has to be stricter than classify(): a truncated export is "faststart" to classify
+    // (no moov to move) but must never replace a working file.
+
+    @Test("a complete faststart export is accepted")
+    func usableOutputAccepted() {
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "moov", "mdat"]))
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "free", "moov", "free", "mdat"]))
+    }
+
+    @Test("a truncated export is rejected even though classify calls it faststart")
+    func truncatedOutputRejected() {
+        // Each of these is .faststart per classify — the exact hole this guard closes.
+        #expect(AudioFaststartRemuxer.classify(boxTypes: ["ftyp"]) == .faststart)
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp"]) == false)
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "moov"]) == false)
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "mdat"]) == false)
+    }
+
+    @Test("an output that is still mdat-first, or not an MP4 at all, is rejected")
+    func badLayoutOutputRejected() {
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "mdat", "moov"]) == false)
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["moov", "mdat"]) == false)
+        #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: []) == false)
+    }
+
     // MARK: - topLevelBoxTypes(in:) (pure byte parser)
 
     @Test("in-memory parser reads ordered top-level box types")

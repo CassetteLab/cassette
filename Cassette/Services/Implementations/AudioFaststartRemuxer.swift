@@ -64,6 +64,20 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
             return .failed
         }
 
+        // Verify the OUTPUT before destroying the input. The export can finish without throwing
+        // and still leave a file that is not usable audio (partial write, unexpected track
+        // layout); a non-zero size alone would let it overwrite a working download, and the
+        // caller has no way back — the payload validator ran on the pre-remux bytes.
+        // `classify` is deliberately not enough on its own: it reports a container with no
+        // `moov` as `.faststart` ("nothing to optimize"), so a truncated export holding only
+        // `ftyp` would pass. Require both boxes, in the right order.
+        guard let outBoxes = Self.topLevelBoxTypes(atPath: tempURL.path),
+              Self.isUsableFaststartOutput(boxTypes: outBoxes) else {
+            try? FileManager.default.removeItem(at: tempURL)
+            Logger.download.warning("[REMUX] export produced an unusable layout for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
+            return .failed
+        }
+
         do {
             // Atomic replace on the same directory/volume; consumes tempURL on success.
             _ = try FileManager.default.replaceItemAt(fileURL, withItemAt: tempURL)
@@ -72,6 +86,16 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
             Logger.download.warning("[REMUX] atomic swap failed for '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public) — original kept")
             return .failed
         }
+
+        // replaceItemAt may relocate the item; confirm the audio really landed back on the
+        // path the caller will record and play from. If it didn't, say so rather than
+        // reporting a success the download record would then describe wrongly.
+        let landedSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
+        guard landedSize > 0 else {
+            Logger.download.error("[REMUX] post-swap file missing at '\(fileURL.lastPathComponent, privacy: .public)' — download is broken")
+            return .failed
+        }
+
         Logger.download.info("[REMUX] faststart-remuxed '\(fileURL.lastPathComponent, privacy: .public)'")
         return .remuxed
     }
@@ -94,6 +118,15 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         guard let moov = types.firstIndex(of: "moov") else { return .faststart }
         if let mdat = types.firstIndex(of: "mdat"), mdat < moov { return .needsRemux }
         return .faststart
+    }
+
+    /// Whether a freshly exported file is safe to swap in over the original. Stricter than
+    /// `classify`, which reports a container with no `moov` as `.faststart` ("nothing to
+    /// optimize") — that verdict is right for an INPUT and wrong for an OUTPUT, where a missing
+    /// `moov` or `mdat` means the export is truncated, not optimal. Pure, so the acceptance rule
+    /// is unit-testable without running an export.
+    nonisolated static func isUsableFaststartOutput(boxTypes types: [String]) -> Bool {
+        types.contains("moov") && types.contains("mdat") && classify(boxTypes: types) == .faststart
     }
 
     /// Parses the ordered top-level box types from an in-memory MP4 prefix. Pure; used by tests.
