@@ -392,14 +392,16 @@ actor LibraryService: LibraryServiceProtocol {
         return diversified.prefix(count).map { DisplayableSong(from: $0) }
     }
 
-    /// Fan-out tuning for Instant Mix diversity.
-    private static let instantMixFanOutArtists = 8
-    private static let instantMixFanOutCount = 25
-    private static let instantMixMaxPerArtist = 4
+    /// Fan-out tuning for Instant Mix diversity. `nonisolated` so the actor's `instantMix` can read them
+    /// synchronously (the module defaults types to MainActor isolation).
+    nonisolated private static let instantMixFanOutArtists = 8
+    nonisolated private static let instantMixFanOutCount = 25
+    nonisolated private static let instantMixMaxPerArtist = 4
 
     /// Interleaves songs so consecutive tracks come from different artists (round-robin over per-artist
-    /// buckets, capped at `maxPerArtist`). Preserves each artist's first-seen relevance order.
-    private static func diversifyByArtist(_ songs: [Song], maxPerArtist: Int) -> [Song] {
+    /// buckets, capped at `maxPerArtist`). Preserves each artist's first-seen relevance order. Pure and
+    /// `nonisolated` — callable from the actor without hopping to the main actor.
+    nonisolated private static func diversifyByArtist(_ songs: [Song], maxPerArtist: Int) -> [Song] {
         var buckets: [String: [Song]] = [:]
         var artistOrder: [String] = []
         for song in songs {
