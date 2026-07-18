@@ -118,29 +118,15 @@ actor LibraryService: LibraryServiceProtocol {
         }
     }
 
-    func allSongs() async throws -> [Song] {
-        let c = try await client()
-        var all: [Song] = []
-        var offset = 0
-        // Page through search3's empty-query wildcard until a short page (or the safety cap).
-        while all.count < Self.allSongsSafetyCap {
-            let page = try await c.search3(
-                "",
-                artistCount: 0,
-                albumCount: 0,
-                songCount: Self.allSongsPageSize,
-                songOffset: offset
-            ).song ?? []
-            all.append(contentsOf: page)
-            if page.count < Self.allSongsPageSize { break }
-            offset += Self.allSongsPageSize
-        }
-        Logger.library.info("allSongs() loaded \(all.count, privacy: .public) songs")
-        return all
+    func allSongs(offset: Int, count: Int) async throws -> [Song] {
+        try await client().search3(
+            "",
+            artistCount: 0,
+            albumCount: 0,
+            songCount: count,
+            songOffset: offset
+        ).song ?? []
     }
-
-    nonisolated private static let allSongsPageSize = 500
-    nonisolated private static let allSongsSafetyCap = 50_000
 
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
         // TODO(v1.x): verify Navidrome savePlayQueue support; implement best-effort sync
