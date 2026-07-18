@@ -20,6 +20,9 @@ struct ArtistDetailView: View {
     @State private var dominantColor: Color = .clear
     /// Shared album ordering, persisted and reused by the global album list too.
     @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
+    /// Discography layout: false = 2-row horizontal scroll (default), true = vertical grid (nicer for big
+    /// catalogues where horizontal scrolling gets tedious).
+    @AppStorage("cassette.artistAlbumsGrid") private var artistAlbumsGrid = false
     /// Fixed cover height — the artist photo NEVER resizes when the content below it grows.
     private let heroCoverHeight: CGFloat = 680
     /// Height of the collapsed content, measured while collapsed (also catches the async bio arriving).
@@ -430,55 +433,85 @@ struct ArtistDetailView: View {
          GridItem(.fixed(196), spacing: CassetteSpacing.m)]
     }
 
-    /// Albums — a 2-row grid that scrolls horizontally, ordered by the shared sort, with a sort menu header.
+    /// Albums — sorted by the shared preference, shown either as a 2-row horizontal scroll or a vertical
+    /// grid (toggle in the header); a sort menu and layout toggle sit beside the title.
     private func albumsSection(_ albums: [AlbumID3]) -> some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            HStack {
+            HStack(spacing: CassetteSpacing.m) {
                 sectionHeader("Albums")
                 Spacer()
                 AlbumSortMenu(sort: $albumSort, iconOnly: true)
                     .font(.cassetteSectionTitle)
                     .foregroundStyle(headerTextColor)
-                    .padding(.trailing, CassetteSpacing.l)
+                Button {
+                    artistAlbumsGrid.toggle()
+                } label: {
+                    Image(systemName: artistAlbumsGrid ? "rectangle.grid.1x2" : "square.grid.2x2")
+                        .font(.cassetteSectionTitle)
+                        .foregroundStyle(headerTextColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(artistAlbumsGrid ? "Horizontal view" : "Grid view")
+                .padding(.trailing, CassetteSpacing.l)
             }
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHGrid(rows: albumGridRows, alignment: .top, spacing: CassetteSpacing.m) {
-                    ForEach(albumSort.sorted(albums)) { album in
-                        NavigationLink(value: HomeDestination.album(album)) {
-                            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                                CoverArtView(id: album.coverArt ?? album.id, size: 320)
-                                    .frame(width: 160, height: 160)
-                                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
-                                Text(album.name)
-                                    .font(.cassetteCellTitle)
-                                    .foregroundStyle(headerTextColor)
-                                    .lineLimit(1)
-                                if let year = album.year {
-                                    Text(verbatim: "\(year)")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(headerSecondaryColor)
-                                }
-                            }
-                            .frame(width: 160, alignment: .leading)
-                            .task(id: album.id) {
-                                await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .lazyCollectionContextMenu(
-                            itemType: .album,
-                            itemId: album.id,
-                            displayName: album.name,
-                            displaySubtitle: album.artist ?? "",
-                            coverArtId: album.coverArt ?? album.id,
-                            favoriteType: .album,
-                            songLoader: { await albumTracks(album) }
-                        )
-                    }
+            if artistAlbumsGrid {
+                LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                    ForEach(albumSort.sorted(albums)) { album in albumCell(album, grid: true) }
                 }
                 .padding(.horizontal, CassetteSpacing.l)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHGrid(rows: albumGridRows, alignment: .top, spacing: CassetteSpacing.m) {
+                        ForEach(albumSort.sorted(albums)) { album in albumCell(album, grid: false) }
+                    }
+                    .padding(.horizontal, CassetteSpacing.l)
+                }
             }
         }
+    }
+
+    /// An album cover cell, sized to fill its grid column (`grid: true`) or fixed 160pt wide for the
+    /// horizontal row layout. Shared by both discography layouts.
+    @ViewBuilder
+    private func albumCell(_ album: AlbumID3, grid: Bool) -> some View {
+        NavigationLink(value: HomeDestination.album(album)) {
+            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                Group {
+                    if grid {
+                        CoverArtView(id: album.coverArt ?? album.id, size: 320)
+                            .aspectRatio(1, contentMode: .fit)
+                    } else {
+                        CoverArtView(id: album.coverArt ?? album.id, size: 320)
+                            .frame(width: 160, height: 160)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                Text(album.name)
+                    .font(.cassetteCellTitle)
+                    .foregroundStyle(headerTextColor)
+                    .lineLimit(1)
+                if let year = album.year {
+                    Text(verbatim: "\(year)")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(headerSecondaryColor)
+                }
+            }
+            .frame(width: grid ? nil : 160, alignment: .leading)
+            .frame(maxWidth: grid ? .infinity : nil, alignment: .leading)
+            .task(id: album.id) {
+                await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+            }
+        }
+        .buttonStyle(.plain)
+        .lazyCollectionContextMenu(
+            itemType: .album,
+            itemId: album.id,
+            displayName: album.name,
+            displaySubtitle: album.artist ?? "",
+            coverArtId: album.coverArt ?? album.id,
+            favoriteType: .album,
+            songLoader: { await albumTracks(album) }
+        )
     }
 
     /// Loads an album's tracks on demand for the context-menu play actions (online album fetch).

@@ -10,6 +10,7 @@ import SwiftSonic
 struct ArtistsListMacOS: View {
     @Environment(\.appContainer) private var container
     @State private var vm: ArtistListViewModel?
+    @AppStorage("cassette.artistSort") private var artistSort: ArtistSort = .name
 
     var body: some View {
         Group {
@@ -20,6 +21,11 @@ struct ArtistsListMacOS: View {
             }
         }
         .navigationTitle("Artists")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                ArtistSortMenu(sort: $artistSort)
+            }
+        }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if vm == nil { vm = ArtistListViewModel(libraryService: svc) }
@@ -46,7 +52,7 @@ struct ArtistsListMacOS: View {
                 subtitle: "Your library appears to be empty."
             )
         } else {
-            let allArtists = vm.indexes.flatMap(\.artist)
+            let allArtists = artistSort.sorted(vm.indexes.flatMap(\.artist))
             GeometryReader { geo in
                 let count = Self.gridColumnCount(for: geo.size.width)
                 let columns = Array(repeating: GridItem(.flexible(), spacing: 24), count: count)
@@ -76,41 +82,6 @@ struct ArtistsListMacOS: View {
         case ..<1600: return 5
         default:      return 6
         }
-    }
-}
-
-// MARK: - Artist Grid Card
-
-private struct ArtistGridCard: View {
-    let artist: ArtistID3
-
-    @State private var isHovered = false
-
-    var body: some View {
-        VStack(spacing: CassetteSpacing.s) {
-            CoverArtView(
-                id: artist.coverArt ?? artist.id,
-                size: 280,
-                placeholderSystemImage: "person.fill"
-            )
-            .frame(width: 140, height: 140)
-            .clipShape(Circle())
-            .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
-            .scaleEffect(isHovered ? 1.05 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: isHovered)
-
-            Text(artist.name)
-                .font(.cassetteCellTitle)
-                .lineLimit(1)
-                .multilineTextAlignment(.center)
-
-            if let count = artist.albumCount {
-                Text("\(count) album\(count == 1 ? "" : "s")")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .onHover { isHovered = $0 }
     }
 }
 #endif

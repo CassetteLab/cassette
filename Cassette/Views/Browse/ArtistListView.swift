@@ -10,6 +10,10 @@ import SwiftSonic
 struct ArtistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: ArtistListViewModel?
+    @AppStorage("cassette.artistSort") private var artistSort: ArtistSort = .name
+    @AppStorage("cassette.artistListGrid") private var gridLayout = false
+
+    private let gridColumns = [GridItem(.adaptive(minimum: 110, maximum: 150), spacing: CassetteSpacing.l)]
 
     var body: some View {
         Group {
@@ -21,6 +25,19 @@ struct ArtistListView: View {
         }
         .cassetteContentWidth()
         .navigationTitle("Artists")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 2) {
+                    ArtistSortMenu(sort: $artistSort)
+                    Button {
+                        gridLayout.toggle()
+                    } label: {
+                        Image(systemName: gridLayout ? "list.bullet" : "square.grid.2x2")
+                    }
+                    .accessibilityLabel(gridLayout ? "List view" : "Grid view")
+                }
+            }
+        }
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = ArtistListViewModel(libraryService: svc) }
@@ -56,39 +73,75 @@ struct ArtistListView: View {
                 title: "No Artists",
                 subtitle: "Your library appears to be empty."
             )
+        } else if gridLayout {
+            artistsGrid(vm)
+        } else if artistSort == .name {
+            indexedList(vm)
         } else {
-            ScrollViewReader { proxy in
-                List {
-                    ForEach(vm.indexes, id: \.name) { index in
-                        Section(index.name) {
-                            ForEach(index.artist) { artist in
-                                NavigationLink(value: HomeDestination.artist(artist)) {
-                                    ArtistRow(artist: artist)
-                                }
+            flatList(vm)
+        }
+    }
+
+    /// Alphabetical indexed list with section headers + A–Z jump bar (Name sort, list mode).
+    private func indexedList(_ vm: ArtistListViewModel) -> some View {
+        ScrollViewReader { proxy in
+            List {
+                ForEach(vm.indexes, id: \.name) { index in
+                    Section(index.name) {
+                        ForEach(index.artist) { artist in
+                            NavigationLink(value: HomeDestination.artist(artist)) {
+                                ArtistRow(artist: artist)
                             }
                         }
-                        .id(index.name)
                     }
+                    .id(index.name)
                 }
-                .listStyle(.plain)
-                .refreshable { await vm.load() }
-                #if os(iOS)
-                .safeAreaInset(edge: .trailing, spacing: 0) {
-                    if vm.indexes.count >= 5 {
-                        AlphabetJumpBar(
-                            availableLetters: Set(vm.indexes.map(\.name)),
-                            onLetterTap: { letter in
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    proxy.scrollTo(letter, anchor: .top)
-                                }
+            }
+            .listStyle(.plain)
+            .refreshable { await vm.load() }
+            #if os(iOS)
+            .safeAreaInset(edge: .trailing, spacing: 0) {
+                if vm.indexes.count >= 5 {
+                    AlphabetJumpBar(
+                        availableLetters: Set(vm.indexes.map(\.name)),
+                        onLetterTap: { letter in
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(letter, anchor: .top)
                             }
-                        )
-                        .padding(.trailing, 4)
-                    }
+                        }
+                    )
+                    .padding(.trailing, 4)
                 }
-                #endif
+            }
+            #endif
+        }
+    }
+
+    /// Flat list in the chosen order (Album Count sort, list mode).
+    private func flatList(_ vm: ArtistListViewModel) -> some View {
+        List(artistSort.sorted(vm.indexes.flatMap(\.artist))) { artist in
+            NavigationLink(value: HomeDestination.artist(artist)) {
+                ArtistRow(artist: artist)
             }
         }
+        .listStyle(.plain)
+        .refreshable { await vm.load() }
+    }
+
+    /// Grid of artist avatars in the chosen order.
+    private func artistsGrid(_ vm: ArtistListViewModel) -> some View {
+        ScrollView {
+            LazyVGrid(columns: gridColumns, spacing: CassetteSpacing.l) {
+                ForEach(artistSort.sorted(vm.indexes.flatMap(\.artist))) { artist in
+                    NavigationLink(value: HomeDestination.artist(artist)) {
+                        ArtistGridCard(artist: artist)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(CassetteSpacing.l)
+        }
+        .refreshable { await vm.load() }
     }
 }
 

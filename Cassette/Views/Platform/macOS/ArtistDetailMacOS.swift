@@ -27,6 +27,8 @@ struct ArtistDetailMacOS: View {
     @State private var isGeneratingMix = false
     /// Shared album ordering, persisted and reused by the global album list too.
     @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
+    /// Discography layout: false = 2-row horizontal scroll (default), true = vertical grid.
+    @AppStorage("cassette.artistAlbumsGrid") private var artistAlbumsGrid = false
 
     private var effectiveCoverArtId: String? { vm?.artist?.coverArt ?? coverArtId }
 
@@ -106,6 +108,10 @@ struct ArtistDetailMacOS: View {
          GridItem(.fixed(230), spacing: 24)]
     }
 
+    private var albumGridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 24)]
+    }
+
     @ViewBuilder
     private func albumsGridSection(_ albums: [AlbumID3]) -> some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
@@ -114,20 +120,39 @@ struct ArtistDetailMacOS: View {
                     .font(.cassetteSectionTitle)
                 Spacer()
                 AlbumSortMenu(sort: $albumSort)
+                Button {
+                    artistAlbumsGrid.toggle()
+                } label: {
+                    Image(systemName: artistAlbumsGrid ? "rectangle.grid.1x2" : "square.grid.2x2")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(artistAlbumsGrid ? "Horizontal view" : "Grid view")
             }
             .padding(.horizontal, 32)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHGrid(rows: albumGridRows, alignment: .top, spacing: 24) {
+            if artistAlbumsGrid {
+                LazyVGrid(columns: albumGridColumns, spacing: 24) {
                     ForEach(albumSort.sorted(albums)) { album in
                         NavigationLink(value: HomeDestination.album(album)) {
                             AlbumGridCell(album: album)
-                                .frame(width: 180)
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 32)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHGrid(rows: albumGridRows, alignment: .top, spacing: 24) {
+                        ForEach(albumSort.sorted(albums)) { album in
+                            NavigationLink(value: HomeDestination.album(album)) {
+                                AlbumGridCell(album: album)
+                                    .frame(width: 180)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 32)
+                }
             }
         }
         .padding(.bottom, 16)
