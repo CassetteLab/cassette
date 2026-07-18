@@ -38,7 +38,7 @@ struct WidgetPlayButton: View {
             HStack(spacing: 4) {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.caption)
-                Text(isPlaying ? "Pause" : "Lecture")
+                Text(isPlaying ? "Pause" : "Play")
                     .font(.system(.caption, design: .rounded, weight: .bold))
             }
             .foregroundStyle(.white)

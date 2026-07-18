@@ -50,7 +50,7 @@ struct WrappedDiscoveriesSlide: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func discoveryRow(count: Int, label: String) -> some View {
+    private func discoveryRow(count: Int, label: LocalizedStringKey) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: CassetteSpacing.s) {
             Text("\(count)")
                 .font(.system(size: 48, weight: .black, design: .rounded))

@@ -96,7 +96,7 @@ struct WrappedYearCard: View {
     @ViewBuilder
     private var subtitleView: some View {
         if playlistId == nil {
-            Text("Aucune playlist générée pour le moment")
+            Text("No playlist generated yet")
         } else if let first = firstTrack, let last = lastTrack, first.trackId != last.trackId {
             Text("Started with \(first.title) · Ended with \(last.title)")
         } else if let first = firstTrack {

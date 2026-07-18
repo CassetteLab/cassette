@@ -37,7 +37,7 @@ struct WrappedMinutesSlide: View {
                 Spacer(minLength: CassetteSpacing.xl)
 
                 if totalHours > 0 {
-                    Text("That's \(totalHours) \(totalHours == 1 ? "hour" : "hours") of music.")
+                    Text("That's \(totalHours) hours of music.")
                         .font(.system(size: 20, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.75))
                 }

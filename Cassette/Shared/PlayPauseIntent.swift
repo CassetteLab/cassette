@@ -7,7 +7,7 @@
 import AppIntents
 
 nonisolated struct PlayPauseIntent: AudioPlaybackIntent {
-    static let title: LocalizedStringResource = "Lecture / Pause"
+    static let title: LocalizedStringResource = "Play / Pause"
 
     func perform() async throws -> some IntentResult {
         await NowPlayingBridge.performTogglePlayPause?()

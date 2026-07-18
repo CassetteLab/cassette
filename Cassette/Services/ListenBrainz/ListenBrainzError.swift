@@ -20,22 +20,22 @@ extension ListenBrainzError: LocalizedError {
     nonisolated var errorDescription: String? {
         switch self {
         case .invalidUsername:
-            return "The username format is not valid."
+            return String(localized: "The username format is not valid.")
         case .userNotFound:
-            return "This account does not exist on ListenBrainz."
+            return String(localized: "This account does not exist on ListenBrainz.")
         case .network:
-            return "A network error occurred. Please check your connection and try again."
+            return String(localized: "A network error occurred. Please check your connection and try again.")
         case .decoding:
-            return "Unable to parse the server response."
+            return String(localized: "Unable to parse the server response.")
         case .rateLimited(let retryAfter):
             if let delay = retryAfter {
-                return "Too many requests. Please wait \(Int(delay)) seconds before trying again."
+                return String(localized: "Too many requests. Please wait \(Int(delay)) seconds before trying again.")
             }
-            return "Too many requests. Please wait before trying again."
+            return String(localized: "Too many requests. Please wait before trying again.")
         case .httpError(let code):
-            return "The server returned an unexpected error (HTTP \(code))."
+            return String(localized: "The server returned an unexpected error (HTTP \(code)).")
         case .unauthorized:
-            return "Authentication failed."
+            return String(localized: "Authentication failed.")
         }
     }
 }

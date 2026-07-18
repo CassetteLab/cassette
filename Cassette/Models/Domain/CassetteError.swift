@@ -37,15 +37,15 @@ extension CassetteError: LocalizedError {
     nonisolated var errorDescription: String? {
         switch self {
         case .serverNotConfigured:
-            return "No server configured. Please add a server in Settings."
+            return String(localized: "No server configured. Please add a server in Settings.")
         case .connectionFailed(let error):
-            return "Connection failed: \(error.localizedDescription)"
+            return String(localized: "Connection failed: \(error.localizedDescription)")
         case .mediaNotFound(let id):
-            return "Media not found for song '\(id)'."
+            return String(localized: "Media not found for song '\(id)'.")
         case .cacheStorageFailed(let error):
-            return "Cache storage failed: \(error.localizedDescription)"
+            return String(localized: "Cache storage failed: \(error.localizedDescription)")
         case .downloadFailed(_, let error):
-            return "Download failed: \(error.localizedDescription)"
+            return String(localized: "Download failed: \(error.localizedDescription)")
         case .keychainReadFailed(let status):
             return "Keychain read failed (OSStatus \(status))."
         case .keychainWriteFailed(let status):
@@ -61,17 +61,17 @@ extension CassetteError: LocalizedError {
         case .serverNotFound(let id):
             return "No server found with ID \(id.uuidString)."
         case .notImplemented:
-            return "This feature is not yet implemented."
+            return String(localized: "This feature is not yet implemented.")
         case .offlineUnavailable(let id):
-            return "'\(id)' is not downloaded and device is offline."
+            return String(localized: "'\(id)' is not downloaded and device is offline.")
         case .smartShuffleEmpty:
-            return "Your library is too small for Smart Shuffle. Try downloading more music or playing some tracks first."
+            return String(localized: "Your library is too small for Smart Shuffle. Try downloading more music or playing some tracks first.")
         case .instantMixEmpty:
-            return "No similar tracks found for an Instant Mix. Your server may not have similarity data for this yet."
+            return String(localized: "No similar tracks found for an Instant Mix. Your server may not have similarity data for this yet.")
         case .artistTracksUnavailable:
-            return "Unable to load tracks for this artist. Please check your connection and try again."
+            return String(localized: "Unable to load tracks for this artist. Please check your connection and try again.")
         case .timeout:
-            return "The operation timed out. Please check your connection and try again."
+            return String(localized: "The operation timed out. Please check your connection and try again.")
         }
     }
 }

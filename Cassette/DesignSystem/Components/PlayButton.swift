@@ -8,7 +8,7 @@ import SwiftUI
 /// Primary action button — accent capsule with play icon. Used in album and playlist headers.
 struct PlayButton: View {
     let action: () -> Void
-    var label: String = "Play"
+    var label: LocalizedStringKey = "Play"
     var isDisabled: Bool = false
     var accentColor: Color = CassetteColors.accent
     /// Label/glyph color. Default white (`cassetteAccentText`) preserves existing callers; the hero passes the

@@ -19,7 +19,7 @@ struct PlaylistCoverCarousel: View {
     var photoPreview: PlatformImage? = nil
     var showsPhotoOption: Bool = true
     /// "None" (create) or "Current" (edit).
-    var leadingLabel: String = "None"
+    var leadingLabel: LocalizedStringKey = "None"
     /// Edit flow: the leading card shows the current cover instead of the empty glyph.
     var leadingCoverArtId: String? = nil
     let onSelectLeading: () -> Void

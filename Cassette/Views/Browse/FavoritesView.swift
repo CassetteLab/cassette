@@ -39,7 +39,7 @@ struct FavoritesView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Favorites",
-                subtitle: error.displayMessage,
+                subtitle: LocalizedStringKey(error.displayMessage),
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else if isEmpty {

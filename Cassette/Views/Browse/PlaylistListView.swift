@@ -71,7 +71,7 @@ struct PlaylistListView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Playlists",
-                subtitle: error.displayMessage,
+                subtitle: LocalizedStringKey(error.displayMessage),
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else if vm.playlists.isEmpty {
@@ -127,7 +127,7 @@ private struct OnlinePlaylistRow: View {
                 Text(playlist.name)
                     .font(.cassetteCellTitle)
                     .lineLimit(1)
-                Text("\(playlist.songCount) track\(playlist.songCount == 1 ? "" : "s")")
+                Text("\(playlist.songCount) tracks")
                     .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
             }
@@ -220,7 +220,7 @@ private struct OfflinePlaylistRow: View {
                 Text(playlist.name)
                     .font(.cassetteCellTitle)
                     .lineLimit(1)
-                Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")")
+                Text("\(playlist.tracksCount) tracks")
                     .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
             }

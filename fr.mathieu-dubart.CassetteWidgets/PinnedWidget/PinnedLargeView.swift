@@ -19,7 +19,7 @@ struct PinnedLargeView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Éléments épinglés")
+                Text("Pinned Items")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
                 Spacer()
@@ -30,7 +30,7 @@ struct PinnedLargeView: View {
 
             if entry.items.isEmpty {
                 Spacer(minLength: 0)
-                Text("Épinglez des albums ou playlists dans Cassette")
+                Text("Pin albums or playlists in Cassette")
                     .font(.system(.subheadline, design: .rounded))
                     .foregroundStyle(.white.opacity(0.8))
                     .multilineTextAlignment(.leading)

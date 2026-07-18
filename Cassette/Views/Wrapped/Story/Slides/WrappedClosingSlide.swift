@@ -38,9 +38,9 @@ struct WrappedClosingSlide: View {
                 Spacer(minLength: CassetteSpacing.xl)
 
                 HStack(spacing: CassetteSpacing.m) {
-                    statCard(value: data.totalSecondsListened.wrappedCompactLabel(), label: "listened")
-                    statCard(value: "\(data.totalTracksPlayed)", label: data.totalTracksPlayed == 1 ? "play" : "plays")
-                    statCard(value: "\(data.totalUniqueArtists)", label: data.totalUniqueArtists == 1 ? "artist" : "artists")
+                    statCard(value: data.totalSecondsListened.wrappedCompactLabel(), label: String(localized: "listened"))
+                    statCard(value: "\(data.totalTracksPlayed)", label: data.totalTracksPlayed == 1 ? String(localized: "play") : String(localized: "plays"))
+                    statCard(value: "\(data.totalUniqueArtists)", label: data.totalUniqueArtists == 1 ? String(localized: "artist") : String(localized: "artists"))
                 }
                 .padding(.horizontal, CassetteSpacing.xl)
 

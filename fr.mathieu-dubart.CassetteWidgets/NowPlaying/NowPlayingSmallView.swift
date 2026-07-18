@@ -39,7 +39,7 @@ struct NowPlayingSmallView: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                 } else {
-                    Text("Ouvre Cassette")
+                    Text("Open Cassette")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
                         .lineLimit(1)

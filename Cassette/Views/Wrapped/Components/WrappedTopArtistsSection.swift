@@ -107,7 +107,7 @@ struct WrappedTopArtistsSection: View {
             }
     }
 
-    private func emptyLabel(_ text: String) -> some View {
+    private func emptyLabel(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.cassetteCaption)
             .foregroundStyle(.secondary)

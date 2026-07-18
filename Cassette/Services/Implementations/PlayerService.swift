@@ -976,7 +976,7 @@ actor PlayerService: PlayerServiceProtocol {
             await saveSession()
             if !songs.isEmpty {
                 await presentQueueConfirmation(
-                    songs.count == 1 ? "Playing next" : "\(songs.count) songs playing next",
+                    String(localized: "\(songs.count) songs playing next"),
                     coverArtId: songs.first?.coverArtId
                 )
             }
@@ -996,7 +996,7 @@ actor PlayerService: PlayerServiceProtocol {
         guard !songs.isEmpty,
               await MainActor.run(body: { !state.isLiveStream }) else { return }
         await presentQueueConfirmation(
-            songs.count == 1 ? "Added to queue" : "\(songs.count) songs added to queue",
+            String(localized: "\(songs.count) songs added to queue"),
             coverArtId: songs.first?.coverArtId
         )
     }

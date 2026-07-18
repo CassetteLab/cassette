@@ -111,7 +111,7 @@ struct PlaylistDetailMacOS: View {
                 coverArtId: vm.coverArtId ?? coverArtId,
                 title: vm.name.isEmpty ? name : vm.name,
                 primaryLine: vm.owner,
-                secondaryLine: songs.isEmpty ? nil : "\(songs.count) track\(songs.count == 1 ? "" : "s")",
+                secondaryLine: songs.isEmpty ? nil : String(localized: "\(songs.count) tracks"),
                 primaryAction: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
                 },
@@ -137,7 +137,7 @@ struct PlaylistDetailMacOS: View {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Playlist",
-                        subtitle: error.displayMessage,
+                        subtitle: LocalizedStringKey(error.displayMessage),
                         action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                     .listRowSeparator(.hidden)

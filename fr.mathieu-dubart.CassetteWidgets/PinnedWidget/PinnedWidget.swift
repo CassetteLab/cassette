@@ -14,8 +14,8 @@ struct PinnedWidget: Widget {
         StaticConfiguration(kind: kind, provider: PinnedProvider()) { entry in
             PinnedWidgetView(entry: entry)
         }
-        .configurationDisplayName("Éléments épinglés")
-        .description("Accédez rapidement à vos éléments épinglés.")
+        .configurationDisplayName("Pinned Items")
+        .description("Quickly access your pinned items.")
         .supportedFamilies([.systemMedium, .systemLarge])
     }
 }

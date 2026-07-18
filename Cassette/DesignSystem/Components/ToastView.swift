@@ -15,11 +15,11 @@ struct ToastView: View {
             leading
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(toast.message)
+                Text(LocalizedStringKey(toast.message))
                     .font(.cassetteCellTitle)
                     .lineLimit(1)
                 if let subtitle = toast.subtitle {
-                    Text(subtitle)
+                    Text(LocalizedStringKey(subtitle))
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

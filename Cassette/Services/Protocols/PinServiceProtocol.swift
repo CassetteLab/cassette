@@ -10,7 +10,7 @@ nonisolated enum PinError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .limitReached: "Maximum 6 items can be pinned to Home."
+        case .limitReached: String(localized: "Maximum 6 items can be pinned to Home.")
         }
     }
 }

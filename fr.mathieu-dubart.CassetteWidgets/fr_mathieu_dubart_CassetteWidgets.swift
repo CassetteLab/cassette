@@ -14,8 +14,8 @@ struct NowPlayingWidget: Widget {
         StaticConfiguration(kind: kind, provider: NowPlayingProvider()) { entry in
             NowPlayingWidgetView(entry: entry)
         }
-        .configurationDisplayName("À l'écoute")
-        .description("Affiche le morceau en cours de lecture.")
+        .configurationDisplayName("Now Playing")
+        .description("Displays the currently playing track.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }

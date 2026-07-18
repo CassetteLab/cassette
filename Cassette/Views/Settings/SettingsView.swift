@@ -341,7 +341,7 @@ struct DownloadsSectionView: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 } else {
-                                    Text("\(album.downloadedTracksCount) track\(album.downloadedTracksCount == 1 ? "" : "s")")
+                                    Text("\(album.downloadedTracksCount) tracks")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }

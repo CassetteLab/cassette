@@ -36,7 +36,7 @@ struct ArtistGridCard: View {
                 .multilineTextAlignment(.center)
 
             if let count = artist.albumCount {
-                Text("\(count) album\(count == 1 ? "" : "s")")
+                Text("\(count) albums")
                     .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
             }

@@ -27,7 +27,7 @@ struct ArtistRow: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 if let count = artist.albumCount {
-                    Text("\(count) album\(count == 1 ? "" : "s")")
+                    Text("\(count) albums")
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }

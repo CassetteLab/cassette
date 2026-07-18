@@ -131,20 +131,20 @@ extension ConnectionTestError {
 extension ConnectionTestError: LocalizedError {
     nonisolated var errorDescription: String? {
         switch self {
-        case .invalidURL:        return "Invalid server URL."
-        case .dnsFailure:        return "DNS resolution failed or local network access denied."
-        case .cannotConnect:     return "Cannot connect to server."
-        case .timeout:           return "Connection timed out."
-        case .certificate:       return "TLS certificate error."
-        case .atsBlocked:        return "App Transport Security blocked the connection."
-        case .unauthorized:      return "Authentication failed — wrong username or password."
-        case .httpError(let sc): return "HTTP \(sc) error."
+        case .invalidURL:        return String(localized: "Invalid server URL.")
+        case .dnsFailure:        return String(localized: "DNS resolution failed or local network access denied.")
+        case .cannotConnect:     return String(localized: "Cannot connect to server.")
+        case .timeout:           return String(localized: "Connection timed out.")
+        case .certificate:       return String(localized: "TLS certificate error.")
+        case .atsBlocked:        return String(localized: "App Transport Security blocked the connection.")
+        case .unauthorized:      return String(localized: "Authentication failed — wrong username or password.")
+        case .httpError(let sc): return String(localized: "HTTP \(sc) error.")
         case .subsonicError(let code, let msg):
-            return "Subsonic error \(code.rawValue)" + (msg.map { ": \($0)" } ?? ".")
-        case .notSubsonicServer:      return "Not a Subsonic/OpenSubsonic server."
-        case .invalidConfiguration:   return "Invalid client configuration."
-        case .insecureRedirect:       return "Cross-domain redirect blocked."
-        case .unknown(let domain, let code): return "Unexpected error: \(domain) \(code)."
+            return String(localized: "Subsonic error \(code.rawValue)") + (msg.map { ": \($0)" } ?? ".")
+        case .notSubsonicServer:      return String(localized: "Not a Subsonic/OpenSubsonic server.")
+        case .invalidConfiguration:   return String(localized: "Invalid client configuration.")
+        case .insecureRedirect:       return String(localized: "Cross-domain redirect blocked.")
+        case .unknown(let domain, let code): return String(localized: "Unexpected error: \(domain) \(code).")
         }
     }
 }

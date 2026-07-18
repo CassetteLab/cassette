@@ -64,7 +64,7 @@ struct ArtistListView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Artists",
-                subtitle: error.displayMessage,
+                subtitle: LocalizedStringKey(error.displayMessage),
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
         } else if vm.indexes.isEmpty {
@@ -221,7 +221,7 @@ private struct OfflineBrowseContent: View {
                                     Text(artist.name)
                                         .font(.cassetteCellTitle)
                                         .lineLimit(1)
-                                    Text("\(artist.albums.count) album\(artist.albums.count == 1 ? "" : "s")")
+                                    Text("\(artist.albums.count) albums")
                                         .font(.cassetteCaption)
                                         .foregroundStyle(.secondary)
                                 }

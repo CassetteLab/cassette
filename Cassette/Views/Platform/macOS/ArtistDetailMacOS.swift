@@ -245,7 +245,7 @@ struct ArtistDetailMacOS: View {
 
                 let count = vm.artist?.albumCount ?? vm.artist?.album?.count
                 if let count {
-                    Text("\(count) album\(count == 1 ? "" : "s")")
+                    Text("\(count) albums")
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }

@@ -437,7 +437,7 @@ actor DownloadService: DownloadServiceProtocol {
         }
         Logger.download.info("Album '\(album.id, privacy: .public)': \(succeeded)/\(total) tracks downloaded.")
         if succeeded == total {
-            await toastService.showSuccess("\(album.name) downloaded")
+            await toastService.showSuccess(String(localized: "\(album.name) downloaded"))
         }
     }
 
@@ -533,7 +533,7 @@ actor DownloadService: DownloadServiceProtocol {
         }
         Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
         if tracksSucceeded == totalTracks {
-            await toastService.showSuccess("\(playlist.name) downloaded")
+            await toastService.showSuccess(String(localized: "\(playlist.name) downloaded"))
         }
     }
 

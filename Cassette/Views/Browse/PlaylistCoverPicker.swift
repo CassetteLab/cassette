@@ -13,7 +13,7 @@ struct PlaylistCoverPicker: View {
     let isPhotoSelected: Bool
     var photoPreview: PlatformImage? = nil
     var showsPhotoOption: Bool = true
-    var leadingLabel: String = "None"
+    var leadingLabel: LocalizedStringKey = "None"
     /// When set (edit flow), the leading swatch shows the current cover instead of the "none" glyph.
     var leadingCoverArtId: String? = nil
     let onSelectLeading: () -> Void
@@ -52,7 +52,7 @@ struct PlaylistCoverPicker: View {
                 ForEach(PlaylistGradientShape.allCases) { shape in
                     PlaylistCoverSwatch(
                         isSelected: selectedGradient == shape,
-                        label: shape.displayName,
+                        label: LocalizedStringKey(shape.displayName),
                         action: { onSelectGradient(shape) }
                     ) {
                         PlaylistGradientView(spec: .neutral(shape: shape))
@@ -75,11 +75,11 @@ struct PlaylistCoverPicker: View {
 /// A single 60pt cover-picker swatch — rounded tile + caption, ringed when selected.
 struct PlaylistCoverSwatch<Content: View>: View {
     let isSelected: Bool
-    let label: String
+    let label: LocalizedStringKey
     let action: () -> Void
     @ViewBuilder let content: () -> Content
 
-    init(isSelected: Bool, label: String, action: @escaping () -> Void, @ViewBuilder content: @escaping () -> Content) {
+    init(isSelected: Bool, label: LocalizedStringKey, action: @escaping () -> Void, @ViewBuilder content: @escaping () -> Content) {
         self.isSelected = isSelected
         self.label = label
         self.action = action

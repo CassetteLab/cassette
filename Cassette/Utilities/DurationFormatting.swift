@@ -10,14 +10,14 @@ extension TimeInterval {
     func wrappedHeroFormat() -> (number: String, unit: String) {
         let totalMinutes = Int(self / 60)
         if totalMinutes < 60 {
-            return ("\(totalMinutes)", totalMinutes == 1 ? "minute listened" : "minutes listened")
+            return ("\(totalMinutes)", totalMinutes == 1 ? String(localized: "minute listened") : String(localized: "minutes listened"))
         }
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
         if minutes > 0 {
-            return ("\(hours)h \(minutes)m", "listened")
+            return ("\(hours)h \(minutes)m", String(localized: "listened"))
         }
-        return ("\(hours)", hours == 1 ? "hour listened" : "hours listened")
+        return ("\(hours)", hours == 1 ? String(localized: "hour listened") : String(localized: "hours listened"))
     }
 
     /// Returns (number, unit) for Wrapped stat hero display — always in minutes.
@@ -29,7 +29,7 @@ extension TimeInterval {
         formatter.groupingSeparator = "\u{00A0}"
         formatter.groupingSize = 3
         let number = formatter.string(from: totalMinutes as NSNumber) ?? "\(totalMinutes)"
-        let unit = totalMinutes == 1 ? "minute listened" : "minutes listened"
+        let unit = totalMinutes == 1 ? String(localized: "minute listened") : String(localized: "minutes listened")
         return (number, unit)
     }
 

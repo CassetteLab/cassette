@@ -191,7 +191,7 @@ private struct AddToPlaylistRow: View {
                     .font(.cassetteCellTitle)
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                Text("\(playlist.songCount) track\(playlist.songCount == 1 ? "" : "s")")
+                Text("\(playlist.songCount) tracks")
                     .font(.cassetteCaption)
                     .foregroundStyle(.secondary)
             }

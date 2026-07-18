@@ -30,26 +30,26 @@ nonisolated enum UserFacingError: LocalizedError, Identifiable, Sendable {
 
     var errorDescription: String? {
         switch self {
-        case .noNetwork: "No internet connection."
-        case .serverUnreachable: "Couldn't reach your server."
-        case .authenticationFailed: "Authentication failed."
-        case .contentUnavailableOffline: "This content isn't available offline."
-        case .downloadFailed: "Download failed."
-        case .playbackFailed: "Couldn't play this track."
-        case .syncFailed: "Couldn't sync with your server."
-        case .unexpected: "Something went wrong."
+        case .noNetwork: String(localized: "No internet connection.")
+        case .serverUnreachable: String(localized: "Couldn't reach your server.")
+        case .authenticationFailed: String(localized: "Authentication failed.")
+        case .contentUnavailableOffline: String(localized: "This content isn't available offline.")
+        case .downloadFailed: String(localized: "Download failed.")
+        case .playbackFailed: String(localized: "Couldn't play this track.")
+        case .syncFailed: String(localized: "Couldn't sync with your server.")
+        case .unexpected: String(localized: "Something went wrong.")
         }
     }
 
     var recoverySuggestion: String? {
         switch self {
-        case .noNetwork: "Check your connection and try again."
-        case .serverUnreachable: "Make sure your server is running and reachable."
-        case .authenticationFailed: "Verify your credentials in Settings."
-        case .contentUnavailableOffline: "Download this content first, or reconnect to your server."
-        case .downloadFailed: "Check your connection and storage, then try again."
-        case .playbackFailed: "Try again or skip to another track."
-        case .syncFailed: "Your changes are saved and will sync when your server is reachable."
+        case .noNetwork: String(localized: "Check your connection and try again.")
+        case .serverUnreachable: String(localized: "Make sure your server is running and reachable.")
+        case .authenticationFailed: String(localized: "Verify your credentials in Settings.")
+        case .contentUnavailableOffline: String(localized: "Download this content first, or reconnect to your server.")
+        case .downloadFailed: String(localized: "Check your connection and storage, then try again.")
+        case .playbackFailed: String(localized: "Try again or skip to another track.")
+        case .syncFailed: String(localized: "Your changes are saved and will sync when your server is reachable.")
         case .unexpected: nil
         }
     }

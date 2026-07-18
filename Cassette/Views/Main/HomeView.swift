@@ -240,7 +240,7 @@ struct HomeView: View {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load",
-                        subtitle: error.displayMessage,
+                        subtitle: LocalizedStringKey(error.displayMessage),
                         action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                 } else if !vm.isLoading && vm.recentAlbums.isEmpty && vm.recentlyPlayed.isEmpty && vm.mostPlayed.isEmpty {
@@ -557,7 +557,7 @@ private struct HomePinnedCard: View {
 // MARK: - HomeLibraryRowLabel
 
 private struct HomeLibraryRowLabel: View {
-    let title: String
+    let title: LocalizedStringKey
     let systemImage: String
 
     var body: some View {

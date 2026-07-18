@@ -88,7 +88,7 @@ private struct DownloadedContent: View {
                                                 .foregroundStyle(.secondary)
                                                 .lineLimit(1)
                                         }
-                                        Text("\(display.downloadedTracksCount) track\(display.downloadedTracksCount == 1 ? "" : "s")")
+                                        Text("\(display.downloadedTracksCount) tracks")
                                             .font(.cassetteCaption)
                                             .foregroundStyle(.tertiary)
                                     }
@@ -111,7 +111,7 @@ private struct DownloadedContent: View {
                                         Text(playlist.name)
                                             .font(.cassetteCellTitle)
                                             .lineLimit(1)
-                                        Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")\(playlist.isComplete ? "" : " (incomplete)")")
+                                        Text("\(playlist.tracksCount) tracks\(playlist.isComplete ? "" : " (incomplete)")")
                                             .font(.cassetteCaption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -147,7 +147,7 @@ private struct DownloadedContent: View {
                                                 .foregroundStyle(.secondary)
                                                 .lineLimit(1)
                                         }
-                                        Text("\(display.downloadedTracksCount) track\(display.downloadedTracksCount == 1 ? "" : "s")")
+                                        Text("\(display.downloadedTracksCount) tracks")
                                             .font(.cassetteCaption)
                                             .foregroundStyle(.tertiary)
                                     }
@@ -170,7 +170,7 @@ private struct DownloadedContent: View {
                                         Text(playlist.name)
                                             .font(.cassetteCellTitle)
                                             .lineLimit(1)
-                                        Text("\(playlist.tracksCount) track\(playlist.tracksCount == 1 ? "" : "s")\(playlist.isComplete ? "" : " (incomplete)")")
+                                        Text("\(playlist.tracksCount) tracks\(playlist.isComplete ? "" : " (incomplete)")")
                                             .font(.cassetteCaption)
                                             .foregroundStyle(.secondary)
                                     }

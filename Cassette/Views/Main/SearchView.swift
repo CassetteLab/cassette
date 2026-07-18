@@ -255,7 +255,7 @@ struct SearchView: View {
             EmptyStateView(
                 systemImage: "exclamationmark.triangle",
                 title: "Search Unavailable",
-                subtitle: error.localizedDescription,
+                subtitle: LocalizedStringKey(error.localizedDescription),
                 action: .init(label: "Retry") { Task { await vm.search(query: searchQuery) } }
             )
             .listRowSeparator(.hidden)

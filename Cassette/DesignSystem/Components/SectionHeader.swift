@@ -7,7 +7,7 @@ import SwiftUI
 
 /// Section label in SF Pro Rounded semibold. Use above lists or grids in detail screens.
 struct SectionHeader: View {
-    let title: String
+    let title: LocalizedStringKey
 
     var body: some View {
         Text(title)

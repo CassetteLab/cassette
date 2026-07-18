@@ -21,7 +21,7 @@ struct RadioListView: View {
                 EmptyStateView(
                     systemImage: "exclamationmark.triangle",
                     title: "Unable to Load Radios",
-                    subtitle: error.localizedDescription,
+                    subtitle: LocalizedStringKey(error.localizedDescription),
                     action: .init(label: "Retry") { Task { await load(forceRefresh: true) } }
                 )
             } else if stations.isEmpty {

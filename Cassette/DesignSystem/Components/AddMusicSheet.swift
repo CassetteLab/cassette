@@ -452,7 +452,7 @@ private struct AddMusicPlaylistList: View {
                     NavigationLink(value: AddMusicRoute.playlistSongs(id: playlist.id, name: playlist.name)) {
                         AddMusicCoverRow(coverArtId: playlist.coverArt ?? playlist.id,
                                          title: playlist.name,
-                                         subtitle: "\(playlist.songCount) song\(playlist.songCount == 1 ? "" : "s")")
+                                         subtitle: String(localized: "\(playlist.songCount) songs"))
                     }
                 }
             }

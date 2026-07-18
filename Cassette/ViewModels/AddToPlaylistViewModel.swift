@@ -104,7 +104,7 @@ final class AddToPlaylistViewModel {
             return .added
         } catch {
             Logger.playlist.error("AddToPlaylistViewModel: failed to add song \(songId) to playlist \(playlist.id): \(error)")
-            toastService.showError("Failed to add to \(playlist.name)")
+            toastService.showError(String(localized: "Failed to add to \(playlist.name)"))
             return .failed
         }
     }

@@ -17,7 +17,7 @@ struct NowPlayingMediumView: View {
 
             VStack(alignment: .leading, spacing: 0) {
 
-                Text("À L'ÉCOUTE")
+                Text("NOW PLAYING")
                     .font(.system(.caption2, design: .rounded, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
                     .tracking(0.5)
@@ -37,7 +37,7 @@ struct NowPlayingMediumView: View {
                         .truncationMode(.tail)
                         .padding(.top, 2)
                 } else {
-                    Text("Ouvre Cassette pour commencer")
+                    Text("Open Cassette to get started")
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1)

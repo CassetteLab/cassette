@@ -137,7 +137,7 @@ struct PlaylistDetailView: View {
 
     /// Header metadata line, Apple-Music style: "N songs · Updated <relative date>".
     private func metadataLine(count: Int, updated: Date?) -> String {
-        var parts = ["\(count) song\(count == 1 ? "" : "s")"]
+        var parts = [String(localized: "\(count) songs")]
         if let updated {
             parts.append("Updated \(updated.formatted(.relative(presentation: .named)))")
         }
@@ -201,7 +201,7 @@ struct PlaylistDetailView: View {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Playlist",
-                        subtitle: error.displayMessage,
+                        subtitle: LocalizedStringKey(error.displayMessage),
                         action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                     .listRowSeparator(.hidden)
@@ -323,7 +323,7 @@ struct PlaylistDetailView: View {
         ) { purgeDownloads in
             Task { await deletePlaylistInPlace(purgeDownloads: purgeDownloads) }
         }
-        .alert("Remove \(selectedSongIds.count) Song\(selectedSongIds.count == 1 ? "" : "s")?", isPresented: $showRemoveSongsConfirm) {
+        .alert("Remove \(selectedSongIds.count) Songs?", isPresented: $showRemoveSongsConfirm) {
             Button("Remove", role: .destructive) { removeSelectedTracks() }
             Button("Cancel", role: .cancel) {}
         } message: {

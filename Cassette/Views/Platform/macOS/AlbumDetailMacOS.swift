@@ -85,7 +85,7 @@ struct AlbumDetailMacOS: View {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Album",
-                        subtitle: error.displayMessage,
+                        subtitle: LocalizedStringKey(error.displayMessage),
                         action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                     .listRowSeparator(.hidden)
@@ -126,7 +126,7 @@ struct AlbumDetailMacOS: View {
         if let year = vm.year { parts.append(String(year)) }
         if let genre = vm.genre { parts.append(genre) }
         let count = vm.songCount > 0 ? vm.songCount : vm.songs.count
-        if count > 0 { parts.append("\(count) track\(count == 1 ? "" : "s")") }
+        if count > 0 { parts.append(String(localized: "\(count) tracks")) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 

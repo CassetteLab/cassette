@@ -6,7 +6,7 @@
 import SwiftUI
 
 struct LoadingStateView: View {
-    var message: String? = nil
+    var message: LocalizedStringKey? = nil
 
     var body: some View {
         VStack(spacing: CassetteSpacing.m) {

@@ -55,14 +55,14 @@ struct WrappedStatHero: View {
         let totalMinutes = Int(data.totalSecondsListened / 60)
         let durationText: String
         if totalMinutes < 60 {
-            durationText = "\(totalMinutes) \(totalMinutes == 1 ? "minute" : "minutes") listened"
+            durationText = String(localized: "\(totalMinutes) minutes listened")
         } else {
             let hours = totalMinutes / 60
             let minutes = totalMinutes % 60
             if minutes > 0 {
-                durationText = "\(hours) \(hours == 1 ? "hour" : "hours") \(minutes) \(minutes == 1 ? "minute" : "minutes") listened"
+                durationText = String(localized: "\(hours) hours \(minutes) minutes listened")
             } else {
-                durationText = "\(hours) \(hours == 1 ? "hour" : "hours") listened"
+                durationText = String(localized: "\(hours) hours listened")
             }
         }
         return "\(durationText), \(data.totalTracksPlayed.plural("play", "plays")), \(data.totalUniqueArtists.plural("artist", "artists")), \(data.totalUniqueAlbums.plural("album", "albums"))"

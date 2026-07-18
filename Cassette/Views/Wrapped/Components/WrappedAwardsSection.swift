@@ -15,11 +15,11 @@ struct WrappedAwardsSection: View {
         self.data = data
         let (minuteStr, _) = data.totalSecondsListened.wrappedHeroMinutesFormat()
         awards = [
-            AwardEntry(id: 0, icon: .cassette, title: "Time Devoted", value: minuteStr, subline: "minutes listened"),
-            AwardEntry(id: 1, icon: .sf("flame.fill"), title: "Daily Habit", value: "\(data.streakDays)", subline: data.streakDays == 1 ? "day streak" : "days streak"),
-            AwardEntry(id: 2, icon: .sf("music.note"), title: "Discovery", value: "\(data.totalUniqueTracks)", subline: data.totalUniqueTracks == 1 ? "unique track" : "unique tracks"),
-            AwardEntry(id: 3, icon: .sf("person.2.fill"), title: "Variety", value: "\(data.totalUniqueArtists)", subline: data.totalUniqueArtists == 1 ? "artist heard" : "artists heard"),
-            AwardEntry(id: 4, icon: .sf("guitars.fill"), title: "Style", value: data.dominantGenre ?? "—", subline: "dominant genre"),
+            AwardEntry(id: 0, icon: .cassette, title: String(localized: "Time Devoted"), value: minuteStr, subline: String(localized: "minutes listened")),
+            AwardEntry(id: 1, icon: .sf("flame.fill"), title: String(localized: "Daily Habit"), value: "\(data.streakDays)", subline: data.streakDays == 1 ? String(localized: "day streak") : String(localized: "days streak")),
+            AwardEntry(id: 2, icon: .sf("music.note"), title: String(localized: "Discovery"), value: "\(data.totalUniqueTracks)", subline: data.totalUniqueTracks == 1 ? String(localized: "unique track") : String(localized: "unique tracks")),
+            AwardEntry(id: 3, icon: .sf("person.2.fill"), title: String(localized: "Variety"), value: "\(data.totalUniqueArtists)", subline: data.totalUniqueArtists == 1 ? String(localized: "artist heard") : String(localized: "artists heard")),
+            AwardEntry(id: 4, icon: .sf("guitars.fill"), title: String(localized: "Style"), value: data.dominantGenre ?? "—", subline: String(localized: "dominant genre")),
         ]
     }
 

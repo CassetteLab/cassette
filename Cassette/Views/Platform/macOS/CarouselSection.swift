@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct CarouselSection<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     var onSeeAll: (() -> Void)? = nil
     @ViewBuilder let content: () -> Content
 

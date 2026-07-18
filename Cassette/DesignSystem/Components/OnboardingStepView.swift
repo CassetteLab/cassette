@@ -11,8 +11,8 @@ import SwiftUI
 /// Skip / Continue buttons pinned at the bottom via safeAreaInset.
 struct OnboardingStepView<Content: View>: View {
     let icon: String
-    let title: String
-    let subtitle: String
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
     let stepIndex: Int
     let totalSteps: Int
     let onSkip: () -> Void

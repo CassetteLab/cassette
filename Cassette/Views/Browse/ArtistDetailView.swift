@@ -86,7 +86,7 @@ struct ArtistDetailView: View {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Artist",
-                        subtitle: error.displayMessage,
+                        subtitle: LocalizedStringKey(error.displayMessage),
                         action: .init(label: "Retry") { Task { await vm.load() } }
                     )
                 } else {
@@ -218,7 +218,7 @@ struct ArtistDetailView: View {
                 .font(.system(.title, design: .rounded, weight: .semibold))
                 .foregroundStyle(headerTextColor)
                 .multilineTextAlignment(.center)
-            Text("\(count) album\(count == 1 ? "" : "s")")
+            Text("\(count) albums")
                 .font(.cassetteCaption)
                 .foregroundStyle(headerSecondaryColor)
                 .padding(.bottom, CassetteSpacing.xs)
@@ -356,7 +356,7 @@ struct ArtistDetailView: View {
                             .font(.cassetteCellTitle)
                             .foregroundStyle(headerTextColor)
                             .lineLimit(2)
-                        Text("\(album.songCount) song\(album.songCount == 1 ? "" : "s")")
+                        Text("\(album.songCount) songs")
                             .font(.cassetteCaption)
                             .foregroundStyle(headerSecondaryColor)
                     }

@@ -16,13 +16,13 @@ import SwiftUI
 /// ```
 struct EmptyStateView: View {
     struct Action {
-        let label: String
+        let label: LocalizedStringKey
         let handler: () -> Void
     }
 
     let systemImage: String
-    let title: String
-    var subtitle: String? = nil
+    let title: LocalizedStringKey
+    var subtitle: LocalizedStringKey? = nil
     var action: Action? = nil
 
     var body: some View {
