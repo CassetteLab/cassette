@@ -35,36 +35,119 @@ final class ArtistDetailViewModel {
     /// fades in, or the area collapses if the server has none).
     var isLoadingArtistInfo = true
 
+    /// True when the screen is showing the downloaded copy rather than the server's catalogue.
+    /// The view uses it to drop the sections that only exist online (bio, top songs, similar artists).
+    var isOffline = false
+    /// The artist's downloaded tracks in album order — what Play falls back to offline, since
+    /// `fetchAllTracks(forArtistID:)` needs the network.
+    var offlineTracks: [DisplayableSong] = []
+
+    private let artistName: String?
     private let artistId: String
     private let libraryService: any LibraryServiceProtocol
+    private let downloadService: any DownloadServiceProtocol
     private let recommendationService: RecommendationService
     private let imageResolver: ExternalArtistImageResolver
+    private let serverState: ServerState
 
     init(
         artistId: String,
+        artistName: String? = nil,
         libraryService: any LibraryServiceProtocol,
+        downloadService: any DownloadServiceProtocol,
         recommendationService: RecommendationService,
-        imageResolver: ExternalArtistImageResolver
+        imageResolver: ExternalArtistImageResolver,
+        serverState: ServerState
     ) {
         self.artistId = artistId
+        self.artistName = artistName
         self.libraryService = libraryService
+        self.downloadService = downloadService
         self.recommendationService = recommendationService
         self.imageResolver = imageResolver
+        self.serverState = serverState
     }
 
+    /// Three-tier load, mirroring AlbumDetailViewModel: online → API, with the downloaded copy standing in
+    /// both when the server answers empty and when it fails outright.
     func load() async {
         isLoading = true
         error = nil
-        do {
-            artist = try await libraryService.artist(id: artistId)
-        } catch {
-            self.error = UserFacingError.from(error)
+        if serverState.isOnline {
+            await loadFromAPI()
+        } else {
+            isOffline = true
+            await loadFromLocal()
         }
         isLoading = false
     }
 
+    private func loadFromAPI() async {
+        do {
+            let fetched = try await libraryService.artist(id: artistId)
+            // Empty-success guard: behind a captive proxy the server answers 200 with no albums.
+            // That never throws, so prefer the downloaded copy over an empty screen.
+            if (fetched.album ?? []).isEmpty, await loadFromLocal() { return }
+            artist = fetched
+            isOffline = false
+        } catch {
+            // Server unreachable (stale isOnline, VPN-satisfied path, server down): the downloaded
+            // copy beats an error screen.
+            if await loadFromLocal() { return }
+            self.error = UserFacingError.from(error)
+        }
+    }
+
+    /// Rebuilds the artist from downloads. Returns true only when something was on disk, and sets
+    /// `isOffline` only then — a transient online failure must not blank a page that already loaded.
+    @discardableResult
+    private func loadFromLocal() async -> Bool {
+        guard let serverId = serverState.activeServer?.id,
+              let data = await downloadService.localArtistData(
+                  artistId: artistId,
+                  artistName: artistName ?? artist?.name,
+                  serverId: serverId
+              ),
+              !data.albums.isEmpty
+        else { return false }
+
+        artist = ArtistID3(
+            id: data.artistId,
+            name: data.artistName,
+            albumCount: data.albums.count,
+            coverArt: data.coverArtId,
+            album: data.albums.map { album in
+                // No year offline — DownloadedAlbum/DownloadedTrack never persist it.
+                AlbumID3(
+                    id: album.albumId,
+                    name: album.albumName,
+                    songCount: album.songs.count,
+                    duration: Int(album.songs.reduce(0) { $0 + $1.duration }),
+                    artist: album.artistName,
+                    artistId: data.artistId,
+                    coverArt: album.coverArtId
+                )
+            }
+        )
+        offlineTracks = data.tracks
+        // The online-only sections have nothing to fetch: clear their loading flags so the view
+        // collapses them instead of showing skeletons that never resolve.
+        topSongs = []
+        likedSongs = []
+        similarArtists = []
+        biography = nil
+        lastFmURL = nil
+        isLoadingTopSongs = false
+        isLoadingLikedSongs = false
+        isLoadingSimilarArtists = false
+        isLoadingArtistInfo = false
+        isOffline = true
+        return true
+    }
+
     /// Top songs (getTopSongs takes the artist NAME) — call after `load()` so `artist?.name` is set.
     func loadTopSongs() async {
+        guard !isOffline else { isLoadingTopSongs = false; return }
         guard let name = artist?.name else { isLoadingTopSongs = false; return }
         isLoadingTopSongs = true
         defer { isLoadingTopSongs = false }
@@ -80,6 +163,7 @@ final class ArtistDetailViewModel {
     /// starred endpoint, so this filters the full getStarred2 payload. Call after `load()` so
     /// `artist?.name` is available as a fallback match for servers that omit `artistId` on starred songs.
     func loadLikedSongs() async {
+        guard !isOffline else { isLoadingLikedSongs = false; return }
         isLoadingLikedSongs = true
         defer { isLoadingLikedSongs = false }
         do {
@@ -95,6 +179,7 @@ final class ArtistDetailViewModel {
     /// which come from `recommendationService`. Slow external lookups are already
     /// guarded by the service's 15s timeout, so this loads in the background.
     func loadArtistInfo() async {
+        guard !isOffline else { isLoadingArtistInfo = false; return }
         defer { isLoadingArtistInfo = false }
         do {
             let info = try await libraryService.getArtistInfo(forArtistID: artistId, count: 20)
@@ -109,6 +194,7 @@ final class ArtistDetailViewModel {
     // Called from the view's .task after load() returns so artist loading and
     // index/network calls from similar artists never compete on the same server.
     func loadSimilarArtists() async {
+        guard !isOffline else { isLoadingSimilarArtists = false; return }
         isLoadingSimilarArtists = true
         similarArtists = []
         defer { isLoadingSimilarArtists = false }

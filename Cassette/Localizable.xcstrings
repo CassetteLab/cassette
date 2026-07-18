@@ -17254,6 +17254,58 @@
         }
       }
     },
+    "Nothing from this artist is downloaded. Download albums while online to browse them here.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Von diesem Artist ist nichts geladen. Lade Alben, solange du online bist, um sie hier zu sehen."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν έχεις κατεβάσει τίποτα από αυτόν τον καλλιτέχνη. Κατέβασε άλμπουμ όσο είσαι συνδεδεμένος για να τα δεις εδώ."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No has descargado nada de este artista. Descarga álbumes mientras estés en línea para verlos aquí."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rien de cet artiste n'est téléchargé. Téléchargez des albums lorsque vous êtes en ligne pour les retrouver ici."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non hai scaricato nulla di questo artista. Scarica album mentre sei online per vederli qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアーティストの曲はダウンロードされていません。オンラインのうちにアルバムをダウンロードすると、ここに表示されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未下载这位艺人的任何内容。请在联网时下载专辑，以便在此浏览。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未下載這位藝人的任何內容。請在連網時下載專輯，以便在此瀏覽。"
+          }
+        }
+      }
+    },
     "Nothing in the past 3 months from artists you listen to.": {
       "localizations": {
         "de": {
@@ -27384,6 +27436,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "首不重複的曲目"
+          }
+        }
+      }
+    },
+    "Unknown Artist": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unbekannter Künstler"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Άγνωστος καλλιτέχνης"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artista desconocido"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artiste inconnu"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Artista sconosciuto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明なアーティスト"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知艺人"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知藝人"
           }
         }
       }

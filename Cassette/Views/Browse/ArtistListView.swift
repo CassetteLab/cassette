@@ -159,7 +159,11 @@ nonisolated struct OfflineAlbumSummary: Sendable, Identifiable, Hashable {
 nonisolated struct OfflineArtistSummary: Sendable, Identifiable, Hashable {
     let name: String
     let albums: [OfflineAlbumSummary]
-    var id: String { name }
+    /// Server artist id when the downloaded tracks carried one. Present → the row can open the real
+    /// artist screen (which rebuilds itself from downloads); absent → it falls back to the flat album list.
+    var artistId: String?
+    var coverArtId: String?
+    var id: String { artistId ?? name }
 }
 
 /// Derives the offline artist/album hierarchy from DownloadedTrack — the single source of truth
@@ -176,26 +180,45 @@ private struct OfflineBrowseContent: View {
         )
     }
 
+    /// One entry per album, tagged with the artist id when the tracks carried one.
+    private struct AlbumEntry {
+        let summary: OfflineAlbumSummary
+        let artistId: String?
+    }
+
     private var artistSummaries: [OfflineArtistSummary] {
         let withAlbum = tracks.filter { $0.albumId != nil }
         let byAlbum = Dictionary(grouping: withAlbum) { $0.albumId! }
-        let albumSummaries = byAlbum.map { albumId, albumTracks -> OfflineAlbumSummary in
+        let entries = byAlbum.map { albumId, albumTracks -> AlbumEntry in
             let first = albumTracks[0]
-            return OfflineAlbumSummary(
-                albumId: albumId,
-                albumName: first.album ?? albumId,
-                artistName: first.artist,
-                coverArtId: first.coverArtId,
-                trackCount: albumTracks.count
+            return AlbumEntry(
+                summary: OfflineAlbumSummary(
+                    albumId: albumId,
+                    albumName: first.album ?? albumId,
+                    artistName: first.artist,
+                    coverArtId: first.coverArtId,
+                    trackCount: albumTracks.count
+                ),
+                artistId: albumTracks.compactMap(\.artistId).first
             )
         }
-        let byArtist = Dictionary(grouping: albumSummaries) { $0.artistName ?? "Unknown Artist" }
-        return byArtist.map { name, albums in
-            OfflineArtistSummary(
-                name: name,
-                albums: albums.sorted { $0.albumName < $1.albumName }
+        // Group on the artist id when it's there, falling back to a case-folded name. Grouping on the raw
+        // name (as this did) split one artist into several rows on any casing/spelling inconsistency.
+        let byArtist = Dictionary(grouping: entries) { entry in
+            entry.artistId ?? "name:\(entry.summary.artistName?.lowercased() ?? "")"
+        }
+        return byArtist.map { _, entries in
+            let albums = entries.map(\.summary).sorted {
+                $0.albumName.localizedCaseInsensitiveCompare($1.albumName) == .orderedAscending
+            }
+            return OfflineArtistSummary(
+                name: entries.first?.summary.artistName ?? String(localized: "Unknown Artist"),
+                albums: albums,
+                artistId: entries.compactMap(\.artistId).first,
+                coverArtId: albums.first?.coverArtId
             )
-        }.sorted { $0.name < $1.name }
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     var body: some View {
@@ -209,31 +232,45 @@ private struct OfflineBrowseContent: View {
             List {
                 Section("Downloaded Artists") {
                     ForEach(artistSummaries) { artist in
-                        NavigationLink(value: HomeDestination.offlineArtist(artist)) {
-                            HStack(spacing: CassetteSpacing.m) {
-                                Image(systemName: "music.mic")
-                                    .font(.title2)
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 44, height: 44)
-                                    .background(CassetteColors.accentBackground)
-                                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.s))
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(artist.name)
-                                        .font(.cassetteCellTitle)
-                                        .lineLimit(1)
-                                    Text("\(artist.albums.count) albums")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .padding(.vertical, CassetteSpacing.xs)
+                        // With an artist id the real artist screen can rebuild itself from downloads —
+                        // covers, album grid, working Play. Without one, the flat album list is all we can offer.
+                        NavigationLink(value: destination(for: artist)) {
+                            OfflineArtistRow(artist: artist)
                         }
                     }
                 }
             }
             .listStyle(.plain)
         }
+    }
+
+    private func destination(for artist: OfflineArtistSummary) -> HomeDestination {
+        guard let artistId = artist.artistId else { return .offlineArtist(artist) }
+        return .artistById(id: artistId, name: artist.name, coverArtId: artist.coverArtId)
+    }
+}
+
+private struct OfflineArtistRow: View {
+    let artist: OfflineArtistSummary
+
+    var body: some View {
+        HStack(spacing: CassetteSpacing.m) {
+            // The album cover stands in for the artist photo: artist art is only on disk if it was
+            // fetched while browsing, whereas an album cover ships with every download.
+            CoverArtView(id: artist.coverArtId ?? artist.id, size: 88)
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.s))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(artist.name)
+                    .font(.cassetteCellTitle)
+                    .lineLimit(1)
+                Text("\(artist.albums.count) albums")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, CassetteSpacing.xs)
     }
 }
 

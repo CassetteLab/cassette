@@ -96,16 +96,26 @@ struct ArtistDetailView: View {
                 } else {
                     let albums = vm.artist?.album ?? []
                     if albums.isEmpty {
-                        EmptyStateView(
-                            systemImage: "square.stack",
-                            title: "No Albums",
-                            subtitle: "This artist has no albums in the library."
-                        )
+                        if vm.isOffline || !isOnline {
+                            EmptyStateView(
+                                systemImage: "wifi.slash",
+                                title: "You're Offline",
+                                subtitle: "Nothing from this artist is downloaded. Download albums while online to browse them here."
+                            )
+                        } else {
+                            EmptyStateView(
+                                systemImage: "square.stack",
+                                title: "No Albums",
+                                subtitle: "This artist has no albums in the library."
+                            )
+                        }
                     } else {
                         ScrollView {
                             artistHero(vm: vm)
                             VStack(alignment: .leading, spacing: CassetteSpacing.xl) {
-                                if let featured = latestRelease(vm) {
+                                // Hidden offline: downloads carry no release year, so "Latest" would be
+                                // an arbitrary pick.
+                                if !vm.isOffline, let featured = latestRelease(vm) {
                                     featuredReleaseSection(featured)
                                 }
                                 if vm.isLoadingTopSongs {
@@ -162,14 +172,19 @@ struct ArtistDetailView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isThemed ? (theme.isLight ? .light : .dark) : nil, for: .navigationBar)
         #endif
-        .task {
+        // Keyed on connectivity so going offline (or coming back) re-resolves the artist against the
+        // right source, as the album and playlist screens already do.
+        .task(id: container?.serverState.isOnline) {
             guard let c = container else { return }
             if viewModel == nil {
                 viewModel = ArtistDetailViewModel(
                     artistId: artist.id,
+                    artistName: artist.name,
                     libraryService: c.libraryService,
+                    downloadService: c.downloadService,
                     recommendationService: c.recommendationService,
-                    imageResolver: c.externalArtistImageResolver
+                    imageResolver: c.externalArtistImageResolver,
+                    serverState: c.serverState
                 )
             }
             await viewModel?.load()
@@ -651,6 +666,11 @@ struct ArtistDetailView: View {
         guard let c = container else { return }
         viewModel?.isPlayLoading = true
         defer { viewModel?.isPlayLoading = false }
+        // Offline the catalogue fetch can't run — shuffle what's on disk instead.
+        if let offline = viewModel?.offlineTracks, viewModel?.isOffline == true, !offline.isEmpty {
+            try? await c.playerService.play(tracks: offline.shuffled(), startIndex: 0)
+            return
+        }
         do {
             let tracks = try await c.libraryService.fetchAllTracks(forArtistID: artist.id)
             try await c.playerService.play(tracks: tracks.shuffled(), startIndex: 0)

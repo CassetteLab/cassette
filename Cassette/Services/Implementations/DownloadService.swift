@@ -162,6 +162,49 @@ actor DownloadService: DownloadServiceProtocol {
         }
     }
 
+    func localArtistData(artistId: String, artistName: String?, serverId: UUID) async -> LocalArtistData? {
+        await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let allTracks = ((try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? [])
+                .filter { $0.serverId == serverId }
+            // Match on artistId first; fall back to the name only for tracks whose server omitted the id,
+            // so a correctly-tagged track is never pulled in by a namesake.
+            let artistTracks = allTracks.filter { track in
+                if let id = track.artistId { return id == artistId }
+                guard let artistName, let trackArtist = track.artist else { return false }
+                return trackArtist.localizedCaseInsensitiveCompare(artistName) == .orderedSame
+            }
+            guard !artistTracks.isEmpty else { return nil }
+
+            let allAlbums = ((try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? [])
+                .filter { $0.serverId == serverId }
+            // Tracks with no albumId can't be grouped — they still play from `tracks` below.
+            let byAlbum = Dictionary(grouping: artistTracks.filter { $0.albumId != nil }) { $0.albumId! }
+            let albums = byAlbum
+                .map { albumId, tracks -> LocalAlbumData in
+                    let ordered = tracks.sorted { ($0.trackNumber ?? Int.max) < ($1.trackNumber ?? Int.max) }
+                    let first = ordered[0]
+                    let record = allAlbums.first { $0.albumId == albumId }
+                    return LocalAlbumData(
+                        albumId: albumId,
+                        albumName: record?.name ?? first.album ?? albumId,
+                        artistName: record?.artist ?? first.artist,
+                        coverArtId: record?.coverArtId ?? first.coverArtId,
+                        songs: ordered.map { DisplayableSong(from: $0) }
+                    )
+                }
+                .sorted { $0.albumName.localizedCaseInsensitiveCompare($1.albumName) == .orderedAscending }
+
+            return LocalArtistData(
+                artistId: artistId,
+                artistName: artistName ?? artistTracks[0].artist ?? artistId,
+                coverArtId: albums.first?.coverArtId ?? artistTracks[0].coverArtId,
+                albums: albums,
+                tracks: albums.flatMap(\.songs)
+            )
+        }
+    }
+
     func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData? {
         await MainActor.run {
             let context = ModelContext(modelContainer)

@@ -48,9 +48,12 @@ struct ArtistDetailMacOS: View {
             if vm == nil {
                 vm = ArtistDetailViewModel(
                     artistId: artistId,
+                    artistName: artistName,
                     libraryService: c.libraryService,
+                    downloadService: c.downloadService,
                     recommendationService: c.recommendationService,
-                    imageResolver: c.externalArtistImageResolver
+                    imageResolver: c.externalArtistImageResolver,
+                    serverState: c.serverState
                 )
             }
             await vm?.load()

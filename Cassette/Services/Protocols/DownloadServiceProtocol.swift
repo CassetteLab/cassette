@@ -22,6 +22,16 @@ nonisolated struct LocalAlbumData: Sendable {
     let songs: [DisplayableSong]
 }
 
+/// An artist reconstructed from what is on disk. `albums` carries each downloaded album with its tracks;
+/// `tracks` is the same set flattened, in album/track order, for playback.
+nonisolated struct LocalArtistData: Sendable {
+    let artistId: String
+    let artistName: String
+    let coverArtId: String?
+    let albums: [LocalAlbumData]
+    let tracks: [DisplayableSong]
+}
+
 nonisolated struct LocalPlaylistData: Sendable {
     let playlistId: String
     let name: String
@@ -55,6 +65,9 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
     func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData?
     /// Returns offline-playable playlist data assembled from persisted tracks, or nil if not downloaded.
     func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData?
+    /// Returns the artist's downloaded albums and tracks, or nil if nothing of theirs is on disk.
+    /// `artistName` is a fallback matcher for tracks whose server omitted `artistId`.
+    func localArtistData(artistId: String, artistName: String?, serverId: UUID) async -> LocalArtistData?
 
     /// Repairs a downloaded playlist whose `songIds` is empty (e.g. records written before the
     /// field existed) by persisting the authoritative track order intersected with the tracks

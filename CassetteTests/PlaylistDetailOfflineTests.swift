@@ -57,6 +57,7 @@ private final class PDDownloadStub: DownloadServiceProtocol {
 
     let progressStream: AsyncStream<[DownloadProgress]> = AsyncStream { $0.finish() }
     func localPlaylistData(playlistId: String, serverId: UUID) async -> LocalPlaylistData? { playlistData }
+    func localArtistData(artistId: String, artistName: String?, serverId: UUID) async -> LocalArtistData? { nil }
     func backfillPlaylistSongIds(playlistId: String, serverId: UUID, orderedSongIds: [String]) async {}
     func localAlbumData(albumId: String, serverId: UUID) async -> LocalAlbumData? { nil }
     func downloadedURL(forSongId songId: String, serverId: UUID) async -> URL? { nil }
