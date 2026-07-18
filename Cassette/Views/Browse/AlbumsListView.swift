@@ -11,6 +11,11 @@ import OSLog
 struct AlbumsListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: AlbumListViewModel?
+    /// Shared album ordering, persisted and reused by the artist discography too.
+    @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
+
+    /// Albums in the user's chosen order (client-side, so switching sort never re-fetches).
+    private func sortedAlbums(_ vm: AlbumListViewModel) -> [AlbumID3] { albumSort.sorted(vm.albums) }
 
     var body: some View {
         Group {
@@ -24,6 +29,11 @@ struct AlbumsListView: View {
         .cassetteContentWidth()
         #endif
         .navigationTitle("Albums")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                AlbumSortMenu(sort: $albumSort)
+            }
+        }
         .task(id: container?.serverState.isOnline) {
             Logger.boot.notice("🟢 AlbumsListView task fired — activeServer=\(String(describing: container?.serverState.activeServer?.baseURL), privacy: .public) isOnline=\(String(describing: container?.serverState.isOnline), privacy: .public)")
             guard let svc = container?.libraryService else {
@@ -70,8 +80,9 @@ struct AlbumsListView: View {
             #if os(macOS)
             albumsGridMacOS(vm)
             #else
+            let albums = sortedAlbums(vm)
             ScrollViewReader { proxy in
-                List(vm.albums) { album in
+                List(albums) { album in
                     NavigationLink(value: HomeDestination.album(album)) {
                         AlbumRow(
                             albumId: album.id,
@@ -86,11 +97,12 @@ struct AlbumsListView: View {
                 .listStyle(.plain)
                 .refreshable { await vm.load() }
                 .safeAreaInset(edge: .trailing, spacing: 0) {
-                    if vm.albums.count >= 20 {
+                    // The A–Z jump bar only makes sense when sorted by name.
+                    if albumSort == .name && albums.count >= 20 {
                         AlphabetJumpBar(
-                            availableLetters: vm.albums.availableAlphabetLetters(keyPath: \.name),
+                            availableLetters: albums.availableAlphabetLetters(keyPath: \.name),
                             onLetterTap: { letter in
-                                if let id = firstAlphabetItemID(forLetter: letter, in: vm.albums, keyPath: \.name) {
+                                if let id = firstAlphabetItemID(forLetter: letter, in: albums, keyPath: \.name) {
                                     withAnimation(.easeInOut(duration: 0.2)) {
                                         proxy.scrollTo(id, anchor: .top)
                                     }
@@ -113,7 +125,7 @@ struct AlbumsListView: View {
             let columns = Array(repeating: GridItem(.flexible(), spacing: 16), count: count)
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 24) {
-                    ForEach(vm.albums) { album in
+                    ForEach(sortedAlbums(vm)) { album in
                         NavigationLink(value: HomeDestination.album(album)) {
                             AlbumGridCell(album: album)
                         }

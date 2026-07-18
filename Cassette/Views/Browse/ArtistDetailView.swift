@@ -18,6 +18,8 @@ struct ArtistDetailView: View {
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.colorScheme) private var colorScheme
     @State private var dominantColor: Color = .clear
+    /// Shared album ordering, persisted and reused by the global album list too.
+    @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
     /// Fixed cover height — the artist photo NEVER resizes when the content below it grows.
     private let heroCoverHeight: CGFloat = 680
     /// Height of the collapsed content, measured while collapsed (also catches the async bio arriving).
@@ -404,39 +406,43 @@ struct ArtistDetailView: View {
         .allowsHitTesting(false)
     }
 
-    /// Albums — big covers, horizontal scroll, title + year.
+    /// Albums — a grid of covers ordered by the shared sort preference, with a sort menu in the header.
     private func albumsSection(_ albums: [AlbumID3]) -> some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
-            sectionHeader("Albums")
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: CassetteSpacing.m) {
-                    // Most recent first (albums without a year sort last).
-                    ForEach(albums.sorted { ($0.year ?? 0) > ($1.year ?? 0) }) { album in
-                        NavigationLink(value: HomeDestination.album(album)) {
-                            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                                CoverArtView(id: album.coverArt ?? album.id, size: 320)
-                                    .frame(width: 160, height: 160)
-                                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
-                                Text(album.name)
-                                    .font(.cassetteCellTitle)
-                                    .foregroundStyle(headerTextColor)
-                                    .lineLimit(1)
-                                if let year = album.year {
-                                    Text(verbatim: "\(year)")
-                                        .font(.cassetteCaption)
-                                        .foregroundStyle(headerSecondaryColor)
-                                }
-                            }
-                            .frame(width: 160, alignment: .leading)
-                            .task(id: album.id) {
-                                await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+            HStack {
+                sectionHeader("Albums")
+                Spacer()
+                AlbumSortMenu(sort: $albumSort, iconOnly: true)
+                    .font(.cassetteSectionTitle)
+                    .foregroundStyle(headerTextColor)
+                    .padding(.trailing, CassetteSpacing.l)
+            }
+            LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
+                ForEach(albumSort.sorted(albums)) { album in
+                    NavigationLink(value: HomeDestination.album(album)) {
+                        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                            CoverArtView(id: album.coverArt ?? album.id, size: 320)
+                                .aspectRatio(1, contentMode: .fit)
+                                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                            Text(album.name)
+                                .font(.cassetteCellTitle)
+                                .foregroundStyle(headerTextColor)
+                                .lineLimit(1)
+                            if let year = album.year {
+                                Text(verbatim: "\(year)")
+                                    .font(.cassetteCaption)
+                                    .foregroundStyle(headerSecondaryColor)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .task(id: album.id) {
+                            await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, CassetteSpacing.l)
             }
+            .padding(.horizontal, CassetteSpacing.l)
         }
     }
 

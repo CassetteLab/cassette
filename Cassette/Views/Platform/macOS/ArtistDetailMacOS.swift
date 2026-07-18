@@ -25,6 +25,8 @@ struct ArtistDetailMacOS: View {
     @State private var vm: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
     @State private var isGeneratingMix = false
+    /// Shared album ordering, persisted and reused by the global album list too.
+    @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
 
     private var effectiveCoverArtId: String? { vm?.artist?.coverArt ?? coverArtId }
 
@@ -75,12 +77,7 @@ struct ArtistDetailMacOS: View {
                 }
 
                 if !albums.isEmpty {
-                    CarouselSection(title: "Albums") {
-                        ForEach(albums) { album in
-                            CarouselAlbumCard(album: album)
-                        }
-                    }
-                    .padding(.bottom, 16)
+                    albumsGridSection(albums)
                 }
 
                 let similar = vm.similarArtists
@@ -92,6 +89,36 @@ struct ArtistDetailMacOS: View {
             .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight / 2)
         }
         .refreshable { await vm.load() }
+    }
+
+    // MARK: - Albums grid
+
+    private var albumGridColumns: [GridItem] {
+        [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 16)]
+    }
+
+    @ViewBuilder
+    private func albumsGridSection(_ albums: [AlbumID3]) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            HStack {
+                Text("Albums")
+                    .font(.cassetteSectionTitle)
+                Spacer()
+                AlbumSortMenu(sort: $albumSort)
+            }
+            .padding(.horizontal, 32)
+
+            LazyVGrid(columns: albumGridColumns, spacing: 24) {
+                ForEach(albumSort.sorted(albums)) { album in
+                    NavigationLink(value: HomeDestination.album(album)) {
+                        AlbumGridCell(album: album)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 32)
+        }
+        .padding(.bottom, 16)
     }
 
     // MARK: - Similar Artists
