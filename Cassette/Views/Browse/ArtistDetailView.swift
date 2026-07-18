@@ -232,6 +232,7 @@ struct ArtistDetailView: View {
                 )
                 .frame(maxWidth: 440)
                 .padding(.bottom, CassetteSpacing.xs)
+                .transition(.opacity)
             }
 
             HStack(spacing: CassetteSpacing.l) {
@@ -301,6 +302,8 @@ struct ArtistDetailView: View {
                 .disabled(!isOnline)
             }
         }
+        // Fade the bio in (and grow the hero) smoothly when it arrives, rather than popping.
+        .animation(.easeInOut(duration: 0.35), value: vm.biography)
     }
 
     private func loadDominantColor(coverArtId: String) async {
@@ -583,11 +586,7 @@ struct ArtistBioView: View {
 
     var body: some View {
         VStack(alignment: centered ? .center : .leading, spacing: CassetteSpacing.s) {
-            Text(bio)
-                .font(.cassetteBody)
-                .foregroundStyle(textColor)
-                .multilineTextAlignment(centered ? .center : .leading)
-                .lineLimit(expanded ? nil : 3)
+            JustifiedText(text: bio, lineLimit: expanded ? 0 : 3, color: textColor)
 
             HStack(spacing: CassetteSpacing.m) {
                 if isLong {

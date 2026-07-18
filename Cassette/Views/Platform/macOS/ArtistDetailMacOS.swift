@@ -74,6 +74,7 @@ struct ArtistDetailMacOS: View {
                 if let bio = vm.biography {
                     ArtistBioView(bio: bio, lastFmURL: vm.lastFmURL)
                         .padding(.horizontal, 32)
+                        .transition(.opacity)
                 }
 
                 if !albums.isEmpty {
@@ -87,6 +88,8 @@ struct ArtistDetailMacOS: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight / 2)
+            // Fade the bio in smoothly when it arrives, rather than popping.
+            .animation(.easeInOut(duration: 0.35), value: vm.biography)
         }
         .refreshable { await vm.load() }
     }
