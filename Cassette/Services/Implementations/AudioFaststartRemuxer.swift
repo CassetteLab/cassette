@@ -31,12 +31,22 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     /// extension-based — so a mis-served m4a saved/renamed with a wrong extension (e.g. `.mp3`)
     /// is still handled. Any non-MP4 file returns `.skipped`.
     func remuxToFaststartIfNeeded(at fileURL: URL) async -> Outcome {
-        guard let boxes = Self.topLevelBoxTypes(atPath: fileURL.path) else { return .skipped }
-        switch Self.classify(boxTypes: boxes) {
+        let name = fileURL.lastPathComponent
+        // Every branch logs, including the no-ops. A silent skip is indistinguishable from a remuxer
+        // that never ran, which makes "this download won't play" impossible to diagnose from a log:
+        // you cannot tell an undetected mdat-first file from one the player simply can't decode.
+        guard let boxes = Self.topLevelBoxTypes(atPath: fileURL.path) else {
+            Logger.download.info("[REMUX] '\(name, privacy: .public)' — box layout unreadable, skipped")
+            return .skipped
+        }
+        let state = Self.classify(boxTypes: boxes)
+        let layout = boxes.prefix(8).joined(separator: ",")
+        switch state {
         case .notMP4, .faststart:
+            Logger.download.info("[REMUX] '\(name, privacy: .public)' — \(String(describing: state), privacy: .public), skipped (boxes: \(layout, privacy: .public))")
             return .skipped
         case .needsRemux:
-            break
+            Logger.download.info("[REMUX] '\(name, privacy: .public)' — needsRemux (boxes: \(layout, privacy: .public))")
         }
 
         let asset = AVURLAsset(url: fileURL)

@@ -316,9 +316,10 @@ actor DownloadService: DownloadServiceProtocol {
         // (lossless passthrough; no-op for every other format). MUST run before the fileSize
         // read below so DownloadedTrack.fileSize matches the on-disk (remuxed) file — otherwise
         // downloadedURL's size-validity guard would reject the remuxed file as a mismatch.
-        if case .remuxed = await AudioFaststartRemuxer().remuxToFaststartIfNeeded(at: fileURL) {
-            Logger.download.info("Faststart-remuxed m4a download '\(song.id, privacy: .public)'")
-        }
+        // Logged for every outcome, not just .remuxed: knowing the remuxer ran and decided to do
+        // nothing is what distinguishes "the file was already fine" from "the remuxer never fired".
+        let remuxOutcome = await AudioFaststartRemuxer().remuxToFaststartIfNeeded(at: fileURL)
+        Logger.download.info("Remux outcome for '\(song.id, privacy: .public)' (suffix: \(song.suffix ?? "nil", privacy: .public)): \(String(describing: remuxOutcome), privacy: .public)")
 
         // Capture only Sendable values for the MainActor closure.
         let songId = song.id
