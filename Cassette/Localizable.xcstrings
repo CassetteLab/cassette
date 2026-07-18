@@ -159,12 +159,6 @@
     },
     "\"%@\" is already in \"%@\". Add it again?": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "\"%1$@\" is already in \"%2$@\". Add it again?"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -175,6 +169,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Το «%@» υπάρχει ήδη στη «%@». Προσθήκη ξανά;"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "\"%1$@\" is already in \"%2$@\". Add it again?"
           }
         },
         "es": {
@@ -269,12 +269,6 @@
     },
     "%@ (%@)": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$@ (%2$@)"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -285,6 +279,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ (%@)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ (%2$@)"
           }
         },
         "es": {
@@ -483,24 +483,6 @@
     },
     "%lld albums": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld album"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld albums"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -532,6 +514,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld άλμπουμ"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld album"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld albums"
                 }
               }
             }
@@ -613,12 +613,6 @@
     },
     "%lld hours %lld minutes listened": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$lld hours %2$lld minutes listened"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -629,6 +623,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld ώρες %lld λεπτά ακρόασης"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld hours %2$lld minutes listened"
           }
         },
         "es": {
@@ -671,24 +671,6 @@
     },
     "%lld hours listened": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld hour listened"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld hours listened"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -720,6 +702,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld ώρες ακρόασης"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld hour listened"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld hours listened"
                 }
               }
             }
@@ -801,24 +801,6 @@
     },
     "%lld minutes listened": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld minute listened"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld minutes listened"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -850,6 +832,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld λεπτά ακρόασης"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld minute listened"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld minutes listened"
                 }
               }
             }
@@ -931,24 +931,6 @@
     },
     "%lld songs": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld song"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld songs"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -980,6 +962,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld τραγούδια"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld song"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld songs"
                 }
               }
             }
@@ -1061,24 +1061,6 @@
     },
     "%lld songs added to queue": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld song added to queue"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld songs added to queue"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -1110,6 +1092,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld τραγούδια προστέθηκαν στην ουρά"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld song added to queue"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld songs added to queue"
                 }
               }
             }
@@ -1191,24 +1191,6 @@
     },
     "%lld songs playing next": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld song playing next"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld songs playing next"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -1240,6 +1222,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld τραγούδια στη συνέχεια"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld song playing next"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld songs playing next"
                 }
               }
             }
@@ -1321,24 +1321,6 @@
     },
     "%lld tracks": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld track"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld tracks"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -1370,6 +1352,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld κομμάτια"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld track"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tracks"
                 }
               }
             }
@@ -1451,24 +1451,6 @@
     },
     "%lld tracks%@": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld track%@"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld tracks%@"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -1500,6 +1482,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "%lld κομμάτια%@"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld track%@"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld tracks%@"
                 }
               }
             }
@@ -1581,12 +1581,6 @@
     },
     "%lld/%lld tracks": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "%1$lld/%2$lld tracks"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -1597,6 +1591,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld/%lld κομμάτια"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld/%2$lld tracks"
           }
         },
         "es": {
@@ -2937,6 +2937,59 @@
         }
       }
     },
+    "album": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Album"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "άλμπουμ"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "álbum"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "album"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "album"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバム"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "专辑"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "專輯"
+          }
+        }
+      }
+    },
     "Album": {
       "localizations": {
         "de": {
@@ -2967,6 +3020,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "Album"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバム"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "专辑"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "專輯"
+          }
+        }
+      }
+    },
+    "albums": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alben"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "άλμπουμ"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "álbumes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "albums"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "album"
           }
         },
         "ja": {
@@ -5797,6 +5903,58 @@
         }
       }
     },
+    "Connect ListenBrainz in Settings to discover fresh releases based on your listening history.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde ListenBrainz in den Einstellungen, um neue Veröffentlichungen basierend auf deinem Hörverlauf zu entdecken."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Συνδέστε το ListenBrainz στις Ρυθμίσεις για να ανακαλύψετε νέες κυκλοφορίες με βάση το ιστορικό ακρόασής σας."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conecta ListenBrainz en Ajustes para descubrir novedades según tu historial de reproducción."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez ListenBrainz dans Réglages pour découvrir de nouvelles sorties selon votre historique d'écoute."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collega ListenBrainz in Impostazioni per scoprire nuove uscite in base alla tua cronologia d'ascolto."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定でListenBrainzを接続すると、再生履歴に基づいて新しいリリースを見つけられます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在设置中连接 ListenBrainz，即可根据你的收听记录发现最新发行。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在設定中連接 ListenBrainz，即可根據你的收聽紀錄探索最新發行。"
+          }
+        }
+      }
+    },
     "Connect to a server to manage downloads.": {
       "localizations": {
         "de": {
@@ -6577,6 +6735,112 @@
         }
       }
     },
+    "Couldn't add to playlist": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Konnte nicht zur Playlist hinzugefügt werden"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν ήταν δυνατή η προσθήκη στη λίστα"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo añadir a la lista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d'ajouter à la liste de lecture"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile aggiungere alla playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストに追加できませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法添加到播放列表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法加入播放列表"
+          }
+        }
+      }
+    },
+    "Couldn't delete playlist. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist konnte nicht gelöscht werden. Bitte versuche es erneut."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν ήταν δυνατή η διαγραφή της λίστας. Δοκιμάστε ξανά."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo eliminar la lista. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer la liste de lecture. Veuillez réessayer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile eliminare la playlist. Riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを削除できませんでした。もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法删除播放列表。请重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法刪除播放列表。請重試。"
+          }
+        }
+      }
+    },
     "Couldn't load": {
       "localizations": {
         "de": {
@@ -6729,6 +6993,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法連上你的伺服器。"
+          }
+        }
+      }
+    },
+    "Couldn't start Instant Mix.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant Mix konnte nicht gestartet werden."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν ήταν δυνατή η εκκίνηση του Instant Mix."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo iniciar Instant Mix."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lancer Instant Mix."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile avviare Instant Mix."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instant Mix を開始できませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法启动 Instant Mix。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法啟動 Instant Mix。"
           }
         }
       }
@@ -9127,12 +9444,6 @@
     },
     "Downloading %lld/%lld tracks": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Downloading %1$lld/%2$lld tracks"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -9143,6 +9454,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Λήψη %lld/%lld κομματιών"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Downloading %1$lld/%2$lld tracks"
           }
         },
         "es": {
@@ -9807,6 +10124,112 @@
         }
       }
     },
+    "Failed to create playlist. Try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist konnte nicht erstellt werden. Versuche es erneut."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αποτυχία δημιουργίας λίστας. Δοκιμάστε ξανά."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo crear la lista. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de créer la liste de lecture. Réessayez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile creare la playlist. Riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを作成できませんでした。もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法创建播放列表。请重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法建立播放列表。請重試。"
+          }
+        }
+      }
+    },
+    "Failed to delete playlist": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist konnte nicht gelöscht werden"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αποτυχία διαγραφής λίστας"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo eliminar la lista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de supprimer la liste de lecture"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile eliminare la playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを削除できませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法删除播放列表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法刪除播放列表"
+          }
+        }
+      }
+    },
     "Failed to load lyrics": {
       "localizations": {
         "de": {
@@ -9855,6 +10278,218 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法載入歌詞"
+          }
+        }
+      }
+    },
+    "Failed to remove track": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel konnte nicht entfernt werden"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αποτυχία αφαίρεσης κομματιού"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo quitar la pista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de retirer la piste"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile rimuovere il brano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲を削除できませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法移除曲目"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法移除曲目"
+          }
+        }
+      }
+    },
+    "Failed to rename playlist": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist konnte nicht umbenannt werden"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αποτυχία μετονομασίας λίστας"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo cambiar el nombre de la lista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de renommer la liste de lecture"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile rinominare la playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストの名前を変更できませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法重命名播放列表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法重新命名播放列表"
+          }
+        }
+      }
+    },
+    "Failed to reorder tracks": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel konnten nicht neu sortiert werden"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αποτυχία αναδιάταξης κομματιών"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron reordenar las pistas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de réorganiser les pistes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile riordinare i brani"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲を並べ替えできませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法重新排序曲目"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法重新排序曲目"
+          }
+        }
+      }
+    },
+    "Failed to update description": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beschreibung konnte nicht aktualisiert werden"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αποτυχία ενημέρωσης περιγραφής"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudo actualizar la descripción"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de mettre à jour la description"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile aggiornare la descrizione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "説明を更新できませんでした"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法更新描述"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法更新描述"
           }
         }
       }
@@ -12143,6 +12778,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "Last.fm"
+          }
+        }
+      }
+    },
+    "Latest Release": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neueste Veröffentlichung"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Τελευταία κυκλοφορία"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Último lanzamiento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dernière sortie"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ultima uscita"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最新リリース"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最新发行"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最新發行"
           }
         }
       }
@@ -14747,6 +15434,162 @@
         }
       }
     },
+    "No frequent plays yet — your top tracks will appear here.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine häufigen Wiedergaben — deine Top-Titel erscheinen hier."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν υπάρχουν ακόμη συχνές αναπαραγωγές — τα κορυφαία κομμάτια σας θα εμφανιστούν εδώ."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay reproducciones frecuentes: tus canciones más escuchadas aparecerán aquí."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune écoute fréquente pour l'instant — vos titres favoris apparaîtront ici."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessun ascolto frequente — i tuoi brani più ascoltati appariranno qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだよく再生する曲がありません。よく聴く曲がここに表示されます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无常听内容——你最常听的曲目将显示在这里。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無常聽內容——你最常聽的曲目將顯示在這裡。"
+          }
+        }
+      }
+    },
+    "No fresh releases found based on your recent listening history.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keine neuen Veröffentlichungen basierend auf deinem jüngsten Hörverlauf gefunden."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν βρέθηκαν νέες κυκλοφορίες με βάση το πρόσφατο ιστορικό ακρόασής σας."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontraron novedades según tu historial de reproducción reciente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune nouvelle sortie trouvée selon votre historique d'écoute récent."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nessuna nuova uscita trovata in base alla tua cronologia d'ascolto recente."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最近の再生履歴に基づく新しいリリースは見つかりませんでした。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未根据你近期的收听记录找到最新发行。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未根據你近期的收聽紀錄找到最新發行。"
+          }
+        }
+      }
+    },
+    "No history yet — start playing some tracks.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch kein Verlauf — spiele ein paar Titel ab."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν υπάρχει ακόμη ιστορικό — ξεκινήστε την αναπαραγωγή μερικών κομματιών."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay historial: empieza a reproducir algunas canciones."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun historique pour l'instant — lancez la lecture de quelques titres."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessuna cronologia — inizia a riprodurre qualche brano."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ履歴がありません。曲を再生してみましょう。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无记录——开始播放一些曲目吧。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無紀錄——開始播放一些曲目吧。"
+          }
+        }
+      }
+    },
     "No internet connection.": {
       "localizations": {
         "de": {
@@ -15216,7 +16059,56 @@
       }
     },
     "No providers yet": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Anbieter"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν υπάρχουν ακόμη πάροχοι"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no hay proveedores"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun fournisseur pour l'instant"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancora nessun provider"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロバイダがまだありません"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无提供方"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無供應方"
+          }
+        }
+      }
     },
     "No Radio Stations": {
       "localizations": {
@@ -16519,10 +17411,108 @@
       }
     },
     "Open Releases In": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veröffentlichungen öffnen in"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Άνοιγμα κυκλοφοριών σε"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir lanzamientos en"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir les sorties dans"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri le uscite in"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リリースを開く先"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开发行的方式"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟發行的方式"
+          }
+        }
+      }
     },
     "Open releases your way": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne Veröffentlichungen nach deinen Wünschen"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ανοίξτε τις κυκλοφορίες όπως θέλετε"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre los lanzamientos a tu manera"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez les sorties à votre façon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri le uscite come preferisci"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リリースを好きな方法で開く"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "按你的方式打开发行"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以你的方式開啟發行"
+          }
+        }
+      }
     },
     "Optional headers sent with every request — useful for Cloudflare Access or other reverse-proxy authentication.": {
       "localizations": {
@@ -16992,6 +17982,59 @@
         }
       }
     },
+    "Pinned to Home": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "An Home angeheftet"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Καρφιτσώθηκε στην Αρχική"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fijado en el inicio"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Épinglé à l'accueil"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggiunto alla Home"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホームに固定しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已固定到主页"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已釘選至主畫面"
+          }
+        }
+      }
+    },
     "play": {
       "localizations": {
         "de": {
@@ -17304,6 +18347,59 @@
         }
       }
     },
+    "Playback failed. Please try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiedergabe fehlgeschlagen. Bitte versuche es erneut."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Η αναπαραγωγή απέτυχε. Δοκιμάστε ξανά."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de reproducción. Inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de la lecture. Veuillez réessayer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riproduzione non riuscita. Riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生に失敗しました。もう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放失败。请重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放失敗。請重試。"
+          }
+        }
+      }
+    },
     "Playback position": {
       "localizations": {
         "de": {
@@ -17352,6 +18448,112 @@
           "stringUnit": {
             "state": "translated",
             "value": "播放位置"
+          }
+        }
+      }
+    },
+    "Playlist created": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist erstellt"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Η λίστα δημιουργήθηκε"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista creada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture créée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist creata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを作成しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已创建播放列表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已建立播放列表"
+          }
+        }
+      }
+    },
+    "Playlist deleted": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist gelöscht"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Η λίστα διαγράφηκε"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lista eliminada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liste de lecture supprimée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Playlist eliminata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを削除しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已删除播放列表"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已刪除播放列表"
           }
         }
       }
@@ -17825,7 +19027,56 @@
       }
     },
     "Provider Name": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anbietername"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Όνομα παρόχου"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nombre del proveedor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nom du fournisseur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nome del provider"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロバイダ名"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提供方名称"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "供應方名稱"
+          }
+        }
+      }
     },
     "Queue": {
       "localizations": {
@@ -18400,7 +19651,56 @@
       }
     },
     "Releases open in ListenBrainz by default.": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veröffentlichungen werden standardmäßig in ListenBrainz geöffnet."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Οι κυκλοφορίες ανοίγουν στο ListenBrainz από προεπιλογή."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los lanzamientos se abren en ListenBrainz de forma predeterminada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les sorties s'ouvrent dans ListenBrainz par défaut."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le uscite si aprono in ListenBrainz per impostazione predefinita."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リリースはデフォルトでListenBrainzで開きます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发行默认在 ListenBrainz 中打开。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "發行預設在 ListenBrainz 中開啟。"
+          }
+        }
+      }
     },
     "Remove": {
       "localizations": {
@@ -18508,24 +19808,6 @@
     },
     "Remove %lld Songs?": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Remove %lld Song?"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Remove %lld Songs?"
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -18557,6 +19839,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Αφαίρεση %lld τραγουδιών;"
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove %lld Song?"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Remove %lld Songs?"
                 }
               }
             }
@@ -19048,6 +20348,58 @@
           "stringUnit": {
             "state": "translated",
             "value": "重新排序"
+          }
+        }
+      }
+    },
+    "Repeat": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wiederholen"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Επανάληψη"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Repetir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Répéter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ripeti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リピート"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重复"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重複"
           }
         }
       }
@@ -21342,12 +22694,6 @@
     },
     "Started with %@ · Ended with %@": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Started with %1$@ · Ended with %2$@"
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -21358,6 +22704,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ξεκίνησε με %@ · Τελείωσε με %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Started with %1$@ · Ended with %2$@"
           }
         },
         "es": {
@@ -21868,24 +23220,6 @@
     },
     "That's %lld hours of music.": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "That's %lld hour of music."
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "That's %lld hours of music."
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -21917,6 +23251,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Αυτό είναι %lld ώρες μουσικής."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "That's %lld hour of music."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "That's %lld hours of music."
                 }
               }
             }
@@ -22881,7 +24233,56 @@
       }
     },
     "This action cannot be undone.": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diese Aktion kann nicht rückgängig gemacht werden."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Αυτή η ενέργεια δεν μπορεί να αναιρεθεί."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esta acción no se puede deshacer."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cette action est irréversible."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Questa azione non può essere annullata."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この操作は取り消せません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此操作无法撤销。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此動作無法復原。"
+          }
+        }
+      }
     },
     "This album doesn't have any tracks yet.": {
       "localizations": {
@@ -23665,24 +25066,6 @@
     },
     "Too many requests. Please wait %lld seconds before trying again.": {
       "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Too many requests. Please wait %lld second before trying again."
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "Too many requests. Please wait %lld seconds before trying again."
-                }
-              }
-            }
-          }
-        },
         "de": {
           "variations": {
             "plural": {
@@ -23714,6 +25097,24 @@
                 "stringUnit": {
                   "state": "translated",
                   "value": "Πάρα πολλά αιτήματα. Περιμένετε %lld δευτερόλεπτα πριν δοκιμάσετε ξανά."
+                }
+              }
+            }
+          }
+        },
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many requests. Please wait %lld second before trying again."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Too many requests. Please wait %lld seconds before trying again."
                 }
               }
             }
@@ -24001,6 +25402,58 @@
         }
       }
     },
+    "Top Songs": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Top-Titel"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Κορυφαία τραγούδια"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canciones principales"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titres les plus écoutés"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brani più ascoltati"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "トップソング"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "热门歌曲"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "熱門歌曲"
+          }
+        }
+      }
+    },
     "Top Tracks": {
       "localizations": {
         "de": {
@@ -24049,6 +25502,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "熱門曲目"
+          }
+        }
+      }
+    },
+    "track": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "κομμάτι"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "piste"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲目"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲目"
           }
         }
       }
@@ -24153,6 +25659,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "記錄你聆聽的內容"
+          }
+        }
+      }
+    },
+    "tracks": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "κομμάτια"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pistas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "pistes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "brani"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲目"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲目"
           }
         }
       }
@@ -24569,6 +26128,59 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法載入藝人"
+          }
+        }
+      }
+    },
+    "Unable to load artist tracks. Please check your connection and try again.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Titel des Interpreten konnten nicht geladen werden. Bitte überprüfe deine Verbindung und versuche es erneut."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν είναι δυνατή η φόρτωση των κομματιών του καλλιτέχνη. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se pudieron cargar las pistas del artista. Comprueba tu conexión e inténtalo de nuevo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de charger les pistes de l'artiste. Vérifiez votre connexion et réessayez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile caricare i brani dell'artista. Controlla la connessione e riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティストの曲を読み込めませんでした。接続を確認してもう一度お試しください。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法加载艺人曲目。请检查网络连接后重试。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法載入藝人曲目。請檢查網路連線後重試。"
           }
         }
       }
@@ -25093,6 +26705,59 @@
         }
       }
     },
+    "Unable to play this radio station.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Radiosender kann nicht wiedergegeben werden."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Δεν είναι δυνατή η αναπαραγωγή αυτού του ραδιοφωνικού σταθμού."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se puede reproducir esta emisora."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire cette station de radio."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossibile riprodurre questa stazione radio."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このラジオ局を再生できません。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法播放此电台。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無法播放此電台。"
+          }
+        }
+      }
+    },
     "Unencrypted connection — make sure you are on a trusted network.": {
       "localizations": {
         "de": {
@@ -25199,12 +26864,6 @@
     },
     "Unexpected error: %@ %lld.": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "new",
-            "value": "Unexpected error: %1$@ %2$lld."
-          }
-        },
         "de": {
           "stringUnit": {
             "state": "translated",
@@ -25215,6 +26874,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Μη αναμενόμενο σφάλμα: %@ %lld."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Unexpected error: %1$@ %2$lld."
           }
         },
         "es": {
@@ -25620,13 +27285,160 @@
       }
     },
     "URL Template": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL-Vorlage"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Πρότυπο URL"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plantilla de URL"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modèle d'URL"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Modello URL"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URLテンプレート"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL 模板"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL 範本"
+          }
+        }
+      }
     },
     "URL template must contain %s — replaced by \"Artist Album\" when opening a release.": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die URL-Vorlage muss %s enthalten — wird beim Öffnen einer Veröffentlichung durch \"Artist Album\" ersetzt."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Το πρότυπο URL πρέπει να περιέχει %s — αντικαθίσταται από το \"Artist Album\" κατά το άνοιγμα μιας κυκλοφορίας."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La plantilla de URL debe contener %s: se sustituye por \"Artist Album\" al abrir un lanzamiento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le modèle d'URL doit contenir %s — remplacé par \"Artist Album\" à l'ouverture d'une sortie."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il modello URL deve contenere %s — sostituito da \"Artist Album\" all'apertura di un'uscita."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URLテンプレートには%sを含める必要があります。リリースを開くときに「Artist Album」に置き換えられます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL 模板必须包含 %s——打开发行时会替换为“Artist Album”。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL 範本必須包含 %s——開啟發行時會替換為「Artist Album」。"
+          }
+        }
+      }
     },
     "Use %s as a placeholder — replaced by \"Artist Album\" when opening a release.": {
-      "localizations": {}
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verwende %s als Platzhalter — wird beim Öffnen einer Veröffentlichung durch \"Artist Album\" ersetzt."
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Χρησιμοποιήστε το %s ως σύμβολο κράτησης θέσης — αντικαθίσταται από το \"Artist Album\" κατά το άνοιγμα μιας κυκλοφορίας."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa %s como marcador: se sustituye por \"Artist Album\" al abrir un lanzamiento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utilisez %s comme espace réservé — remplacé par \"Artist Album\" à l'ouverture d'une sortie."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usa %s come segnaposto — sostituito da \"Artist Album\" all'apertura di un'uscita."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%sをプレースホルダとして使用してください。リリースを開くときに「Artist Album」に置き換えられます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 %s 作为占位符——打开发行时会替换为“Artist Album”。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 %s 作為佔位符——開啟發行時會替換為「Artist Album」。"
+          }
+        }
+      }
     },
     "Use cellular data": {
       "localizations": {
@@ -26200,6 +28012,58 @@
         }
       }
     },
+    "View on %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf %@ ansehen"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Προβολή στο %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver en %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir sur %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visualizza su %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@で表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 %@ 上查看"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 %@ 上檢視"
+          }
+        }
+      }
+    },
     "View on GitHub": {
       "localizations": {
         "de": {
@@ -26248,6 +28112,110 @@
           "stringUnit": {
             "state": "translated",
             "value": "在 GitHub 上查看"
+          }
+        }
+      }
+    },
+    "View on ListenBrainz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf ListenBrainz ansehen"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Προβολή στο ListenBrainz"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver en ListenBrainz"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir sur ListenBrainz"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visualizza su ListenBrainz"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenBrainzで表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 ListenBrainz 上查看"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 ListenBrainz 上檢視"
+          }
+        }
+      }
+    },
+    "View on MusicBrainz": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf MusicBrainz ansehen"
+          }
+        },
+        "el": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Προβολή στο MusicBrainz"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ver en MusicBrainz"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voir sur MusicBrainz"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visualizza su MusicBrainz"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MusicBrainzで表示"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 MusicBrainz 上查看"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在 MusicBrainz 上檢視"
           }
         }
       }
@@ -27600,1013 +29568,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "your-username"
-          }
-        }
-      }
-    },
-    "Couldn't add to playlist": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Konnte nicht zur Playlist hinzugefügt werden"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Δεν ήταν δυνατή η προσθήκη στη λίστα"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo añadir a la lista"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible d'ajouter à la liste de lecture"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile aggiungere alla playlist"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストに追加できませんでした"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法添加到播放列表"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法加入播放列表"
-          }
-        }
-      }
-    },
-    "Couldn't delete playlist. Please try again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist konnte nicht gelöscht werden. Bitte versuche es erneut."
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Δεν ήταν δυνατή η διαγραφή της λίστας. Δοκιμάστε ξανά."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo eliminar la lista. Inténtalo de nuevo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de supprimer la liste de lecture. Veuillez réessayer."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile eliminare la playlist. Riprova."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストを削除できませんでした。もう一度お試しください。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法删除播放列表。请重试。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法刪除播放列表。請重試。"
-          }
-        }
-      }
-    },
-    "Couldn't start Instant Mix.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Instant Mix konnte nicht gestartet werden."
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Δεν ήταν δυνατή η εκκίνηση του Instant Mix."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo iniciar Instant Mix."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de lancer Instant Mix."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile avviare Instant Mix."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Instant Mix を開始できませんでした。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法启动 Instant Mix。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法啟動 Instant Mix。"
-          }
-        }
-      }
-    },
-    "Failed to create playlist. Try again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist konnte nicht erstellt werden. Versuche es erneut."
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Αποτυχία δημιουργίας λίστας. Δοκιμάστε ξανά."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo crear la lista. Inténtalo de nuevo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de créer la liste de lecture. Réessayez."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile creare la playlist. Riprova."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストを作成できませんでした。もう一度お試しください。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法创建播放列表。请重试。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法建立播放列表。請重試。"
-          }
-        }
-      }
-    },
-    "Failed to delete playlist": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist konnte nicht gelöscht werden"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Αποτυχία διαγραφής λίστας"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo eliminar la lista"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de supprimer la liste de lecture"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile eliminare la playlist"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストを削除できませんでした"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法删除播放列表"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法刪除播放列表"
-          }
-        }
-      }
-    },
-    "Failed to remove track": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titel konnte nicht entfernt werden"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Αποτυχία αφαίρεσης κομματιού"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo quitar la pista"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de retirer la piste"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile rimuovere il brano"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲を削除できませんでした"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法移除曲目"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法移除曲目"
-          }
-        }
-      }
-    },
-    "Failed to rename playlist": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist konnte nicht umbenannt werden"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Αποτυχία μετονομασίας λίστας"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo cambiar el nombre de la lista"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de renommer la liste de lecture"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile rinominare la playlist"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストの名前を変更できませんでした"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法重命名播放列表"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法重新命名播放列表"
-          }
-        }
-      }
-    },
-    "Failed to reorder tracks": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titel konnten nicht neu sortiert werden"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Αποτυχία αναδιάταξης κομματιών"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudieron reordenar las pistas"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de réorganiser les pistes"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile riordinare i brani"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲を並べ替えできませんでした"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法重新排序曲目"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法重新排序曲目"
-          }
-        }
-      }
-    },
-    "Failed to update description": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Beschreibung konnte nicht aktualisiert werden"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Αποτυχία ενημέρωσης περιγραφής"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudo actualizar la descripción"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de mettre à jour la description"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile aggiornare la descrizione"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "説明を更新できませんでした"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法更新描述"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法更新描述"
-          }
-        }
-      }
-    },
-    "Pinned to Home": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "An Home angeheftet"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Καρφιτσώθηκε στην Αρχική"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fijado en el inicio"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Épinglé à l'accueil"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aggiunto alla Home"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ホームに固定しました"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已固定到主页"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已釘選至主畫面"
-          }
-        }
-      }
-    },
-    "Playback failed. Please try again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wiedergabe fehlgeschlagen. Bitte versuche es erneut."
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Η αναπαραγωγή απέτυχε. Δοκιμάστε ξανά."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Error de reproducción. Inténtalo de nuevo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Échec de la lecture. Veuillez réessayer."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Riproduzione non riuscita. Riprova."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "再生に失敗しました。もう一度お試しください。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "播放失败。请重试。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "播放失敗。請重試。"
-          }
-        }
-      }
-    },
-    "Playlist created": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist erstellt"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Η λίστα δημιουργήθηκε"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lista creada"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Liste de lecture créée"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist creata"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストを作成しました"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已创建播放列表"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已建立播放列表"
-          }
-        }
-      }
-    },
-    "Playlist deleted": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist gelöscht"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Η λίστα διαγράφηκε"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Lista eliminada"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Liste de lecture supprimée"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Playlist eliminata"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "プレイリストを削除しました"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已删除播放列表"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已刪除播放列表"
-          }
-        }
-      }
-    },
-    "Unable to load artist tracks. Please check your connection and try again.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titel des Interpreten konnten nicht geladen werden. Bitte überprüfe deine Verbindung und versuche es erneut."
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Δεν είναι δυνατή η φόρτωση των κομματιών του καλλιτέχνη. Ελέγξτε τη σύνδεσή σας και δοκιμάστε ξανά."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se pudieron cargar las pistas del artista. Comprueba tu conexión e inténtalo de nuevo."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de charger les pistes de l'artiste. Vérifiez votre connexion et réessayez."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile caricare i brani dell'artista. Controlla la connessione e riprova."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アーティストの曲を読み込めませんでした。接続を確認してもう一度お試しください。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法加载艺人曲目。请检查网络连接后重试。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法載入藝人曲目。請檢查網路連線後重試。"
-          }
-        }
-      }
-    },
-    "Unable to play this radio station.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Dieser Radiosender kann nicht wiedergegeben werden."
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Δεν είναι δυνατή η αναπαραγωγή αυτού του ραδιοφωνικού σταθμού."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "No se puede reproducir esta emisora."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossible de lire cette station de radio."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Impossibile riprodurre questa stazione radio."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このラジオ局を再生できません。"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "无法播放此电台。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "無法播放此電台。"
-          }
-        }
-      }
-    },
-    "album": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Album"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "άλμπουμ"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "álbum"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "album"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "album"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アルバム"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "专辑"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "專輯"
-          }
-        }
-      }
-    },
-    "albums": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Alben"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "άλμπουμ"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "álbumes"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "albums"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "album"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "アルバム"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "专辑"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "專輯"
-          }
-        }
-      }
-    },
-    "track": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titel"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "κομμάτι"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "pista"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "piste"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "brano"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲目"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲目"
-          }
-        }
-      }
-    },
-    "tracks": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Titel"
-          }
-        },
-        "el": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "κομμάτια"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "pistas"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "pistes"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "brani"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲目"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "曲目"
           }
         }
       }

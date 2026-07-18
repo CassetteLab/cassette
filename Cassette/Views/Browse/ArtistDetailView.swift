@@ -330,7 +330,7 @@ struct ArtistDetailView: View {
         (vm.artist?.album ?? []).max(by: { ($0.year ?? 0) < ($1.year ?? 0) })
     }
 
-    private func sectionHeader(_ title: String) -> some View {
+    private func sectionHeader(_ title: LocalizedStringKey) -> some View {
         Text(title)
             .font(.cassetteSectionTitle)
             .foregroundStyle(headerTextColor)
@@ -748,7 +748,7 @@ struct OutOfLibraryArtistSheet: View {
         .padding(.horizontal, CassetteSpacing.l)
     }
 
-    private func externalLinkButton(title: String, url: URL, secondary: Bool) -> some View {
+    private func externalLinkButton(title: LocalizedStringKey, url: URL, secondary: Bool) -> some View {
         Button {
             ExternalLinkOpener.open(url)
         } label: {

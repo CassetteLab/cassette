@@ -612,7 +612,7 @@ struct FullPlayerView: View {
         }
     }
 
-    private func queuePill(systemImage: String, isActive: Bool, label: String, action: @escaping () -> Void) -> some View {
+    private func queuePill(systemImage: String, isActive: Bool, label: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         // Active = a fixed Electric Violet brand chip with a white glyph (design B). The base accent
         // #6C47F5 (Violet.v500) keeps white at ~5.4:1; the lighter dark-mode variant #8060F7 drops it to
         // ~4.2:1, so the fixed base is used rather than the scheme-adaptive accent. Intentionally does NOT

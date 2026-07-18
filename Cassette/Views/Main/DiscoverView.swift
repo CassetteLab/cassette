@@ -330,7 +330,7 @@ struct DiscoverView: View {
 
     // MARK: - Helpers
 
-    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+    private func section<Content: View>(title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             Text(title)
                 .font(.cassetteSectionTitle)
@@ -419,7 +419,7 @@ struct DiscoverView: View {
         .allowsHitTesting(false)
     }
 
-    private func emptyStateMessage(_ text: String) -> some View {
+    private func emptyStateMessage(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.cassetteCaption)
             .foregroundStyle(.secondary)

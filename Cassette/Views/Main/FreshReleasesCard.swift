@@ -70,7 +70,7 @@ struct FreshReleasesCard: View {
         }
     }
 
-    private func emptyStatePlaceholder(icon: String, message: String) -> some View {
+    private func emptyStatePlaceholder(icon: String, message: LocalizedStringKey) -> some View {
         VStack(spacing: CassetteSpacing.s) {
             Image(systemName: icon)
                 .font(.title2)
