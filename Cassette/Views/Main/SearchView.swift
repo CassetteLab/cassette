@@ -223,7 +223,9 @@ struct SearchView: View {
                 return
             }
             let wasNil = viewModel == nil
-            if viewModel == nil { viewModel = SearchViewModel(libraryService: svc) }
+            if viewModel == nil, let state = container?.serverState {
+                viewModel = SearchViewModel(libraryService: svc, serverState: state)
+            }
             Logger.ui.debug("[SEARCH-OPEN] SearchView.onAppear done — \(Int(Date().timeIntervalSince(t0) * 1000))ms — viewModel \(wasNil ? "created" : "already existed", privacy: .public)")
         }
         .task(id: searchQuery) {
@@ -245,7 +247,12 @@ struct SearchView: View {
 
     @ViewBuilder
     private func activeSearchContent(_ vm: SearchViewModel) -> some View {
-        if vm.isSearching {
+        if vm.isOffline {
+            LocalSearchResultsSection(
+                query: searchQuery.trimmingCharacters(in: .whitespaces),
+                onAddToPlaylist: { s in songToAddToPlaylist = s }
+            )
+        } else if vm.isSearching {
             HStack {
                 Spacer()
                 ProgressView()
@@ -261,6 +268,12 @@ struct SearchView: View {
                 action: .init(label: "Retry") { Task { await vm.search(query: searchQuery) } }
             )
             .listRowSeparator(.hidden)
+            // The server is unreachable while the device still has a path (server down, off-VPN):
+            // downloads are the only thing we can still answer with.
+            LocalSearchResultsSection(
+                query: searchQuery.trimmingCharacters(in: .whitespaces),
+                onAddToPlaylist: { s in songToAddToPlaylist = s }
+            )
         } else if let results = vm.searchResults, hasAnyResults(results) {
             artistResultsSection(visibleArtists(from: results))
             albumResultsSection(results.album ?? [])
@@ -307,6 +320,107 @@ struct SearchView: View {
                         )
                     }
                 }
+            }
+        }
+    }
+
+    // MARK: - Local (downloads) results
+    //
+    // Isolated in a child view for the same reason as SearchSongResultsSection: it owns a @Query,
+    // which must never be read from SearchView's body (see the warning at the top of this file).
+
+    private struct LocalSearchResultsSection: View {
+        let query: String
+        let onAddToPlaylist: (DisplayableSong) -> Void
+
+        @Environment(\.appContainer) private var container
+        /// Unfiltered — the active server isn't known when the Query is built, so it's applied at read time.
+        @Query private var allTracks: [DownloadedTrack]
+
+        private var tracks: [DownloadedTrack] {
+            guard let serverId = container?.serverState.activeServer?.id else { return [] }
+            return allTracks.filter { $0.serverId == serverId }
+        }
+
+        /// Diacritic- and case-insensitive, so "aime" finds "Aimé" and "orelsan" finds "OrelSan".
+        private func matches(_ haystack: String?) -> Bool {
+            guard let haystack else { return false }
+            return haystack.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
+        }
+
+        private var matchingTracks: [DownloadedTrack] {
+            tracks.filter { matches($0.title) || matches($0.artist) || matches($0.album) }
+        }
+
+        /// Artists are only offered when their tracks carry an artistId — without one there is nothing
+        /// stable to navigate to, and grouping by name alone would merge namesakes.
+        private var artists: [ArtistID3] {
+            let named = tracks.filter { matches($0.artist) && $0.artistId != nil }
+            return Dictionary(grouping: named, by: { $0.artistId! })
+                .map { artistId, tracks in
+                    ArtistID3(
+                        id: artistId,
+                        name: tracks[0].artist ?? artistId,
+                        albumCount: Set(tracks.compactMap(\.albumId)).count,
+                        coverArt: tracks.compactMap(\.coverArtId).first
+                    )
+                }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+
+        private var albums: [AlbumID3] {
+            let named = tracks.filter { (matches($0.album) || matches($0.artist)) && $0.albumId != nil }
+            return Dictionary(grouping: named, by: { $0.albumId! })
+                .map { albumId, tracks in
+                    // No year: downloads never persist one.
+                    AlbumID3(
+                        id: albumId,
+                        name: tracks[0].album ?? albumId,
+                        songCount: tracks.count,
+                        duration: tracks.reduce(0) { $0 + ($1.durationSeconds ?? 0) },
+                        artist: tracks[0].artist,
+                        artistId: tracks.compactMap(\.artistId).first,
+                        coverArt: tracks.compactMap(\.coverArtId).first
+                    )
+                }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+
+        var body: some View {
+            let songs = matchingTracks
+                .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+                .map { DisplayableSong(from: $0) }
+            if songs.isEmpty && artists.isEmpty && albums.isEmpty {
+                EmptyStateView(
+                    systemImage: "wifi.slash",
+                    title: "No Downloaded Matches",
+                    subtitle: "Only downloaded music can be searched while offline."
+                )
+                .listRowSeparator(.hidden)
+            } else {
+                if !artists.isEmpty {
+                    Section("Artists") {
+                        ForEach(artists) { artist in
+                            NavigationLink(value: artist) { ArtistRow(artist: artist) }
+                        }
+                    }
+                }
+                if !albums.isEmpty {
+                    Section("Albums") {
+                        ForEach(albums) { album in
+                            NavigationLink(value: album) {
+                                AlbumRow(
+                                    albumId: album.id,
+                                    name: album.name,
+                                    artist: album.artist,
+                                    year: nil,
+                                    coverArtId: album.coverArt
+                                )
+                            }
+                        }
+                    }
+                }
+                SearchSongResultsSection(songs: songs, onAddToPlaylist: onAddToPlaylist)
             }
         }
     }

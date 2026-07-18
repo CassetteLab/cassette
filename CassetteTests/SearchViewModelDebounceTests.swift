@@ -70,10 +70,17 @@ private final class SearchLibraryStub: LibraryServiceProtocol {
 @MainActor
 struct SearchViewModelDebounceTests {
 
+    /// The debounce tests are all about the online path — offline the VM returns before any request.
+    private func onlineState() -> ServerState {
+        let state = ServerState()
+        state.isOnline = true
+        return state
+    }
+
     @Test("rapid query changes call the service once, with the final query")
     func rapidTypingCoalescesToFinalQuery() async throws {
         let stub = SearchLibraryStub()
-        let vm = SearchViewModel(libraryService: stub)
+        let vm = SearchViewModel(libraryService: stub, serverState: onlineState())
 
         // Emulate SwiftUI's .task(id:) contract: each keystroke cancels the
         // previous call. Cancellation lands during the debounce sleep, well
@@ -91,10 +98,56 @@ struct SearchViewModelDebounceTests {
         #expect(vm.searchResults != nil)
     }
 
+    @Test("offline flags the local path and never reaches the server")
+    func offlineSkipsTheRequest() async throws {
+        let stub = SearchLibraryStub()
+        let state = ServerState()
+        state.isOnline = false
+        let vm = SearchViewModel(libraryService: stub, serverState: state)
+
+        await vm.search(query: "cassette")
+
+        #expect(vm.isOffline)
+        #expect(stub.searchCalls.isEmpty)
+        #expect(vm.searchResults == nil)
+        #expect(vm.searchError == nil)
+        #expect(vm.isSearching == false)
+    }
+
+    @Test("clearing the query drops the offline flag too")
+    func clearingQueryResetsOfflineFlag() async throws {
+        let stub = SearchLibraryStub()
+        let state = ServerState()
+        state.isOnline = false
+        let vm = SearchViewModel(libraryService: stub, serverState: state)
+
+        await vm.search(query: "cassette")
+        #expect(vm.isOffline)
+        await vm.search(query: "")
+        #expect(vm.isOffline == false)
+    }
+
+    @Test("coming back online resumes server search")
+    func backOnlineResumesServerSearch() async throws {
+        let stub = SearchLibraryStub()
+        let state = ServerState()
+        state.isOnline = false
+        let vm = SearchViewModel(libraryService: stub, serverState: state)
+
+        await vm.search(query: "cassette")
+        #expect(stub.searchCalls.isEmpty)
+
+        state.isOnline = true
+        await vm.search(query: "cassette")
+
+        #expect(vm.isOffline == false)
+        #expect(stub.searchCalls == ["cassette"])
+    }
+
     @Test("empty or whitespace query clears state without any request")
     func emptyQueryClearsWithoutRequest() async throws {
         let stub = SearchLibraryStub()
-        let vm = SearchViewModel(libraryService: stub)
+        let vm = SearchViewModel(libraryService: stub, serverState: onlineState())
         vm.searchResults = try JSONDecoder().decode(SearchResult3.self, from: Data("{}".utf8))
         vm.searchError = .unexpected
         vm.isSearching = true
@@ -117,7 +170,7 @@ struct SearchViewModelDebounceTests {
         for error in cancellations {
             let stub = SearchLibraryStub()
             stub.behavior = .fail(error)
-            let vm = SearchViewModel(libraryService: stub)
+            let vm = SearchViewModel(libraryService: stub, serverState: onlineState())
 
             await vm.search(query: "cassette")
 
@@ -130,7 +183,7 @@ struct SearchViewModelDebounceTests {
     func realErrorSurfaces() async throws {
         let stub = SearchLibraryStub()
         stub.behavior = .fail(URLError(.timedOut))
-        let vm = SearchViewModel(libraryService: stub)
+        let vm = SearchViewModel(libraryService: stub, serverState: onlineState())
 
         await vm.search(query: "cassette")
 

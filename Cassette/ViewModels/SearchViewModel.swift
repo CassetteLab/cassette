@@ -17,11 +17,17 @@ final class SearchViewModel {
     var searchResults: SearchResult3?
     var isSearching = false
     var searchError: UserFacingError?
+    /// True when the query was answered from downloads instead of the server. The view swaps in the
+    /// local results section on this flag — it deliberately does NOT read ServerState itself, because
+    /// any extra observation in SearchView's body re-triggers the navigation bug documented there.
+    var isOffline = false
 
     private let libraryService: any LibraryServiceProtocol
+    private let serverState: ServerState
 
-    init(libraryService: any LibraryServiceProtocol) {
+    init(libraryService: any LibraryServiceProtocol, serverState: ServerState) {
         self.libraryService = libraryService
+        self.serverState = serverState
     }
 
     func search(query: String) async {
@@ -31,8 +37,18 @@ final class SearchViewModel {
             searchResults = nil
             searchError = nil
             isSearching = false
+            isOffline = false
             return
         }
+        guard serverState.isOnline else {
+            // No point debouncing a request we won't make; the view searches downloads instead.
+            searchResults = nil
+            searchError = nil
+            isSearching = false
+            isOffline = true
+            return
+        }
+        isOffline = false
         do {
             try await Task.sleep(for: Self.searchDebounce)
             // Spinner reflects the actual in-flight request, not the debounce wait.
