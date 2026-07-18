@@ -622,12 +622,14 @@ struct ArtistBioView: View {
     }
 }
 
-/// A 3-line placeholder shown while the bio loads, so the area reserves ~3 lines of height and the bio
-/// fades in (resizing if shorter) instead of popping — mirroring the similar-artists skeleton.
+/// A 4-line placeholder shown while the bio loads (≈ three clamped lines plus the Show-more row), so the
+/// area reserves height and the bio fades in (resizing if shorter) instead of popping — mirroring the
+/// similar-artists skeleton.
 struct ArtistBioSkeleton: View {
     var centered: Bool = false
     var body: some View {
         VStack(alignment: centered ? .center : .leading, spacing: CassetteSpacing.s) {
+            SkeletonBlock(height: 13)
             SkeletonBlock(height: 13)
             SkeletonBlock(height: 13)
             SkeletonBlock(width: 200, height: 13)
