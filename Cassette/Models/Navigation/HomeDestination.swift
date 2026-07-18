@@ -12,6 +12,7 @@ nonisolated enum HomeDestination: Hashable {
     // MARK: - Library sections (iOS only — macOS uses NavigationSplitView sidebar)
     case libraryAlbums
     case libraryArtists
+    case librarySongs
     case libraryPlaylists
     case libraryFavorites
     case libraryDownloads

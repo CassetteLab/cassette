@@ -94,6 +94,7 @@ private final class RSILibraryNullStub: LibraryServiceProtocol {
     func getStarred2() async throws -> Starred2 { throw URLError(.unknown) }
     func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
     func allAlbums() async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func allSongs() async throws -> [Song] { [] }
     func scrobble(songId: String, submission: Bool) async {}
     func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
     func mostPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
