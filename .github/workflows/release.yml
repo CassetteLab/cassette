@@ -39,6 +39,29 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building version $VERSION"
 
+      - name: Build unsigned iOS .ipa (for sideloading)
+        run: |
+          IPA="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.version }}.ipa"
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME-iOS.xcarchive" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            archive
+          # No signing certificate: package the .app into an unsigned .ipa (Payload/). Users install it by
+          # sideloading (AltStore / Sideloadly), which re-signs with their own Apple ID.
+          cd "$RUNNER_TEMP"
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP_NAME-iOS.xcarchive/Products/Applications/$APP_NAME.app" Payload/
+          zip -qry "$IPA" Payload
+          rm -rf Payload
+
       - name: Import Developer ID certificate into a temp keychain
         env:
           CERT_P12_BASE64: ${{ secrets.DEVELOPER_ID_CERT_P12_BASE64 }}
@@ -135,7 +158,9 @@ jobs:
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
+          files: |
+            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
+            ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.ipa
           generate_release_notes: true
 
       - name: Bump Homebrew cask
