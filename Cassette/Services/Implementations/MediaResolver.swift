@@ -12,18 +12,18 @@ import OSLog
 /// PlayerService always calls this — it never contacts SwiftSonic directly.
 actor MediaResolver: MediaResolverProtocol {
     private let downloadService: any DownloadServiceProtocol
-    private let cacheService: any CacheServiceProtocol
+    private let audioStreamCache: any AudioStreamCacheProtocol
     private let serverService: any ServerServiceProtocol
     private let serverState: ServerState
 
     init(
         downloadService: any DownloadServiceProtocol,
-        cacheService: any CacheServiceProtocol,
+        audioStreamCache: any AudioStreamCacheProtocol,
         serverService: any ServerServiceProtocol,
         serverState: ServerState
     ) {
         self.downloadService = downloadService
-        self.cacheService = cacheService
+        self.audioStreamCache = audioStreamCache
         self.serverService = serverService
         self.serverState = serverState
     }
@@ -36,8 +36,8 @@ actor MediaResolver: MediaResolverProtocol {
         }
 
         // 2. Ephemeral cache — no network needed, bump LRU clock.
-        if let url = await cacheService.cachedURL(forSongId: songId, serverId: serverId) {
-            await cacheService.touch(songId: songId, serverId: serverId)
+        if let url = await audioStreamCache.cachedURL(forSongId: songId, serverId: serverId) {
+            await audioStreamCache.touch(songId: songId, serverId: serverId)
             Logger.resolver.debug("Resolved '\(songId, privacy: .public)' from cache.")
             return .cached(url)
         }

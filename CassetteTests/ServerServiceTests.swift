@@ -33,7 +33,7 @@ final class MockKeychain: KeychainServiceProtocol {
 }
 
 @MainActor
-final class MockCacheService: CacheServiceProtocol {
+final class MockAudioStreamCache: AudioStreamCacheProtocol {
     var usedBytes: Int64 = 0
     var trackCount: Int = 0
     func cachedURL(forSongId songId: String, serverId: UUID) async -> URL? { nil }
@@ -59,7 +59,7 @@ struct ServerServiceTests {
         let keychain = keychain ?? MockKeychain()
         let container = try ModelContainer.cassette(inMemory: true)
         let state = ServerState()
-        let service = ServerService(state: state, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
+        let service = ServerService(state: state, keychain: keychain, modelContainer: container, audioStreamCache: MockAudioStreamCache())
         return (service, state)
     }
 
@@ -181,7 +181,7 @@ struct ServerServiceTests {
         let container = try ModelContainer.cassette(inMemory: true)
 
         let state1 = ServerState()
-        let service1 = ServerService(state: state1, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
+        let service1 = ServerService(state: state1, keychain: keychain, modelContainer: container, audioStreamCache: MockAudioStreamCache())
         try await service1.addServer(
             displayName: "Persisted", baseURL: "https://s.example.com",
             username: "user", password: "pass", customHeaders: [:]
@@ -189,7 +189,7 @@ struct ServerServiceTests {
 
         // Simulate app restart: new service with the same container
         let state2 = ServerState()
-        let service2 = ServerService(state: state2, keychain: keychain, modelContainer: container, cacheService: MockCacheService())
+        let service2 = ServerService(state: state2, keychain: keychain, modelContainer: container, audioStreamCache: MockAudioStreamCache())
 
         #expect(state2.servers.isEmpty)
         await service2.loadPersistedState()

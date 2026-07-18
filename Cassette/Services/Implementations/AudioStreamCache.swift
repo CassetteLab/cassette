@@ -10,13 +10,17 @@ import OSLog
 /// Streaming cache for recently-played tracks. Holds a sliding window of the N most-recently-cached tracks.
 /// FIFO eviction: when count exceeds the limit, the oldest by `cachedAt` is removed (file + record).
 ///
+/// Caches AUDIO BYTES ONLY. It holds no library metadata — no albums, artists, playlists or search
+/// results — and the app has no metadata cache at all: LibraryService goes to the server on every call.
+/// Nothing here makes the library browsable offline; only the downloads store does.
+///
 /// Distinct from DownloadService:
 /// - DownloadService → permanent, user-explicit, never auto-evicted, lives in Documents/.
-/// - CacheService → transient, automatic, evicted by FIFO, lives in Caches/.
+/// - AudioStreamCache → transient, automatic, evicted by FIFO, lives in Caches/.
 ///
 /// Populated via the streaming hook in PlayerService (phase 2). MediaResolver reads from this cache
 /// between permanent downloads and remote streaming.
-actor CacheService: CacheServiceProtocol {
+actor AudioStreamCache: AudioStreamCacheProtocol {
     private let modelContainer: ModelContainer
     private let cacheDirectory: URL
     private(set) var maxTracks: Int
@@ -25,7 +29,7 @@ actor CacheService: CacheServiceProtocol {
     nonisolated static let minMaxTracks: Int = 1
     nonisolated static let maxMaxTracks: Int = 10
 
-    init(modelContainer: ModelContainer, maxTracks: Int = CacheService.defaultMaxTracks) {
+    init(modelContainer: ModelContainer, maxTracks: Int = AudioStreamCache.defaultMaxTracks) {
         self.modelContainer = modelContainer
         self.maxTracks = max(Self.minMaxTracks, min(Self.maxMaxTracks, maxTracks))
 
@@ -35,7 +39,7 @@ actor CacheService: CacheServiceProtocol {
         do {
             try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
         } catch {
-            Logger.cache.debug("CacheService: failed to create cache directory — \(error)")
+            Logger.cache.debug("AudioStreamCache: failed to create cache directory — \(error)")
         }
     }
 
@@ -107,7 +111,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: store save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: store save failed — \(error)")
             }
         }
 
@@ -152,7 +156,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(entry.filePath))
             } catch {
-                Logger.cache.debug("CacheService: evict removeItem failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: evict removeItem failed — \(error)")
             }
         }
 
@@ -164,7 +168,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: evict save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: evict save failed — \(error)")
             }
         }
 
@@ -182,7 +186,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
             } catch {
-                Logger.cache.debug("CacheService: invalidate removeItem failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: invalidate removeItem failed — \(error)")
             }
         }
         await MainActor.run {
@@ -192,7 +196,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: invalidate save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: invalidate save failed — \(error)")
             }
         }
         Logger.cache.debug("Invalidated cache for '\(songId, privacy: .public)'")
@@ -209,7 +213,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
             } catch {
-                Logger.cache.debug("CacheService: clearAll removeItem failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: clearAll removeItem failed — \(error)")
             }
         }
         await MainActor.run {
@@ -219,7 +223,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: clearAll tracks save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: clearAll tracks save failed — \(error)")
             }
         }
         await MainActor.run {
@@ -229,7 +233,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: clearAll lyrics save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: clearAll lyrics save failed — \(error)")
             }
         }
         Logger.cache.info("Cleared all cache entries")
@@ -246,7 +250,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(filePath))
             } catch {
-                Logger.cache.debug("CacheService: clearAllForServer removeItem failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: clearAllForServer removeItem failed — \(error)")
             }
         }
         await MainActor.run {
@@ -256,7 +260,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: clearAllForServer tracks save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: clearAllForServer tracks save failed — \(error)")
             }
         }
         await MainActor.run {
@@ -266,7 +270,7 @@ actor CacheService: CacheServiceProtocol {
             do {
                 try context.save()
             } catch {
-                Logger.cache.debug("CacheService: clearAllForServer lyrics save failed — \(error)")
+                Logger.cache.debug("AudioStreamCache: clearAllForServer lyrics save failed — \(error)")
             }
         }
         Logger.cache.info("Cleared cache for server \(serverId.uuidString)")

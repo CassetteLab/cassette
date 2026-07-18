@@ -12,7 +12,7 @@ extension Logger {
     nonisolated static let server     = Logger(subsystem: "app.cassette.server",     category: "ServerService")
     nonisolated static let player     = Logger(subsystem: "app.cassette.player",     category: "PlayerService")
     nonisolated static let library    = Logger(subsystem: "app.cassette.library",    category: "LibraryService")
-    nonisolated static let cache      = Logger(subsystem: "app.cassette.cache",      category: "CacheService")
+    nonisolated static let cache      = Logger(subsystem: "app.cassette.cache",      category: "AudioStreamCache")
     nonisolated static let download   = Logger(subsystem: "app.cassette.download",   category: "DownloadService")
     nonisolated static let resolver   = Logger(subsystem: "app.cassette.resolver",   category: "MediaResolver")
     nonisolated static let nowPlaying = Logger(subsystem: "app.cassette.nowplaying", category: "NowPlayingService")

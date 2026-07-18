@@ -23,7 +23,7 @@ final class AppContainer {
     let keychainService: any KeychainServiceProtocol
     let serverService: any ServerServiceProtocol
     let libraryService: any LibraryServiceProtocol
-    let cacheService: any CacheServiceProtocol
+    let audioStreamCache: any AudioStreamCacheProtocol
     let downloadService: any DownloadServiceProtocol
     let mediaResolver: any MediaResolverProtocol
     let playerService: any PlayerServiceProtocol
@@ -59,13 +59,13 @@ final class AppContainer {
         let keychain = KeychainService()
         keychainService = keychain
 
-        let cache = CacheService(modelContainer: modelContainer, maxTracks: cacheSettings.maxTracks)
-        cacheService = cache
+        let cache = AudioStreamCache(modelContainer: modelContainer, maxTracks: cacheSettings.maxTracks)
+        audioStreamCache = cache
 
         let stats = StatsService(modelContainer: modelContainer)
         statsService = stats
 
-        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer, cacheService: cache)
+        let server = ServerService(state: serverState, keychain: keychain, modelContainer: modelContainer, audioStreamCache: cache)
         serverService = server
         lyricsService = LyricsService(serverService: server, modelContainer: modelContainer)
         wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
@@ -81,7 +81,7 @@ final class AppContainer {
 
         let resolver = MediaResolver(
             downloadService: download,
-            cacheService: cache,
+            audioStreamCache: cache,
             serverService: server,
             serverState: serverState
         )
@@ -91,7 +91,7 @@ final class AppContainer {
         let lb = ListenBrainzService(client: lbClient, keychain: keychain)
         listenBrainzService = lb
 
-        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, cacheService: cache, downloadService: download, cacheSettings: cacheSettings, replayGainSettings: replayGainSettings, crossfadeSettings: crossfadeSettings, toastService: toastService, statsService: stats, listenBrainzService: lb)
+        let player = PlayerService(state: playerState, mediaResolver: resolver, serverService: server, sessionService: sessionService, artworkImageCache: artworkImageCache, libraryService: library, audioStreamCache: cache, downloadService: download, cacheSettings: cacheSettings, replayGainSettings: replayGainSettings, crossfadeSettings: crossfadeSettings, toastService: toastService, statsService: stats, listenBrainzService: lb)
         _player = player
         playerService = player
 
@@ -273,18 +273,18 @@ extension AppContainer {
     /// (public.mpeg) instead of public.mp3, causing silent playback failure for MP3 files.
     ///
     /// This migration:
-    /// 1. Purges the ephemeral CacheService (all entries may carry .mpeg).
+    /// 1. Purges the ephemeral AudioStreamCache (all entries may carry .mpeg).
     /// 2. Renames permanent downloaded files from .mpeg to the correct extension using
     ///    the server-declared `suffix` stored in DownloadedTrack, falling back to a
     ///    MIME-type map when suffix is absent.
     /// 3. Updates the SwiftData filePath records for each successfully renamed file.
     static func migrateAudioExtensionsIfNeeded(
         modelContainer: ModelContainer,
-        cacheService: any CacheServiceProtocol
+        audioStreamCache: any AudioStreamCacheProtocol
     ) async {
         guard !UserDefaults.standard.bool(forKey: audioExtMigrationKey) else { return }
 
-        await cacheService.clearAll()
+        await audioStreamCache.clearAll()
         Logger.migration.info("[ExtMigration] Ephemeral audio cache cleared")
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]

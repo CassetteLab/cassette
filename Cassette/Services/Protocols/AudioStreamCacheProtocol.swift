@@ -5,7 +5,7 @@
 
 import Foundation
 
-protocol CacheServiceProtocol: AnyObject, Sendable {
+protocol AudioStreamCacheProtocol: AnyObject, Sendable {
     var usedBytes: Int64 { get async }
     var trackCount: Int { get async }
 

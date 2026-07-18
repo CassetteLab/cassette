@@ -13,13 +13,13 @@ actor ServerService: ServerServiceProtocol {
 
     private let keychain: any KeychainServiceProtocol
     private let modelContainer: ModelContainer
-    private let cacheService: any CacheServiceProtocol
+    private let audioStreamCache: any AudioStreamCacheProtocol
 
-    init(state: ServerState, keychain: any KeychainServiceProtocol, modelContainer: ModelContainer, cacheService: any CacheServiceProtocol) {
+    init(state: ServerState, keychain: any KeychainServiceProtocol, modelContainer: ModelContainer, audioStreamCache: any AudioStreamCacheProtocol) {
         self.state = state
         self.keychain = keychain
         self.modelContainer = modelContainer
-        self.cacheService = cacheService
+        self.audioStreamCache = audioStreamCache
     }
 
     func addServer(
@@ -110,7 +110,7 @@ actor ServerService: ServerServiceProtocol {
             return
         }
         for serverId in othersToClean {
-            await cacheService.clearAllForServer(serverId)
+            await audioStreamCache.clearAllForServer(serverId)
         }
         Logger.server.info("Cleared cache for \(othersToClean.count) non-active server(s) at switch.")
     }

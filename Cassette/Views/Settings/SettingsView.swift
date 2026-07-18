@@ -278,7 +278,7 @@ struct CacheSectionView: View {
         .onChange(of: cacheSettings?.maxTracks) { _, newValue in
             guard let newValue else { return }
             Task {
-                await container?.cacheService.setMaxTracks(newValue)
+                await container?.audioStreamCache.setMaxTracks(newValue)
                 await refreshUsage()
             }
         }
@@ -293,8 +293,8 @@ struct CacheSectionView: View {
 
     private func refreshUsage() async {
         guard let container else { return }
-        let bytes = await container.cacheService.usedBytes
-        let count = await container.cacheService.trackCount
+        let bytes = await container.audioStreamCache.usedBytes
+        let count = await container.audioStreamCache.trackCount
         usedBytes = bytes
         trackCount = count
     }
@@ -303,7 +303,7 @@ struct CacheSectionView: View {
         guard let container else { return }
         isClearing = true
         defer { isClearing = false }
-        await container.cacheService.clearAll()
+        await container.audioStreamCache.clearAll()
         container.dominantColorExtractor.clearCache()
         await refreshUsage()
     }

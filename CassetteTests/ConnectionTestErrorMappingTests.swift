@@ -62,7 +62,7 @@ struct ConnectionTestErrorMappingTests {
             state: state,
             keychain: MockKeychain(),
             modelContainer: container,
-            cacheService: MockCacheService()
+            audioStreamCache: MockAudioStreamCache()
         )
     }
 

@@ -25,7 +25,7 @@ actor PlayerService: PlayerServiceProtocol {
     private let sessionService: PlaybackSessionService
     private let artworkImageCache: ArtworkImageCache
     private let libraryService: any LibraryServiceProtocol
-    private let cacheService: any CacheServiceProtocol
+    private let audioStreamCache: any AudioStreamCacheProtocol
     private let downloadService: any DownloadServiceProtocol
     private let cacheSettings: CacheSettings
     private let replayGainSettings: ReplayGainSettings
@@ -125,7 +125,7 @@ actor PlayerService: PlayerServiceProtocol {
         sessionService: PlaybackSessionService,
         artworkImageCache: ArtworkImageCache,
         libraryService: any LibraryServiceProtocol,
-        cacheService: any CacheServiceProtocol,
+        audioStreamCache: any AudioStreamCacheProtocol,
         downloadService: any DownloadServiceProtocol,
         cacheSettings: CacheSettings,
         replayGainSettings: ReplayGainSettings,
@@ -140,7 +140,7 @@ actor PlayerService: PlayerServiceProtocol {
         self.sessionService = sessionService
         self.artworkImageCache = artworkImageCache
         self.libraryService = libraryService
-        self.cacheService = cacheService
+        self.audioStreamCache = audioStreamCache
         self.downloadService = downloadService
         self.cacheSettings = cacheSettings
         self.replayGainSettings = replayGainSettings
@@ -292,10 +292,10 @@ actor PlayerService: PlayerServiceProtocol {
             }
 
             if let cacheStreamURL {
-                cacheDownloadTask = Task { [cacheService, downloadService, serverService, cacheSession, weak self] in
+                cacheDownloadTask = Task { [audioStreamCache, downloadService, serverService, cacheSession, weak self] in
                     try? await Task.sleep(for: .seconds(30))
                     guard !Task.isCancelled else { return }
-                    if await cacheService.cachedURL(forSongId: songId, serverId: serverId) != nil { return }
+                    if await audioStreamCache.cachedURL(forSongId: songId, serverId: serverId) != nil { return }
                     if await downloadService.isDownloaded(songId: songId, serverId: serverId) { return }
                     let isExpensive = await MainActor.run { serverService.state.isExpensive }
                     if isExpensive && !allowCellular {
@@ -1345,7 +1345,7 @@ actor PlayerService: PlayerServiceProtocol {
     private func prefetchNextTrack(nextSong: DisplayableSong, serverId: UUID) async {
         let songId = nextSong.id
 
-        if await cacheService.cachedURL(forSongId: songId, serverId: serverId) != nil {
+        if await audioStreamCache.cachedURL(forSongId: songId, serverId: serverId) != nil {
             Logger.player.debug("[PREFETCH] '\(songId, privacy: .public)' already cached — skip")
             return
         }
@@ -1795,7 +1795,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Cache download helpers
 
-    /// Downloads the track from its stream URL and stores it in CacheService.
+    /// Downloads the track from its stream URL and stores it in AudioStreamCache.
     /// Uses URLSession.download for disk-streaming efficiency (temp file → read → store).
     private func downloadAndCache(
         songId: String,
@@ -1826,7 +1826,7 @@ actor PlayerService: PlayerServiceProtocol {
         let ext = streamURL.pathExtension
         let mimeType = response.mimeType ?? (ext.isEmpty ? "audio/mpeg" : "audio/\(ext)")
 
-        _ = try await cacheService.store(
+        _ = try await audioStreamCache.store(
             data: data,
             forSongId: songId,
             serverId: serverId,
