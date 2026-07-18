@@ -155,11 +155,23 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
         defer { try? handle.close() }
         guard let total = try? handle.seekToEnd() else { return nil }
-        return scanBoxTypes(total: total, limit: limit) { offset, length in
+        let types = scanBoxTypes(total: total, limit: limit) { offset, length in
             do { try handle.seek(toOffset: offset) } catch { return nil }
             guard let chunk = try? handle.read(upToCount: length), chunk.count == length else { return nil }
             return [UInt8](chunk)
         }
+        // An empty result on a file with room for a header means the very first read failed — the
+        // scanner appends a box type before validating its size, so any readable byte pattern,
+        // MP4 or not, yields at least one entry. Reporting that as [] would let `classify` call it
+        // `.notMP4`, which is a verdict about the CONTENT, not about a failure to read it. Return
+        // nil so the caller can tell "I could not look" from "I looked and it is not an MP4".
+        if types.isEmpty && total >= 8 {
+            let head = (try? handle.seek(toOffset: 0)).flatMap { _ in try? handle.read(upToCount: 16) }
+            let hex = head.map { $0.map { String(format: "%02x", $0) }.joined(separator: " ") } ?? "<unreadable>"
+            Logger.download.error("[REMUX] box scan read nothing from a \(total, privacy: .public)-byte file — first bytes: \(hex, privacy: .public)")
+            return nil
+        }
+        return types
     }
 
     /// Walks the ISO-BMFF top-level box chain: each box is an 8-byte header (UInt32 big-endian

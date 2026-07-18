@@ -89,6 +89,27 @@ struct AudioFaststartRemuxerTests {
         #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "mdat"]) == false)
     }
 
+    @Test("a non-MP4 file still yields box types — an empty scan means a read failure, not 'not MP4'")
+    func nonMP4StillYieldsTypes() async {
+        // FLAC magic. The scanner appends a type before validating the box size, so any readable
+        // 8 bytes produce an entry. This is what makes "empty" diagnostic of a failed read.
+        var flac: [UInt8] = Array("fLaC".utf8) + [0x00, 0x00, 0x00, 0x22]
+        flac.append(contentsOf: [UInt8](repeating: 0, count: 64))
+        await withTempFile(flac, ext: "flac") { url in
+            let types = AudioFaststartRemuxer.topLevelBoxTypes(atPath: url.path)
+            #expect(types != nil)
+            #expect(types?.isEmpty == false)
+            #expect(AudioFaststartRemuxer.classify(boxTypes: types ?? []) == .notMP4)
+        }
+    }
+
+    @Test("a file too short to hold a header scans as empty rather than unreadable")
+    func shortFileScansEmpty() async {
+        await withTempFile([0x00, 0x01, 0x02], ext: "bin") { url in
+            #expect(AudioFaststartRemuxer.topLevelBoxTypes(atPath: url.path) == [])
+        }
+    }
+
     @Test("an output that is still mdat-first, or not an MP4 at all, is rejected")
     func badLayoutOutputRejected() {
         #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "mdat", "moov"]) == false)
