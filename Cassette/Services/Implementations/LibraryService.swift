@@ -118,6 +118,16 @@ actor LibraryService: LibraryServiceProtocol {
         }
     }
 
+    func allSongs(offset: Int, count: Int) async throws -> [Song] {
+        try await client().search3(
+            "",
+            artistCount: 0,
+            albumCount: 0,
+            songCount: count,
+            songOffset: offset
+        ).song ?? []
+    }
+
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws {
         // TODO(v1.x): verify Navidrome savePlayQueue support; implement best-effort sync
     }

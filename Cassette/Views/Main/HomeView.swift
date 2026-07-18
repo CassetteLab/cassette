@@ -156,6 +156,8 @@ struct HomeView: View {
                 AlbumsListView()
             case .libraryArtists:
                 ArtistListView()
+            case .librarySongs:
+                SongsListView()
             case .libraryPlaylists:
                 PlaylistListView(zoomNamespace: playlistZoomNamespace)
             case .libraryFavorites:
@@ -379,6 +381,11 @@ struct HomeView: View {
                 Divider().padding(.leading, 52)
                 NavigationLink(value: HomeDestination.libraryArtists) {
                     HomeLibraryRowLabel(title: "Artists", systemImage: "music.mic")
+                }
+                .buttonStyle(.plain)
+                Divider().padding(.leading, 52)
+                NavigationLink(value: HomeDestination.librarySongs) {
+                    HomeLibraryRowLabel(title: "Songs", systemImage: "music.note")
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 52)

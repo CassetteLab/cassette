@@ -38,6 +38,11 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3]
     func allAlbums() async throws -> [AlbumID3]
 
+    /// One page of the library's songs via search3's empty-query wildcard — Navidrome's only whole-library
+    /// song enumeration (there is no dedicated endpoint). Returned in server order; callers page with
+    /// `offset`/`count` and sort client-side once loaded.
+    func allSongs(offset: Int, count: Int) async throws -> [Song]
+
     // MARK: - Discover
 
     /// Notifies the server about playback activity. v1.3 uses both modes :

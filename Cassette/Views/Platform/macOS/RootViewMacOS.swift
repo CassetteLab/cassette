@@ -146,6 +146,7 @@ struct RootViewMacOS: View {
             Section("Library") {
                 sidebarRow(.albums)
                 sidebarRow(.artists)
+                sidebarRow(.songs)
                 sidebarRow(.playlists)
                 sidebarRow(.favorites)
                 sidebarRow(.downloads)
@@ -303,6 +304,7 @@ struct RootViewMacOS: View {
         case .wrapped:       WrappedView()
         case .albums:    AlbumsListView()
         case .artists:   ArtistsListMacOS()
+        case .songs:     SongsListView()
         case .playlists: PlaylistListView()
         case .favorites: FavoritesView()
         case .downloads: DownloadedView()
