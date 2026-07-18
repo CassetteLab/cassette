@@ -15,6 +15,10 @@ struct ArtistDetailView: View {
     @State private var viewModel: ArtistDetailViewModel?
     @State private var selectedOutOfLibraryArtist: SimilarArtistRecommendation?
     @Query private var artistFavoriteMatches: [FavoriteRecord]
+    /// Every starred song (ids only). Filtering the fetched liked list through this makes the section
+    /// react instantly when a track is unstarred from its context menu, with no refetch.
+    @Query(filter: #Predicate<FavoriteRecord> { $0.itemType == "song" })
+    private var songFavorites: [FavoriteRecord]
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.colorScheme) private var colorScheme
     @State private var dominantColor: Color = .clear
@@ -109,6 +113,17 @@ struct ArtistDetailView: View {
                                 } else if !vm.topSongs.isEmpty {
                                     topSongsSection(vm: vm)
                                 }
+                                // Both forms of the liked tracks occupy the SAME slot: few of them list
+                                // inline, enough of them collapse into the best-of card. Crossing the
+                                // threshold swaps the content in place instead of moving the discography.
+                                let liked = likedSongs(vm)
+                                if vm.isLoadingLikedSongs {
+                                    likedSongsSkeleton
+                                } else if liked.count >= ArtistBestOf.minimumSongs {
+                                    bestOfSection(liked)
+                                } else if !liked.isEmpty {
+                                    likedSongsSection(liked)
+                                }
                                 albumsSection(albums)
                                 if vm.isLoadingSimilarArtists || !vm.similarArtists.isEmpty {
                                     similarArtistsSection(vm: vm)
@@ -123,7 +138,10 @@ struct ArtistDetailView: View {
                         .ignoresSafeArea(.container, edges: .top)
                         .cassetteHideTopScrollEdgeEffect()
                         .background(bodyColor.ignoresSafeArea())
-                        .refreshable { await vm.load() }
+                        .refreshable {
+                            await vm.load()
+                            await vm.loadLikedSongs()
+                        }
                         .task(id: heroCoverArtId) {
                             let cached = colorExtractor.bottomStripColor(for: heroCoverArtId, image: nil)
                             if cached != .clear {
@@ -156,6 +174,7 @@ struct ArtistDetailView: View {
             }
             await viewModel?.load()
             await viewModel?.loadTopSongs()
+            await viewModel?.loadLikedSongs()
             await viewModel?.loadSimilarArtists()
             await viewModel?.loadArtistInfo()
         }
@@ -412,6 +431,114 @@ struct ArtistDetailView: View {
             sectionHeader("Top Songs")
             VStack(spacing: CassetteSpacing.m) {
                 ForEach(0..<5, id: \.self) { _ in
+                    HStack(spacing: CassetteSpacing.m) {
+                        SkeletonBlock(width: 44, height: 44, cornerRadius: CassetteCornerRadius.standard)
+                        VStack(alignment: .leading, spacing: 6) {
+                            SkeletonBlock(width: 180, height: 13, cornerRadius: 4)
+                            SkeletonBlock(width: 120, height: 11, cornerRadius: 4)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+        .allowsHitTesting(false)
+    }
+
+    // MARK: - Liked songs
+
+    /// The artist's starred tracks, gathered from every album. `vm.likedSongs` is the server snapshot taken
+    /// when the screen loaded; `filteredByLocalStars` keeps it honest as stars change under it.
+    private func likedSongs(_ vm: ArtistDetailViewModel) -> [DisplayableSong] {
+        ArtistBestOf.filteredByLocalStars(vm.likedSongs, starredSongIds: Set(songFavorites.map(\.itemId)))
+    }
+
+    /// The "The best of <artist>" card, shown under the discography once the artist has enough liked tracks
+    /// to make a playlist worth opening. Below that threshold `likedSongsSection` lists them inline instead.
+    private func bestOfSection(_ songs: [DisplayableSong]) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            sectionHeader("Made For You")
+            NavigationLink(value: HomeDestination.artistBestOf(
+                artistId: artist.id,
+                artistName: artist.name,
+                coverArtId: viewModel?.artist?.coverArt ?? artist.coverArt
+            )) {
+                HStack(spacing: CassetteSpacing.m) {
+                    CoverArtView(id: heroCoverArtId, size: 200)
+                        .frame(width: 88, height: 88)
+                        .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Playlist")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(headerSecondaryColor)
+                        Text("The best of \(artist.name)")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(headerTextColor)
+                            .lineLimit(2)
+                        Text("\(songs.count) songs")
+                            .font(.cassetteCaption)
+                            .foregroundStyle(headerSecondaryColor)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.cassetteCaption)
+                        .foregroundStyle(headerSecondaryColor)
+                }
+                .padding(CassetteSpacing.m)
+                .background(Color.white.opacity(0.10), in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                // Make the WHOLE card tappable, gaps included (see featuredReleaseSection).
+                .contentShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                .padding(.horizontal, CassetteSpacing.l)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// The handful of liked tracks an artist has before they earn a best-of playlist.
+    private func likedSongsSection(_ songs: [DisplayableSong]) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            HStack(spacing: CassetteSpacing.m) {
+                sectionHeader("Liked Songs")
+                Spacer()
+                Button {
+                    Task { try? await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0) }
+                } label: {
+                    Image(systemName: "shuffle")
+                        .font(.cassetteSectionTitle)
+                        .foregroundStyle(headerTextColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Shuffle liked songs")
+                .padding(.trailing, CassetteSpacing.l)
+            }
+            VStack(spacing: 0) {
+                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+                    Button {
+                        Task { try? await container?.playerService.play(tracks: songs, startIndex: index) }
+                    } label: {
+                        SongRow(
+                            song: song,
+                            index: index + 1,
+                            showCoverArt: true,
+                            showArtist: false,
+                            isFavorite: true,
+                            titleColor: headerTextColor,
+                            secondaryColor: headerSecondaryColor
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, CassetteSpacing.l)
+        }
+    }
+
+    private var likedSongsSkeleton: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            sectionHeader("Liked Songs")
+            VStack(spacing: CassetteSpacing.m) {
+                ForEach(0..<3, id: \.self) { _ in
                     HStack(spacing: CassetteSpacing.m) {
                         SkeletonBlock(width: 44, height: 44, cornerRadius: CassetteCornerRadius.standard)
                         VStack(alignment: .leading, spacing: 6) {

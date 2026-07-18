@@ -45,6 +45,7 @@ struct PlaylistListView: View {
             if viewModel == nil { viewModel = PlaylistListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
+            await viewModel?.loadBestOf()
         }
         // Deleting a playlist from a detail surface posts this — reload so the list reflects it on return,
         // without a blanket `.onAppear` reload (which would re-fetch on every navigation).
@@ -74,24 +75,55 @@ struct PlaylistListView: View {
                 subtitle: LocalizedStringKey(error.displayMessage),
                 action: .init(label: "Retry") { Task { await vm.load() } }
             )
-        } else if vm.playlists.isEmpty {
+        } else if vm.playlists.isEmpty && vm.bestOfPlaylists.isEmpty {
             EmptyStateView(
                 systemImage: "list.bullet",
                 title: "No Playlists",
                 subtitle: "Create playlists on your server to see them here."
             )
         } else {
-            List(vm.playlists) { playlist in
-                NavigationLink(value: HomeDestination.playlist(playlist)) {
-                    OnlinePlaylistRow(
-                        playlist: playlist,
-                        namespace: zoomNamespace,
-                        onActionCompleted: { Task { await vm.load() } }
-                    )
+            List {
+                // Derived from the user's stars, not stored on the server — hence its own section rather
+                // than being mixed in with the real playlists below.
+                if !vm.bestOfPlaylists.isEmpty {
+                    Section("Made For You") {
+                        ForEach(vm.bestOfPlaylists) { bestOf in
+                            NavigationLink(value: HomeDestination.artistBestOf(
+                                artistId: bestOf.artistId,
+                                artistName: bestOf.artistName,
+                                coverArtId: bestOf.coverArtId
+                            )) {
+                                BestOfPlaylistRow(bestOf: bestOf)
+                            }
+                        }
+                    }
+                }
+                // Label the server playlists only when there's a derived section above to tell them apart
+                // from — on its own the header would just repeat the screen title.
+                if vm.bestOfPlaylists.isEmpty {
+                    serverPlaylistRows(vm)
+                } else if !vm.playlists.isEmpty {
+                    Section("Playlists") { serverPlaylistRows(vm) }
                 }
             }
             .listStyle(.plain)
-            .refreshable { await vm.load() }
+            .refreshable {
+                await vm.load()
+                await vm.loadBestOf()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func serverPlaylistRows(_ vm: PlaylistListViewModel) -> some View {
+        ForEach(vm.playlists) { playlist in
+            NavigationLink(value: HomeDestination.playlist(playlist)) {
+                OnlinePlaylistRow(
+                    playlist: playlist,
+                    namespace: zoomNamespace,
+                    onActionCompleted: { Task { await vm.load() } }
+                )
+            }
         }
     }
 }
@@ -167,6 +199,32 @@ private struct OnlinePlaylistRow: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Derived "best of" row
+
+/// A virtual best-of playlist. No context menu: there is nothing on the server to rename, delete, pin or
+/// download — the row exists only as a doorway into the derived track list.
+private struct BestOfPlaylistRow: View {
+    let bestOf: ArtistBestOf
+
+    var body: some View {
+        HStack(spacing: CassetteSpacing.m) {
+            CoverArtView(id: bestOf.coverArtId ?? bestOf.artistId, size: 112)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.standard, style: .continuous))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("The best of \(bestOf.artistName)")
+                    .font(.cassetteCellTitle)
+                    .lineLimit(1)
+                Text("\(bestOf.songs.count) tracks")
+                    .font(.cassetteCaption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, CassetteSpacing.xs)
     }
 }
 

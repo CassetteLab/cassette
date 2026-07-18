@@ -19,6 +19,21 @@ final class PlaylistListViewModel {
         self.libraryService = libraryService
     }
 
+    /// Virtual "best of" playlists derived from the user's stars — never server playlists, so they are
+    /// kept in their own section rather than mixed into `playlists`.
+    var bestOfPlaylists: [ArtistBestOf] = []
+
+    /// Loads the derived best-of playlists. Independent of `load()` and deliberately non-throwing: a server
+    /// that fails or doesn't answer getStarred2 should cost the user the "Made For You" section, not the
+    /// playlist list.
+    func loadBestOf() async {
+        guard let starred = try? await libraryService.getStarred2() else {
+            bestOfPlaylists = []
+            return
+        }
+        bestOfPlaylists = ArtistBestOf.all(in: starred.song ?? [])
+    }
+
     func load() async {
         isLoading = true
         error = nil

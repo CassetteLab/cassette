@@ -192,6 +192,8 @@ struct SearchView: View {
                 #else
                 ArtistDetailView(artistId: id, artistName: name, coverArtId: coverArtId)
                 #endif
+            case .artistBestOf(let id, let name, let coverArtId):
+                ArtistBestOfView(artistId: id, artistName: name, coverArtId: coverArtId)
             default:
                 EmptyView()
             }

@@ -205,6 +205,8 @@ struct HomeView: View {
                 )
             case .artistById(let id, let name, let coverArtId):
                 ArtistDetailView(artist: ArtistID3(id: id, name: name, coverArt: coverArtId))
+            case .artistBestOf(let id, let name, let coverArtId):
+                ArtistBestOfView(artistId: id, artistName: name, coverArtId: coverArtId)
             case .offlineArtist(let artist):
                 OfflineArtistAlbumsView(artist: artist)
             case .offlineAlbum(let album):

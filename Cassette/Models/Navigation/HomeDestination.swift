@@ -33,6 +33,11 @@ nonisolated enum HomeDestination: Hashable {
     case playlistById(id: String, name: String, coverArtId: String?)
     case artistById(id: String, name: String, coverArtId: String?)
 
+    // MARK: - Derived (virtual) destinations
+    /// "The best of <artist>" — the user's starred tracks for one artist, computed from getStarred2.
+    /// Carries only identity: the track list is never persisted, it is recomputed by the screen.
+    case artistBestOf(artistId: String, artistName: String, coverArtId: String?)
+
     // MARK: - Offline-derived destinations
     /// Offline artist summary — used from OfflineBrowseContent
     case offlineArtist(OfflineArtistSummary)

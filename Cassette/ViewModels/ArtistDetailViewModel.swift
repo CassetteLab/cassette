@@ -22,6 +22,11 @@ final class ArtistDetailViewModel {
     /// Starts true so the section shows a skeleton until the first load resolves (then empty → hidden).
     var isLoadingTopSongs = true
 
+    /// Songs by this artist the user has starred, most recently liked first. Empty → the view hides the section.
+    var likedSongs: [DisplayableSong] = []
+    /// Starts true so the section shows a skeleton until the first load resolves (then empty → hidden).
+    var isLoadingLikedSongs = true
+
     /// Server-provided biography (getArtistInfo). nil/empty on bare servers → section hidden.
     var biography: String?
     /// Last.fm link from getArtistInfo, when the server returns one.
@@ -68,6 +73,21 @@ final class ArtistDetailViewModel {
         } catch {
             Logger.recommendations.warning("topSongs failed for \(self.artistId): \(error)")
             topSongs = []
+        }
+    }
+
+    /// The user's starred songs for this artist, across every album — Subsonic has no per-artist
+    /// starred endpoint, so this filters the full getStarred2 payload. Call after `load()` so
+    /// `artist?.name` is available as a fallback match for servers that omit `artistId` on starred songs.
+    func loadLikedSongs() async {
+        isLoadingLikedSongs = true
+        defer { isLoadingLikedSongs = false }
+        do {
+            let starred = try await libraryService.getStarred2()
+            likedSongs = ArtistBestOf.songs(of: artistId, named: artist?.name, in: starred.song ?? [])
+        } catch {
+            Logger.favorites.warning("liked songs failed for \(self.artistId): \(error)")
+            likedSongs = []
         }
     }
 

@@ -277,6 +277,8 @@ struct RootViewMacOS: View {
                     OfflineArtistAlbumsView(artist: artist)
                 case .artistById(let id, let name, let coverArtId):
                     ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
+                case .artistBestOf(let id, let name, let coverArtId):
+                    ArtistBestOfView(artistId: id, artistName: name, coverArtId: coverArtId)
                 default:
                     EmptyView()
                 }
