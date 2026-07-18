@@ -406,7 +406,13 @@ struct ArtistDetailView: View {
         .allowsHitTesting(false)
     }
 
-    /// Albums — a grid of covers ordered by the shared sort preference, with a sort menu in the header.
+    /// Two fixed rows for the album grid — it scrolls horizontally (2×N), ordered by the sort preference.
+    private var albumGridRows: [GridItem] {
+        [GridItem(.fixed(196), spacing: CassetteSpacing.m),
+         GridItem(.fixed(196), spacing: CassetteSpacing.m)]
+    }
+
+    /// Albums — a 2-row grid that scrolls horizontally, ordered by the shared sort, with a sort menu header.
     private func albumsSection(_ albums: [AlbumID3]) -> some View {
         VStack(alignment: .leading, spacing: CassetteSpacing.s) {
             HStack {
@@ -417,32 +423,34 @@ struct ArtistDetailView: View {
                     .foregroundStyle(headerTextColor)
                     .padding(.trailing, CassetteSpacing.l)
             }
-            LazyVGrid(columns: columns, spacing: CassetteSpacing.l) {
-                ForEach(albumSort.sorted(albums)) { album in
-                    NavigationLink(value: HomeDestination.album(album)) {
-                        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                            CoverArtView(id: album.coverArt ?? album.id, size: 320)
-                                .aspectRatio(1, contentMode: .fit)
-                                .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
-                            Text(album.name)
-                                .font(.cassetteCellTitle)
-                                .foregroundStyle(headerTextColor)
-                                .lineLimit(1)
-                            if let year = album.year {
-                                Text(verbatim: "\(year)")
-                                    .font(.cassetteCaption)
-                                    .foregroundStyle(headerSecondaryColor)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHGrid(rows: albumGridRows, alignment: .top, spacing: CassetteSpacing.m) {
+                    ForEach(albumSort.sorted(albums)) { album in
+                        NavigationLink(value: HomeDestination.album(album)) {
+                            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+                                CoverArtView(id: album.coverArt ?? album.id, size: 320)
+                                    .frame(width: 160, height: 160)
+                                    .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large, style: .continuous))
+                                Text(album.name)
+                                    .font(.cassetteCellTitle)
+                                    .foregroundStyle(headerTextColor)
+                                    .lineLimit(1)
+                                if let year = album.year {
+                                    Text(verbatim: "\(year)")
+                                        .font(.cassetteCaption)
+                                        .foregroundStyle(headerSecondaryColor)
+                                }
+                            }
+                            .frame(width: 160, alignment: .leading)
+                            .task(id: album.id) {
+                                await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
                             }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .task(id: album.id) {
-                            await artworkImageCache.load(coverArtId: album.coverArt ?? album.id)
-                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, CassetteSpacing.l)
             }
-            .padding(.horizontal, CassetteSpacing.l)
         }
     }
 

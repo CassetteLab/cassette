@@ -93,8 +93,10 @@ struct ArtistDetailMacOS: View {
 
     // MARK: - Albums grid
 
-    private var albumGridColumns: [GridItem] {
-        [GridItem(.adaptive(minimum: 150, maximum: 200), spacing: 16)]
+    /// Two fixed rows — the album grid scrolls horizontally (2×N).
+    private var albumGridRows: [GridItem] {
+        [GridItem(.fixed(230), spacing: 24),
+         GridItem(.fixed(230), spacing: 24)]
     }
 
     @ViewBuilder
@@ -108,15 +110,18 @@ struct ArtistDetailMacOS: View {
             }
             .padding(.horizontal, 32)
 
-            LazyVGrid(columns: albumGridColumns, spacing: 24) {
-                ForEach(albumSort.sorted(albums)) { album in
-                    NavigationLink(value: HomeDestination.album(album)) {
-                        AlbumGridCell(album: album)
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHGrid(rows: albumGridRows, alignment: .top, spacing: 24) {
+                    ForEach(albumSort.sorted(albums)) { album in
+                        NavigationLink(value: HomeDestination.album(album)) {
+                            AlbumGridCell(album: album)
+                                .frame(width: 180)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 32)
             }
-            .padding(.horizontal, 32)
         }
         .padding(.bottom, 16)
     }
