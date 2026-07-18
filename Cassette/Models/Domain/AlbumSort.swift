@@ -13,14 +13,12 @@ nonisolated enum AlbumSort: String, CaseIterable, Sendable {
     case recentlyAdded
     case releaseYear
     case name
-    case artist
 
     var label: String {
         switch self {
         case .recentlyAdded: return "Recently Added"
         case .releaseYear: return "Release Year"
         case .name: return "Name"
-        case .artist: return "Artist"
         }
     }
 
@@ -29,7 +27,6 @@ nonisolated enum AlbumSort: String, CaseIterable, Sendable {
         case .recentlyAdded: return "clock"
         case .releaseYear: return "calendar"
         case .name: return "textformat"
-        case .artist: return "music.mic"
         }
     }
 
@@ -42,12 +39,6 @@ nonisolated enum AlbumSort: String, CaseIterable, Sendable {
             return albums.sorted { ($0.year ?? Int.min) > ($1.year ?? Int.min) }
         case .name:
             return albums.sorted { sortKey($0).localizedStandardCompare(sortKey($1)) == .orderedAscending }
-        case .artist:
-            return albums.sorted {
-                let byArtist = ($0.artist ?? "").localizedStandardCompare($1.artist ?? "")
-                if byArtist != .orderedSame { return byArtist == .orderedAscending }
-                return sortKey($0).localizedStandardCompare(sortKey($1)) == .orderedAscending
-            }
         }
     }
 

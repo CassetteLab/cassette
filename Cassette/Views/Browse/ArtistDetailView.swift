@@ -358,6 +358,15 @@ struct ArtistDetailView: View {
                 .padding(.horizontal, CassetteSpacing.l)
             }
             .buttonStyle(.plain)
+            .lazyCollectionContextMenu(
+                itemType: .album,
+                itemId: album.id,
+                displayName: album.name,
+                displaySubtitle: album.artist ?? "",
+                coverArtId: album.coverArt ?? album.id,
+                favoriteType: .album,
+                songLoader: { await albumTracks(album) }
+            )
         }
     }
 
@@ -447,11 +456,26 @@ struct ArtistDetailView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .lazyCollectionContextMenu(
+                            itemType: .album,
+                            itemId: album.id,
+                            displayName: album.name,
+                            displaySubtitle: album.artist ?? "",
+                            coverArtId: album.coverArt ?? album.id,
+                            favoriteType: .album,
+                            songLoader: { await albumTracks(album) }
+                        )
                     }
                 }
                 .padding(.horizontal, CassetteSpacing.l)
             }
         }
+    }
+
+    /// Loads an album's tracks on demand for the context-menu play actions (online album fetch).
+    private func albumTracks(_ album: AlbumID3) async -> [DisplayableSong] {
+        guard let detail = try? await container?.libraryService.album(id: album.id) else { return [] }
+        return detail.song?.map { DisplayableSong(from: $0) } ?? []
     }
 
     private func playAll() async {
