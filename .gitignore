@@ -15,6 +15,8 @@ graphify-out/cache/
 # Machine-local: absolute paths to this machine's Python interpreter and repo root.
 graphify-out/.graphify_python
 graphify-out/.graphify_root
+# Lock held while the post-commit hook rebuilds in the background.
+graphify-out/.rebuild.lock
 # Dated rebuild snapshots written by the graphify post-commit hook — they duplicate
 # graph.json wholesale on every commit.
 graphify-out/20*/
