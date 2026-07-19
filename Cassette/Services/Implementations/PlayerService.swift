@@ -635,9 +635,14 @@ actor PlayerService: PlayerServiceProtocol {
             }
             let fresh = tracks.filter { $0.id != seedTrack.id }
             guard !fresh.isEmpty else {
-                Logger.player.info("[INSTANT-MIX] no similar tracks for seed — leaving the seed playing alone")
+                // A server with no similarity data (no AudioMuse, no Navidrome agent) answers empty.
+                // Endless play still works there — it is built on listening history, discographies and
+                // genres, not on the similarity endpoints — so fall through to it rather than leaving
+                // the seed to play alone and stop.
+                Logger.player.info("[INSTANT-MIX] no similarity data for seed — continuing with the library-based endless queue")
+                await setAutoExtendEnabled(true)
                 await MainActor.run {
-                    toastService.show("No similar tracks found for an Instant Mix yet.", style: .info, duration: 4.0)
+                    toastService.show("No Instant Mix data for this track — continuing from your library.", style: .info, duration: 4.0)
                 }
                 return
             }
@@ -690,6 +695,20 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func setAutoExtendEnabled(_ enabled: Bool) async {
+        if enabled {
+            // Endless play owns the queue order, so loop and shuffle are turned off rather than left
+            // to conflict with it. Repeat especially: evaluateAutoExtend refuses to run while a loop
+            // mode is active, which used to leave the infinity toggle lit and doing nothing. Clearing
+            // them here makes the exclusivity visible in the UI instead of silent.
+            // Done BEFORE the flag is set so setRepeatMode's own re-evaluation still sees it disabled
+            // and cannot fire a fetch early.
+            if await MainActor.run(body: { state.repeatMode != .off }) {
+                await setRepeatMode(.off)
+            }
+            if await MainActor.run(body: { state.isShuffled }) {
+                await toggleShuffle()
+            }
+        }
         await MainActor.run { state.isAutoExtendEnabled = enabled }
         UserDefaults.standard.set(enabled, forKey: Self.autoExtendUserDefaultsKey)
         if enabled {

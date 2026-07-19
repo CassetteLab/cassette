@@ -15279,7 +15279,56 @@
       }
     },
     "No Downloaded Matches" : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Treffer in den Downloads"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Καμία αντιστοιχία στις λήψεις"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin coincidencias descargadas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aucun résultat téléchargé"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessuna corrispondenza scaricata"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ダウンロード済みに一致なし"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载内容中无匹配"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載內容中無相符項目"
+          }
+        }
+      }
     },
     "No downloaded music available. Download albums or playlists while online to listen offline." : {
       "localizations" : {
@@ -15693,6 +15742,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚無紀錄——開始播放一些曲目吧。"
+          }
+        }
+      }
+    },
+    "No Instant Mix data for this track — continuing from your library." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Instant-Mix-Daten für diesen Titel — es geht mit deiner Mediathek weiter."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δεν υπάρχουν δεδομένα Instant Mix για αυτό το κομμάτι — συνεχίζουμε από τη βιβλιοθήκη σου."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay datos de Instant Mix para esta canción: seguimos con tu biblioteca."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pas de données Instant Mix pour ce titre — on continue avec votre bibliothèque."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nessun dato Instant Mix per questo brano: si prosegue con la tua libreria."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この曲のInstant Mixデータがありません。ライブラリから再生を続けます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这首歌没有 Instant Mix 数据 — 将继续播放你的音乐库。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這首歌沒有 Instant Mix 資料 — 將繼續播放你的音樂庫。"
           }
         }
       }
@@ -17570,7 +17671,56 @@
       }
     },
     "Only downloaded music can be searched while offline." : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline kann nur heruntergeladene Musik durchsucht werden."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Εκτός σύνδεσης μπορεί να γίνει αναζήτηση μόνο σε μουσική που έχεις κατεβάσει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión solo se puede buscar en la música descargada."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hors ligne, seule la musique téléchargée peut être recherchée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline si può cercare solo tra la musica scaricata."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オフラインではダウンロード済みの音楽のみ検索できます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离线时只能搜索已下载的音乐。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "離線時只能搜尋已下載的音樂。"
+          }
+        }
+      }
     },
     "Open" : {
       "localizations" : {
