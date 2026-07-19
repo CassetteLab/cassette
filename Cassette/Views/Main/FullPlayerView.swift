@@ -235,8 +235,7 @@ struct FullPlayerView: View {
                         playerState: playerState,
                         container: container,
                         contentColor: vm.contentColor,
-                        secondaryContentColor: vm.secondaryContentColor,
-                        glassTint: vm.glassTint
+                        secondaryContentColor: vm.secondaryContentColor
                     )
                     .padding(.horizontal, CassetteSpacing.l)
                 }
@@ -405,7 +404,6 @@ struct FullPlayerView: View {
                     container: container,
                     contentColor: vm.contentColor,
                     secondaryContentColor: vm.secondaryContentColor,
-                    glassTint: vm.glassTint,
                     compact: true
                 )
             }
@@ -525,8 +523,7 @@ struct FullPlayerView: View {
                 playerState: playerState,
                 container: container,
                 contentColor: vm.contentColor,
-                secondaryContentColor: vm.secondaryContentColor,
-                glassTint: vm.glassTint
+                secondaryContentColor: vm.secondaryContentColor
             )
             .padding(.horizontal, CassetteSpacing.l)
 
@@ -589,7 +586,6 @@ struct FullPlayerView: View {
                 container: container,
                 contentColor: vm.contentColor,
                 secondaryContentColor: vm.secondaryContentColor,
-                glassTint: vm.glassTint,
                 compact: true
             )
         }
@@ -739,7 +735,6 @@ private struct TrackInfoSection: View {
     let container: AppContainer?
     let contentColor: Color
     let secondaryContentColor: Color
-    let glassTint: Color
     var compact: Bool = false
 
     @Query private var favoriteMatches: [FavoriteRecord]
@@ -747,12 +742,11 @@ private struct TrackInfoSection: View {
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
 
-    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, glassTint: Color, compact: Bool = false) {
+    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, compact: Bool = false) {
         self.playerState = playerState
         self.container = container
         self.contentColor = contentColor
         self.secondaryContentColor = secondaryContentColor
-        self.glassTint = glassTint
         self.compact = compact
         let cid = "song:\(playerState.currentTrack?.id ?? "")"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
@@ -824,9 +818,9 @@ private struct TrackInfoSection: View {
                         Image(systemName: isFavorite ? "heart.fill" : "heart")
                             .font(.title3)
                             .foregroundStyle(contentColor)
-                            .cassetteGlassButton(size: 44, tint: glassTint)
+                            .cassetteHeroButton(size: 44)
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.plain)
                     .disabled(!isOnline)
                     .accessibilityLabel(isFavorite ? "Remove from Favorites" : "Add to Favorites")
                 }
@@ -864,7 +858,7 @@ private struct TrackInfoSection: View {
                     Image(systemName: "ellipsis")
                         .font(.title3)
                         .foregroundStyle(contentColor)
-                        .cassetteGlassButton(size: 44, tint: glassTint)
+                        .cassetteHeroButton(size: 44)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("More options")
