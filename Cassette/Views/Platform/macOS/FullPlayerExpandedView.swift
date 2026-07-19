@@ -414,7 +414,7 @@ struct FullPlayerExpandedView: View {
                 Button {
                     Task { await toggleFavorite() }
                 } label: {
-                    Image(systemName: isFavorite ? "heart.fill" : "heart")
+                    Image(systemName: isFavorite ? "star.fill" : "star")
                         .foregroundStyle(isFavorite ? .white : .white.opacity(0.55))
                 }
                 .buttonStyle(.plain)

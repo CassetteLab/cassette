@@ -70,7 +70,7 @@ struct SongRow: View {
                     }
                     .overlay(alignment: .topLeading) {
                         if isFavorite {
-                            Image(systemName: "heart.fill")
+                            Image(systemName: "star.fill")
                                 .font(.system(size: 8, weight: .bold))
                                 .foregroundStyle(playingAccent)
                                 .padding(3)
@@ -91,7 +91,7 @@ struct SongRow: View {
                             #endif
                             .opacity(isFavorite ? 0 : 1)
                         if isFavorite {
-                            Image(systemName: "heart.fill")
+                            Image(systemName: "star.fill")
                                 .font(.caption2)
                                 .foregroundStyle(playingAccent)
                                 .accessibilityLabel("Favorite")
@@ -235,7 +235,7 @@ struct SongRow: View {
             } label: {
                 Label(
                     isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: isFavorite ? "heart.slash" : "heart"
+                    systemImage: isFavorite ? "star.slash" : "star"
                 )
             }
             .disabled(!isOnline)

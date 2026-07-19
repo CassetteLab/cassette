@@ -389,7 +389,8 @@ actor PlayerService: PlayerServiceProtocol {
             artworkHeaders: artworkHeaders,
             coverArtId: song.coverArtId,
             isLiveStream: false,
-            radioStationName: nil
+            radioStationName: nil,
+            songId: song.id
         )
         await nowPlayingService?.update(with: snapshot)
         await saveSession()
@@ -481,7 +482,8 @@ actor PlayerService: PlayerServiceProtocol {
             artworkHeaders: artworkHeaders,
             coverArtId: station.coverArt,
             isLiveStream: true,
-            radioStationName: station.name
+            radioStationName: station.name,
+            songId: nil
         ))
 
         startPositionSaveTimer()
@@ -1303,7 +1305,8 @@ actor PlayerService: PlayerServiceProtocol {
             artworkHeaders: artworkHeaders,
             coverArtId: track.coverArtId,
             isLiveStream: false,
-            radioStationName: nil
+            radioStationName: nil,
+            songId: track.id
         ))
         isRestoringSession = false
     }
@@ -1985,7 +1988,8 @@ actor PlayerService: PlayerServiceProtocol {
             artworkHeaders: [:],
             coverArtId: nil,
             isLiveStream: false,
-            radioStationName: nil
+            radioStationName: nil,
+            songId: track.id
         )
         await nowPlayingService?.update(with: snapshot)
     }

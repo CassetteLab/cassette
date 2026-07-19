@@ -25,4 +25,7 @@ nonisolated struct NowPlayingSnapshot: Sendable {
     let isLiveStream: Bool
     /// The radio station's display name when isLiveStream is true; nil otherwise.
     let radioStationName: String?
+    /// Id of the playing song, so the remote like command knows what to star. `nil` for radio,
+    /// which has nothing to favourite.
+    let songId: String?
 }

@@ -136,6 +136,7 @@ final class AppContainer {
     /// wiring is complete before any user interaction is possible.
     func setup() async {
         await _player.setNowPlayingService(nowPlayingService)
+        await nowPlayingService.setFavoritesService(favoritesService)
         await _player.setWidgetSyncService(widgetSyncService)
         await _player.setReplayGainService(replayGainService)
         await _player.crossfadeSettingsDidChange()

@@ -16,10 +16,17 @@ actor NowPlayingService: NowPlayingServiceProtocol {
     private let artworkImageCache: ArtworkImageCache
     private var commandsRegistered = false
     private var currentSong: NowPlayingSnapshot?
+    /// Wired after init — FavoritesService is built later in AppContainer, same as the
+    /// PlayerService→NowPlayingService link.
+    private var favoritesService: (any FavoritesServiceProtocol)?
 
     init(playerService: any PlayerServiceProtocol, artworkImageCache: ArtworkImageCache) {
         self.playerService = playerService
         self.artworkImageCache = artworkImageCache
+    }
+
+    func setFavoritesService(_ service: any FavoritesServiceProtocol) {
+        favoritesService = service
     }
 
     // MARK: - Lifecycle
@@ -94,6 +101,20 @@ actor NowPlayingService: NowPlayingServiceProtocol {
                 return .success
             }
             #endif
+
+            // Favourite the playing track from a remote surface. Registered here with the rest so it
+            // is inside iOS's single supported-commands snapshot (see the note above).
+            //
+            // NOTE ON WHERE THIS SHOWS UP: iOS's own Now Playing UI — Lock Screen, Dynamic Island,
+            // Control Center — has no slot for a like button and will not render one, whatever we
+            // register. This command reaches the surfaces that DO have one: CarPlay's Now Playing
+            // and the Apple Watch remote. Registering it costs nothing and is what CarPlay will read
+            // when that scene lands.
+            center.likeCommand.localizedTitle = String(localized: "Add to Favorites")
+            center.likeCommand.addTarget { [weak self] _ in
+                Task { await self?.toggleFavoriteForCurrentTrack() }
+                return .success
+            }
 
             center.changePlaybackPositionCommand.addTarget { [playerService] event in
                 guard let seekEvent = event as? MPChangePlaybackPositionCommandEvent else {
@@ -217,6 +238,7 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         if let artist = snapshot.artist { info[MPMediaItemPropertyArtist] = artist }
         if let album = snapshot.album { info[MPMediaItemPropertyAlbumTitle] = album }
         currentSong = snapshot
+        await refreshLikeCommandState()
         let baseInfo = info
         await MainActor.run {
             MPNowPlayingInfoCenter.default().nowPlayingInfo = baseInfo
@@ -278,6 +300,43 @@ actor NowPlayingService: NowPlayingServiceProtocol {
             #if os(macOS)
             MPNowPlayingInfoCenter.default().playbackState = .playing
             #endif
+        }
+    }
+
+    // MARK: - Favourite
+
+    /// Stars or unstars whatever is playing, driven from a remote surface (CarPlay, Watch).
+    /// Radio is excluded — a live stream has no song to favourite.
+    private func toggleFavoriteForCurrentTrack() async {
+        guard let favoritesService, let songId = currentSong?.songId else { return }
+        let wasFavorite = await MainActor.run { favoritesService.isFavorite(itemType: .song, itemId: songId) }
+        do {
+            if wasFavorite {
+                try await favoritesService.unstar(itemType: .song, itemId: songId)
+            } else {
+                try await favoritesService.star(itemType: .song, itemId: songId)
+            }
+            await refreshLikeCommandState()
+            Logger.nowPlaying.info("[REMOTE] \(wasFavorite ? "unstarred" : "starred", privacy: .public) '\(songId, privacy: .public)' from a remote surface")
+        } catch {
+            Logger.nowPlaying.warning("[REMOTE] favourite toggle failed for '\(songId, privacy: .public)': \(error, privacy: .public)")
+        }
+    }
+
+    /// Mirrors the stored favourite state onto the command, so a remote surface that draws the
+    /// button filled/unfilled draws it right. Disabled for radio, which cannot be favourited.
+    private func refreshLikeCommandState() async {
+        let songId = currentSong?.songId
+        let isFavorite: Bool
+        if let songId, let favoritesService {
+            isFavorite = await MainActor.run { favoritesService.isFavorite(itemType: .song, itemId: songId) }
+        } else {
+            isFavorite = false
+        }
+        await MainActor.run {
+            let command = MPRemoteCommandCenter.shared().likeCommand
+            command.isEnabled = songId != nil
+            command.isActive = isFavorite
         }
     }
 

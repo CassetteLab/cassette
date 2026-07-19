@@ -325,7 +325,7 @@ private struct QueueRow: View {
             } label: {
                 Label(
                     isFavorite ? "Remove from Favorites" : "Add to Favorites",
-                    systemImage: isFavorite ? "heart.slash" : "heart"
+                    systemImage: isFavorite ? "star.slash" : "star"
                 )
             }
             .disabled(!isOnline)

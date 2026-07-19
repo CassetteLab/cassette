@@ -392,7 +392,7 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 52)
                 NavigationLink(value: HomeDestination.libraryFavorites) {
-                    HomeLibraryRowLabel(title: "Favorites", systemImage: "heart.fill")
+                    HomeLibraryRowLabel(title: "Favorites", systemImage: "star.fill")
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 52)

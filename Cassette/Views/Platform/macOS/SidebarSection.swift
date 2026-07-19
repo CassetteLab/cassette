@@ -45,7 +45,7 @@ nonisolated enum SidebarSection: String, Hashable, Identifiable, CaseIterable {
         case .artists:   return "music.mic"
         case .songs:     return "music.note"
         case .playlists: return "music.note.list"
-        case .favorites: return "heart"
+        case .favorites: return "star"
         case .downloads: return "arrow.down.circle"
         }
     }

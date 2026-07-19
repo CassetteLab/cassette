@@ -815,7 +815,7 @@ private struct TrackInfoSection: View {
                             }
                         }
                     } label: {
-                        Image(systemName: isFavorite ? "heart.fill" : "heart")
+                        Image(systemName: isFavorite ? "star.fill" : "star")
                             .font(.title3)
                             .foregroundStyle(contentColor)
                             .cassetteHeroButton(size: 44)

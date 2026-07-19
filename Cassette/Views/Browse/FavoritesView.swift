@@ -44,7 +44,7 @@ struct FavoritesView: View {
             )
         } else if isEmpty {
             EmptyStateView(
-                systemImage: "heart",
+                systemImage: "star",
                 title: "No favorites yet",
                 subtitle: "Songs, albums, and artists you favorite will appear here."
             )
