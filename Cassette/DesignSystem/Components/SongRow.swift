@@ -188,7 +188,7 @@ struct SongRow: View {
             }
 
             Button {
-                startInstantMix(from: .song(id: song.id), using: container)
+                startInstantMix(from: .song(id: song.id), using: container, startingWith: song)
             } label: {
                 Label("Instant Mix", systemImage: instantMixSymbol)
             }

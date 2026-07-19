@@ -849,8 +849,8 @@ private struct TrackInfoSection: View {
                         .disabled(!isOnline || playerState.currentTrack == nil)
                         Divider()
                         Button("Instant Mix", systemImage: instantMixSymbol) {
-                            guard let id = playerState.currentTrack?.id else { return }
-                            startInstantMix(from: .song(id: id), using: container)
+                            guard let track = playerState.currentTrack else { return }
+                            startInstantMix(from: .song(id: track.id), using: container, startingWith: track)
                         }
                         .disabled(!isOnline || playerState.currentTrack == nil)
                         Divider()

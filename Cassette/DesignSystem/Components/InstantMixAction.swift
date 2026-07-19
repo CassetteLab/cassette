@@ -14,10 +14,10 @@ let instantMixSymbol = "sparkles"
 /// toast (the server simply has no similarity data yet), other failures as an error toast. Returns only once
 /// playback has started (or failed) — callers with a persistent button await it to drive a loading spinner.
 @MainActor
-func runInstantMix(from seed: InstantMixSeed, using container: AppContainer?) async {
+func runInstantMix(from seed: InstantMixSeed, using container: AppContainer?, startingWith seedTrack: DisplayableSong? = nil) async {
     guard let container else { return }
     do {
-        try await container.playerService.playInstantMix(from: seed)
+        try await container.playerService.playInstantMix(from: seed, startingWith: seedTrack)
     } catch CassetteError.instantMixEmpty {
         container.toastService.show(
             "No similar tracks found for an Instant Mix yet.",
@@ -33,6 +33,6 @@ func runInstantMix(from seed: InstantMixSeed, using container: AppContainer?) as
 /// Fire-and-forget Instant Mix for menu items (the menu dismisses on tap, so there is no spam risk and no
 /// need for a spinner). Persistent buttons should instead `await runInstantMix` behind their own loading state.
 @MainActor
-func startInstantMix(from seed: InstantMixSeed, using container: AppContainer?) {
-    Task { await runInstantMix(from: seed, using: container) }
+func startInstantMix(from seed: InstantMixSeed, using container: AppContainer?, startingWith seedTrack: DisplayableSong? = nil) {
+    Task { await runInstantMix(from: seed, using: container, startingWith: seedTrack) }
 }

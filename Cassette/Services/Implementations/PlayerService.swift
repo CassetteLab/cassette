@@ -573,7 +573,56 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Instant Mix
 
-    func playInstantMix(from seed: InstantMixSeed) async throws {
+    /// Starts an Instant Mix. When the caller can supply the seed TRACK (song seeds — every menu that
+    /// offers "Instant Mix" on a song already holds it), that track starts immediately and the mix is
+    /// built behind it. Album and artist seeds have no track in hand and keep the blocking path.
+    ///
+    /// This removes the wait rather than shortening it. Measured against a real AudioMuse server, the
+    /// blocking path costs 36 s of silence — 12.8 s for the seed query, then 23 s for the fan-out —
+    /// and the fan-out calls slow each other down by ~70% while they run.
+    func playInstantMix(from seed: InstantMixSeed, startingWith seedTrack: DisplayableSong?) async throws {
+        guard let seedTrack else {
+            try await buildThenPlayInstantMix(from: seed)
+            return
+        }
+        try await play(tracks: [seedTrack], startIndex: 0)
+        Logger.player.info("[MIX-TIMING] seed '\(seedTrack.id, privacy: .public)' playing immediately — mix building behind it")
+        // Auto-extend deliberately stays OFF until the mix lands. Turning it on now re-evaluates at
+        // once, and with a one-track queue it would fill the gap with generic similar tracks — racing,
+        // and partly duplicating, the mix we are about to append.
+        Task { await self.appendInstantMix(from: seed, behind: seedTrack) }
+    }
+
+    /// Builds the mix off the critical path and grafts it behind the already-playing seed.
+    private func appendInstantMix(from seed: InstantMixSeed, behind seedTrack: DisplayableSong) async {
+        do {
+            let tracks = try await libraryService.instantMix(from: seed, count: 100)
+            // The build takes tens of seconds. If the user moved on in the meantime, appending would
+            // graft the mix onto an unrelated queue.
+            guard await MainActor.run(body: { state.currentTrack?.id == seedTrack.id }) else {
+                Logger.player.info("[INSTANT-MIX] built mix discarded — playback moved on during the build")
+                return
+            }
+            let fresh = tracks.filter { $0.id != seedTrack.id }
+            guard !fresh.isEmpty else {
+                Logger.player.info("[INSTANT-MIX] no similar tracks for seed — leaving the seed playing alone")
+                await MainActor.run {
+                    toastService.show("No similar tracks found for an Instant Mix yet.", style: .info, duration: 4.0)
+                }
+                return
+            }
+            await appendToQueue(fresh)
+            await setAutoExtendEnabled(true)
+            Logger.player.info("[INSTANT-MIX] appended \(fresh.count, privacy: .public) tracks behind the seed (auto-extend on)")
+        } catch {
+            Logger.player.error("[INSTANT-MIX] background build failed: \(error, privacy: .public)")
+            await MainActor.run { toastService.showError("Couldn't build the Instant Mix.") }
+        }
+    }
+
+    /// The original blocking path: nothing plays until the whole mix is built. Still used for album and
+    /// artist seeds, where there is no track to start from.
+    private func buildThenPlayInstantMix(from seed: InstantMixSeed) async throws {
         // End-to-end latency, which is what the user waits through: the whole mix is built before a
         // single note plays. Split into build vs start so the two are attributable separately.
         let tStart = Date()

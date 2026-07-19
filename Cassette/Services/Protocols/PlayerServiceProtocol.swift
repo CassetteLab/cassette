@@ -37,8 +37,13 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Throws `CassetteError.smartShuffleEmpty` if no eligible tracks (library too small / no downloads offline).
     func playSmartShuffle() async throws
     /// Builds an Instant Mix from a seed (song/album/artist) via LibraryService similarity and starts playback.
-    /// Replaces the current queue. Throws `CassetteError.instantMixEmpty` when the server returns no similar tracks.
-    func playInstantMix(from seed: InstantMixSeed) async throws
+    /// Replaces the current queue.
+    ///
+    /// Pass `seedTrack` whenever the caller already holds the seed song: it starts playing at once and the
+    /// mix is grafted behind it, so the similarity queries — tens of seconds against an AudioMuse server —
+    /// happen over music instead of silence. Without it the call blocks until the whole mix is built and
+    /// throws `CassetteError.instantMixEmpty` when the server returns nothing.
+    func playInstantMix(from seed: InstantMixSeed, startingWith seedTrack: DisplayableSong?) async throws
     /// Toggles the auto-extend preference and persists it to UserDefaults.
     /// When enabled and ≤15 tracks remain, the player appends a fresh smart shuffle batch automatically.
     func setAutoExtendEnabled(_ enabled: Bool) async
