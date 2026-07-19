@@ -154,12 +154,23 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     nonisolated static func topLevelBoxTypes(atPath path: String, limit: Int = 64) -> [String]? {
         guard let handle = FileHandle(forReadingAtPath: path) else { return nil }
         defer { try? handle.close() }
-        guard let total = try? handle.seekToEnd() else { return nil }
+
+        // Two independent readings of the same fact. The handle's own view was the single source
+        // of truth here, and a file this scan reported as empty measured 20 MB through FileManager
+        // moments later — so trust whichever sees content, and say so when they disagree.
+        let handleSize = (try? handle.seekToEnd()) ?? 0
+        let attrSize = ((try? FileManager.default.attributesOfItem(atPath: path)[.size]) as? Int64).map(UInt64.init) ?? 0
+        let total = max(handleSize, attrSize)
+        if handleSize != attrSize {
+            Logger.download.error("[REMUX] size disagreement on '\(URL(fileURLWithPath: path).lastPathComponent, privacy: .public)': handle=\(handleSize, privacy: .public) attributes=\(attrSize, privacy: .public)")
+        }
+
         let types = scanBoxTypes(total: total, limit: limit) { offset, length in
             do { try handle.seek(toOffset: offset) } catch { return nil }
             guard let chunk = try? handle.read(upToCount: length), chunk.count == length else { return nil }
             return [UInt8](chunk)
         }
+
         // An empty result on a file with room for a header means the very first read failed — the
         // scanner appends a box type before validating its size, so any readable byte pattern,
         // MP4 or not, yields at least one entry. Reporting that as [] would let `classify` call it
