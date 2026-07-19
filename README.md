@@ -51,7 +51,7 @@ Licensed under MPL-2.0.
 **Integrations & extras**
 - **ListenBrainz** — scrobble your listens and surface recommendations (fresh releases, similar artists)
 - **Home-screen widgets** (iOS)
-- **Discord Rich Presence** — *experimental / pre-alpha*; shows your now-playing in Discord through the companion helper, [cassette-discord-rpc](https://github.com/MathieuDubart/cassette-discord-rpc)
+- **Discord Rich Presence** — *experimental / pre-alpha*; shows your now-playing in Discord through the companion helper, [cassette-discord-rpc](https://github.com/CassetteLab/cassette-discord-rpc)
 
 **Server & privacy**
 - Subsonic and OpenSubsonic API, with OpenSubsonic extensions where available
@@ -125,7 +125,7 @@ For developers curious about the internals:
 - **UI** — SwiftUI views with `@Observable @MainActor` view models; no business logic in views.
 - **Services** — Swift actors (`PlayerService`, `LibraryService`, `DownloadService`, `FavoritesService`, `NowPlayingService`, …) with no SwiftUI / UIKit imports.
 - **Playback** — the [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) engine, wired to `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` for lock screen, Control Center, and AirPlay.
-- **Subsonic API** — [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (same author, separate repo, MIT) handles all Subsonic / OpenSubsonic communication.
+- **Subsonic API** — [SwiftSonic](https://github.com/CassetteLab/swiftsonic) (same author, separate repo, MIT) handles all Subsonic / OpenSubsonic communication.
 - **Persistence** — SwiftData for app data (downloads, playlists, favorites cache); Keychain for credentials.
 - **Concurrency** — Swift 6 strict concurrency, `Sendable` throughout, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 - **Dependencies** — SwiftSonic and AudioStreaming (which brings Ogg/Vorbis binary frameworks for lossless decoding). That's the full list.
@@ -185,7 +185,7 @@ Cassette is licensed under [MPL-2.0](LICENSE).
 - Modified files stay under MPL-2.0; you may combine them with proprietary code in a Larger Work.
 - The distributed builds (Homebrew, TestFlight) are the same source, signed for convenience.
 
-Dependencies: [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (MIT) and [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. (MIT) — both compatible with MPL-2.0.
+Dependencies: [SwiftSonic](https://github.com/CassetteLab/swiftsonic) (MIT) and [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. (MIT) — both compatible with MPL-2.0.
 
 > Code prior to commit 21f9227 was licensed under GPL-3.0-or-later.
 

@@ -7,7 +7,7 @@ import Foundation
 
 enum CassetteURLs {
     static let kofi = URL(string: "https://ko-fi.com/mathieudbrt")!
-    static let cassette = URL(string: "https://github.com/MathieuDubart/cassette")!
+    static let cassette = URL(string: "https://github.com/CassetteLab/cassette")!
     static let audioStreaming = URL(string: "https://github.com/dimitris-c/AudioStreaming")!
     static let listenBrainz = URL(string: "https://listenbrainz.org")!
 }
