@@ -772,20 +772,35 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.debug("Auto-extend boundary anchored at \(queueCount)")
     }
 
-    /// Removes auto-extended tracks when the user is still in the original zone.
-    /// If the user has already advanced into the extended zone, the queue is left intact.
+    /// New queue count after dropping the auto-extended tail, or `nil` when there is nothing to drop.
+    ///
+    /// Turning endless play off means "stop growing my queue", and the tracks it already grew are just
+    /// as unwanted as the ones it would have added next — so they go too. The one thing never removed is
+    /// the track currently playing: yanking it out mid-listen would stop the music on a toggle that says
+    /// nothing about stopping. So inside the original zone the whole tail goes; inside the extended zone
+    /// the current track survives as the new last entry and playback ends naturally after it.
+    nonisolated static func truncationTarget(boundary: Int?, currentIndex: Int, queueCount: Int) -> Int? {
+        guard let boundary, boundary < queueCount else { return nil }
+        let target = currentIndex < boundary ? boundary : currentIndex + 1
+        return target < queueCount ? target : nil
+    }
+
+    /// Drops the tracks auto-extend appended, keeping whatever is playing right now.
     private func truncateExtensions() async {
         let (boundary, currentIndex, queueCount) = await MainActor.run {
             (state.originalQueueEndIndex, state.currentIndex, state.queue.count)
         }
-        guard let boundary else { return }
-        guard currentIndex < boundary else { return }
-        guard boundary < queueCount else { return }
+        guard let target = Self.truncationTarget(boundary: boundary, currentIndex: currentIndex, queueCount: queueCount) else {
+            // Still clear the boundary: with endless play off it no longer marks anything, and leaving it
+            // set would make a later re-enable anchor onto a stale index.
+            await MainActor.run { state.originalQueueEndIndex = nil }
+            return
+        }
         await MainActor.run {
-            state.queue = Array(state.queue[0..<boundary])
+            state.queue = Array(state.queue[0..<target])
             state.originalQueueEndIndex = nil
         }
-        Logger.player.info("Auto-extend tail truncated at boundary \(boundary) (currentIndex=\(currentIndex))")
+        Logger.player.info("Auto-extend tail truncated to \(target) of \(queueCount) (currentIndex=\(currentIndex), boundary=\(boundary ?? -1))")
     }
 
     // MARK: - Pause / Resume
