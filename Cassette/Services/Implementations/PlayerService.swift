@@ -574,12 +574,18 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Instant Mix
 
     func playInstantMix(from seed: InstantMixSeed) async throws {
+        // End-to-end latency, which is what the user waits through: the whole mix is built before a
+        // single note plays. Split into build vs start so the two are attributable separately.
+        let tStart = Date()
         let tracks = try await libraryService.instantMix(from: seed, count: 100)
+        let buildMs = Int(Date().timeIntervalSince(tStart) * 1000)
         guard !tracks.isEmpty else {
             Logger.player.info("Instant Mix returned empty — no similarity data for seed")
             throw CassetteError.instantMixEmpty
         }
+        let tPlay = Date()
         try await play(tracks: tracks, startIndex: 0)
+        Logger.player.info("[MIX-TIMING] end-to-end=\(Int(Date().timeIntervalSince(tStart) * 1000), privacy: .public)ms (build=\(buildMs, privacy: .public)ms, start=\(Int(Date().timeIntervalSince(tPlay) * 1000), privacy: .public)ms)")
         // An Instant Mix is meant to be endless — turn on auto-extend so the queue keeps growing with
         // similar tracks (same mechanism as the automix) instead of running in circles on a short seed set.
         await setAutoExtendEnabled(true)

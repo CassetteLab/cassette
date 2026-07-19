@@ -349,10 +349,15 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong] {
+        // Timing is logged at .info, on one line, because this is the latency the user actually feels:
+        // nothing plays until the whole fan-out returns. The per-call spread of the fan-out is what
+        // says whether the client-side parallelism survives on the server or re-serialises there.
+        let tStart = Date()
         let c = try await client()
 
         // 1) Base similar songs from the seed. AudioMuse clusters tightly, so this alone tends to
         //    cover only one or two artists.
+        let tBase = Date()
         let base: [Song]
         switch seed {
         case .song(let id), .album(let id):
@@ -360,7 +365,11 @@ actor LibraryService: LibraryServiceProtocol {
         case .artist(let id):
             base = try await c.getSimilarSongs2(id: id, count: count)
         }
-        guard !base.isEmpty else { return [] }
+        let baseMs = Int(Date().timeIntervalSince(tBase) * 1000)
+        guard !base.isEmpty else {
+            Logger.library.info("[MIX-TIMING] base=\(baseMs, privacy: .public)ms → empty, aborting")
+            return []
+        }
 
         // 2) Fan out on the distinct artists we found (plus the seed artist) to broaden the pool —
         //    each getSimilarSongs2 pulls the neighbourhood around a different artist.
@@ -373,13 +382,23 @@ actor LibraryService: LibraryServiceProtocol {
         }
         fanArtists = Array(fanArtists.prefix(Self.instantMixFanOutArtists))
 
+        let tFan = Date()
         var expansions: [Song] = []
-        await withTaskGroup(of: [Song].self) { group in
+        var callMs: [Int] = []
+        await withTaskGroup(of: (Int, [Song]).self) { group in
             for aid in fanArtists {
-                group.addTask { (try? await c.getSimilarSongs2(id: aid, count: Self.instantMixFanOutCount)) ?? [] }
+                group.addTask {
+                    let t = Date()
+                    let songs = (try? await c.getSimilarSongs2(id: aid, count: Self.instantMixFanOutCount)) ?? []
+                    return (Int(Date().timeIntervalSince(t) * 1000), songs)
+                }
             }
-            for await songs in group { expansions.append(contentsOf: songs) }
+            for await (ms, songs) in group {
+                callMs.append(ms)
+                expansions.append(contentsOf: songs)
+            }
         }
+        let fanMs = Int(Date().timeIntervalSince(tFan) * 1000)
 
         // 3) Merge + dedup by song id (base first so seed relevance leads).
         var seenIds = Set<String>()
@@ -388,7 +407,21 @@ actor LibraryService: LibraryServiceProtocol {
         // 4) Round-robin by artist so different artists surface early and none dominates.
         let diversified = Self.diversifyByArtist(merged, maxPerArtist: Self.instantMixMaxPerArtist)
         let distinctArtists = Set(diversified.prefix(count).compactMap { $0.artistId ?? $0.artist }).count
-        Logger.library.debug("Instant Mix: \(diversified.count) tracks / \(distinctArtists) artists (base \(base.count), fan-out \(fanArtists.count)) for seed \(String(describing: seed), privacy: .public)")
+        let totalMs = Int(Date().timeIntervalSince(tStart) * 1000)
+        // fanSum vs fanMs is the decisive comparison: close to fanMs means the calls really ran
+        // concurrently; close to their sum means the server handled them one at a time.
+        let sorted = callMs.sorted()
+        let fanSum = callMs.reduce(0, +)
+        Logger.library.info("""
+            [MIX-TIMING] total=\(totalMs, privacy: .public)ms \
+            base=\(baseMs, privacy: .public)ms(\(base.count, privacy: .public) tracks) \
+            fanout=\(fanMs, privacy: .public)ms(\(fanArtists.count, privacy: .public) calls, \
+            sum=\(fanSum, privacy: .public)ms, min=\(sorted.first ?? 0, privacy: .public) \
+            med=\(sorted.isEmpty ? 0 : sorted[sorted.count / 2], privacy: .public) \
+            max=\(sorted.last ?? 0, privacy: .public)) \
+            → \(diversified.count, privacy: .public) tracks / \(distinctArtists, privacy: .public) artists, \
+            kept \(min(count, diversified.count), privacy: .public)
+            """)
         return diversified.prefix(count).map { DisplayableSong(from: $0) }
     }
 
