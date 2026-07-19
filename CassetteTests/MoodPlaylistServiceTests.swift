@@ -42,6 +42,9 @@ private final class PlaylistStub: PlaylistSyncClient, @unchecked Sendable {
     private var _created: [String] = []
     var existing: [Playlist] = []
     var failWrites = false
+    /// Emulates a server that accepts the call but stores none of the ids — the failure mode a
+    /// foreign id format produces.
+    var storesNothing = false
 
     var replacements: [(playlistId: String, songIds: [String])] { lock.withLock { _replacements } }
     var created: [String] { lock.withLock { _created } }
@@ -54,9 +57,10 @@ private final class PlaylistStub: PlaylistSyncClient, @unchecked Sendable {
         lock.withLock {
             if playlistId == nil { _created.append(name ?? "?") } else { _replacements.append((id, songIds)) }
         }
+        let stored = storesNothing ? 0 : songIds.count
         return try JSONDecoder().decode(
             PlaylistWithSongs.self,
-            from: Data(#"{"id":"\#(id)","name":"\#(name ?? "")","songCount":0,"duration":0}"#.utf8)
+            from: Data(#"{"id":"\#(id)","name":"\#(name ?? "")","songCount":\#(stored),"duration":0}"#.utf8)
         )
     }
 }
@@ -243,6 +247,23 @@ struct MoodPlaylistServiceTests {
         for mood in Mood.allCases {
             #expect(h.preferences.syncedCycle(mood: mood, serverId: h.serverId) == nil)
         }
+    }
+
+    @Test("a server that stores none of the ids counts as a failure, not a success")
+    func serverStoringNothingIsAFailure() async {
+        // Navidrome answers 200 and silently drops ids it does not recognise, so a whole batch of
+        // foreign ids produced an empty playlist that we reported as "refreshed with 75 tracks".
+        let h = Harness()
+        h.playlists.storesNothing = true
+
+        let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+
+        #expect(outcome == .finished(source: .sonic, refreshed: [], kept: Mood.allCases))
+        for mood in Mood.allCases {
+            #expect(h.preferences.syncedCycle(mood: mood, serverId: h.serverId) == nil,
+                    "\(mood.rawValue) must be retried, not marked done")
+        }
+        #expect(h.covers.applied.isEmpty, "no cover for a playlist that was never written")
     }
 
     @Test("an existing server playlist is reused instead of creating a duplicate")

@@ -25,6 +25,9 @@ nonisolated enum MoodSkipReason: Error, Sendable, Equatable {
     case searchFailed(String)
     case noResults
     case playlistWriteFailed(String)
+    /// The server accepted the call and stored none of it — every track id was foreign to it.
+    /// `sample` carries a few of the ids so the mismatch is visible in the log.
+    case serverStoredNothing(sent: Int, sample: [String])
 }
 
 // MARK: - MoodPlaylistService
@@ -180,18 +183,32 @@ actor MoodPlaylistService {
         // or the library may simply have no tagged tracks for this mood. Keep what is there.
         guard !trackIds.isEmpty else { throw MoodSkipReason.noResults }
 
+        let written: Int
         do {
             let playlistId = try await resolvePlaylistId(for: mood, serverId: serverId, client: playlists)
             // createPlaylist with a non-nil id replaces the whole track list in one call — no
             // read-modify-write, so the playlist is never briefly empty.
-            _ = try await playlists.createPlaylist(name: nil, playlistId: playlistId, songIds: trackIds)
+            let result = try await playlists.createPlaylist(name: nil, playlistId: playlistId, songIds: trackIds)
+            written = result.songCount
             preferences.setPlaylistId(playlistId, mood: mood, serverId: serverId)
         } catch {
             throw MoodSkipReason.playlistWriteFailed(String(describing: error))
         }
 
+        // Trust what the server says it stored, not what we sent it. A Subsonic server silently
+        // drops track ids it does not recognise and still answers 200, so a whole batch of foreign
+        // ids yields an empty playlist and a perfectly successful-looking call. Treating that as a
+        // failure keeps the previous playlist and retries, instead of reporting a write that only
+        // happened on our side.
+        guard written > 0 else {
+            throw MoodSkipReason.serverStoredNothing(sent: trackIds.count, sample: Array(trackIds.prefix(3)))
+        }
+        if written < trackIds.count {
+            Logger.moodPlaylists.warning("[MOOD-SYNC] \(mood.rawValue, privacy: .public): server kept \(written, privacy: .public) of \(trackIds.count, privacy: .public) ids — the rest were unknown to it")
+        }
+
         preferences.setSyncedCycle(cycle, mood: mood, serverId: serverId)
-        Logger.moodPlaylists.info("[MOOD-SYNC] \(mood.rawValue, privacy: .public) refreshed with \(trackIds.count, privacy: .public) tracks")
+        Logger.moodPlaylists.info("[MOOD-SYNC] \(mood.rawValue, privacy: .public) refreshed — server stored \(written, privacy: .public) tracks")
 
         // Once per playlist, not per refresh: the cover never changes, and re-uploading it every
         // week would be pure waste. Failures are silent — a playlist without its cover still works.

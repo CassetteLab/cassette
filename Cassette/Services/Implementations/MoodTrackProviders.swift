@@ -41,7 +41,13 @@ nonisolated struct AudioMuseTrackProvider: MoodTrackProvider {
     func prepare() async { await client.warmup() }
 
     func trackIds(for mood: Mood, limit: Int) async throws -> [String] {
-        try await client.search(query: mood.query, limit: limit).map(\.itemId)
+        let ids = try await client.search(query: mood.query, limit: limit).map(\.itemId)
+        // The ids are logged because everything downstream depends on them being the MEDIA SERVER's
+        // track ids and not AudioMuse's internal ones. A Subsonic server drops ids it does not know
+        // and still answers 200, so a format mismatch looks exactly like success — the only way to
+        // tell them apart is to read the ids and compare them with a known-good one.
+        Logger.moodPlaylists.info("[MOOD-SONIC] \(mood.rawValue, privacy: .public): \(ids.count, privacy: .public) ids, first=\(ids.prefix(3).joined(separator: ","), privacy: .public)")
+        return ids
     }
 }
 
