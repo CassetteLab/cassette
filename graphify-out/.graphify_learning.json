@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-19T11:44:36.419403+00:00",
+  "generated_at": "2026-07-19T11:51:26.944897+00:00",
   "nodes": {
     "cassette_models_persistence_cachedtrack_cachedtrack": {
       "code_fingerprint": "92aad74d811cb24a5303740ed409f954dac19f76dc3220a392c618cf1d448e31",
@@ -12,7 +12,7 @@
           "q": "comment est géré le cache dans l'entierté de l'app et le offline ? Normalement il y a un système de cache qui gère toutes les métadonnées et les infos relatives aux albums, playlists, searches.... et il y a aussi un système de remux pour le m4a faststart qui est implémenté. Or rien de tout ce qui est prévu/implémenté pour le offline ne fonctionne actuellement."
         }
       ],
-      "score": 0.987125824,
+      "score": 0.987017462,
       "source_file": "Cassette/Models/Persistence/CachedTrack.swift",
       "status": "tentative",
       "uses": 1
@@ -28,7 +28,7 @@
           "q": "comment est géré le cache dans l'entierté de l'app et le offline ? Normalement il y a un système de cache qui gère toutes les métadonnées et les infos relatives aux albums, playlists, searches.... et il y a aussi un système de remux pour le m4a faststart qui est implémenté. Or rien de tout ce qui est prévu/implémenté pour le offline ne fonctionne actuellement."
         }
       ],
-      "score": 0.987125824,
+      "score": 0.987017462,
       "source_file": "Cassette/Models/Persistence/DownloadedTrack.swift",
       "status": "tentative",
       "uses": 1
@@ -44,7 +44,7 @@
           "q": "comment est géré le cache dans l'entierté de l'app et le offline ? Normalement il y a un système de cache qui gère toutes les métadonnées et les infos relatives aux albums, playlists, searches.... et il y a aussi un système de remux pour le m4a faststart qui est implémenté. Or rien de tout ce qui est prévu/implémenté pour le offline ne fonctionne actuellement."
         }
       ],
-      "score": 0.987125824,
+      "score": 0.987017462,
       "source_file": "Cassette/Services/Implementations/AudioFaststartRemuxer.swift",
       "status": "tentative",
       "uses": 1
