@@ -16,7 +16,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     /// Stamped into every REMUX log line so a log identifies the build that produced it. Three rounds
     /// of diagnosis were spent reading logs from a device running an older binary, because nothing in
     /// the output said which version wrote it. Bump this whenever the remux diagnostics change.
-    static let diagnosticsVersion = 5
+    static let diagnosticsVersion = 6
 
     enum Outcome: Sendable, Equatable {
         case skipped   // not an m4a, already faststart, or unreadable — file untouched
@@ -37,21 +37,29 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     /// is still handled. Any non-MP4 file returns `.skipped`.
     func remuxToFaststartIfNeeded(at fileURL: URL) async -> Outcome {
         let name = fileURL.lastPathComponent
+        // The measurements ride on the SAME line as the verdict, at .info. Diagnostics were logged
+        // separately at .error for two rounds and never surfaced in the captured console output,
+        // which read as "the condition did not happen" when it may only have been "the line was
+        // not shown". A number that decides a branch belongs next to that branch's verdict.
+        let sizeOnDisk = Self.fileSize(atPath: fileURL.path)
+        let exists = FileManager.default.fileExists(atPath: fileURL.path)
+        let measurements = "size=\(sizeOnDisk) exists=\(exists)"
+
         // Every branch logs, including the no-ops. A silent skip is indistinguishable from a remuxer
         // that never ran, which makes "this download won't play" impossible to diagnose from a log:
         // you cannot tell an undetected mdat-first file from one the player simply can't decode.
         guard let boxes = Self.topLevelBoxTypes(atPath: fileURL.path) else {
-            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — box layout unreadable, skipped")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — box layout unreadable, skipped (\(measurements, privacy: .public))")
             return .skipped
         }
         let state = Self.classify(boxTypes: boxes)
         let layout = boxes.prefix(8).joined(separator: ",")
         switch state {
         case .notMP4, .faststart:
-            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — \(String(describing: state), privacy: .public), skipped (boxes: \(layout, privacy: .public))")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — \(String(describing: state), privacy: .public), skipped (\(measurements, privacy: .public) boxes: \(layout, privacy: .public))")
             return .skipped
         case .needsRemux:
-            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — needsRemux (boxes: \(layout, privacy: .public))")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — needsRemux (\(measurements, privacy: .public) boxes: \(layout, privacy: .public))")
         }
 
         let asset = AVURLAsset(url: fileURL)
@@ -180,7 +188,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         let attrSize = Self.fileSize(atPath: path)
         let total = max(handleSize, attrSize)
         if handleSize != attrSize {
-            Logger.download.error("[REMUX v\(Self.diagnosticsVersion)] size disagreement on '\(URL(fileURLWithPath: path).lastPathComponent, privacy: .public)': handle=\(handleSize, privacy: .public) attributes=\(attrSize, privacy: .public)")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] size disagreement on '\(URL(fileURLWithPath: path).lastPathComponent, privacy: .public)': handle=\(handleSize, privacy: .public) attributes=\(attrSize, privacy: .public)")
         }
 
         let types = scanBoxTypes(total: total, limit: limit) { offset, length in
@@ -197,7 +205,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         if types.isEmpty && total >= 8 {
             let head = (try? handle.seek(toOffset: 0)).flatMap { _ in try? handle.read(upToCount: 16) }
             let hex = head.map { $0.map { String(format: "%02x", $0) }.joined(separator: " ") } ?? "<unreadable>"
-            Logger.download.error("[REMUX v\(Self.diagnosticsVersion)] box scan read nothing from a \(total, privacy: .public)-byte file — first bytes: \(hex, privacy: .public)")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] box scan read nothing from a \(total, privacy: .public)-byte file — first bytes: \(hex, privacy: .public)")
             return nil
         }
         return types
