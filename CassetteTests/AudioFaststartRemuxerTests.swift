@@ -89,6 +89,29 @@ struct AudioFaststartRemuxerTests {
         #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "mdat"]) == false)
     }
 
+    // MARK: - Export-despite-detection fallback
+
+    @Test("detection seeing nothing on a server-declared MP4 still exports")
+    func exportsWhenDetectionBlindOnDeclaredMP4() {
+        // The observed failure: an empty scan reported .notMP4 on a file the server called m4a,
+        // and the player could not open the un-remuxed result.
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "m4a"))
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: nil, declaredSuffix: "m4a"))
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "MP4"))
+    }
+
+    @Test("a confirmed faststart layout is never re-exported, whatever the server declared")
+    func neverReExportsConfirmedFaststart() {
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .faststart, declaredSuffix: "m4a") == false)
+    }
+
+    @Test("a non-MP4 suffix is left alone even when detection saw nothing")
+    func leavesNonMP4SuffixesAlone() {
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "flac") == false)
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "mp3") == false)
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: nil, declaredSuffix: nil) == false)
+    }
+
     // MARK: - File size (the cross-check the box scan depends on)
 
     @Test("fileSize reports the real byte count, not 0")

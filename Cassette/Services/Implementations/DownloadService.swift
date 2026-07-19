@@ -318,7 +318,7 @@ actor DownloadService: DownloadServiceProtocol {
         // downloadedURL's size-validity guard would reject the remuxed file as a mismatch.
         // Logged for every outcome, not just .remuxed: knowing the remuxer ran and decided to do
         // nothing is what distinguishes "the file was already fine" from "the remuxer never fired".
-        let remuxOutcome = await AudioFaststartRemuxer().remuxToFaststartIfNeeded(at: fileURL)
+        let remuxOutcome = await AudioFaststartRemuxer().remuxToFaststartIfNeeded(at: fileURL, declaredSuffix: song.suffix)
         Logger.download.info("Remux outcome v\(AudioFaststartRemuxer.diagnosticsVersion) for '\(song.id, privacy: .public)' (suffix: \(song.suffix ?? "nil", privacy: .public)): \(String(describing: remuxOutcome), privacy: .public)")
 
         // Capture only Sendable values for the MainActor closure.
