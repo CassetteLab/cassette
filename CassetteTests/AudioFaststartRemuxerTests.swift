@@ -89,6 +89,26 @@ struct AudioFaststartRemuxerTests {
         #expect(AudioFaststartRemuxer.isUsableFaststartOutput(boxTypes: ["ftyp", "mdat"]) == false)
     }
 
+    // MARK: - File size (the cross-check the box scan depends on)
+
+    @Test("fileSize reports the real byte count, not 0")
+    func fileSizeReadsTheRealSize() async {
+        // Guards the double-optional cast that made this return 0 for every existing file and
+        // silently disabled the remux: with a size of 0 the box scan loop never runs, the layout
+        // comes back empty, and the file is misreported as "not an MP4".
+        let bytes = [UInt8](repeating: 0xAB, count: 1234)
+        await withTempFile(bytes, ext: "bin") { url in
+            #expect(AudioFaststartRemuxer.fileSize(atPath: url.path) == 1234)
+        }
+    }
+
+    @Test("fileSize reports 0 for a path that does not exist")
+    func fileSizeMissingFile() {
+        let missing = FileManager.default.temporaryDirectory
+            .appendingPathComponent("absent-\(UUID().uuidString).bin").path
+        #expect(AudioFaststartRemuxer.fileSize(atPath: missing) == 0)
+    }
+
     @Test("a non-MP4 file still yields box types — an empty scan means a read failure, not 'not MP4'")
     func nonMP4StillYieldsTypes() async {
         // FLAC magic. The scanner appends a type before validating the box size, so any readable

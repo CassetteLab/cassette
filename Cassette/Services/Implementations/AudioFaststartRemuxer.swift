@@ -16,7 +16,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     /// Stamped into every REMUX log line so a log identifies the build that produced it. Three rounds
     /// of diagnosis were spent reading logs from a device running an older binary, because nothing in
     /// the output said which version wrote it. Bump this whenever the remux diagnostics change.
-    static let diagnosticsVersion = 4
+    static let diagnosticsVersion = 5
 
     enum Outcome: Sendable, Equatable {
         case skipped   // not an m4a, already faststart, or unreadable — file untouched
@@ -117,6 +117,19 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
 
     // MARK: - Pure box-layout logic (no I/O — unit-testable)
 
+    /// File size through FileManager, 0 when unavailable.
+    ///
+    /// Extracted and unit-tested because the obvious inline spelling is silently wrong:
+    /// `(try? FileManager.default.attributesOfItem(atPath: path)[.size]) as? UInt64` builds an
+    /// `Any??` — `try?` wraps a subscript that already returns `Any?` — and a cast through a double
+    /// optional never succeeds, so it evaluates to nil for every file that exists. That exact
+    /// mistake shipped here and made this cross-check report 0 bytes for every download, which is
+    /// what silently disabled the whole remux path.
+    nonisolated static func fileSize(atPath path: String) -> UInt64 {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else { return 0 }
+        return (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+    }
+
     /// Content sniff: true when the file is an ISO-BMFF (MP4/M4A/M4B) container — its top-level
     /// box layout contains an `ftyp` box. Independent of the file extension, so it recognises a
     /// container that was saved or renamed with a wrong extension.
@@ -164,7 +177,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         // of truth here, and a file this scan reported as empty measured 20 MB through FileManager
         // moments later — so trust whichever sees content, and say so when they disagree.
         let handleSize = (try? handle.seekToEnd()) ?? 0
-        let attrSize = ((try? FileManager.default.attributesOfItem(atPath: path)[.size]) as? Int64).map(UInt64.init) ?? 0
+        let attrSize = Self.fileSize(atPath: path)
         let total = max(handleSize, attrSize)
         if handleSize != attrSize {
             Logger.download.error("[REMUX v\(Self.diagnosticsVersion)] size disagreement on '\(URL(fileURLWithPath: path).lastPathComponent, privacy: .public)': handle=\(handleSize, privacy: .public) attributes=\(attrSize, privacy: .public)")
