@@ -102,6 +102,7 @@ private final class PRLibraryNullStub: LibraryServiceProtocol {
     func scrobble(songId: String, submission: Bool) async {}
     func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
     func mostPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func songsByGenre(_ genre: String, count: Int) async throws -> [Song] { [] }
     func randomSongs(size: Int) async throws -> [Song] { throw URLError(.unknown) }
     func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong] { throw URLError(.unknown) }
     func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong] { throw URLError(.unknown) }
@@ -141,6 +142,7 @@ private final class PRLibraryConfigurableStub: LibraryServiceProtocol {
     func scrobble(songId: String, submission: Bool) async {}
     func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
     func mostPlayedAlbums(size: Int) async throws -> [AlbumID3] { throw URLError(.unknown) }
+    func songsByGenre(_ genre: String, count: Int) async throws -> [Song] { [] }
     func randomSongs(size: Int) async throws -> [Song] { throw URLError(.unknown) }
     func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong] { throw URLError(.unknown) }
     func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong] { throw URLError(.unknown) }

@@ -22,6 +22,9 @@ struct DiscoverView: View {
     @State private var showAllFreshReleases = false
     @State private var allReleasesVM: AllFreshReleasesViewModel?
     @State private var isListenBrainzConnected: Bool = false
+    /// Moods that have a server playlist to open. Empty when AudioMuse is unconfigured or has
+    /// never completed a sync — the section then disappears entirely rather than showing dead tiles.
+    @State private var availableMoods: [(mood: Mood, playlistId: String)] = []
 
     var body: some View {
         ScrollView {
@@ -35,6 +38,7 @@ struct DiscoverView: View {
                         mostPlayedSection(vm: vm)
                     }
                     smartShuffleSection
+                    moodsSection
                     wrappedSection
                     internetRadioSection
                 }
@@ -60,6 +64,7 @@ struct DiscoverView: View {
             radioStations = (try? await container.radioService.listStations(forceRefresh: false)) ?? []
             guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
             yearlyPlaylists = await container.wrappedPlaylistService.fetchYearlyPlaylists(serverId: serverId)
+            await refreshMoods(serverId: serverId)
         }
         .refreshable {
             await vm?.load(forceRefresh: true)
@@ -95,6 +100,45 @@ struct DiscoverView: View {
                 AllFreshReleasesView(vm: vm)
             }
         }
+    }
+
+    // MARK: - Moods
+
+    @ViewBuilder
+    private var moodsSection: some View {
+        if !availableMoods.isEmpty {
+            VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+                Text("Moods")
+                    .font(.cassetteSectionTitle)
+                    .padding(.horizontal, CassetteSpacing.m)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(spacing: CassetteSpacing.s) {
+                        ForEach(availableMoods, id: \.mood) { entry in
+                            MoodCard(mood: entry.mood, playlistId: entry.playlistId)
+                        }
+                    }
+                    .padding(.horizontal, CassetteSpacing.m)
+                }
+            }
+        }
+    }
+
+    /// Runs the weekly sync if it is due, then reads back whichever moods now have a playlist.
+    ///
+    /// Deliberately awaited inside the screen's own task rather than fired and forgotten: the sync
+    /// is a no-op on all but one launch a week, and on that launch the section should populate
+    /// before the user scrolls past it.
+    private func refreshMoods(serverId: String) async {
+        guard let service = container?.moodPlaylistService else { return }
+        _ = await service.runWeeklySyncIfNeeded(serverId: serverId)
+        var found: [(mood: Mood, playlistId: String)] = []
+        for mood in Mood.allCases {
+            if let id = await service.playlistId(for: mood, serverId: serverId) {
+                found.append((mood, id))
+            }
+        }
+        availableMoods = found
     }
 
     // MARK: - Sections

@@ -7,26 +7,17 @@ import Foundation
 import SwiftSonic
 import OSLog
 
-// MARK: - MoodSearchClient
-
-/// The slice of AudioMuse the mood sync needs. Lets tests drive the whole service without a server.
-nonisolated protocol MoodSearchClient: Sendable {
-    @discardableResult func warmup() async -> Bool
-    func search(query: String, limit: Int) async throws -> [AudioMuseTrack]
-}
-
-extension AudioMuseClient: MoodSearchClient {}
-
 // MARK: - Results
 
 nonisolated enum MoodSyncOutcome: Sendable, Equatable {
-    /// AudioMuse is not set up for this server — the feature is simply absent, not broken.
+    /// No provider at all. Not reachable in production — the tag provider always exists — but kept
+    /// so tests can exercise the branch and so a future provider can opt out.
     case notConfigured
     /// Every mood already refreshed for the current week.
     case upToDate
     /// An attempt was made too recently; backing off rather than retrying a dead endpoint.
     case throttled
-    case finished(refreshed: [Mood], kept: [Mood])
+    case finished(source: MoodSourceKind, refreshed: [Mood], kept: [Mood])
 }
 
 /// Why a single mood was left alone. Its previous playlist stays exactly as it was.
@@ -38,7 +29,12 @@ nonisolated enum MoodSkipReason: Error, Sendable, Equatable {
 
 // MARK: - MoodPlaylistService
 
-/// Maintains five server-side mood playlists, refreshed weekly from AudioMuse's sonic search.
+/// Maintains five server-side mood playlists, refreshed weekly.
+///
+/// Tracks come from AudioMuse's sonic analysis when it is configured, and from the server's own
+/// MOOD/genre/BPM tags when it is not — so the feature exists on every server, and is better on
+/// some. The choice is made once per run and recorded, because it changes how good the result is
+/// and the user deserves to know which one they got.
 ///
 /// Modelled on WrappedPlaylistService: a cadence marker in UserDefaults, playlists owned by the
 /// server, and atomic replacement through createPlaylist's replace mode. The differences that
@@ -50,34 +46,43 @@ nonisolated enum MoodSkipReason: Error, Sendable, Equatable {
 /// - **Sequential, not parallel.** Instant Mix taught us that concurrent similarity queries on a
 ///   self-hosted box contend hard — eight parallel calls each took 22s against 12.8s solo. Five
 ///   moods one after another is friendlier and, on that evidence, probably not slower.
-/// - **Warmup first.** AudioMuse evicts the CLAP model after ten minutes idle, so a weekly job
-///   always arrives cold.
+/// - **A prepare step.** AudioMuse evicts the CLAP model after ten minutes idle, so a weekly job
+///   always arrives cold and pays the load up front rather than inside the first mood's timeout.
 actor MoodPlaylistService {
     private let preferences: MoodPreferences
     private let makePlaylistClient: @Sendable () async throws -> any PlaylistSyncClient
-    private let makeSearchClient: @Sendable () async -> (any MoodSearchClient)?
+    private let makeProvider: @Sendable () async -> (any MoodTrackProvider)?
 
     /// Minimum gap between attempts, so an unreachable instance is not re-probed every launch.
     static let attemptThrottle: TimeInterval = 3600
 
     init(
         playlistClientFactory: @escaping @Sendable () async throws -> any PlaylistSyncClient,
-        searchClientFactory: @escaping @Sendable () async -> (any MoodSearchClient)?,
+        providerFactory: @escaping @Sendable () async -> (any MoodTrackProvider)?,
         preferences: MoodPreferences = MoodPreferences()
     ) {
         self.makePlaylistClient = playlistClientFactory
-        self.makeSearchClient = searchClientFactory
+        self.makeProvider = providerFactory
         self.preferences = preferences
     }
 
-    /// Production wiring: both clients are derived from the active server's configuration.
-    init(serverService: any ServerServiceProtocol, serverState: ServerState, preferences: MoodPreferences = MoodPreferences()) {
+    /// Production wiring. AudioMuse when it is configured and reachable-looking, the server's own
+    /// tags otherwise — so the moods exist on every server, just better on some.
+    init(
+        serverService: any ServerServiceProtocol,
+        serverState: ServerState,
+        libraryService: any LibraryServiceProtocol,
+        preferences: MoodPreferences = MoodPreferences()
+    ) {
         self.preferences = preferences
         self.makePlaylistClient = { try await serverService.makeSwiftSonicClient() }
-        self.makeSearchClient = {
-            guard let urlString = await MainActor.run(body: { serverState.activeServer?.audioMuseURL }),
-                  let credentials = try? await serverService.activeCredentials() else { return nil }
-            return AudioMuseClient(urlString: urlString, token: credentials.audioMuseToken)
+        self.makeProvider = {
+            if let urlString = await MainActor.run(body: { serverState.activeServer?.audioMuseURL }),
+               let credentials = try? await serverService.activeCredentials(),
+               let client = AudioMuseClient(urlString: urlString, token: credentials.audioMuseToken) {
+                return AudioMuseTrackProvider(client: client)
+            }
+            return LibraryTagTrackProvider(libraryService: libraryService)
         }
     }
 
@@ -105,7 +110,7 @@ actor MoodPlaylistService {
             return .throttled
         }
 
-        guard let search = await makeSearchClient() else { return .notConfigured }
+        guard let provider = await makeProvider() else { return .notConfigured }
         preferences.setLastAttempt(currentDate, serverId: serverId)
 
         let playlists: any PlaylistSyncClient
@@ -113,17 +118,16 @@ actor MoodPlaylistService {
             playlists = try await makePlaylistClient()
         } catch {
             Logger.moodPlaylists.error("[MOOD-SYNC] no Subsonic client: \(error, privacy: .public)")
-            return .finished(refreshed: [], kept: pending)
+            return .finished(source: provider.kind, refreshed: [], kept: pending)
         }
 
-        // Cold model: pay the load once, up front, instead of inside the first mood's timeout.
-        await search.warmup()
+        await provider.prepare()
 
         var refreshed: [Mood] = []
         var kept: [Mood] = []
         for mood in pending {
             do {
-                try await refresh(mood, serverId: serverId, cycle: cycle, search: search, playlists: playlists)
+                try await refresh(mood, serverId: serverId, cycle: cycle, provider: provider, playlists: playlists)
                 refreshed.append(mood)
             } catch let reason as MoodSkipReason {
                 kept.append(mood)
@@ -134,8 +138,9 @@ actor MoodPlaylistService {
             }
         }
 
-        Logger.moodPlaylists.info("[MOOD-SYNC] refreshed \(refreshed.count, privacy: .public)/\(pending.count, privacy: .public) — kept \(kept.map(\.rawValue).joined(separator: ","), privacy: .public)")
-        return .finished(refreshed: refreshed, kept: kept)
+        Logger.moodPlaylists.info("[MOOD-SYNC] source=\(provider.kind.rawValue, privacy: .public) refreshed \(refreshed.count, privacy: .public)/\(pending.count, privacy: .public) — kept \(kept.map(\.rawValue).joined(separator: ","), privacy: .public)")
+        preferences.setLastSource(provider.kind, serverId: serverId)
+        return .finished(source: provider.kind, refreshed: refreshed, kept: kept)
     }
 
     /// One mood, end to end. Throws `MoodSkipReason` so the caller can keep going; the marker is
@@ -144,31 +149,31 @@ actor MoodPlaylistService {
         _ mood: Mood,
         serverId: String,
         cycle: Date,
-        search: any MoodSearchClient,
+        provider: any MoodTrackProvider,
         playlists: any PlaylistSyncClient
     ) async throws {
-        let tracks: [AudioMuseTrack]
+        let trackIds: [String]
         do {
-            tracks = try await search.search(query: mood.query, limit: Mood.trackCount)
+            trackIds = try await provider.trackIds(for: mood, limit: Mood.trackCount)
         } catch {
             throw MoodSkipReason.searchFailed(String(describing: error))
         }
-        // An empty result is not a reason to empty the playlist — the index may simply be
-        // rebuilding. Keep what is there.
-        guard !tracks.isEmpty else { throw MoodSkipReason.noResults }
+        // An empty result is not a reason to empty the playlist — a sonic index may be rebuilding,
+        // or the library may simply have no tagged tracks for this mood. Keep what is there.
+        guard !trackIds.isEmpty else { throw MoodSkipReason.noResults }
 
         do {
             let playlistId = try await resolvePlaylistId(for: mood, serverId: serverId, client: playlists)
             // createPlaylist with a non-nil id replaces the whole track list in one call — no
             // read-modify-write, so the playlist is never briefly empty.
-            _ = try await playlists.createPlaylist(name: nil, playlistId: playlistId, songIds: tracks.map(\.itemId))
+            _ = try await playlists.createPlaylist(name: nil, playlistId: playlistId, songIds: trackIds)
             preferences.setPlaylistId(playlistId, mood: mood, serverId: serverId)
         } catch {
             throw MoodSkipReason.playlistWriteFailed(String(describing: error))
         }
 
         preferences.setSyncedCycle(cycle, mood: mood, serverId: serverId)
-        Logger.moodPlaylists.info("[MOOD-SYNC] \(mood.rawValue, privacy: .public) refreshed with \(tracks.count, privacy: .public) tracks")
+        Logger.moodPlaylists.info("[MOOD-SYNC] \(mood.rawValue, privacy: .public) refreshed with \(trackIds.count, privacy: .public) tracks")
     }
 
     /// Cached id, else an existing playlist of the same name, else a newly created one.
@@ -192,6 +197,12 @@ actor MoodPlaylistService {
 
     func lastRefresh(serverId: String) -> Date? {
         preferences.lastRefresh(serverId: serverId)
+    }
+
+    /// Which source last populated the playlists, for the settings screen to be honest about
+    /// whether the user is getting sonic matching or tag matching.
+    func lastSource(serverId: String) -> MoodSourceKind? {
+        preferences.lastSource(serverId: serverId)
     }
 
     /// Clears local state when the user disconnects AudioMuse. The server playlists are left in

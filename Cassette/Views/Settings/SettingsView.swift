@@ -86,6 +86,15 @@ struct SettingsView: View {
                 }
             }
             NavigationLink {
+                AudioMuseSettingsView()
+            } label: {
+                Label {
+                    Text("AudioMuse")
+                } icon: {
+                    SettingsIcon(systemImage: "waveform.badge.magnifyingglass", color: .teal)
+                }
+            }
+            NavigationLink {
                 ExternalProvidersSettingsView()
             } label: {
                 Label {

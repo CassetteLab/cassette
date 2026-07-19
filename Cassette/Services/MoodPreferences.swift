@@ -54,6 +54,9 @@ nonisolated struct MoodPreferences: Sendable {
     private static func lastAttemptKey(_ serverId: String) -> String {
         "cassette.mood.lastAttempt.\(serverId)"
     }
+    private static func lastSourceKey(_ serverId: String) -> String {
+        "cassette.mood.lastSource.\(serverId)"
+    }
 
     // MARK: - Per-mood cycle marker
 
@@ -95,6 +98,18 @@ nonisolated struct MoodPreferences: Sendable {
         userDefaults.set(date.timeIntervalSinceReferenceDate, forKey: Self.lastAttemptKey(serverId))
     }
 
+    // MARK: - Source
+
+    /// Which provider last populated the playlists, so the UI can say whether the user is getting
+    /// sonic matching or the weaker tag matching.
+    func lastSource(serverId: String) -> MoodSourceKind? {
+        userDefaults.string(forKey: Self.lastSourceKey(serverId)).flatMap(MoodSourceKind.init(rawValue:))
+    }
+
+    func setLastSource(_ kind: MoodSourceKind, serverId: String) {
+        userDefaults.set(kind.rawValue, forKey: Self.lastSourceKey(serverId))
+    }
+
     // MARK: - Teardown
 
     /// Forgets everything for a server — used when the user disconnects AudioMuse, so reconnecting
@@ -105,5 +120,6 @@ nonisolated struct MoodPreferences: Sendable {
             userDefaults.removeObject(forKey: Self.playlistIdKey(mood, serverId))
         }
         userDefaults.removeObject(forKey: Self.lastAttemptKey(serverId))
+        userDefaults.removeObject(forKey: Self.lastSourceKey(serverId))
     }
 }

@@ -10,30 +10,28 @@ import SwiftSonic
 
 // MARK: - Stubs
 
-/// Records every call and replays a per-mood outcome keyed on the query string.
-private final class SearchStub: MoodSearchClient, @unchecked Sendable {
+/// Records every call and replays a per-mood outcome keyed on the mood.
+private final class ProviderStub: MoodTrackProvider, @unchecked Sendable {
     enum Outcome { case tracks(Int), empty, failure }
 
     private let lock = NSLock()
-    private var _queries: [String] = []
-    private var _warmups = 0
-    var outcomes: [String: Outcome] = [:]
+    private var _requested: [Mood] = []
+    private var _prepares = 0
+    var outcomes: [Mood: Outcome] = [:]
     var defaultOutcome: Outcome = .tracks(75)
+    var kind: MoodSourceKind = .sonic
 
-    var queries: [String] { lock.withLock { _queries } }
-    var warmups: Int { lock.withLock { _warmups } }
+    var requested: [Mood] { lock.withLock { _requested } }
+    var prepares: Int { lock.withLock { _prepares } }
 
-    func warmup() async -> Bool { lock.withLock { _warmups += 1 }; return true }
+    func prepare() async { lock.withLock { _prepares += 1 } }
 
-    func search(query: String, limit: Int) async throws -> [AudioMuseTrack] {
-        lock.withLock { _queries.append(query) }
-        switch outcomes[query] ?? defaultOutcome {
-        case .tracks(let n):
-            return (0..<n).map { AudioMuseTrack(itemId: "track-\($0)", title: nil, author: nil, similarity: nil) }
-        case .empty:
-            return []
-        case .failure:
-            throw AudioMuseError.transport("stubbed failure")
+    func trackIds(for mood: Mood, limit: Int) async throws -> [String] {
+        lock.withLock { _requested.append(mood) }
+        switch outcomes[mood] ?? defaultOutcome {
+        case .tracks(let n): return (0..<n).map { "track-\($0)" }
+        case .empty:         return []
+        case .failure:       throw AudioMuseError.transport("stubbed failure")
         }
     }
 }
@@ -66,7 +64,7 @@ private final class PlaylistStub: PlaylistSyncClient, @unchecked Sendable {
 // MARK: - Harness
 
 private struct Harness {
-    let search = SearchStub()
+    let provider = ProviderStub()
     let playlists = PlaylistStub()
     let defaults: UserDefaults
     let preferences: MoodPreferences
@@ -78,10 +76,10 @@ private struct Harness {
         let name = "mood.tests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: name)!
         preferences = MoodPreferences(userDefaults: defaults)
-        let search = search, playlists = playlists
+        let provider = provider, playlists = playlists
         service = MoodPlaylistService(
             playlistClientFactory: { playlists },
-            searchClientFactory: { search },
+            providerFactory: { provider },
             preferences: preferences
         )
     }
@@ -140,10 +138,10 @@ struct MoodPlaylistServiceTests {
         let h = Harness()
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
-        #expect(outcome == .finished(refreshed: Mood.allCases, kept: []))
-        #expect(h.search.queries.count == 5)
+        #expect(outcome == .finished(source: .sonic, refreshed: Mood.allCases, kept: []))
+        #expect(h.provider.requested.count == 5)
         #expect(h.playlists.replacements.count == 5)
-        #expect(h.search.warmups == 1, "the CLAP model must be warmed once, not per mood")
+        #expect(h.provider.prepares == 1, "prepare runs once per batch, not per mood")
     }
 
     @Test("a second run in the same week does nothing at all")
@@ -154,7 +152,7 @@ struct MoodPlaylistServiceTests {
             serverId: h.serverId, calendar: utc, currentDate: date("2026-07-19T08:00:00Z"))
 
         #expect(outcome == .upToDate)
-        #expect(h.search.queries.count == 5, "no second round of searches")
+        #expect(h.provider.requested.count == 5, "no second round of searches")
     }
 
     @Test("the next Wednesday refreshes again")
@@ -163,18 +161,18 @@ struct MoodPlaylistServiceTests {
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: nextWednesday)
 
-        #expect(outcome == .finished(refreshed: Mood.allCases, kept: []))
+        #expect(outcome == .finished(source: .sonic, refreshed: Mood.allCases, kept: []))
         #expect(h.playlists.replacements.count == 10)
     }
 
     @Test("a mood whose search fails keeps its playlist and is retried next launch")
     func failedMoodKeepsItsPlaylist() async {
         let h = Harness()
-        h.search.outcomes[Mood.workout.query] = .failure
+        h.provider.outcomes[.workout] = .failure
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
-        #expect(outcome == .finished(refreshed: Mood.allCases.filter { $0 != .workout }, kept: [.workout]))
+        #expect(outcome == .finished(source: .sonic, refreshed: Mood.allCases.filter { $0 != .workout }, kept: [.workout]))
         // Four playlists rewritten — Workout's was never touched, so last week's is still there.
         #expect(h.playlists.replacements.count == 4)
         #expect(h.preferences.syncedCycle(mood: .workout, serverId: h.serverId) == nil)
@@ -184,41 +182,41 @@ struct MoodPlaylistServiceTests {
     @Test("an empty search result never empties the playlist")
     func emptyResultIsNotWritten() async {
         let h = Harness()
-        h.search.outcomes[Mood.night.query] = .empty
+        h.provider.outcomes[.night] = .empty
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
-        #expect(outcome == .finished(refreshed: Mood.allCases.filter { $0 != .night }, kept: [.night]))
+        #expect(outcome == .finished(source: .sonic, refreshed: Mood.allCases.filter { $0 != .night }, kept: [.night]))
         #expect(!h.playlists.replacements.contains { $0.songIds.isEmpty })
     }
 
     @Test("only the moods that failed are retried on the next launch")
     func retryCoversOnlyTheFailures() async {
         let h = Harness()
-        h.search.outcomes[Mood.workout.query] = .failure
+        h.provider.outcomes[.workout] = .failure
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
-        h.search.outcomes.removeValue(forKey: Mood.workout.query)
+        h.provider.outcomes.removeValue(forKey: .workout)
         // Past the throttle window, still inside the same week.
         let outcome = await h.service.runWeeklySyncIfNeeded(
             serverId: h.serverId, calendar: utc, currentDate: wednesday.addingTimeInterval(7200))
 
-        #expect(outcome == .finished(refreshed: [.workout], kept: []))
-        #expect(h.search.queries.filter { $0 == Mood.chill.query }.count == 1, "a succeeded mood is not re-queried")
+        #expect(outcome == .finished(source: .sonic, refreshed: [.workout], kept: []))
+        #expect(h.provider.requested.filter { $0 == .chill }.count == 1, "a succeeded mood is not re-queried")
     }
 
     @Test("a failing sync is throttled rather than retried on every launch")
     func failuresAreThrottled() async {
         let h = Harness()
-        h.search.defaultOutcome = .failure
+        h.provider.defaultOutcome = .failure
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
-        let queriesAfterFirst = h.search.queries.count
+        let requestedAfterFirst = h.provider.requested.count
 
         let outcome = await h.service.runWeeklySyncIfNeeded(
             serverId: h.serverId, calendar: utc, currentDate: wednesday.addingTimeInterval(60))
 
         #expect(outcome == .throttled)
-        #expect(h.search.queries.count == queriesAfterFirst, "no calls made while throttled")
+        #expect(h.provider.requested.count == requestedAfterFirst, "no calls made while throttled")
     }
 
     @Test("a failing playlist write leaves the mood's marker untouched")
@@ -228,7 +226,7 @@ struct MoodPlaylistServiceTests {
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
-        #expect(outcome == .finished(refreshed: [], kept: Mood.allCases))
+        #expect(outcome == .finished(source: .sonic, refreshed: [], kept: Mood.allCases))
         for mood in Mood.allCases {
             #expect(h.preferences.syncedCycle(mood: mood, serverId: h.serverId) == nil)
         }
@@ -255,7 +253,7 @@ struct MoodPlaylistServiceTests {
         let playlists = PlaylistStub()
         let service = MoodPlaylistService(
             playlistClientFactory: { playlists },
-            searchClientFactory: { nil },
+            providerFactory: { nil },
             preferences: MoodPreferences(userDefaults: UserDefaults(suiteName: "mood.tests.\(UUID().uuidString)")!)
         )
         let outcome = await service.runWeeklySyncIfNeeded(serverId: "s", calendar: utc, currentDate: wednesday)
@@ -264,12 +262,31 @@ struct MoodPlaylistServiceTests {
         #expect(playlists.replacements.isEmpty)
     }
 
-    @Test("each mood sends its own English prompt")
-    func promptsAreDistinctAndEnglish() async {
+    @Test("each mood is requested exactly once")
+    func everyMoodRequestedOnce() async {
         let h = Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
-        #expect(Set(h.search.queries).count == 5)
-        #expect(Set(h.search.queries) == Set(Mood.allCases.map(\.query)))
+        #expect(Set(h.provider.requested) == Set(Mood.allCases))
+        #expect(h.provider.requested.count == 5)
+    }
+
+    @Test("the source that populated the playlists is recorded for the UI")
+    func sourceIsRecorded() async {
+        let h = Harness()
+        h.provider.kind = .tags
+        let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+
+        #expect(outcome == .finished(source: .tags, refreshed: Mood.allCases, kept: []))
+        #expect(await h.service.lastSource(serverId: h.serverId) == .tags)
+    }
+
+    @Test("every mood carries a distinct English prompt for the sonic provider")
+    func promptsAreDistinct() {
+        let queries = Mood.allCases.map(\.query)
+        #expect(Set(queries).count == queries.count)
+        // ASCII-only is the check that matters: these are fed to CLAP, which embeds against
+        // English, so a localised prompt would quietly degrade every match.
+        #expect(queries.allSatisfy { $0.allSatisfy(\.isASCII) })
     }
 }

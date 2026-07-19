@@ -22,6 +22,7 @@ struct CassetteApp: App {
     #if os(iOS)
     nonisolated(unsafe) private static var _bgTaskService: WrappedPlaylistService?
     nonisolated(unsafe) private static var _bgTaskServerState: ServerState?
+    nonisolated(unsafe) private static var _bgTaskMoodService: MoodPlaylistService?
     #endif
 
     init() {
@@ -44,6 +45,13 @@ struct CassetteApp: App {
                 }
                 let result = await service.runYearlyPlaylistSyncIfNeeded(serverId: serverId, calendar: .current)
                 Logger.wrapped.info("BGTask result: \(String(describing: result), privacy: .public)")
+                // Mood playlists ride along on this task rather than declaring a second identifier:
+                // it already wakes roughly daily, which is the right granularity for "has Wednesday
+                // passed yet", and a new identifier would need an Info.plist entry to match.
+                if let moods = CassetteApp._bgTaskMoodService {
+                    let moodResult = await moods.runWeeklySyncIfNeeded(serverId: serverId, calendar: .current)
+                    Logger.moodPlaylists.info("BGTask result: \(String(describing: moodResult), privacy: .public)")
+                }
                 processingTask.setTaskCompleted(success: true)
                 CassetteApp.scheduleWrappedUpdate()
             }
@@ -120,10 +128,12 @@ struct CassetteApp: App {
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.
                 Task { await runWrappedUpdate(container: newContainer) }
+                Task { await runMoodUpdate(container: newContainer) }
                 Task { await newContainer.widgetSyncService.fullSync() }
                 #if os(iOS)
                 CassetteApp._bgTaskService = newContainer.wrappedPlaylistService
                 CassetteApp._bgTaskServerState = newContainer.serverState
+                CassetteApp._bgTaskMoodService = newContainer.moodPlaylistService
                 CassetteApp.scheduleWrappedUpdate()
                 #endif
             }
@@ -242,5 +252,17 @@ struct CassetteApp: App {
         await container.wrappedPlaylistService.handleYearTransitionIfNeeded(serverId: serverId, calendar: .current)
         let result = await container.wrappedPlaylistService.runYearlyPlaylistSyncIfNeeded(serverId: serverId, calendar: .current)
         Logger.wrapped.info("Cold start result: \(String(describing: result), privacy: .public)")
+    }
+
+    // MARK: - Mood playlists
+
+    /// Cold-start catch-up for the weekly mood refresh. This, not the BGTask, is what users
+    /// actually experience: iOS grants background time at its own discretion, so the refresh lands
+    /// on the first launch on or after Wednesday. A no-op on every other launch.
+    @MainActor
+    private func runMoodUpdate(container: AppContainer) async {
+        guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
+        let result = await container.moodPlaylistService.runWeeklySyncIfNeeded(serverId: serverId, calendar: .current)
+        Logger.moodPlaylists.info("Cold start result: \(String(describing: result), privacy: .public)")
     }
 }

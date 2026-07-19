@@ -64,6 +64,11 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Server has no "exclude recently played" filter — filtering is done client-side by the consumer.
     func randomSongs(size: Int) async throws -> [Song]
 
+    /// Raw `getSongsByGenre`, returning `Song` rather than `DisplayableSong` so callers keep the
+    /// OpenSubsonic `moods` and `bpm` tags — which is the whole point for the tag-based mood
+    /// fallback. Returns an empty array when the server has nothing under that genre.
+    func songsByGenre(_ genre: String, count: Int) async throws -> [Song]
+
     /// Builds a queue of tracks for Smart Shuffle ("Rediscover Your Library").
     ///
     /// Online: TRULY random — `getRandomSongs(targetSize)`, no recency weighting,
