@@ -13,6 +13,11 @@ import OSLog
 /// copies the elementary streams without re-encoding, for both AAC and ALAC. No-op for every
 /// non-m4a container and for files already in faststart layout.
 nonisolated struct AudioFaststartRemuxer: Sendable {
+    /// Stamped into every REMUX log line so a log identifies the build that produced it. Three rounds
+    /// of diagnosis were spent reading logs from a device running an older binary, because nothing in
+    /// the output said which version wrote it. Bump this whenever the remux diagnostics change.
+    static let diagnosticsVersion = 4
+
     enum Outcome: Sendable, Equatable {
         case skipped   // not an m4a, already faststart, or unreadable — file untouched
         case remuxed   // file replaced in place with the faststart output
@@ -36,22 +41,22 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         // that never ran, which makes "this download won't play" impossible to diagnose from a log:
         // you cannot tell an undetected mdat-first file from one the player simply can't decode.
         guard let boxes = Self.topLevelBoxTypes(atPath: fileURL.path) else {
-            Logger.download.info("[REMUX] '\(name, privacy: .public)' — box layout unreadable, skipped")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — box layout unreadable, skipped")
             return .skipped
         }
         let state = Self.classify(boxTypes: boxes)
         let layout = boxes.prefix(8).joined(separator: ",")
         switch state {
         case .notMP4, .faststart:
-            Logger.download.info("[REMUX] '\(name, privacy: .public)' — \(String(describing: state), privacy: .public), skipped (boxes: \(layout, privacy: .public))")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — \(String(describing: state), privacy: .public), skipped (boxes: \(layout, privacy: .public))")
             return .skipped
         case .needsRemux:
-            Logger.download.info("[REMUX] '\(name, privacy: .public)' — needsRemux (boxes: \(layout, privacy: .public))")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — needsRemux (boxes: \(layout, privacy: .public))")
         }
 
         let asset = AVURLAsset(url: fileURL)
         guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else {
-            Logger.download.warning("[REMUX] passthrough preset unavailable for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
+            Logger.download.warning("[REMUX v\(Self.diagnosticsVersion)] passthrough preset unavailable for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
             return .failed
         }
         // Move the moov atom to the front; passthrough never re-encodes (lossless).
@@ -63,14 +68,14 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
             try await session.export(to: tempURL, as: .m4a)
         } catch {
             try? FileManager.default.removeItem(at: tempURL)
-            Logger.download.warning("[REMUX] export failed for '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public) — original kept")
+            Logger.download.warning("[REMUX v\(Self.diagnosticsVersion)] export failed for '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public) — original kept")
             return .failed
         }
 
         let outSize = (try? FileManager.default.attributesOfItem(atPath: tempURL.path)[.size] as? Int64) ?? 0
         guard outSize > 0 else {
             try? FileManager.default.removeItem(at: tempURL)
-            Logger.download.warning("[REMUX] empty export for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
+            Logger.download.warning("[REMUX v\(Self.diagnosticsVersion)] empty export for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
             return .failed
         }
 
@@ -84,7 +89,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         guard let outBoxes = Self.topLevelBoxTypes(atPath: tempURL.path),
               Self.isUsableFaststartOutput(boxTypes: outBoxes) else {
             try? FileManager.default.removeItem(at: tempURL)
-            Logger.download.warning("[REMUX] export produced an unusable layout for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
+            Logger.download.warning("[REMUX v\(Self.diagnosticsVersion)] export produced an unusable layout for '\(fileURL.lastPathComponent, privacy: .public)' — original kept")
             return .failed
         }
 
@@ -93,7 +98,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
             _ = try FileManager.default.replaceItemAt(fileURL, withItemAt: tempURL)
         } catch {
             try? FileManager.default.removeItem(at: tempURL)
-            Logger.download.warning("[REMUX] atomic swap failed for '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public) — original kept")
+            Logger.download.warning("[REMUX v\(Self.diagnosticsVersion)] atomic swap failed for '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public) — original kept")
             return .failed
         }
 
@@ -102,11 +107,11 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         // reporting a success the download record would then describe wrongly.
         let landedSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
         guard landedSize > 0 else {
-            Logger.download.error("[REMUX] post-swap file missing at '\(fileURL.lastPathComponent, privacy: .public)' — download is broken")
+            Logger.download.error("[REMUX v\(Self.diagnosticsVersion)] post-swap file missing at '\(fileURL.lastPathComponent, privacy: .public)' — download is broken")
             return .failed
         }
 
-        Logger.download.info("[REMUX] faststart-remuxed '\(fileURL.lastPathComponent, privacy: .public)'")
+        Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] faststart-remuxed '\(fileURL.lastPathComponent, privacy: .public)'")
         return .remuxed
     }
 
@@ -162,7 +167,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         let attrSize = ((try? FileManager.default.attributesOfItem(atPath: path)[.size]) as? Int64).map(UInt64.init) ?? 0
         let total = max(handleSize, attrSize)
         if handleSize != attrSize {
-            Logger.download.error("[REMUX] size disagreement on '\(URL(fileURLWithPath: path).lastPathComponent, privacy: .public)': handle=\(handleSize, privacy: .public) attributes=\(attrSize, privacy: .public)")
+            Logger.download.error("[REMUX v\(Self.diagnosticsVersion)] size disagreement on '\(URL(fileURLWithPath: path).lastPathComponent, privacy: .public)': handle=\(handleSize, privacy: .public) attributes=\(attrSize, privacy: .public)")
         }
 
         let types = scanBoxTypes(total: total, limit: limit) { offset, length in
@@ -179,7 +184,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         if types.isEmpty && total >= 8 {
             let head = (try? handle.seek(toOffset: 0)).flatMap { _ in try? handle.read(upToCount: 16) }
             let hex = head.map { $0.map { String(format: "%02x", $0) }.joined(separator: " ") } ?? "<unreadable>"
-            Logger.download.error("[REMUX] box scan read nothing from a \(total, privacy: .public)-byte file — first bytes: \(hex, privacy: .public)")
+            Logger.download.error("[REMUX v\(Self.diagnosticsVersion)] box scan read nothing from a \(total, privacy: .public)-byte file — first bytes: \(hex, privacy: .public)")
             return nil
         }
         return types
