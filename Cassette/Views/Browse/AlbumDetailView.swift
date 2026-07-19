@@ -67,7 +67,7 @@ struct AlbumDetailView: View {
     @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
-    @State private var isGeneratingMix = false
+    @State private var showThemeColorSheet = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -80,6 +80,11 @@ struct AlbumDetailView: View {
     /// own cover id (these can differ from the album's while pointing at the same artwork — e.g. the full player).
     private var albumThemeIds: [String] {
         [albumCoverId] + (viewModel?.songs.compactMap { $0.coverArtId } ?? [])
+    }
+    /// Drops the manual override and falls back to the colour extracted from the cover.
+    private func resetThemeColor() {
+        colorExtractor.setColorOverride(nil, forIds: albumThemeIds)
+        dominantColor = colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor
     }
     private var isLoadingSkeleton: Bool {
         viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
@@ -256,28 +261,6 @@ struct AlbumDetailView: View {
                 .buttonStyle(.plain)
             }
             ToolbarItem(placement: .primaryAction) {
-                // Manual theme-colour override (defaults to the cover's dominant). Persisted per cover; applied
-                // live to the album theme and app-wide (e.g. the full player) via DominantColorExtractor.
-                ColorPicker("", selection: Binding(
-                    get: { colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor },
-                    set: { newColor in
-                        colorExtractor.setColorOverride(newColor, forIds: albumThemeIds)
-                        dominantColor = newColor
-                    }
-                ), supportsOpacity: false)
-                .labelsHidden()
-                .accessibilityLabel("Theme colour")
-                .contextMenu {
-                    if colorExtractor.colorOverride(for: albumCoverId) != nil {
-                        Button("Reset to cover colour", systemImage: "arrow.uturn.backward") {
-                            colorExtractor.setColorOverride(nil, forIds: albumThemeIds)
-                            let extracted = colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor
-                            dominantColor = extracted
-                        }
-                    }
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
                 Button {
                     HapticFeedback.light.trigger()
                     Task {
@@ -296,6 +279,46 @@ struct AlbumDetailView: View {
                 .buttonStyle(.plain)
                 .disabled(!isOnline)
             }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Instant Mix", systemImage: instantMixSymbol) {
+                        HapticFeedback.medium.trigger()
+                        startInstantMix(from: .album(id: albumId), using: container)
+                    }
+                    .disabled(displaySongs().isEmpty || !isOnline)
+                    Divider()
+                    // A ColorPicker cannot live inside a Menu — menu content is limited to buttons and
+                    // pickers — so the swatch moves to a sheet. Which is the better home anyway: "Reset to
+                    // cover colour" used to hide in a contextMenu on a toolbar item, where nobody long-presses.
+                    Button("Theme colour", systemImage: "paintpalette") {
+                        showThemeColorSheet = true
+                    }
+                    if colorExtractor.colorOverride(for: albumCoverId) != nil {
+                        Button("Reset to cover colour", systemImage: "arrow.uturn.backward") {
+                            resetThemeColor()
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .foregroundStyle(headerTextColor)
+                        .cassetteHeroButton(size: 34)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More options")
+            }
+        }
+        .sheet(isPresented: $showThemeColorSheet) {
+            ThemeColorSheet(
+                color: Binding(
+                    get: { colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor },
+                    set: { newColor in
+                        colorExtractor.setColorOverride(newColor, forIds: albumThemeIds)
+                        dominantColor = newColor
+                    }
+                ),
+                hasOverride: colorExtractor.colorOverride(for: albumCoverId) != nil,
+                onReset: resetThemeColor
+            )
         }
         #if os(iOS)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -439,29 +462,6 @@ struct AlbumDetailView: View {
                         .cassetteGlassButton(size: 44)
                 }
                 .disabled(songs.isEmpty)
-                .opacity(vm == nil ? 0.4 : 1)
-
-                Button {
-                    guard !isGeneratingMix else { return }
-                    HapticFeedback.medium.trigger()
-                    Task {
-                        isGeneratingMix = true
-                        await runInstantMix(from: .album(id: albumId), using: container)
-                        isGeneratingMix = false
-                    }
-                } label: {
-                    Group {
-                        if isGeneratingMix {
-                            ProgressView().controlSize(.small).tint(headerTextColor)
-                        } else {
-                            Image(systemName: instantMixSymbol)
-                                .font(.cassetteCellTitle)
-                                .foregroundStyle(headerTextColor)
-                        }
-                    }
-                    .cassetteGlassButton(size: 44)
-                }
-                .disabled(songs.isEmpty || isGeneratingMix)
                 .opacity(vm == nil ? 0.4 : 1)
 
                 PlayButton(action: {
@@ -648,3 +648,43 @@ struct AlbumSongRows: View {
     }
 }
 
+
+// MARK: - Theme colour sheet
+
+/// Host for the album's theme-colour override. A ColorPicker cannot be placed inside a Menu, so the
+/// overflow menu opens this instead — which also gives "Reset to cover colour" a visible home rather
+/// than the long-press-only contextMenu it used to live in.
+private struct ThemeColorSheet: View {
+    @Binding var color: Color
+    let hasOverride: Bool
+    let onReset: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    ColorPicker("Theme colour", selection: $color, supportsOpacity: false)
+                } footer: {
+                    Text("Overrides the colour taken from the cover, here and anywhere else this album appears.")
+                }
+                if hasOverride {
+                    Section {
+                        Button("Reset to cover colour", systemImage: "arrow.uturn.backward", role: .destructive) {
+                            onReset()
+                            dismiss()
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Theme colour")
+            .navigationBarTitleDisplayModeInline()
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.height(260)])
+    }
+}

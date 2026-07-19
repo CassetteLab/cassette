@@ -17930,6 +17930,58 @@
         }
       }
     },
+    "Overrides the colour taken from the cover, here and anywhere else this album appears." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ersetzt die aus dem Cover ermittelte Farbe – hier und überall sonst, wo dieses Album erscheint."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αντικαθιστά το χρώμα που προκύπτει από το εξώφυλλο, εδώ και οπουδήποτε αλλού εμφανίζεται αυτό το άλμπουμ."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sustituye el color extraído de la portada, aquí y en cualquier otro lugar donde aparezca este álbum."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remplace la couleur extraite de la pochette, ici et partout ailleurs où cet album apparaît."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sostituisce il colore ricavato dalla copertina, qui e ovunque compaia questo album."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ジャケットから抽出された色を上書きします。このアルバムが表示される他の画面にも適用されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "覆盖从封面提取的颜色，在此处以及本专辑出现的其他位置生效。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "覆寫從封面擷取的顏色，於此處以及本專輯出現的其他位置生效。"
+          }
+        }
+      }
+    },
     "Password" : {
       "localizations" : {
         "de" : {
