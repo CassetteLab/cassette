@@ -22,6 +22,7 @@ struct AudioMuseSettingsView: View {
     @State private var lastRefresh: Date?
     @State private var lastSource: MoodSourceKind?
     @State private var showDisconnectAlert = false
+    @State private var isRebuilding = false
     @State private var didLoad = false
 
     private enum TestResult: Equatable {
@@ -129,7 +130,9 @@ struct AudioMuseSettingsView: View {
                 }
             }
             LabeledContent("Last refresh") {
-                if let lastRefresh {
+                if isRebuilding {
+                    ProgressView().controlSize(.small)
+                } else if let lastRefresh {
                     Text(lastRefresh, format: .relative(presentation: .named))
                 } else {
                     Text("Not yet")
@@ -179,7 +182,10 @@ struct AudioMuseSettingsView: View {
             }
             try await container.serverService.setAudioMuseConfig(serverId: server.id, urlString: url, token: token)
             testResult = .success(trackCount: tracks.count)
-            await loadLastRefresh()
+            // Rebuild at once. The moods are already synced for this week, so without this the
+            // playlists would keep their tag-built contents until Wednesday and the connection would
+            // look like it had done nothing.
+            await rebuildPlaylists()
         } catch let error as AudioMuseError {
             testResult = .failure(message(for: error))
         } catch {
@@ -190,11 +196,21 @@ struct AudioMuseSettingsView: View {
     private func disconnect() async {
         guard let container, let server = activeServer else { return }
         try? await container.serverService.setAudioMuseConfig(serverId: server.id, urlString: nil, token: nil)
-        await container.moodPlaylistService.forgetLocalState(serverId: server.id.uuidString)
         urlInput = ""
         tokenInput = ""
         testResult = nil
-        lastRefresh = nil
+        // Rebuild from tags rather than forgetting everything: the playlists stay, they just go back
+        // to the weaker source. Clearing local state would strand them and create duplicates later.
+        await rebuildPlaylists()
+    }
+
+    /// Regenerates all five playlists from whichever source is now configured.
+    private func rebuildPlaylists() async {
+        guard let container, let server = activeServer else { return }
+        isRebuilding = true
+        defer { isRebuilding = false }
+        _ = await container.moodPlaylistService.rebuildNow(serverId: server.id.uuidString)
+        await loadLastRefresh()
     }
 
     private func loadLastRefresh() async {

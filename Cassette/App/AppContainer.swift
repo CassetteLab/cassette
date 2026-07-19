@@ -81,7 +81,24 @@ final class AppContainer {
         libraryService = library
 
         artworkImageCache = ArtworkImageCache(downloadService: download, libraryService: library)
-        moodPlaylistService = MoodPlaylistService(serverService: server, serverState: serverState, libraryService: library)
+        // The cover applier is a closure because PlaylistCoverManager is MainActor-bound while
+        // MoodPlaylistService is an actor; this keeps the hop at the boundary instead of inside it.
+        let moodState = serverState
+        let moodCovers: @Sendable (PlaylistGradientSpec, String) async -> Void = { [artworkImageCache] spec, playlistId in
+            let manager = await PlaylistCoverManager(
+                serverState: moodState,
+                serverService: server,
+                downloadService: download,
+                artworkImageCache: artworkImageCache
+            )
+            await manager.applyGradientCover(spec, playlistId: playlistId)
+        }
+        moodPlaylistService = MoodPlaylistService(
+            serverService: server,
+            serverState: serverState,
+            libraryService: library,
+            coverApplier: moodCovers
+        )
 
         let resolver = MediaResolver(
             downloadService: download,

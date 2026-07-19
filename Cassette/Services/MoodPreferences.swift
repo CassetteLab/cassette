@@ -57,6 +57,9 @@ nonisolated struct MoodPreferences: Sendable {
     private static func lastSourceKey(_ serverId: String) -> String {
         "cassette.mood.lastSource.\(serverId)"
     }
+    private static func coverKey(_ mood: Mood, _ serverId: String) -> String {
+        "cassette.mood.coverApplied.\(mood.rawValue).\(serverId)"
+    }
 
     // MARK: - Per-mood cycle marker
 
@@ -98,6 +101,18 @@ nonisolated struct MoodPreferences: Sendable {
         userDefaults.set(date.timeIntervalSinceReferenceDate, forKey: Self.lastAttemptKey(serverId))
     }
 
+    // MARK: - Cover
+
+    /// Whether this mood's playlist already carries its generated cover. Tracked so the cover is
+    /// rendered and uploaded once rather than on every weekly refresh.
+    func hasCover(mood: Mood, serverId: String) -> Bool {
+        userDefaults.bool(forKey: Self.coverKey(mood, serverId))
+    }
+
+    func setHasCover(mood: Mood, serverId: String) {
+        userDefaults.set(true, forKey: Self.coverKey(mood, serverId))
+    }
+
     // MARK: - Source
 
     /// Which provider last populated the playlists, so the UI can say whether the user is getting
@@ -110,6 +125,20 @@ nonisolated struct MoodPreferences: Sendable {
         userDefaults.set(kind.rawValue, forKey: Self.lastSourceKey(serverId))
     }
 
+    // MARK: - Forcing a rebuild
+
+    /// Marks every mood as due again without touching the playlist ids, so a rebuild rewrites the
+    /// playlists the user already has rather than leaving five orphans behind.
+    ///
+    /// Used when the track source changes — connecting AudioMuse should not mean waiting until
+    /// Wednesday to hear the difference.
+    func markAllDue(serverId: String) {
+        for mood in Mood.allCases {
+            userDefaults.removeObject(forKey: Self.cycleKey(mood, serverId))
+        }
+        userDefaults.removeObject(forKey: Self.lastAttemptKey(serverId))
+    }
+
     // MARK: - Teardown
 
     /// Forgets everything for a server — used when the user disconnects AudioMuse, so reconnecting
@@ -118,6 +147,7 @@ nonisolated struct MoodPreferences: Sendable {
         for mood in Mood.allCases {
             userDefaults.removeObject(forKey: Self.cycleKey(mood, serverId))
             userDefaults.removeObject(forKey: Self.playlistIdKey(mood, serverId))
+            userDefaults.removeObject(forKey: Self.coverKey(mood, serverId))
         }
         userDefaults.removeObject(forKey: Self.lastAttemptKey(serverId))
         userDefaults.removeObject(forKey: Self.lastSourceKey(serverId))

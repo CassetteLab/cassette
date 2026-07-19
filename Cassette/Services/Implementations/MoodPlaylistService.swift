@@ -52,6 +52,9 @@ actor MoodPlaylistService {
     private let preferences: MoodPreferences
     private let makePlaylistClient: @Sendable () async throws -> any PlaylistSyncClient
     private let makeProvider: @Sendable () async -> (any MoodTrackProvider)?
+    /// Renders and applies a playlist cover. Injected rather than called directly because
+    /// PlaylistCoverManager is MainActor-bound and this is an actor.
+    private let applyCover: (@Sendable (PlaylistGradientSpec, String) async -> Void)?
 
     /// Minimum gap between attempts, so an unreachable instance is not re-probed every launch.
     static let attemptThrottle: TimeInterval = 3600
@@ -59,10 +62,12 @@ actor MoodPlaylistService {
     init(
         playlistClientFactory: @escaping @Sendable () async throws -> any PlaylistSyncClient,
         providerFactory: @escaping @Sendable () async -> (any MoodTrackProvider)?,
+        coverApplier: (@Sendable (PlaylistGradientSpec, String) async -> Void)? = nil,
         preferences: MoodPreferences = MoodPreferences()
     ) {
         self.makePlaylistClient = playlistClientFactory
         self.makeProvider = providerFactory
+        self.applyCover = coverApplier
         self.preferences = preferences
     }
 
@@ -72,9 +77,11 @@ actor MoodPlaylistService {
         serverService: any ServerServiceProtocol,
         serverState: ServerState,
         libraryService: any LibraryServiceProtocol,
+        coverApplier: (@Sendable (PlaylistGradientSpec, String) async -> Void)? = nil,
         preferences: MoodPreferences = MoodPreferences()
     ) {
         self.preferences = preferences
+        self.applyCover = coverApplier
         self.makePlaylistClient = { try await serverService.makeSwiftSonicClient() }
         self.makeProvider = {
             if let urlString = await MainActor.run(body: { serverState.activeServer?.audioMuseURL }),
@@ -143,6 +150,17 @@ actor MoodPlaylistService {
         return .finished(source: provider.kind, refreshed: refreshed, kept: kept)
     }
 
+    /// Rebuilds all five playlists now, whatever the weekly cadence says.
+    ///
+    /// Called when the track source changes: connecting AudioMuse should replace the tag-built
+    /// playlists immediately rather than leaving the user to wonder until Wednesday whether it took
+    /// effect. Playlist ids are kept, so the existing playlists are rewritten in place.
+    @discardableResult
+    func rebuildNow(serverId: String, calendar: Calendar = .current, currentDate: Date = Date()) async -> MoodSyncOutcome {
+        preferences.markAllDue(serverId: serverId)
+        return await runWeeklySyncIfNeeded(serverId: serverId, calendar: calendar, currentDate: currentDate)
+    }
+
     /// One mood, end to end. Throws `MoodSkipReason` so the caller can keep going; the marker is
     /// only advanced once the server has accepted the new track list.
     private func refresh(
@@ -174,6 +192,16 @@ actor MoodPlaylistService {
 
         preferences.setSyncedCycle(cycle, mood: mood, serverId: serverId)
         Logger.moodPlaylists.info("[MOOD-SYNC] \(mood.rawValue, privacy: .public) refreshed with \(trackIds.count, privacy: .public) tracks")
+
+        // Once per playlist, not per refresh: the cover never changes, and re-uploading it every
+        // week would be pure waste. Failures are silent — a playlist without its cover still works.
+        if let applyCover, !preferences.hasCover(mood: mood, serverId: serverId) {
+            let playlistId = preferences.playlistId(mood: mood, serverId: serverId)
+            if let playlistId {
+                await applyCover(mood.gradientSpec, playlistId)
+                preferences.setHasCover(mood: mood, serverId: serverId)
+            }
+        }
     }
 
     /// Cached id, else an existing playlist of the same name, else a newly created one.

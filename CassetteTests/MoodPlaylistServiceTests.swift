@@ -63,9 +63,21 @@ private final class PlaylistStub: PlaylistSyncClient, @unchecked Sendable {
 
 // MARK: - Harness
 
+/// Records every cover the service asks to be applied.
+private final class CoverStub: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _applied: [(spec: PlaylistGradientSpec, playlistId: String)] = []
+    var applied: [(spec: PlaylistGradientSpec, playlistId: String)] { lock.withLock { _applied } }
+
+    func apply(_ spec: PlaylistGradientSpec, _ playlistId: String) {
+        lock.withLock { _applied.append((spec, playlistId)) }
+    }
+}
+
 private struct Harness {
     let provider = ProviderStub()
     let playlists = PlaylistStub()
+    let covers = CoverStub()
     let defaults: UserDefaults
     let preferences: MoodPreferences
     let service: MoodPlaylistService
@@ -76,10 +88,11 @@ private struct Harness {
         let name = "mood.tests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: name)!
         preferences = MoodPreferences(userDefaults: defaults)
-        let provider = provider, playlists = playlists
+        let provider = provider, playlists = playlists, covers = covers
         service = MoodPlaylistService(
             playlistClientFactory: { playlists },
             providerFactory: { provider },
+            coverApplier: { spec, playlistId in covers.apply(spec, playlistId) },
             preferences: preferences
         )
     }
@@ -279,6 +292,80 @@ struct MoodPlaylistServiceTests {
 
         #expect(outcome == .finished(source: .tags, refreshed: Mood.allCases, kept: []))
         #expect(await h.service.lastSource(serverId: h.serverId) == .tags)
+    }
+
+    // MARK: - Covers
+
+    @Test("each playlist gets its generated cover on first build")
+    func coversAreAppliedOnce() async {
+        let h = Harness()
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+
+        #expect(h.covers.applied.count == 5)
+        // Distinct specs: same colour on two moods would make them indistinguishable as thumbnails.
+        let specs = h.covers.applied.map(\.spec)
+        for (i, spec) in specs.enumerated() {
+            #expect(!specs[(i + 1)...].contains(spec), "two moods share a cover design")
+        }
+    }
+
+    @Test("the cover is not re-uploaded on later refreshes")
+    func coversAreNotReapplied() async {
+        let h = Harness()
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: nextWednesday)
+
+        #expect(h.covers.applied.count == 5, "the cover never changes — uploading it weekly is waste")
+    }
+
+    @Test("a mood that failed gets no cover")
+    func failedMoodGetsNoCover() async {
+        let h = Harness()
+        h.provider.outcomes[.workout] = .failure
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+
+        #expect(h.covers.applied.count == 4)
+    }
+
+    // MARK: - Forced rebuild
+
+    @Test("a forced rebuild rewrites every playlist even mid-week")
+    func rebuildIgnoresTheCadence() async {
+        let h = Harness()
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+        #expect(h.playlists.replacements.count == 5)
+
+        // Connecting AudioMuse two days later must not leave the tag-built playlists in place
+        // until the following Wednesday.
+        let outcome = await h.service.rebuildNow(
+            serverId: h.serverId, calendar: utc, currentDate: date("2026-07-17T10:00:00Z"))
+
+        #expect(outcome == .finished(source: .sonic, refreshed: Mood.allCases, kept: []))
+        #expect(h.playlists.replacements.count == 10)
+    }
+
+    @Test("a forced rebuild bypasses the throttle")
+    func rebuildIgnoresTheThrottle() async {
+        let h = Harness()
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+
+        // One minute later — well inside the throttle window, which a normal call would refuse.
+        let outcome = await h.service.rebuildNow(
+            serverId: h.serverId, calendar: utc, currentDate: wednesday.addingTimeInterval(60))
+
+        #expect(outcome != .throttled)
+        #expect(h.playlists.replacements.count == 10)
+    }
+
+    @Test("a forced rebuild reuses the existing playlists rather than creating new ones")
+    func rebuildKeepsPlaylistIds() async {
+        let h = Harness()
+        _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
+        let createdFirst = h.playlists.created.count
+
+        _ = await h.service.rebuildNow(serverId: h.serverId, calendar: utc, currentDate: wednesday.addingTimeInterval(60))
+
+        #expect(h.playlists.created.count == createdFirst, "rebuilding must not orphan the old playlists")
     }
 
     @Test("every mood carries a distinct English prompt for the sonic provider")
