@@ -66,10 +66,34 @@ nonisolated struct LibraryTagTrackProvider: MoodTrackProvider {
 
     func prepare() async {}
 
+    /// Broad sample taken when a mood's genres are absent from the library.
+    static let fallbackPoolSize = 500
+
     func trackIds(for mood: Mood, limit: Int) async throws -> [String] {
+        var candidates = await genreCandidates(for: mood)
+        var source = "genres"
+
+        // A library organised around genres this mood does not use — French rap where Night looks
+        // for ambient and jazz — yields nothing at all here, and would keep yielding nothing every
+        // week. Falling back to a broad sample lets the MOOD and BPM tags decide on their own,
+        // which is exactly the case those two signals exist for.
+        if candidates.isEmpty {
+            candidates = await randomCandidates()
+            source = "random pool"
+        }
+
+        let ranked = MoodTagMatcher.rank(candidates, for: mood, limit: limit)
+        let withMoodTag = candidates.count { !$0.features.moods.isEmpty }
+        let withBpm = candidates.count { ($0.features.bpm ?? 0) > 0 }
+        // The signal breakdown is logged because an empty result is otherwise indistinguishable
+        // between "no candidates" and "candidates with nothing to judge them on".
+        Logger.moodPlaylists.info("[MOOD-TAGS] \(mood.rawValue, privacy: .public): \(candidates.count, privacy: .public) candidates via \(source, privacy: .public) (\(withMoodTag, privacy: .public) tagged, \(withBpm, privacy: .public) with BPM) → \(ranked.count, privacy: .public) ranked")
+        return ranked
+    }
+
+    private func genreCandidates(for mood: Mood) async -> [(id: String, features: SongTagFeatures)] {
         var seen = Set<String>()
         var candidates: [(id: String, features: SongTagFeatures)] = []
-
         for genre in MoodTagMatcher.genres(mood) {
             // A genre the library simply does not have is normal, not an error — skip and continue,
             // otherwise one absent genre would sink the whole mood.
@@ -78,10 +102,12 @@ nonisolated struct LibraryTagTrackProvider: MoodTrackProvider {
                 candidates.append((song.id, Self.features(of: song)))
             }
         }
+        return candidates
+    }
 
-        let ranked = MoodTagMatcher.rank(candidates, for: mood, limit: limit)
-        Logger.moodPlaylists.info("[MOOD-TAGS] \(mood.rawValue, privacy: .public): \(candidates.count, privacy: .public) candidates → \(ranked.count, privacy: .public) ranked")
-        return ranked
+    private func randomCandidates() async -> [(id: String, features: SongTagFeatures)] {
+        guard let songs = try? await libraryService.randomSongs(size: Self.fallbackPoolSize) else { return [] }
+        return songs.map { ($0.id, Self.features(of: $0)) }
     }
 
     /// Reads both genre spellings: OpenSubsonic's `genres` array and the older single `genre`
