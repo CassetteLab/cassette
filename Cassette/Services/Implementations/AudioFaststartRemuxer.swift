@@ -16,7 +16,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     /// Stamped into every REMUX log line so a log identifies the build that produced it. Three rounds
     /// of diagnosis were spent reading logs from a device running an older binary, because nothing in
     /// the output said which version wrote it. Bump this whenever the remux diagnostics change.
-    static let diagnosticsVersion = 7
+    static let diagnosticsVersion = 8
 
     enum Outcome: Sendable, Equatable {
         case skipped   // not an m4a, already faststart, or unreadable — file untouched

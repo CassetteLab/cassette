@@ -300,9 +300,17 @@ actor DownloadService: DownloadServiceProtocol {
         }
 
         let mimeType = response.mimeType ?? "audio/mpeg"
-        // Prefer the server-declared suffix (e.g. "mp3", "flac") over the MIME subtype.
-        // audio/mpeg → "mpeg" which AVPlayer maps to a video UTI, not public.mp3.
-        let ext = song.suffix ?? mimeType.split(separator: "/").last.map(String.init) ?? "bin"
+        // Name the file after what it IS, not what the server says it is. Navidrome has been observed
+        // declaring suffix "m4a" while sending FLAC bytes; the extension is what the playback engine
+        // picks its parser from, so the wrong one makes a healthy file unplayable — it goes to the m4a
+        // parser, which finds no ftyp and reports end-of-track instantly.
+        // Falls back to the server-declared suffix (then the MIME subtype) when the bytes match nothing
+        // known. audio/mpeg → "mpeg", which AVPlayer maps to a video UTI, hence the suffix preference.
+        let sniffed = AudioContainer.sniff(atPath: tempURL.path)
+        if let sniffed, let declared = song.suffix?.lowercased(), sniffed.rawValue != declared {
+            Logger.download.warning("Container mismatch for '\(song.id, privacy: .public)': server declared '\(declared, privacy: .public)', bytes are \(sniffed.rawValue, privacy: .public) — naming the file after the bytes")
+        }
+        let ext = sniffed?.rawValue ?? song.suffix ?? mimeType.split(separator: "/").last.map(String.init) ?? "bin"
         let relativePath = "\(serverId.uuidString)/\(song.id).\(ext)"
         let fileURL = downloadsDirectory.appendingPathComponent(relativePath)
 
