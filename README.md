@@ -85,7 +85,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 2. **Clone and open**
    ```bash
-   git clone https://github.com/MathieuDubart/cassette.git
+   git clone https://github.com/CassetteLab/cassette.git
    cd cassette
    open Cassette.xcodeproj
    ```
@@ -114,7 +114,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 Cassette works with any server that implements the Subsonic / OpenSubsonic API, and uses OpenSubsonic extensions where available. [Navidrome](https://www.navidrome.org) is the recommended and primary-tested server.
 
-If your server implements the Subsonic API and something doesn't behave, [open an issue](https://github.com/MathieuDubart/cassette/issues).
+If your server implements the Subsonic API and something doesn't behave, [open an issue](https://github.com/CassetteLab/cassette/issues).
 
 ---
 
@@ -135,7 +135,7 @@ For developers curious about the internals:
 ## Documentation
 
 Architecture decisions, technical notes, audits, and release runbooks live in the
-**[CassetteLab knowledge vault](https://github.com/CassetteLab/vault)** — an Obsidian
+**[CassetteLab knowledge vault](https://github.com/CassetteLab/obsidian)** — an Obsidian
 vault versioned with Git, shared across the whole ecosystem.
 
 Anything that explains **why** a choice was made lives there rather than in this repo,
@@ -153,15 +153,15 @@ Cassette is built incrementally, one theme per release.
 - **v1.8 — Widgets** ✅ shipped
 - **v2.0 — CarPlay** (in progress)
 
-For the full roadmap and discussion, see [GitHub Discussions](https://github.com/MathieuDubart/cassette/discussions).
+For the full roadmap and discussion, see [GitHub Discussions](https://github.com/CassetteLab/cassette/discussions).
 
 ---
 
 ## Links & support
 
 - Website — [getcassette.app](https://getcassette.app)
-- Feedback / bug reports — [support@getcassette.app](mailto:support@getcassette.app) · [GitHub Issues](https://github.com/MathieuDubart/cassette/issues)
-- Ideas & discussion — [GitHub Discussions](https://github.com/MathieuDubart/cassette/discussions)
+- Feedback / bug reports — [support@getcassette.app](mailto:support@getcassette.app) · [GitHub Issues](https://github.com/CassetteLab/cassette/issues)
+- Ideas & discussion — [GitHub Discussions](https://github.com/CassetteLab/cassette/discussions)
 - Support development — [Ko-fi](https://ko-fi.com/mathieudbrt)
 
 ---
