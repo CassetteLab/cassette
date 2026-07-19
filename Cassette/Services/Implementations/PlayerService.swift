@@ -581,16 +581,46 @@ actor PlayerService: PlayerServiceProtocol {
     /// blocking path costs 36 s of silence — 12.8 s for the seed query, then 23 s for the fan-out —
     /// and the fan-out calls slow each other down by ~70% while they run.
     func playInstantMix(from seed: InstantMixSeed, startingWith seedTrack: DisplayableSong?) async throws {
-        guard let seedTrack else {
+        // `??` cannot host an async right-hand side (autoclosures are not concurrency-aware).
+        let resolved: DisplayableSong?
+        if let seedTrack {
+            resolved = seedTrack
+        } else {
+            resolved = await starterTrack(for: seed)
+        }
+        guard let starter = resolved else {
             try await buildThenPlayInstantMix(from: seed)
             return
         }
-        try await play(tracks: [seedTrack], startIndex: 0)
-        Logger.player.info("[MIX-TIMING] seed '\(seedTrack.id, privacy: .public)' playing immediately — mix building behind it")
+        try await play(tracks: [starter], startIndex: 0)
+        Logger.player.info("[MIX-TIMING] seed '\(starter.id, privacy: .public)' playing immediately — mix building behind it")
         // Auto-extend deliberately stays OFF until the mix lands. Turning it on now re-evaluates at
         // once, and with a one-track queue it would fill the gap with generic similar tracks — racing,
         // and partly duplicating, the mix we are about to append.
-        Task { await self.appendInstantMix(from: seed, behind: seedTrack) }
+        Task { await self.appendInstantMix(from: seed, behind: starter) }
+    }
+
+    /// A track to start on when the caller had none. Album and artist mixes are offered from menus and
+    /// headers that hold no song, so resolving one here — rather than at each call site — is what makes
+    /// the instant start universal instead of song-only.
+    ///
+    /// Costs one or two catalogue calls, ~100 ms each measured, against a mix build of 30 s and more.
+    /// Returning nil falls back to the blocking path, so a failure here is never worse than before.
+    private func starterTrack(for seed: InstantMixSeed) async -> DisplayableSong? {
+        switch seed {
+        case .song:
+            // Every song entry point already passes the track it was invoked on, and LibraryService
+            // has no single-song fetch to fall back on.
+            return nil
+        case .album(let id):
+            guard let song = (try? await libraryService.album(id: id))?.song?.first else { return nil }
+            return DisplayableSong(from: song)
+        case .artist(let id):
+            guard let albumId = (try? await libraryService.artist(id: id))?.album?.first?.id,
+                  let song = (try? await libraryService.album(id: albumId))?.song?.first
+            else { return nil }
+            return DisplayableSong(from: song)
+        }
     }
 
     /// Builds the mix off the critical path and grafts it behind the already-playing seed.
