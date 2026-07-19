@@ -65,7 +65,8 @@ Licensed under MPL-2.0.
 ### macOS — Homebrew
 
 ```bash
-brew tap MathieuDubart/cassette
+brew trust CassetteLab/cassette
+brew tap CassetteLab/cassette
 brew install --cask cassette
 ```
 
