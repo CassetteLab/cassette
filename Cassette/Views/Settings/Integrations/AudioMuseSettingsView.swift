@@ -176,6 +176,9 @@ struct AudioMuseSettingsView: View {
             // A real search rather than a ping: it proves the URL, the token AND that the sonic
             // analysis has actually been run, which is the part users most often have not done.
             let tracks = try await client.search(query: Mood.chill.query, limit: 5)
+            // Logged because the on-screen result says whether it worked, never why. The id format
+            // is the one thing that decides between "connected" and "connected but useless".
+            Logger.moodPlaylists.info("[AUDIOMUSE-TEST] \(tracks.count, privacy: .public) results, ids=\(tracks.prefix(3).map(\.itemId).joined(separator: ","), privacy: .public)")
             guard !tracks.isEmpty else {
                 testResult = .failure(String(localized: "Connected, but the search returned nothing. Has the sonic analysis been run?"))
                 return
@@ -187,8 +190,10 @@ struct AudioMuseSettingsView: View {
             // look like it had done nothing.
             await rebuildPlaylists()
         } catch let error as AudioMuseError {
+            Logger.moodPlaylists.warning("[AUDIOMUSE-TEST] failed: \(String(describing: error), privacy: .public)")
             testResult = .failure(message(for: error))
         } catch {
+            Logger.moodPlaylists.warning("[AUDIOMUSE-TEST] failed: \(error, privacy: .public)")
             testResult = .failure(error.localizedDescription)
         }
     }
@@ -228,7 +233,9 @@ struct AudioMuseSettingsView: View {
         case .unauthorized:
             return String(localized: "The API token was rejected.")
         case .internalIdsOnly:
-            return String(localized: "AudioMuse returned its own internal track IDs, which your music server cannot match. Its library catalogue likely needs a re-scan.")
+            // Names the exact fix. AudioMuse's own registry logs "unswept default?" for this, and a
+            // sweep is what rebuilds the table mapping its ids to the music server's.
+            return String(localized: "AudioMuse returned internal IDs your music server cannot match — its track mapping is incomplete. In AudioMuse, re-select your server as the default to run a fresh sweep, then try again.")
         case .badURL:
             return String(localized: "That does not look like a valid address.")
         case .transport(let detail), .decoding(let detail):

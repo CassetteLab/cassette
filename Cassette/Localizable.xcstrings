@@ -4083,54 +4083,54 @@
         }
       }
     },
-    "AudioMuse returned its own internal track IDs, which your music server cannot match. Its library catalogue likely needs a re-scan." : {
+    "AudioMuse returned internal IDs your music server cannot match — its track mapping is incomplete. In AudioMuse, re-select your server as the default to run a fresh sweep, then try again." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuse hat seine internen Titel-IDs zurückgegeben, die dein Musikserver nicht zuordnen kann. Sein Bibliothekskatalog muss vermutlich neu eingelesen werden."
+            "value" : "AudioMuse hat interne IDs zurückgegeben, die dein Musikserver nicht zuordnen kann — seine Titelzuordnung ist unvollständig. Wähle in AudioMuse deinen Server erneut als Standard aus, um einen neuen Sweep auszulösen, und versuche es dann noch einmal."
           }
         },
         "el" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Το AudioMuse επέστρεψε τα δικά του εσωτερικά αναγνωριστικά κομματιών, που ο διακομιστής μουσικής σου δεν μπορεί να αντιστοιχίσει. Ο κατάλογος της βιβλιοθήκης του πιθανότατα χρειάζεται νέα σάρωση."
+            "value" : "Το AudioMuse επέστρεψε εσωτερικά αναγνωριστικά που ο διακομιστής μουσικής σου δεν μπορεί να αντιστοιχίσει — η αντιστοίχιση κομματιών του είναι ελλιπής. Στο AudioMuse, επίλεξε ξανά τον διακομιστή σου ως προεπιλογή για να εκτελεστεί νέα σάρωση και δοκίμασε ξανά."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuse devolvió sus identificadores internos de pistas, que tu servidor de música no puede reconocer. Es probable que su catálogo necesite un nuevo escaneo."
+            "value" : "AudioMuse devolvió IDs internos que tu servidor de música no puede reconocer: su mapeo de pistas está incompleto. En AudioMuse, vuelve a seleccionar tu servidor como predeterminado para lanzar un nuevo barrido y prueba otra vez."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuse a renvoyé ses identifiants de morceaux internes, que ton serveur de musique ne peut pas reconnaître. Son catalogue a probablement besoin d'être réanalysé."
+            "value" : "AudioMuse a renvoyé des identifiants internes que ton serveur de musique ne peut pas reconnaître — sa table de correspondance des morceaux est incomplète. Dans AudioMuse, redéfinis ton serveur comme serveur par défaut pour relancer un balayage, puis réessaie."
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuse ha restituito i propri ID interni dei brani, che il tuo server musicale non può riconoscere. Il suo catalogo probabilmente va rianalizzato."
+            "value" : "AudioMuse ha restituito ID interni che il tuo server musicale non riconosce: la sua mappatura dei brani è incompleta. In AudioMuse, riseleziona il tuo server come predefinito per avviare una nuova scansione, poi riprova."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuseが内部のトラックIDを返しました。音楽サーバーはこれを照合できません。ライブラリのカタログを再スキャンする必要がありそうです。"
+            "value" : "AudioMuseが内部IDを返しました。音楽サーバーはこれを照合できません（トラックの対応表が不完全です）。AudioMuseでサーバーを既定として選び直すとスイープが実行されます。その後もう一度お試しください。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuse 返回了其内部的曲目 ID，你的音乐服务器无法匹配。它的音乐库目录可能需要重新扫描。"
+            "value" : "AudioMuse 返回了你的音乐服务器无法匹配的内部 ID — 它的曲目映射不完整。请在 AudioMuse 中重新将你的服务器设为默认以触发一次新的扫描，然后重试。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AudioMuse 回傳了其內部的曲目 ID，你的音樂伺服器無法比對。它的音樂庫目錄可能需要重新掃描。"
+            "value" : "AudioMuse 回傳了你的音樂伺服器無法比對的內部 ID — 它的曲目對應表不完整。請在 AudioMuse 中重新將你的伺服器設為預設以觸發一次新的掃描，然後重試。"
           }
         }
       }

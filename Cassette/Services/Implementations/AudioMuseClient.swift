@@ -21,6 +21,10 @@ nonisolated enum AudioMuseError: Error, Equatable, Sendable {
     /// The instance answered with its INTERNAL canonical ids (`fp_...`) instead of the media
     /// server's own. They mean nothing to Subsonic, which silently drops them and stores an empty
     /// playlist, so this is caught here rather than allowed downstream.
+    ///
+    /// Cause, from AudioMuse's own registry: the `track_server_map` table has no row linking those
+    /// canonical ids to the server's track ids, which it logs as "unswept default?". Only a sweep
+    /// on the AudioMuse side fixes it — nothing here can translate the ids.
     case internalIdsOnly
     case transport(String)
     case decoding(String)
