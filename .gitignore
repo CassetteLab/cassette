@@ -8,15 +8,8 @@ xcuserdata/
 *.xcuserstate
 build/
 
-# graphify — graphify-out/ is meant to be committed (graph.json, GRAPH_REPORT.md,
-# graph.html, manifest.json) so the repo ships with its own map. These are the exceptions:
-graphify-out/cost.json
-graphify-out/cache/
-# Machine-local: absolute paths to this machine's Python interpreter and repo root.
-graphify-out/.graphify_python
-graphify-out/.graphify_root
-# Lock held while the post-commit hook rebuilds in the background.
-graphify-out/.rebuild.lock
-# Dated rebuild snapshots written by the graphify post-commit hook — they duplicate
-# graph.json wholesale on every commit.
-graphify-out/20*/
+# graphify — generated locally, not versioned. graphify's own README suggests committing
+# graphify-out/, but its post-commit hook rebuilds the graph after every commit, and a rebuild
+# rewrites graph.json wholesale: ~95k changed lines on top of each feature commit. The graph is
+# cheap to regenerate (`/graphify`) and worthless as history, so it stays out of the repo.
+graphify-out/
