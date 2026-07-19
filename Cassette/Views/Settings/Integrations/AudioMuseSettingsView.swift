@@ -227,6 +227,8 @@ struct AudioMuseSettingsView: View {
             return String(localized: "AudioMuse has not analysed your library yet. Run an analysis, then try again.")
         case .unauthorized:
             return String(localized: "The API token was rejected.")
+        case .internalIdsOnly:
+            return String(localized: "AudioMuse returned its own internal track IDs, which your music server cannot match. Its library catalogue likely needs a re-scan.")
         case .badURL:
             return String(localized: "That does not look like a valid address.")
         case .transport(let detail), .decoding(let detail):

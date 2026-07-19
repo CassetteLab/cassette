@@ -18,6 +18,10 @@ nonisolated enum AudioMuseError: Error, Equatable, Sendable {
     /// Token missing, wrong, or expired (HTTP 401/403).
     case unauthorized
     case badURL
+    /// The instance answered with its INTERNAL canonical ids (`fp_...`) instead of the media
+    /// server's own. They mean nothing to Subsonic, which silently drops them and stores an empty
+    /// playlist, so this is caught here rather than allowed downstream.
+    case internalIdsOnly
     case transport(String)
     case decoding(String)
 }
@@ -26,9 +30,11 @@ nonisolated enum AudioMuseError: Error, Equatable, Sendable {
 
 /// One track from `POST /api/clap/search`.
 ///
-/// `item_id` is the *media server's* track id, not an AudioMuse-internal one — `app_server_context`
-/// guarantees an internal id is never exposed, and on a single-server install the value is passed
-/// straight through. So these ids go directly into a Subsonic playlist with no second lookup.
+/// `item_id` is MEANT to be the media server's track id — AudioMuse's own source says an internal
+/// canonical (`fp_`) id must never be exposed. In practice it can be, when its catalogue holds no
+/// mapping for the id: an instance answered a real query with `fp_2057…` for every result. Those go
+/// into a Subsonic playlist, get silently dropped, and leave it empty. `search` therefore refuses
+/// them rather than trusting the contract.
 ///
 /// Only the four fields the app actually uses are decoded. AudioMuse also returns `similarity`,
 /// `mood_vector`, `other_features` and `top_genre`; ignoring them keeps this resilient to the
@@ -51,6 +57,17 @@ private struct ClapSearchResponse: Decodable {
     let results: [AudioMuseTrack]
 }
 
+private struct ServersResponse: Decodable {
+    struct Server: Decodable {
+        let serverId: String?
+        let name: String?
+        enum CodingKeys: String, CodingKey { case serverId = "server_id", name }
+    }
+    let servers: [Server]
+    let defaultId: String?
+    enum CodingKeys: String, CodingKey { case servers, defaultId = "default_id" }
+}
+
 // MARK: - Client
 
 /// Talks to an AudioMuse-AI instance over its own HTTP API — a different service from the Subsonic
@@ -63,6 +80,16 @@ actor AudioMuseClient {
     private let baseURL: URL
     private let token: String?
     private let session: URLSession
+    /// Media server to scope results to, resolved once from `/api/servers`.
+    ///
+    /// Without it AudioMuse falls back to its default server, and on a catalogue where the id
+    /// mapping is incomplete that path hands back canonical `fp_` ids — useless to Subsonic.
+    /// Naming the server explicitly is what makes it translate to that server's own ids.
+    private var selectedServer: String??
+
+    /// Ids AudioMuse marks as internal. Documented in its own source: "An API response must NEVER
+    /// expose the internal canonical (fp_) id".
+    static let internalIdPrefix = "fp_" 
 
     /// Generous by iOS standards, because a cold CLAP model has to load before it can answer and
     /// the weekly job has nobody waiting on it.
@@ -86,12 +113,29 @@ actor AudioMuseClient {
     /// throwing, and callers are expected to carry on either way.
     @discardableResult
     func warmup() async -> Bool {
+        await resolveServerIfNeeded()
         do {
             _ = try await send(path: "/api/clap/warmup", body: nil)
             return true
         } catch {
             Logger.moodPlaylists.warning("[AUDIOMUSE] warmup failed, searching cold: \(String(describing: error), privacy: .public)")
             return false
+        }
+    }
+
+    /// Reads `/api/servers` and keeps the default server's id, so searches can be scoped to it.
+    /// Failure is not fatal — the search still runs unscoped and the fp_ guard catches the fallout.
+    private func resolveServerIfNeeded() async {
+        guard selectedServer == nil else { return }
+        do {
+            let data = try await send(path: "/api/servers", body: nil, method: "GET")
+            let decoded = try JSONDecoder().decode(ServersResponse.self, from: data)
+            let resolved = decoded.defaultId ?? decoded.servers.first?.serverId ?? decoded.servers.first?.name
+            selectedServer = .some(resolved)
+            Logger.moodPlaylists.info("[AUDIOMUSE] \(decoded.servers.count, privacy: .public) server(s) configured, scoping to '\(resolved ?? "default", privacy: .public)'")
+        } catch {
+            selectedServer = .some(nil)
+            Logger.moodPlaylists.warning("[AUDIOMUSE] could not list servers, searching unscoped: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -102,21 +146,35 @@ actor AudioMuseClient {
     ///     English, so this is not a string to localise.
     ///   - limit: clamped server-side to 1...500.
     func search(query: String, limit: Int) async throws -> [AudioMuseTrack] {
-        let payload = try JSONSerialization.data(withJSONObject: ["query": query, "limit": limit])
+        await resolveServerIfNeeded()
+        var body: [String: Any] = ["query": query, "limit": limit]
+        if let server = selectedServer ?? nil { body["server"] = server }
+        let payload = try JSONSerialization.data(withJSONObject: body)
         let data = try await send(path: "/api/clap/search", body: payload)
+
+        let results: [AudioMuseTrack]
         do {
-            return try JSONDecoder().decode(ClapSearchResponse.self, from: data).results
+            results = try JSONDecoder().decode(ClapSearchResponse.self, from: data).results
         } catch {
             throw AudioMuseError.decoding(String(describing: error))
         }
+
+        // Refuse internal ids outright. Passing them on would produce a Subsonic call that answers
+        // 200 and stores nothing, which is indistinguishable from success at every later layer.
+        let usable = results.filter { !$0.itemId.hasPrefix(Self.internalIdPrefix) }
+        if usable.isEmpty && !results.isEmpty { throw AudioMuseError.internalIdsOnly }
+        if usable.count < results.count {
+            Logger.moodPlaylists.warning("[AUDIOMUSE] dropped \(results.count - usable.count, privacy: .public) internal ids of \(results.count, privacy: .public)")
+        }
+        return usable
     }
 
     // MARK: - Transport
 
-    private func send(path: String, body: Data?) async throws -> Data {
+    private func send(path: String, body: Data?, method: String = "POST") async throws -> Data {
         guard let url = URL(string: path, relativeTo: baseURL) else { throw AudioMuseError.badURL }
         var request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)
-        request.httpMethod = "POST"
+        request.httpMethod = method
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
