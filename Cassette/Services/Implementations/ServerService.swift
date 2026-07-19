@@ -272,6 +272,50 @@ actor ServerService: ServerServiceProtocol {
         return creds
     }
 
+    // MARK: - AudioMuse
+
+    /// Stores (or clears) the AudioMuse-AI endpoint for a server. Kept separate from `updateServer`
+    /// because the two are edited on different screens and at different times — folding it in would
+    /// mean the AudioMuse form had to round-trip the password it never sees.
+    ///
+    /// Passing `nil` for `urlString` disconnects: the URL is cleared and the token is dropped from
+    /// Keychain, so no stale secret outlives the integration.
+    func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {
+        let trimmedURL = urlString?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedURL = (trimmedURL?.isEmpty == false) ? trimmedURL : nil
+        let trimmedToken = token?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedToken = (resolvedURL != nil && trimmedToken?.isEmpty == false) ? trimmedToken : nil
+
+        let credKey = ServerCredentials.keychainKey(for: serverId)
+        guard let existing = try await keychain.retrieve(ServerCredentials.self, forKey: credKey) else {
+            throw CassetteError.serverNotConfigured
+        }
+        // Keychain first, mirroring updateServer's rollback strategy: a failure here leaves both
+        // stores on the old value rather than the URL pointing at an instance with no token.
+        try await keychain.store(
+            ServerCredentials(password: existing.password, customHeaders: existing.customHeaders, audioMuseToken: resolvedToken),
+            forKey: credKey
+        )
+
+        try await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let descriptor = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == serverId })
+            guard let config = try context.fetch(descriptor).first else {
+                throw CassetteError.serverNotFound(id: serverId)
+            }
+            config.audioMuseURL = resolvedURL
+            try context.save()
+            let snapshot = ServerSnapshot(from: config)
+            if let idx = state.servers.firstIndex(where: { $0.id == serverId }) {
+                state.servers[idx] = snapshot
+            }
+            if state.activeServer?.id == serverId {
+                state.activeServer = snapshot
+            }
+        }
+        Logger.server.info("AudioMuse endpoint \(resolvedURL == nil ? "cleared" : "set", privacy: .public) for server \(serverId.uuidString, privacy: .public)")
+    }
+
     // MARK: - Private
 
     func mapToConnectionTestError(_ error: Error) -> ConnectionTestError {

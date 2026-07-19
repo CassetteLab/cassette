@@ -39,6 +39,7 @@ final class MockServerService: ServerServiceProtocol {
     func setActiveServer(id: UUID) async throws {}
     func updateCustomHeaders(_ headers: [String: String], forServer id: UUID) async throws {}
     func updateServer(id: UUID, displayName: String, baseURL: String, username: String, password: String, customHeaders: [String: String]) async throws {}
+    func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {}
     func testConnection() async throws {}
     func loadPersistedState() async {}
     func makeSwiftSonicClient() async throws -> SwiftSonicClient { throw CassetteError.notImplemented }

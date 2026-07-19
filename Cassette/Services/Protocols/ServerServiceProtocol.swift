@@ -37,6 +37,10 @@ protocol ServerServiceProtocol: AnyObject, Sendable {
         customHeaders: [String: String]
     ) async throws
 
+    /// Stores or clears the AudioMuse-AI endpoint for a server. `nil` URL disconnects the
+    /// integration and drops the token from Keychain.
+    func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws
+
     /// Pings the active server via SwiftSonic. Throws if no active server or ping fails.
     func testConnection() async throws
 

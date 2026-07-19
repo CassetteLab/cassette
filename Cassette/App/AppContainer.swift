@@ -40,6 +40,9 @@ final class AppContainer {
     let statsService: StatsService
     private let _player: PlayerService
     let wrappedPlaylistService: WrappedPlaylistService
+    /// Weekly mood playlists. Present regardless of whether AudioMuse is configured — the service
+    /// reports .notConfigured and does nothing, so the UI has one place to ask.
+    let moodPlaylistService: MoodPlaylistService
     let lyricsService: LyricsService
     let widgetSyncService: WidgetSyncService
     let recommendationService: RecommendationService
@@ -69,6 +72,7 @@ final class AppContainer {
         serverService = server
         lyricsService = LyricsService(serverService: server, modelContainer: modelContainer)
         wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
+        moodPlaylistService = MoodPlaylistService(serverService: server, serverState: serverState)
         radioService = RadioService(serverService: server)
 
         let download = DownloadService(serverService: server, modelContainer: modelContainer, toastService: toastService)
