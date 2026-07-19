@@ -31,8 +31,20 @@ nonisolated enum MoodSourceKind: String, Sendable, Equatable {
 // MARK: - AudioMuse
 
 /// Sonic search. The good one.
+///
+/// AudioMuse can answer with ids the music server does not recognise — its internal canonical ones,
+/// when its own track mapping is incomplete. Those are recovered rather than discarded: the results
+/// carry title and artist, so the track is looked up in the library instead. What AudioMuse is good
+/// at, choosing the tracks, is kept; what it got wrong, naming them, is redone here.
 nonisolated struct AudioMuseTrackProvider: MoodTrackProvider {
     let client: AudioMuseClient
+    /// Resolves tracks by metadata. Absent in tests that only exercise the id path.
+    let resolver: SubsonicTrackResolver?
+
+    init(client: AudioMuseClient, resolver: SubsonicTrackResolver? = nil) {
+        self.client = client
+        self.resolver = resolver
+    }
 
     var kind: MoodSourceKind { .sonic }
 
@@ -41,12 +53,30 @@ nonisolated struct AudioMuseTrackProvider: MoodTrackProvider {
     func prepare() async { await client.warmup() }
 
     func trackIds(for mood: Mood, limit: Int) async throws -> [String] {
-        let ids = try await client.search(query: mood.query, limit: limit).map(\.itemId)
-        // The ids are logged because everything downstream depends on them being the MEDIA SERVER's
-        // track ids and not AudioMuse's internal ones. A Subsonic server drops ids it does not know
-        // and still answers 200, so a format mismatch looks exactly like success — the only way to
-        // tell them apart is to read the ids and compare them with a known-good one.
-        Logger.moodPlaylists.info("[MOOD-SONIC] \(mood.rawValue, privacy: .public): \(ids.count, privacy: .public) ids, first=\(ids.prefix(3).joined(separator: ","), privacy: .public)")
+        let results = try await client.search(query: mood.query, limit: limit)
+        guard !results.isEmpty else { return [] }
+
+        // Usable ids keep their position; the rest are looked up by name. Order is preserved
+        // because it is AudioMuse's similarity ranking — the best matches come first.
+        var ids: [String] = []
+        var unresolvable = 0
+        var recovered = 0
+        for track in results {
+            if !track.hasInternalId {
+                ids.append(track.itemId)
+            } else if let resolver, let descriptor = track.descriptor, let id = await resolver.resolve(descriptor) {
+                ids.append(id)
+                recovered += 1
+            } else {
+                unresolvable += 1
+            }
+        }
+
+        Logger.moodPlaylists.info("[MOOD-SONIC] \(mood.rawValue, privacy: .public): \(results.count, privacy: .public) results → \(ids.count, privacy: .public) usable (\(recovered, privacy: .public) recovered by name, \(unresolvable, privacy: .public) lost)")
+
+        // Everything came back with an unusable id and nothing could be found in the library: the
+        // caller must not treat that as a successful, empty playlist.
+        if ids.isEmpty && !results.isEmpty { throw AudioMuseError.internalIdsOnly }
         return ids
     }
 }

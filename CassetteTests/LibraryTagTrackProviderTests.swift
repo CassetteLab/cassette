@@ -8,8 +8,9 @@ import Foundation
 import SwiftSonic
 @testable import Cassette
 
-/// Library stub answering only the two calls the tag provider makes.
-private final class TagLibraryStub: LibraryServiceProtocol, @unchecked Sendable {
+/// Library stub for the mood providers. Internal so the sonic provider's tests can reuse it for
+/// the by-name resolution path.
+final class TagLibraryStub: LibraryServiceProtocol, @unchecked Sendable {
     private let lock = NSLock()
     private var _genreQueries: [String] = []
     private var _randomCalls = 0
@@ -17,6 +18,10 @@ private final class TagLibraryStub: LibraryServiceProtocol, @unchecked Sendable 
     /// Songs returned per genre. Absent genres return empty, like a real server.
     var songsPerGenre: [String: [Song]] = [:]
     var randomPool: [Song] = []
+    /// Songs returned by `search`, used by SubsonicTrackResolver.
+    var searchResults: [Song] = []
+    private var _searches: [String] = []
+    var searches: [String] { lock.withLock { _searches } }
 
     var genreQueries: [String] { lock.withLock { _genreQueries } }
     var randomCalls: Int { lock.withLock { _randomCalls } }
@@ -31,8 +36,15 @@ private final class TagLibraryStub: LibraryServiceProtocol, @unchecked Sendable 
         return randomPool
     }
 
-    // Unused by the provider.
-    func search(_ query: String) async throws -> SearchResult3 { throw URLError(.unknown) }
+    /// Used by SubsonicTrackResolver when the sonic provider falls back to matching by name.
+    func search(_ query: String) async throws -> SearchResult3 {
+        lock.withLock { _searches.append(query) }
+        let songs = searchResults.map {
+            #"{"id":"\#($0.id)","title":"\#($0.title)","artist":"\#($0.artist ?? "")","isDir":false}"#
+        }
+        return try JSONDecoder().decode(SearchResult3.self, from: Data(#"{"song":[\#(songs.joined(separator: ","))]}"#.utf8))
+    }
+    // Unused by the providers.
     func artists() async throws -> [ArtistIndex] { throw URLError(.unknown) }
     func artist(id: String) async throws -> ArtistID3 { throw URLError(.unknown) }
     func album(id: String) async throws -> AlbumID3 { throw URLError(.unknown) }
@@ -62,8 +74,9 @@ private final class TagLibraryStub: LibraryServiceProtocol, @unchecked Sendable 
 }
 
 /// Song is Decodable-only, so fixtures are built from JSON.
-private func song(id: String, genre: String? = nil, bpm: Int? = nil, moods: [String] = []) throws -> Song {
-    var fields: [String] = [#""id":"\#(id)""#, #""title":"T""#, #""isDir":false"#]
+func song(id: String, title: String = "T", artist: String? = nil, genre: String? = nil, bpm: Int? = nil, moods: [String] = []) throws -> Song {
+    var fields: [String] = [#""id":"\#(id)""#, #""title":"\#(title)""#, #""isDir":false"#]
+    if let artist { fields.append(#""artist":"\#(artist)""#) }
     if let genre { fields.append(#""genre":"\#(genre)""#) }
     if let bpm { fields.append(#""bpm":\#(bpm)"#) }
     if !moods.isEmpty {

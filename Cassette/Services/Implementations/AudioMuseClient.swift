@@ -49,11 +49,21 @@ nonisolated struct AudioMuseTrack: Decodable, Sendable, Equatable {
     /// AudioMuse names this `author`. Note it is `artist` on the chat endpoints — the API is not
     /// consistent across routes, so do not share this type with them.
     let author: String?
+    let album: String?
     let similarity: Double?
 
     enum CodingKeys: String, CodingKey {
         case itemId = "item_id"
-        case title, author, similarity
+        case title, author, album, similarity
+    }
+
+    /// True when the id is AudioMuse's internal one, which the music server cannot match.
+    var hasInternalId: Bool { itemId.hasPrefix(AudioMuseClient.internalIdPrefix) }
+
+    /// Metadata view used to find this track in the library when its id is unusable.
+    var descriptor: TrackDescriptor? {
+        guard let title, !title.isEmpty else { return nil }
+        return TrackDescriptor(title: title, artist: author, album: album)
     }
 }
 
@@ -163,14 +173,10 @@ actor AudioMuseClient {
             throw AudioMuseError.decoding(String(describing: error))
         }
 
-        // Refuse internal ids outright. Passing them on would produce a Subsonic call that answers
-        // 200 and stores nothing, which is indistinguishable from success at every later layer.
-        let usable = results.filter { !$0.itemId.hasPrefix(Self.internalIdPrefix) }
-        if usable.isEmpty && !results.isEmpty { throw AudioMuseError.internalIdsOnly }
-        if usable.count < results.count {
-            Logger.moodPlaylists.warning("[AUDIOMUSE] dropped \(results.count - usable.count, privacy: .public) internal ids of \(results.count, privacy: .public)")
-        }
-        return usable
+        // Internal ids are NOT filtered here. They come with title and artist, which is enough to
+        // find the track in the library — throwing them away would discard a recoverable result.
+        // The provider decides what to do with them.
+        return results
     }
 
     // MARK: - Transport

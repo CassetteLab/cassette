@@ -90,7 +90,7 @@ actor MoodPlaylistService {
             if let urlString = await MainActor.run(body: { serverState.activeServer?.audioMuseURL }),
                let credentials = try? await serverService.activeCredentials(),
                let client = AudioMuseClient(urlString: urlString, token: credentials.audioMuseToken) {
-                return AudioMuseTrackProvider(client: client)
+                return AudioMuseTrackProvider(client: client, resolver: SubsonicTrackResolver(libraryService: libraryService))
             }
             return LibraryTagTrackProvider(libraryService: libraryService)
         }

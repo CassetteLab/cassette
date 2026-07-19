@@ -4031,6 +4031,58 @@
         }
       }
     },
+    "AudioMuse found tracks, but none of them exist in your music library. Is it analysing the same collection?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuse hat Titel gefunden, von denen keiner in deiner Musikbibliothek existiert. Analysiert es dieselbe Sammlung?"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το AudioMuse βρήκε κομμάτια, αλλά κανένα από αυτά δεν υπάρχει στη μουσική σου βιβλιοθήκη. Αναλύει την ίδια συλλογή;"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuse encontró pistas, pero ninguna existe en tu biblioteca musical. ¿Está analizando la misma colección?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuse a trouvé des morceaux, mais aucun n'existe dans ta bibliothèque musicale. Analyse-t-il bien la même collection ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuse ha trovato dei brani, ma nessuno esiste nella tua libreria musicale. Sta analizzando la stessa collezione?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuseは楽曲を見つけましたが、いずれもあなたのライブラリに存在しません。同じコレクションを解析していますか？"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuse 找到了曲目，但它们都不在你的音乐库中。它分析的是同一批音乐吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AudioMuse 找到了曲目，但它們都不在你的音樂庫中。它分析的是同一批音樂嗎？"
+          }
+        }
+      }
+    },
     "AudioMuse has not analysed your library yet. Run an analysis, then try again." : {
       "localizations" : {
         "de" : {
@@ -4079,58 +4131,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "AudioMuse 尚未分析你的音樂庫。請先執行分析，然後重試。"
-          }
-        }
-      }
-    },
-    "AudioMuse returned internal IDs your music server cannot match — its track mapping is incomplete. In AudioMuse, re-select your server as the default to run a fresh sweep, then try again." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuse hat interne IDs zurückgegeben, die dein Musikserver nicht zuordnen kann — seine Titelzuordnung ist unvollständig. Wähle in AudioMuse deinen Server erneut als Standard aus, um einen neuen Sweep auszulösen, und versuche es dann noch einmal."
-          }
-        },
-        "el" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Το AudioMuse επέστρεψε εσωτερικά αναγνωριστικά που ο διακομιστής μουσικής σου δεν μπορεί να αντιστοιχίσει — η αντιστοίχιση κομματιών του είναι ελλιπής. Στο AudioMuse, επίλεξε ξανά τον διακομιστή σου ως προεπιλογή για να εκτελεστεί νέα σάρωση και δοκίμασε ξανά."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuse devolvió IDs internos que tu servidor de música no puede reconocer: su mapeo de pistas está incompleto. En AudioMuse, vuelve a seleccionar tu servidor como predeterminado para lanzar un nuevo barrido y prueba otra vez."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuse a renvoyé des identifiants internes que ton serveur de musique ne peut pas reconnaître — sa table de correspondance des morceaux est incomplète. Dans AudioMuse, redéfinis ton serveur comme serveur par défaut pour relancer un balayage, puis réessaie."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuse ha restituito ID interni che il tuo server musicale non riconosce: la sua mappatura dei brani è incompleta. In AudioMuse, riseleziona il tuo server come predefinito per avviare una nuova scansione, poi riprova."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuseが内部IDを返しました。音楽サーバーはこれを照合できません（トラックの対応表が不完全です）。AudioMuseでサーバーを既定として選び直すとスイープが実行されます。その後もう一度お試しください。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuse 返回了你的音乐服务器无法匹配的内部 ID — 它的曲目映射不完整。请在 AudioMuse 中重新将你的服务器设为默认以触发一次新的扫描，然后重试。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "AudioMuse 回傳了你的音樂伺服器無法比對的內部 ID — 它的曲目對應表不完整。請在 AudioMuse 中重新將你的伺服器設為預設以觸發一次新的掃描，然後重試。"
           }
         }
       }

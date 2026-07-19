@@ -84,28 +84,30 @@ struct AudioMuseClientTests {
         #expect(StubProtocol.body(for: "/api/clap/search")?["server"] as? String == "nav1")
     }
 
-    @Test("internal fp_ ids are refused instead of being passed on")
-    func internalIdsAreRefused() async {
-        // The real failure: every result came back as fp_2057…, Subsonic dropped them all, and the
-        // playlist ended up empty while every layer reported success.
+    @Test("internal ids are returned with their metadata, not dropped")
+    func internalIdsKeepTheirMetadata() async throws {
+        // The client must NOT filter them: title and artist are what lets the provider find the
+        // track in the library. Dropping them here would throw away a recoverable result.
         StubProtocol.reset()
         StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
-        StubProtocol.stub("/api/clap/search", body: #"{"results":[{"item_id":"fp_20571691a2d5","title":"T"},{"item_id":"fp_22d73774bad5","title":"U"}]}"#)
-
-        await #expect(throws: AudioMuseError.internalIdsOnly) {
-            try await makeClient().search(query: "calm", limit: 5)
-        }
-    }
-
-    @Test("a mix of internal and real ids keeps only the usable ones")
-    func mixedIdsAreFiltered() async throws {
-        StubProtocol.reset()
-        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
-        StubProtocol.stub("/api/clap/search", body: #"{"results":[{"item_id":"fp_dead"},{"item_id":"realId"}]}"#)
+        StubProtocol.stub("/api/clap/search", body: #"{"results":[{"item_id":"fp_20571691a2d5","title":"Tenere","author":"Tinariwen"}]}"#)
 
         let tracks = try await makeClient().search(query: "calm", limit: 5)
 
-        #expect(tracks.map(\.itemId) == ["realId"])
+        #expect(tracks.count == 1)
+        #expect(tracks[0].hasInternalId)
+        #expect(tracks[0].descriptor == TrackDescriptor(title: "Tenere", artist: "Tinariwen"))
+    }
+
+    @Test("a usable id is recognised as such")
+    func usableIdIsNotFlaggedInternal() async throws {
+        StubProtocol.reset()
+        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
+        StubProtocol.stub("/api/clap/search", body: #"{"results":[{"item_id":"G90Au1giwNr8o1HXhxiXpM"}]}"#)
+
+        let tracks = try await makeClient().search(query: "calm", limit: 5)
+
+        #expect(tracks[0].hasInternalId == false)
     }
 
     @Test("an empty result is not mistaken for an internal-id failure")
@@ -145,6 +147,69 @@ struct AudioMuseClientTests {
         // An instance running with AUTH_ENABLED=false takes no token at all, so this must not fail.
         _ = try await makeClient(token: nil).search(query: "calm", limit: 5)
         _ = try await makeClient(token: "secret").search(query: "calm", limit: 5)
+    }
+
+    // MARK: - Provider policy
+
+    @Test("tracks with unusable ids are recovered by name")
+    func internalIdsAreRecoveredByName() async throws {
+        StubProtocol.reset()
+        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
+        StubProtocol.stub("/api/clap/search", body: #"{"results":[{"item_id":"fp_dead","title":"Tenere","author":"Tinariwen"}]}"#)
+        let library = TagLibraryStub()
+        library.searchResults = [try song(id: "realId", title: "Tenere", artist: "Tinariwen")]
+        let provider = AudioMuseTrackProvider(client: makeClient(), resolver: SubsonicTrackResolver(libraryService: library))
+
+        #expect(try await provider.trackIds(for: .chill, limit: 5) == ["realId"])
+    }
+
+    @Test("a track that cannot be found is dropped, not guessed at")
+    func unresolvableTracksAreDropped() async throws {
+        StubProtocol.reset()
+        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
+        StubProtocol.stub("/api/clap/search",
+                          body: #"{"results":[{"item_id":"good"},{"item_id":"fp_x","title":"Absent","author":"Nobody"}]}"#)
+        let library = TagLibraryStub()   // search returns nothing
+        let provider = AudioMuseTrackProvider(client: makeClient(), resolver: SubsonicTrackResolver(libraryService: library))
+
+        #expect(try await provider.trackIds(for: .chill, limit: 5) == ["good"])
+    }
+
+    @Test("nothing recoverable at all raises rather than reporting an empty success")
+    func nothingRecoverableRaises() async {
+        StubProtocol.reset()
+        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
+        StubProtocol.stub("/api/clap/search", body: #"{"results":[{"item_id":"fp_a","title":"Absent"},{"item_id":"fp_b","title":"Gone"}]}"#)
+        let provider = AudioMuseTrackProvider(client: makeClient(), resolver: SubsonicTrackResolver(libraryService: TagLibraryStub()))
+
+        await #expect(throws: AudioMuseError.internalIdsOnly) {
+            try await provider.trackIds(for: .chill, limit: 5)
+        }
+    }
+
+    @Test("a genuinely empty search stays empty and does not raise")
+    func emptySearchDoesNotRaise() async throws {
+        StubProtocol.reset()
+        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
+        StubProtocol.stub("/api/clap/search", body: #"{"results":[]}"#)
+        let provider = AudioMuseTrackProvider(client: makeClient(), resolver: SubsonicTrackResolver(libraryService: TagLibraryStub()))
+
+        #expect(try await provider.trackIds(for: .chill, limit: 5).isEmpty)
+    }
+
+    @Test("a repeated track is only looked up once")
+    func resolutionIsCached() async throws {
+        StubProtocol.reset()
+        StubProtocol.stub("/api/servers", body: #"{"servers":[],"default_id":null}"#)
+        StubProtocol.stub("/api/clap/search",
+                          body: #"{"results":[{"item_id":"fp_1","title":"Tenere","author":"Tinariwen"},{"item_id":"fp_2","title":"Tenere","author":"Tinariwen"}]}"#)
+        let library = TagLibraryStub()
+        library.searchResults = [try song(id: "realId", title: "Tenere", artist: "Tinariwen")]
+        let provider = AudioMuseTrackProvider(client: makeClient(), resolver: SubsonicTrackResolver(libraryService: library))
+
+        _ = try await provider.trackIds(for: .chill, limit: 5)
+
+        #expect(library.searches.count == 1, "the same track must not be searched twice")
     }
 
     @Test("an unreachable host is a transport error, not a crash")
