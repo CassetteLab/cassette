@@ -3,9 +3,11 @@
 > A native iOS and macOS client for Subsonic, OpenSubsonic, and Navidrome servers. Built for people who self-host their music.
 
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-brightgreen.svg)](LICENSE)
+[![Release](https://github.com/CassetteLab/cassette/actions/workflows/release.yml/badge.svg)](https://github.com/CassetteLab/cassette/actions/workflows/release.yml)
 [![Platform](https://img.shields.io/badge/platform-iOS%2026%2B%20%7C%20macOS%2015%2B-blue.svg)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-6-orange.svg)](https://swift.org)
 [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/zQxUQedpex)
+
 
 ---
 
