@@ -132,6 +132,20 @@ For developers curious about the internals:
 
 ---
 
+## Documentation
+
+Architecture decisions, technical notes, audits, and release runbooks live in the
+**[CassetteLab knowledge vault](https://github.com/CassetteLab/vault)** — an Obsidian
+vault versioned with Git, shared across the whole ecosystem.
+
+Anything that explains **why** a choice was made lives there rather than in this repo,
+including the CarPlay readiness audit and the release process (previously `docs/`).
+`README.md`, `CONTRIBUTING.md`, `SECURITY.md`, and `LICENSE` stay here.
+
+> The vault is private to the organisation — open an issue if you need access.
+
+---
+
 ## Roadmap
 
 Cassette is built incrementally, one theme per release.
