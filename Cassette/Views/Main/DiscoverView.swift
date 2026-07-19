@@ -131,7 +131,9 @@ struct DiscoverView: View {
     /// before the user scrolls past it.
     private func refreshMoods(serverId: String) async {
         guard let service = container?.moodPlaylistService else { return }
-        _ = await service.runWeeklySyncIfNeeded(serverId: serverId)
+        _ = await BackgroundActivity.run("mood-playlists") {
+            await service.runWeeklySyncIfNeeded(serverId: serverId)
+        }
         var found: [(mood: Mood, playlistId: String)] = []
         for mood in Mood.allCases {
             if let id = await service.playlistId(for: mood, serverId: serverId) {

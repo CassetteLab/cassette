@@ -599,7 +599,9 @@ actor PlayerService: PlayerServiceProtocol {
         // Auto-extend deliberately stays OFF until the mix lands. Turning it on now re-evaluates at
         // once, and with a one-track queue it would fill the gap with generic similar tracks — racing,
         // and partly duplicating, the mix we are about to append.
-        Task { await self.appendInstantMix(from: seed, behind: starter) }
+        // The seed is already playing, so the audio background mode covers this on its own — the
+        // assertion is the safety net for the user who hits pause while the mix is still building.
+        Task { await BackgroundActivity.run("instant-mix") { await self.appendInstantMix(from: seed, behind: starter) } }
     }
 
     /// A track to start on when the caller had none. Album and artist mixes are offered from menus and

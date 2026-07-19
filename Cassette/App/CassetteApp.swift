@@ -262,7 +262,12 @@ struct CassetteApp: App {
     @MainActor
     private func runMoodUpdate(container: AppContainer) async {
         guard let serverId = container.serverState.activeServer?.id.uuidString else { return }
-        let result = await container.moodPlaylistService.runWeeklySyncIfNeeded(serverId: serverId, calendar: .current)
+        // Wrapped in a background assertion because this is the one path that can start with
+        // nothing playing: without it, backgrounding the app a second after launch freezes the sync
+        // mid-flight. Progress is per-mood, so an interrupted run still resumes where it stopped.
+        let result = await BackgroundActivity.run("mood-playlists") {
+            await container.moodPlaylistService.runWeeklySyncIfNeeded(serverId: serverId, calendar: .current)
+        }
         Logger.moodPlaylists.info("Cold start result: \(String(describing: result), privacy: .public)")
     }
 }
