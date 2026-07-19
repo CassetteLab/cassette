@@ -16,7 +16,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     /// Stamped into every REMUX log line so a log identifies the build that produced it. Three rounds
     /// of diagnosis were spent reading logs from a device running an older binary, because nothing in
     /// the output said which version wrote it. Bump this whenever the remux diagnostics change.
-    static let diagnosticsVersion = 8
+    static let diagnosticsVersion = 9
 
     enum Outcome: Sendable, Equatable {
         case skipped   // not an m4a, already faststart, or unreadable — file untouched
@@ -30,29 +30,33 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         case needsRemux
     }
 
-    /// Container suffixes the server may declare for an ISO-BMFF file. When content detection comes up
-    /// empty on one of these, the export is attempted anyway — see `shouldExportDespiteDetection`.
+    /// Container suffixes that denote ISO-BMFF. Only ever compared against a container established
+    /// from the file's own bytes — see `shouldExportDespiteDetection`.
     static let mp4Suffixes: Set<String> = ["m4a", "m4b", "mp4", "aac"]
 
-    /// Whether to run the export even though content detection did not ask for it.
+    /// Whether to run the export even though the box scan did not ask for it.
     ///
-    /// Detection is trusted when it produced a definite `.faststart` — there is genuinely nothing to
-    /// move. It is NOT trusted when it saw nothing (`.notMP4` from an empty scan, or an unreadable
-    /// layout) on a file the server declared as an MP4 container: that combination has shown up on
-    /// downloads the player then refused to open. Exporting anyway costs a redundant passthrough on a
-    /// healthy file and is safe because the output is verified before it may replace the original.
-    nonisolated static func shouldExportDespiteDetection(state: FaststartState?, declaredSuffix: String?) -> Bool {
+    /// `container` must come from sniffing the file, never from the server's declared suffix. Trusting
+    /// the declaration caused the opposite bug: a server announcing "m4a" while sending FLAC made this
+    /// re-container a healthy FLAC into an MP4 that kept the .flac name — the very mismatch the
+    /// download path now exists to prevent.
+    ///
+    /// Given a verified MP4 container, a `.notMP4` or unreadable scan is a contradiction, and the scan
+    /// is the one that loses: exporting costs a redundant passthrough and is safe because the output is
+    /// verified before it may replace the original. A definite `.faststart` is still trusted — there is
+    /// genuinely nothing to move.
+    nonisolated static func shouldExportDespiteDetection(state: FaststartState?, container: String?) -> Bool {
         guard state != .faststart else { return false }
-        guard let suffix = declaredSuffix?.lowercased() else { return false }
-        return mp4Suffixes.contains(suffix)
+        guard let container = container?.lowercased() else { return false }
+        return mp4Suffixes.contains(container)
     }
 
     /// Remuxes `fileURL` in place when it is a non-faststart m4a; otherwise leaves it untouched.
     /// On success the file at `fileURL` IS the optimized output (atomic swap); on any failure the
     /// original is left intact. Detection is CONTENT-based (the `ftyp` box via `classify`), not
-    /// extension-based — so a mis-served m4a saved/renamed with a wrong extension (e.g. `.mp3`)
-    /// is still handled, and `declaredSuffix` only widens that net when detection sees nothing.
-    func remuxToFaststartIfNeeded(at fileURL: URL, declaredSuffix: String? = nil) async -> Outcome {
+    /// extension-based, so a mis-named m4a is still handled. `container` — which must itself be
+    /// established from the bytes — only widens that net when the box scan sees nothing.
+    func remuxToFaststartIfNeeded(at fileURL: URL, container: String? = nil) async -> Outcome {
         let name = fileURL.lastPathComponent
         // The measurements ride on the SAME line as the verdict, at .info. Diagnostics were logged
         // separately at .error for two rounds and never surfaced in the captured console output,
@@ -70,7 +74,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
         // repeatedly reported these downloads as "not an MP4" while the player choked on them, and a
         // wasted passthrough export on an already-faststart file costs time, not correctness. This is
         // only safe because the export's output is verified below before it may replace the original.
-        let declared = declaredSuffix?.lowercased()
+        let declared = container?.lowercased()
         let boxes = Self.topLevelBoxTypes(atPath: fileURL.path)
         let state = boxes.map(Self.classify(boxTypes:))
         let layout = boxes.map { $0.prefix(8).joined(separator: ",") } ?? "<unreadable>"
@@ -80,11 +84,11 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
             Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — needsRemux (\(measurements, privacy: .public) boxes: \(layout, privacy: .public))")
         case .notMP4, .faststart, nil:
             let verdict = state.map { String(describing: $0) } ?? "unreadable"
-            guard Self.shouldExportDespiteDetection(state: state, declaredSuffix: declared) else {
-                Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — \(verdict, privacy: .public), skipped (\(measurements, privacy: .public) suffix: \(declared ?? "nil", privacy: .public) boxes: \(layout, privacy: .public))")
+            guard Self.shouldExportDespiteDetection(state: state, container: declared) else {
+                Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — \(verdict, privacy: .public), skipped (\(measurements, privacy: .public) container: \(declared ?? "nil", privacy: .public) boxes: \(layout, privacy: .public))")
                 return .skipped
             }
-            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — detection says \(verdict, privacy: .public) but server declared '\(declared ?? "nil", privacy: .public)'; exporting anyway (\(measurements, privacy: .public) boxes: \(layout, privacy: .public))")
+            Logger.download.info("[REMUX v\(Self.diagnosticsVersion)] '\(name, privacy: .public)' — detection says \(verdict, privacy: .public) but bytes are '\(declared ?? "nil", privacy: .public)'; exporting anyway (\(measurements, privacy: .public) boxes: \(layout, privacy: .public))")
         }
 
         let asset = AVURLAsset(url: fileURL)

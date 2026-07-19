@@ -91,25 +91,25 @@ struct AudioFaststartRemuxerTests {
 
     // MARK: - Export-despite-detection fallback
 
-    @Test("detection seeing nothing on a server-declared MP4 still exports")
-    func exportsWhenDetectionBlindOnDeclaredMP4() {
-        // The observed failure: an empty scan reported .notMP4 on a file the server called m4a,
-        // and the player could not open the un-remuxed result.
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "m4a"))
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: nil, declaredSuffix: "m4a"))
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "MP4"))
+    @Test("detection seeing nothing on a VERIFIED MP4 still exports")
+    func exportsWhenDetectionBlindOnVerifiedMP4() {
+        // The container must have been established from the bytes. Feeding this the server's
+        // declared suffix instead re-containered a healthy FLAC into an MP4 that kept its .flac name.
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, container: "m4a"))
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: nil, container: "m4a"))
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, container: "MP4"))
     }
 
-    @Test("a confirmed faststart layout is never re-exported, whatever the server declared")
+    @Test("a confirmed faststart layout is never re-exported")
     func neverReExportsConfirmedFaststart() {
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .faststart, declaredSuffix: "m4a") == false)
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .faststart, container: "m4a") == false)
     }
 
-    @Test("a non-MP4 suffix is left alone even when detection saw nothing")
-    func leavesNonMP4SuffixesAlone() {
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "flac") == false)
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, declaredSuffix: "mp3") == false)
-        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: nil, declaredSuffix: nil) == false)
+    @Test("a non-MP4 container is left alone even when the box scan saw nothing")
+    func leavesNonMP4ContainersAlone() {
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, container: "flac") == false)
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: .notMP4, container: "mp3") == false)
+        #expect(AudioFaststartRemuxer.shouldExportDespiteDetection(state: nil, container: nil) == false)
     }
 
     // MARK: - File size (the cross-check the box scan depends on)
