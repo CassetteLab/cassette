@@ -90,9 +90,23 @@ final class ArtworkImageCache {
     // Caps in-flight server cover fetches to prevent saturating the TCP connection pool.
     private let fetchGate = CoverFetchGate(limit: 4)
 
-    init(downloadService: any DownloadServiceProtocol, libraryService: any LibraryServiceProtocol) {
+    // MARK: - Revalidation
+    /// Per-cover `Last-Modified` + last-checked, so a cached cover is re-verified on a slow cadence.
+    private let revalidationStore: CoverRevalidationStore
+    /// Cover ids whose revalidation is in flight, so the two tiers of one id don't both HEAD it.
+    private var revalidating: Set<String> = []
+    /// Ids whose revalidation failed this run (offline / error). Skipped until relaunch so an
+    /// offline session doesn't fire a HEAD per cover on every scroll.
+    private var revalidationDeferred: Set<String> = []
+
+    init(
+        downloadService: any DownloadServiceProtocol,
+        libraryService: any LibraryServiceProtocol,
+        revalidationStore: CoverRevalidationStore = CoverRevalidationStore()
+    ) {
         self.downloadService = downloadService
         self.libraryService = libraryService
+        self.revalidationStore = revalidationStore
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30
         config.timeoutIntervalForResource = 30
@@ -129,6 +143,7 @@ final class ArtworkImageCache {
         // 1. RAM hit.
         if let hit = cache[key] {
             touch(key)
+            revalidateIfDue(coverArtId: coverArtId, tier: tier)
             return hit
         }
 
@@ -158,6 +173,7 @@ final class ArtworkImageCache {
             if let image {
                 store(image: image, forKey: key)
                 Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
+                revalidateIfDue(coverArtId: coverArtId, tier: tier)
                 return image
             }
         }
@@ -174,7 +190,7 @@ final class ArtworkImageCache {
         let maxDim = tier.decodePixels
         guard let serverURL = await libraryService.coverArtURL(id: coverArtId, size: maxDim) else { return nil }
         let t0 = Date()
-        guard let (data, _) = try? await session.data(from: serverURL) else {
+        guard let (data, response) = try? await session.data(from: serverURL) else {
             Logger.artworkCache.warning("[NET-COVER] failed id=\(coverArtId, privacy: .public) duration=\(Int(Date().timeIntervalSince(t0) * 1000))ms")
             return nil
         }
@@ -190,7 +206,73 @@ final class ArtworkImageCache {
         store(image: image, forKey: key)
         // Persist using the tier-suffixed filename so each tier has its own disk file.
         await downloadService.persistCover(data, forId: "\(coverArtId)@\(tier.rawValue)")
+        // A fresh fetch already carries the current Last-Modified — record it as the baseline so we
+        // don't waste a HEAD re-checking a cover we just downloaded.
+        if let http = response as? HTTPURLResponse {
+            revalidationStore.record(id: coverArtId, lastModified: http.value(forHTTPHeaderField: "Last-Modified"))
+        }
         return image
+    }
+
+    // MARK: - Revalidation
+
+    /// Fires a background re-check of `coverArtId` when its TTL has lapsed. Non-blocking: the caller
+    /// has already returned the cached image, so this is pure stale-while-revalidate — the view
+    /// keeps the old cover until (and unless) a change is found.
+    private func revalidateIfDue(coverArtId: String, tier: ArtworkTier) {
+        guard !revalidating.contains(coverArtId),
+              !revalidationDeferred.contains(coverArtId),
+              revalidationStore.isDue(id: coverArtId) else { return }
+        revalidating.insert(coverArtId)
+        Task { await self.revalidate(coverArtId: coverArtId, tier: tier) }
+    }
+
+    private func revalidate(coverArtId: String, tier: ArtworkTier) async {
+        defer { revalidating.remove(coverArtId) }
+        guard let url = await libraryService.coverArtURL(id: coverArtId, size: tier.decodePixels) else { return }
+
+        // HEAD reads the Last-Modified without transferring the image — Navidrome returns it on a
+        // header-only response, so an unchanged cover costs a single round-trip and no bytes.
+        var request = URLRequest(url: url)
+        request.httpMethod = "HEAD"
+        guard let (_, response) = try? await session.data(for: request),
+              let http = response as? HTTPURLResponse else {
+            // Offline or errored — don't retry this cover until relaunch, so a scroll offline
+            // doesn't fire a HEAD per row.
+            revalidationDeferred.insert(coverArtId)
+            return
+        }
+
+        let serverLM = http.value(forHTTPHeaderField: "Last-Modified")
+        switch CoverRevalidationOutcome.decide(stored: revalidationStore.lastModified(for: coverArtId), server: serverLM) {
+        case .baseline, .unchanged, .indeterminate:
+            // Nothing to fetch — just record what the server told us and reset the timer.
+            revalidationStore.record(id: coverArtId, lastModified: serverLM)
+        case .changed:
+            Logger.artworkCache.info("[REVAL] cover changed id=\(coverArtId, privacy: .public) — refetching")
+            await refetchChangedCover(coverArtId: coverArtId, tier: tier, newLastModified: serverLM)
+        }
+    }
+
+    /// Replaces every cached copy of a cover that changed on the server, then nudges the UI to
+    /// re-read it. The tier that triggered the check is fetched now; the other tier is dropped so it
+    /// re-fetches fresh on its next access.
+    private func refetchChangedCover(coverArtId: String, tier: ArtworkTier, newLastModified: String?) async {
+        // Drop stale copies of BOTH tiers so nothing old survives.
+        for staleTier in [ArtworkTier.thumb, .hero] {
+            let staleKey = cacheKey(id: coverArtId, tier: staleTier)
+            cache.removeValue(forKey: staleKey)
+            accessOrder.removeAll { $0 == staleKey }
+            await downloadService.removeCover(forId: staleKey)
+        }
+        // Fetch the tier we were asked for; serverFetch re-records the baseline from its response.
+        _ = await serverFetch(coverArtId: coverArtId, key: cacheKey(id: coverArtId, tier: tier), tier: tier)
+        // Belt-and-braces in case the fetch response lacked the header.
+        revalidationStore.record(id: coverArtId, lastModified: newLastModified)
+        // CoverArtView reads the cache inside a `.task(id:)` keyed on this counter, so bumping it is
+        // what makes the freshly-fetched image actually appear without the user leaving the screen.
+        let key = "coverArtUploadVersion"
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: key) + 1, forKey: key)
     }
 
     func invalidate(for coverArtId: String) async {
@@ -206,6 +288,14 @@ final class ArtworkImageCache {
     func clearCache() {
         cache.removeAll()
         accessOrder.removeAll()
+    }
+
+    /// Forgets all revalidation metadata. Called from the version-bump disk wipe so a fresh cache
+    /// doesn't carry `Last-Modified` values describing images that were just deleted.
+    func clearRevalidationMetadata() {
+        revalidationStore.removeAll()
+        revalidating.removeAll()
+        revalidationDeferred.removeAll()
     }
 
     // MARK: - Private

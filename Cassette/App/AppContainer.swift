@@ -227,6 +227,7 @@ extension AppContainer {
         guard stored < currentCoverArtCacheVersion else { return }
 
         artworkCache.clearCache()
+        artworkCache.clearRevalidationMetadata()
         let coverArtsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("app.cassette/coverarts")
         try? FileManager.default.removeItem(at: coverArtsDir)
