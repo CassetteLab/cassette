@@ -90,6 +90,13 @@ nonisolated struct WrappedPreferences: Sendable {
         userDefaults.set(id, forKey: Self.playlistIdKey(year, serverId))
     }
 
+    /// Drops the cached id for a year — used when the playlist it named turned out to be gone from
+    /// the server (a rebuild, or a manual deletion). Without this the sync keeps writing into a
+    /// dead id forever.
+    func clearPlaylistId(year: Int, serverId: String) {
+        userDefaults.removeObject(forKey: Self.playlistIdKey(year, serverId))
+    }
+
     // MARK: - Last known year marker
 
     func lastWrappedYear(serverId: String) -> Int? {

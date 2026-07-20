@@ -159,7 +159,11 @@ actor WrappedPlaylistService {
     }
 
     /// Returns all server playlists whose names match the wrapped prefix, sorted by year descending.
-    func fetchYearlyPlaylists(serverId: String) async -> [WrappedYearlyPlaylist] {
+    func fetchYearlyPlaylists(
+        serverId: String,
+        calendar: Calendar = .current,
+        currentDate: Date = Date()
+    ) async -> [WrappedYearlyPlaylist] {
         let client: any PlaylistSyncClient
         do {
             client = try await makeClient()
@@ -169,6 +173,12 @@ actor WrappedPlaylistService {
         }
         do {
             let all = try await client.getPlaylists(username: nil)
+            // The playlist list is already in hand, so reconciliation costs nothing extra: if the
+            // id we cached for this year's playlist is no longer on the server, it was deleted out
+            // from under us (a server rebuild wipes playlists). Clearing the cached id and the
+            // month marker lets the next cold-start sync recreate it — otherwise the marker keeps
+            // the sync from ever running and the playlist stays gone for good.
+            reconcileCurrentYearPlaylist(serverId: serverId, livePlaylists: all, calendar: calendar, currentDate: currentDate)
             return all.compactMap { playlist -> WrappedYearlyPlaylist? in
                 guard playlist.name.hasPrefix(WrappedPlaylistService.wrappedPlaylistNamePrefix),
                       let year = Int(playlist.name.dropFirst(WrappedPlaylistService.wrappedPlaylistNamePrefix.count))
@@ -232,15 +242,37 @@ actor WrappedPlaylistService {
         }
     }
 
+    /// Clears the cached id and month marker when this year's playlist has vanished from the server,
+    /// so the sync rebuilds it on the next launch. A no-op unless we hold a cached id that is absent
+    /// from `livePlaylists` — the normal case touches nothing.
+    private func reconcileCurrentYearPlaylist(
+        serverId: String,
+        livePlaylists: [Playlist],
+        calendar: Calendar,
+        currentDate: Date
+    ) {
+        let year = calendar.component(.year, from: currentDate)
+        guard let cached = preferences.playlistId(year: year, serverId: serverId) else { return }
+        guard !livePlaylists.contains(where: { $0.id == cached }) else { return }
+        preferences.clearPlaylistId(year: year, serverId: serverId)
+        preferences.clearLastUpdatedMonth(serverId: serverId)
+        Logger.wrapped.info("[WRAPPED] \(year, privacy: .public) playlist \(cached, privacy: .public) gone from server — cleared markers so it rebuilds next launch")
+    }
+
     // MARK: - Get-or-create annual playlist
 
     private func getOrCreatePlaylist(for year: Int, serverId: String, client: any PlaylistSyncClient) async throws -> String {
-        if let cached = preferences.playlistId(year: year, serverId: serverId) {
+        let name = "Cassette Wrapped \(year)"
+        // Fetch the live list first and trust the cached id ONLY if it is still on the server.
+        // A cached id that points to a deleted playlist (server rebuilt, or the user removed it)
+        // would otherwise be handed straight to the replace, which writes into nothing. This is the
+        // only path where getOrCreatePlaylist runs — once a month — so the extra fetch is cheap.
+        let playlists = try await client.getPlaylists(username: nil)
+
+        if let cached = preferences.playlistId(year: year, serverId: serverId),
+           playlists.contains(where: { $0.id == cached }) {
             return cached
         }
-
-        let name = "Cassette Wrapped \(year)"
-        let playlists = try await client.getPlaylists(username: nil)
 
         if let existing = playlists.first(where: { $0.name == name }) {
             preferences.setPlaylistId(existing.id, year: year, serverId: serverId)
