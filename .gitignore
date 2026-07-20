@@ -13,3 +13,8 @@ build/
 # rewrites graph.json wholesale: ~95k changed lines on top of each feature commit. The graph is
 # cheap to regenerate (`/graphify`) and worthless as history, so it stays out of the repo.
 graphify-out/
+
+# macOS
+.DS_Store
+/*/.DS_Store
+/*/*/.DS_Store
