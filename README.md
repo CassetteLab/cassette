@@ -51,7 +51,7 @@ Licensed under MPL-2.0.
 **Integrations & extras**
 - **ListenBrainz** — scrobble your listens and surface recommendations (fresh releases, similar artists)
 - **Home-screen widgets** (iOS)
-- **Discord Rich Presence** — *experimental / pre-alpha*; shows your now-playing in Discord through the companion helper, [cassette-discord-rpc](https://github.com/MathieuDubart/cassette-discord-rpc)
+- **Discord Rich Presence** — *experimental / pre-alpha*; shows your now-playing in Discord through the companion helper, [cassette-discord-rpc](https://github.com/CassetteLab/cassette-discord-rpc)
 
 **Server & privacy**
 - Subsonic and OpenSubsonic API, with OpenSubsonic extensions where available
@@ -85,7 +85,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 2. **Clone and open**
    ```bash
-   git clone https://github.com/MathieuDubart/cassette.git
+   git clone https://github.com/CassetteLab/cassette.git
    cd cassette
    open Cassette.xcodeproj
    ```
@@ -114,7 +114,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 Cassette works with any server that implements the Subsonic / OpenSubsonic API, and uses OpenSubsonic extensions where available. [Navidrome](https://www.navidrome.org) is the recommended and primary-tested server.
 
-If your server implements the Subsonic API and something doesn't behave, [open an issue](https://github.com/MathieuDubart/cassette/issues).
+If your server implements the Subsonic API and something doesn't behave, [open an issue](https://github.com/CassetteLab/cassette/issues).
 
 ---
 
@@ -125,10 +125,24 @@ For developers curious about the internals:
 - **UI** — SwiftUI views with `@Observable @MainActor` view models; no business logic in views.
 - **Services** — Swift actors (`PlayerService`, `LibraryService`, `DownloadService`, `FavoritesService`, `NowPlayingService`, …) with no SwiftUI / UIKit imports.
 - **Playback** — the [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) engine, wired to `MPNowPlayingInfoCenter` and `MPRemoteCommandCenter` for lock screen, Control Center, and AirPlay.
-- **Subsonic API** — [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (same author, separate repo, MIT) handles all Subsonic / OpenSubsonic communication.
+- **Subsonic API** — [SwiftSonic](https://github.com/CassetteLab/swiftsonic) (same author, separate repo, MIT) handles all Subsonic / OpenSubsonic communication.
 - **Persistence** — SwiftData for app data (downloads, playlists, favorites cache); Keychain for credentials.
 - **Concurrency** — Swift 6 strict concurrency, `Sendable` throughout, `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
 - **Dependencies** — SwiftSonic and AudioStreaming (which brings Ogg/Vorbis binary frameworks for lossless decoding). That's the full list.
+
+---
+
+## Documentation
+
+Architecture decisions, technical notes, audits, and release runbooks live in the
+**[CassetteLab knowledge vault](https://github.com/CassetteLab/obsidian)** — an Obsidian
+vault versioned with Git, shared across the whole ecosystem.
+
+Anything that explains **why** a choice was made lives there rather than in this repo,
+including the CarPlay readiness audit and the release process (previously `docs/`).
+`README.md`, `CONTRIBUTING.md`, `SECURITY.md`, and `LICENSE` stay here.
+
+> The vault is private to the organisation — open an issue if you need access.
 
 ---
 
@@ -139,15 +153,15 @@ Cassette is built incrementally, one theme per release.
 - **v1.8 — Widgets** ✅ shipped
 - **v2.0 — CarPlay** (in progress)
 
-For the full roadmap and discussion, see [GitHub Discussions](https://github.com/MathieuDubart/cassette/discussions).
+For the full roadmap and discussion, see [GitHub Discussions](https://github.com/CassetteLab/cassette/discussions).
 
 ---
 
 ## Links & support
 
 - Website — [getcassette.app](https://getcassette.app)
-- Feedback / bug reports — [support@getcassette.app](mailto:support@getcassette.app) · [GitHub Issues](https://github.com/MathieuDubart/cassette/issues)
-- Ideas & discussion — [GitHub Discussions](https://github.com/MathieuDubart/cassette/discussions)
+- Feedback / bug reports — [support@getcassette.app](mailto:support@getcassette.app) · [GitHub Issues](https://github.com/CassetteLab/cassette/issues)
+- Ideas & discussion — [GitHub Discussions](https://github.com/CassetteLab/cassette/discussions)
 - Support development — [Ko-fi](https://ko-fi.com/mathieudbrt)
 
 ---
@@ -171,7 +185,7 @@ Cassette is licensed under [MPL-2.0](LICENSE).
 - Modified files stay under MPL-2.0; you may combine them with proprietary code in a Larger Work.
 - The distributed builds (Homebrew, TestFlight) are the same source, signed for convenience.
 
-Dependencies: [SwiftSonic](https://github.com/MathieuDubart/swiftsonic) (MIT) and [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. (MIT) — both compatible with MPL-2.0.
+Dependencies: [SwiftSonic](https://github.com/CassetteLab/swiftsonic) (MIT) and [AudioStreaming](https://github.com/dimitris-c/AudioStreaming) by Dimitris C. (MIT) — both compatible with MPL-2.0.
 
 > Code prior to commit 21f9227 was licensed under GPL-3.0-or-later.
 
