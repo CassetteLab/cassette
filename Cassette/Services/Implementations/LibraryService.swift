@@ -353,14 +353,12 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong] {
-        // Timing is logged at .info, on one line, because this is the latency the user actually feels:
-        // nothing plays until the whole fan-out returns. The per-call spread of the fan-out is what
-        // says whether the client-side parallelism survives on the server or re-serialises there.
         let tStart = Date()
         let c = try await client()
 
-        // 1) Base similar songs from the seed. AudioMuse clusters tightly, so this alone tends to
-        //    cover only one or two artists.
+        // 1) Base similar songs from the seed. A good similarity service (AudioMuse, via Navidrome's
+        //    plugin) returns a full list ALREADY ORDERED by relevance — that ordering is the whole
+        //    value, so it must be preserved verbatim, never reshuffled.
         let tBase = Date()
         let base: [Song]
         switch seed {
@@ -375,8 +373,19 @@ actor LibraryService: LibraryServiceProtocol {
             return []
         }
 
-        // 2) Fan out on the distinct artists we found (plus the seed artist) to broaden the pool —
-        //    each getSimilarSongs2 pulls the neighbourhood around a different artist.
+        // The base already fills the request → return it exactly as the server ordered it. No fan-out
+        // (which would fire a getSimilarArtists per artist and waste round-trips) and no reordering.
+        // This is the common case with AudioMuse, and it is what makes Cassette's mix match the
+        // server's own.
+        if base.count >= count {
+            let totalMs = Int(Date().timeIntervalSince(tStart) * 1000)
+            Logger.library.info("[MIX-TIMING] total=\(totalMs, privacy: .public)ms base=\(baseMs, privacy: .public)ms(\(base.count, privacy: .public) tracks) — full, used verbatim in server order")
+            return Array(base.prefix(count)).map { DisplayableSong(from: $0) }
+        }
+
+        // 2) Weak server: the base came back short (often just the seed's own neighbourhood). Broaden
+        //    by fanning out on the artists we found. These are APPENDED behind the base so the base
+        //    keeps its order and still leads — variety is added at the tail, not by reshuffling.
         var fanArtists: [String] = []
         var seenArtists = Set<String>()
         if case .artist(let id) = seed, seenArtists.insert(id).inserted { fanArtists.append(id) }
@@ -388,79 +397,39 @@ actor LibraryService: LibraryServiceProtocol {
 
         let tFan = Date()
         var expansions: [Song] = []
-        var callMs: [Int] = []
-        await withTaskGroup(of: (Int, [Song]).self) { group in
+        await withTaskGroup(of: [Song].self) { group in
             for aid in fanArtists {
                 group.addTask {
-                    let t = Date()
-                    let songs = (try? await c.getSimilarSongs2(id: aid, count: Self.instantMixFanOutCount)) ?? []
-                    return (Int(Date().timeIntervalSince(t) * 1000), songs)
+                    (try? await c.getSimilarSongs2(id: aid, count: Self.instantMixFanOutCount)) ?? []
                 }
             }
-            for await (ms, songs) in group {
-                callMs.append(ms)
+            for await songs in group {
                 expansions.append(contentsOf: songs)
             }
         }
         let fanMs = Int(Date().timeIntervalSince(tFan) * 1000)
 
-        // 3) Merge + dedup by song id (base first so seed relevance leads).
-        var seenIds = Set<String>()
-        let merged = (base + expansions).filter { seenIds.insert($0.id).inserted }
-
-        // 4) Round-robin by artist so different artists surface early and none dominates.
-        let diversified = Self.diversifyByArtist(merged, maxPerArtist: Self.instantMixMaxPerArtist)
-        let distinctArtists = Set(diversified.prefix(count).compactMap { $0.artistId ?? $0.artist }).count
+        // 3) Base first (in order), then the deduped fan-out tail, trimmed to count.
+        let assembled = Self.assembleMix(base: base, expansions: expansions, count: count)
         let totalMs = Int(Date().timeIntervalSince(tStart) * 1000)
-        // fanSum vs fanMs is the decisive comparison: close to fanMs means the calls really ran
-        // concurrently; close to their sum means the server handled them one at a time.
-        let sorted = callMs.sorted()
-        let fanSum = callMs.reduce(0, +)
-        Logger.library.info("""
-            [MIX-TIMING] total=\(totalMs, privacy: .public)ms \
-            base=\(baseMs, privacy: .public)ms(\(base.count, privacy: .public) tracks) \
-            fanout=\(fanMs, privacy: .public)ms(\(fanArtists.count, privacy: .public) calls, \
-            sum=\(fanSum, privacy: .public)ms, min=\(sorted.first ?? 0, privacy: .public) \
-            med=\(sorted.isEmpty ? 0 : sorted[sorted.count / 2], privacy: .public) \
-            max=\(sorted.last ?? 0, privacy: .public)) \
-            → \(diversified.count, privacy: .public) tracks / \(distinctArtists, privacy: .public) artists, \
-            kept \(min(count, diversified.count), privacy: .public)
-            """)
-        return diversified.prefix(count).map { DisplayableSong(from: $0) }
+        Logger.library.info("[MIX-TIMING] total=\(totalMs, privacy: .public)ms base=\(baseMs, privacy: .public)ms(\(base.count, privacy: .public) tracks) fanout=\(fanMs, privacy: .public)ms(\(fanArtists.count, privacy: .public) calls) → \(assembled.count, privacy: .public) tracks (base order preserved)")
+        return assembled.map { DisplayableSong(from: $0) }
+    }
+
+    /// Base first — in the exact order the server returned it — then the fan-out expansions, deduped
+    /// by song id, trimmed to `count`. The base ordering is never disturbed; the point of the fan-out
+    /// is only to lengthen a short mix, at the tail.
+    nonisolated static func assembleMix(base: [Song], expansions: [Song], count: Int) -> [Song] {
+        var seen = Set<String>()
+        let merged = (base + expansions).filter { seen.insert($0.id).inserted }
+        return Array(merged.prefix(count))
     }
 
     /// Fan-out tuning for Instant Mix diversity. `nonisolated` so the actor's `instantMix` can read them
     /// synchronously (the module defaults types to MainActor isolation).
     nonisolated private static let instantMixFanOutArtists = 8
     nonisolated private static let instantMixFanOutCount = 25
-    nonisolated private static let instantMixMaxPerArtist = 4
 
-    /// Interleaves songs so consecutive tracks come from different artists (round-robin over per-artist
-    /// buckets, capped at `maxPerArtist`). Preserves each artist's first-seen relevance order. Pure and
-    /// `nonisolated` — callable from the actor without hopping to the main actor.
-    nonisolated private static func diversifyByArtist(_ songs: [Song], maxPerArtist: Int) -> [Song] {
-        var buckets: [String: [Song]] = [:]
-        var artistOrder: [String] = []
-        for song in songs {
-            let key = song.artistId ?? song.artist ?? song.id
-            if buckets[key] == nil { artistOrder.append(key) }
-            buckets[key, default: []].append(song)
-        }
-        var result: [Song] = []
-        var taken: [String: Int] = [:]
-        var progressed = true
-        while progressed {
-            progressed = false
-            for key in artistOrder {
-                let n = taken[key] ?? 0
-                guard n < maxPerArtist, let bucket = buckets[key], n < bucket.count else { continue }
-                result.append(bucket[n])
-                taken[key] = n + 1
-                progressed = true
-            }
-        }
-        return result
-    }
 
     func getArtistInfo(forArtistID artistID: String, count: Int) async throws -> ArtistInfo {
         if let cached = artistInfoCache[artistID] {

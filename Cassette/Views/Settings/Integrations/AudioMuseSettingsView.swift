@@ -67,6 +67,12 @@ struct AudioMuseSettingsView: View {
             Text("Without it, mood playlists still work, built from your library's genre, BPM and mood tags. The match is rougher.")
                 .font(.cassetteCaption)
                 .foregroundStyle(.secondary)
+            // Pre-empts a common confusion: Instant Mix looks like it should use this connection but
+            // does not. It goes through the server's own AudioMuse plugin (getSimilarSongs), so it
+            // works — and is unaffected by whether this is connected.
+            Text("This connection is only for mood playlists. Instant Mix and similar-song features use your server's own AudioMuse plugin, separately.")
+                .font(.cassetteCaption)
+                .foregroundStyle(.secondary)
             Link("Learn about AudioMuse-AI →", destination: URL(string: "https://github.com/NeptuneHub/AudioMuse-AI")!)
                 .font(.cassetteCaption)
         }

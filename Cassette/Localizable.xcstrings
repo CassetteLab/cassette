@@ -26364,6 +26364,58 @@
         }
       }
     },
+    "This connection is only for mood playlists. Instant Mix and similar-song features use your server's own AudioMuse plugin, separately." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Verbindung dient nur den Stimmungs-Playlists. Instant Mix und ähnliche-Titel-Funktionen nutzen das AudioMuse-Plugin deines Servers, getrennt davon."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτή η σύνδεση αφορά μόνο τις λίστες διάθεσης. Το Instant Mix και οι λειτουργίες παρόμοιων κομματιών χρησιμοποιούν το δικό σου plugin AudioMuse του διακομιστή, ξεχωριστά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta conexión es solo para las listas por estado de ánimo. Instant Mix y las funciones de canciones similares usan el plugin de AudioMuse de tu servidor, por separado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cette connexion ne sert qu'aux playlists d'ambiance. Instant Mix et les fonctions de morceaux similaires passent par le plugin AudioMuse de ton serveur, séparément."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questa connessione serve solo alle playlist per atmosfera. Instant Mix e le funzioni di brani simili usano il plugin AudioMuse del tuo server, separatamente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この接続はムードのプレイリスト専用です。Instant Mixや類似曲の機能は、サーバー側のAudioMuseプラグインを別途使用します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此连接仅用于心情播放列表。Instant Mix 和相似歌曲功能使用你服务器自带的 AudioMuse 插件，二者独立。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此連線僅用於心情播放列表。Instant Mix 與相似歌曲功能使用你伺服器自帶的 AudioMuse 外掛，兩者獨立。"
+          }
+        }
+      }
+    },
     "This content isn't available offline." : {
       "localizations" : {
         "de" : {
