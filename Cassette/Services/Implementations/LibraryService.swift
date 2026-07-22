@@ -346,6 +346,33 @@ actor LibraryService: LibraryServiceProtocol {
         return result
     }
 
+    func endlessExtension(seedTrackId: String, targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong] {
+        // Prefer a sonic Instant Mix of the track playing now. Over-fetch (2×) so that dropping what
+        // is already queued still leaves a full batch. instantMix preserves the server's similarity
+        // order, so the extension flows naturally from what is playing.
+        let mix = (try? await instantMix(from: .song(id: seedTrackId), count: targetSize * 2)) ?? []
+        let fresh = mix.filter { !excludedIds.contains($0.id) }
+
+        // No similarity data at all (no AudioMuse, no Navidrome agent) → same fallback as Instant Mix:
+        // the library heuristic built from history, discographies and genres.
+        guard !fresh.isEmpty else {
+            Logger.library.debug("Endless extension: no similarity for seed \(seedTrackId, privacy: .public) → library fallback")
+            return try await similarBackfillQueue(targetSize: targetSize, excludedIds: excludedIds)
+        }
+        if fresh.count >= targetSize {
+            Logger.library.debug("Endless extension: \(fresh.count) similar to seed \(seedTrackId, privacy: .public), using \(targetSize)")
+            return Array(fresh.prefix(targetSize))
+        }
+
+        // A short similar set (small library) is topped up from the same heuristic so the queue keeps
+        // growing rather than stalling a few tracks on.
+        var excluded = excludedIds
+        excluded.formUnion(fresh.map { $0.id })
+        let topUp = (try? await similarBackfillQueue(targetSize: targetSize - fresh.count, excludedIds: excluded)) ?? []
+        Logger.library.debug("Endless extension: \(fresh.count) similar + \(topUp.count) library top-up for seed \(seedTrackId, privacy: .public)")
+        return fresh + topUp
+    }
+
     // MARK: - Similar artists support
 
     func topSongs(artist: String, count: Int) async throws -> [DisplayableSong] {

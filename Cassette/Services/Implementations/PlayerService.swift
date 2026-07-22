@@ -772,9 +772,9 @@ actor PlayerService: PlayerServiceProtocol {
     /// parallel fetches when tracks advance rapidly. Errors are swallowed — natural queue
     /// end is the graceful fallback.
     private func evaluateAutoExtend() async {
-        let (isEnabled, repeatMode, currentRadio, remaining, queueIds) = await MainActor.run {
+        let (isEnabled, repeatMode, currentRadio, remaining, queueIds, seedTrackId) = await MainActor.run {
             let remaining = state.queue.count - state.currentIndex - 1
-            return (state.isAutoExtendEnabled, state.repeatMode, state.currentRadio, remaining, Set(state.queue.map(\.id)))
+            return (state.isAutoExtendEnabled, state.repeatMode, state.currentRadio, remaining, Set(state.queue.map(\.id)), state.currentTrack?.id)
         }
         guard Self.shouldAutoExtend(
             isEnabled: isEnabled,
@@ -790,7 +790,14 @@ actor PlayerService: PlayerServiceProtocol {
         autoExtendFetchTask = Task { [libraryService, weak self] in
             defer { Task { await self?.clearAutoExtendFetchTask() } }
             do {
-                let tracks = try await libraryService.similarBackfillQueue(targetSize: 50, excludedIds: queueIds)
+                // Seed on the track playing now: the extension is a sonic Instant Mix of it, with the
+                // library heuristic as fallback. No current track (edge case) uses the heuristic directly.
+                let tracks: [DisplayableSong]
+                if let seedTrackId {
+                    tracks = try await libraryService.endlessExtension(seedTrackId: seedTrackId, targetSize: 50, excludedIds: queueIds)
+                } else {
+                    tracks = try await libraryService.similarBackfillQueue(targetSize: 50, excludedIds: queueIds)
+                }
                 guard !tracks.isEmpty else {
                     Logger.player.debug("Auto-extend fetch returned empty — library exhausted or offline without downloads")
                     return

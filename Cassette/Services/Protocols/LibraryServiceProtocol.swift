@@ -90,6 +90,12 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// falls back to downloaded tracks only.
     func similarBackfillQueue(targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong]
 
+    /// Endless-play extension seeded on the track playing now: a sonic Instant Mix of `seedTrackId`,
+    /// falling back to ``similarBackfillQueue(targetSize:excludedIds:)`` exactly as Instant Mix does
+    /// when no similarity service (AudioMuse / server agent) is available. `excludedIds` (current
+    /// queue) is never returned; a short similar set is topped up from the same library heuristic.
+    func endlessExtension(seedTrackId: String, targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong]
+
     // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
     func getPlayQueue() async throws -> SavedPlayQueue?
@@ -118,4 +124,13 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Returns an empty array when the server has no similarity data — callers surface `instantMixEmpty`.
     /// Not gated on a capability: it simply calls the endpoint and lets an empty/failed result degrade.
     func instantMix(from seed: InstantMixSeed, count: Int) async throws -> [DisplayableSong]
+}
+
+extension LibraryServiceProtocol {
+    /// Default: fall straight through to the library heuristic. `LibraryService` overrides this to
+    /// prefer a sonic Instant Mix of the seed track; the default keeps stubs and alternative
+    /// conformers working without change.
+    func endlessExtension(seedTrackId: String, targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong] {
+        try await similarBackfillQueue(targetSize: targetSize, excludedIds: excludedIds)
+    }
 }
