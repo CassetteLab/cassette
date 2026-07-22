@@ -56,6 +56,7 @@ struct FavoritesView: View {
                 artistsSection(vm.artists)
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
             .refreshable { await vm.load() }
             .sheet(item: $songToAddToPlaylist) { song in
                 AddToPlaylistSheet(song: song)

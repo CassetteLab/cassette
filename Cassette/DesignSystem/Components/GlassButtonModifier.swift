@@ -38,14 +38,28 @@ extension View {
         }
     }
 
-    /// Over-cover HERO round button: TRANSPARENT — no surface/fill. Just the tap area + a soft shadow so the
-    /// glyph stays legible on a busy cover without a backing (the Apple-Music trick). The caller colors the
-    /// glyph for direct contrast on the cover (the over-cover title color). Pair with `.buttonStyle(.plain)`
-    /// to drop the native iOS 26 toolbar glass.
+    /// Over-cover HERO round button, tuned per OS since only iOS 26 has system toolbar glass:
+    ///
+    /// - **iOS 26 / macOS 26**: TRANSPARENT — no surface/fill, just the tap area + a soft shadow so the glyph
+    ///   stays legible on a busy cover without a backing (the Apple-Music trick). The caller colors the glyph
+    ///   for direct contrast on the cover. Pair with `.buttonStyle(.plain)` to drop the native toolbar glass.
+    /// - **iOS 18 / macOS 15**: there is no system toolbar glass, so a bare glyph disappears into busy
+    ///   artwork. Back it with a circular material chip (the native "chrome button over media" look, as in
+    ///   Photos / Music) so the control reads clearly and stays a comfortable tap target.
+    @ViewBuilder
     func cassetteHeroButton(size: CGFloat = 44) -> some View {
-        self
-            .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
-            .frame(width: size, height: size)
-            .contentShape(Circle())
+        if #available(iOS 26.0, macOS 26.0, *) {
+            self
+                .shadow(color: .black.opacity(0.28), radius: 3, y: 1)
+                .frame(width: size, height: size)
+                .contentShape(Circle())
+        } else {
+            self
+                .frame(width: size, height: size)
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.primary.opacity(0.08), lineWidth: 0.5))
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+                .contentShape(Circle())
+        }
     }
 }

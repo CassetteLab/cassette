@@ -271,7 +271,7 @@ struct PlaylistDetailView: View {
         .ignoresSafeArea(.container, edges: .top)
         // No soft blur under the nav bar (the cover scrolls under it; the system effect would flicker).
         .cassetteHideTopScrollEdgeEffect()
-        .miniPlayerBottomMargin()
+        .miniPlayerBottomMargin(bleedsToBottom: true)
         .refreshable { await viewModel?.load() }
         .alert("Remove downloaded playlist?", isPresented: $showDeleteAlert) {
             Button("Remove", role: .destructive) { Task { await viewModel?.deleteDownload() } }

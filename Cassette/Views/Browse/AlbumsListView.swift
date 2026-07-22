@@ -115,6 +115,7 @@ struct AlbumsListView: View {
                 .id(album.id)
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
             .refreshable { await vm.load() }
             #if os(iOS)
             .safeAreaInset(edge: .trailing, spacing: 0) {
@@ -170,6 +171,7 @@ struct AlbumsListView: View {
             .padding(CassetteSpacing.l)
         }
         .refreshable { await vm.load() }
+        .miniPlayerBottomMargin()
         #endif
     }
 

@@ -147,6 +147,7 @@ struct ArtistDetailView: View {
                         }
                         .ignoresSafeArea(.container, edges: .top)
                         .cassetteHideTopScrollEdgeEffect()
+                        .miniPlayerBottomMargin()
                         .background(bodyColor.ignoresSafeArea())
                         .refreshable {
                             await vm.load()

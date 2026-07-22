@@ -45,6 +45,7 @@ struct DiscoverView: View {
             }
             .padding(.vertical, CassetteSpacing.m)
         }
+        .miniPlayerBottomMargin()
         .cassetteContentWidth()
         .navigationTitle("Discover")
         .task {

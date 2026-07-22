@@ -32,7 +32,7 @@ Licensed under MPL-2.0.
 ## Features
 
 **Listening**
-- Native iOS 26 / macOS 15 client with a Liquid Glass design language
+- Native iOS 18+ / macOS 15 client, with a Liquid Glass design language on iOS 26 (graceful Material fallback on iOS 18)
 - Background playback with lock screen and Control Center controls, plus AirPlay
 - True offline mode: download albums, playlists, or individual tracks
 - Playback powered by the AudioStreaming engine — FLAC, MP3, AAC, WAV, and Ogg/Vorbis
@@ -93,7 +93,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 3. **Sign and run**
    - Select your team in Signing & Capabilities
-   - Choose an iOS 26+ device/simulator or **My Mac**
+   - Choose an iOS 18+ device/simulator or **My Mac**
    - Build and run (⌘R)
 
 4. **First launch**
@@ -105,7 +105,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 ## Requirements
 
-- iOS 26 or later, or macOS 15 (Sequoia) or later
+- iOS 18 or later, or macOS 15 (Sequoia) or later
 - A running Subsonic, OpenSubsonic, or Navidrome server
 
 ---

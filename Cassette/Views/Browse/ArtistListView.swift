@@ -98,6 +98,7 @@ struct ArtistListView: View {
                 }
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
             .refreshable { await vm.load() }
             #if os(iOS)
             .safeAreaInset(edge: .trailing, spacing: 0) {
@@ -125,6 +126,7 @@ struct ArtistListView: View {
             }
         }
         .listStyle(.plain)
+        .miniPlayerBottomMargin()
         .refreshable { await vm.load() }
     }
 
@@ -142,6 +144,7 @@ struct ArtistListView: View {
             .padding(CassetteSpacing.l)
         }
         .refreshable { await vm.load() }
+        .miniPlayerBottomMargin()
     }
 }
 

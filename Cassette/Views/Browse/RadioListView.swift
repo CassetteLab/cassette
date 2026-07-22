@@ -40,6 +40,7 @@ struct RadioListView: View {
                     .buttonStyle(.plain)
                 }
                 .listStyle(.plain)
+                .miniPlayerBottomMargin()
                 .refreshable { await load(forceRefresh: true) }
             }
         }

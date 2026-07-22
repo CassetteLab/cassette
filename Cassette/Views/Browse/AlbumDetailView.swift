@@ -212,7 +212,7 @@ struct AlbumDetailView: View {
             }
         }
         .refreshable { await viewModel?.load() }
-        .miniPlayerBottomMargin()
+        .miniPlayerBottomMargin(bleedsToBottom: true)
         // Extend the scroll content under the transparent nav bar so the cover reaches the screen top.
         .ignoresSafeArea(.container, edges: .top)
         // No soft blur under the nav bar (the cover scrolls under it; the system effect would flicker).

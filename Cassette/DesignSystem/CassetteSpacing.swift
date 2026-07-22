@@ -20,6 +20,11 @@ enum CassetteSpacing {
     /// Bottom scroll margin reserved for the iOS tabViewBottomAccessory mini player,
     /// which floats over tab content without extending the safe area.
     static let miniPlayerBottomMargin: CGFloat = 80
+
+    /// Standard UITabBar height (iPhone portrait). On iOS 18 the mini player is hosted
+    /// via `safeAreaInset` on the TabView, which places content over the tab bar rather
+    /// than above it — this lifts it clear. The home-indicator inset is handled separately.
+    static let legacyTabBarHeight: CGFloat = 49
 }
 
 // MARK: - Corner radius scale
