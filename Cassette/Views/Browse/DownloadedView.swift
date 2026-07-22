@@ -183,6 +183,7 @@ private struct DownloadedContent: View {
                 }
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 if displayAlbums.count >= 20 {
                     AlphabetJumpBar(

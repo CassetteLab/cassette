@@ -123,6 +123,7 @@ struct HomeView: View {
             .padding(.top, CassetteSpacing.m)
             .padding(.bottom, CassetteSpacing.xl)
         }
+        .miniPlayerBottomMargin()
         .navigationTitle("Home")
         .toolbar {
             #if !os(macOS)

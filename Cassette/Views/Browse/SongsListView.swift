@@ -105,6 +105,7 @@ struct SongsListView: View {
                 }
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
             .refreshable { await vm.load(sort: songSort) }
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 // The A–Z jump bar only makes sense when sorted by title.

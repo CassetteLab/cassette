@@ -132,6 +132,7 @@ struct ArtistBestOfView: View {
         .listStyle(.plain)
         .ignoresSafeArea(.container, edges: .top)
         .cassetteHideTopScrollEdgeEffect()
+        .miniPlayerBottomMargin()
         .background(bodyColor.ignoresSafeArea())
         .refreshable { await viewModel?.load() }
         .environment(\.colorScheme, theme.isThemed ? (theme.isLight ? .light : .dark) : colorScheme)

@@ -103,6 +103,7 @@ struct AllFreshReleasesView: View {
             }
         }
         .listStyle(.plain)
+        .miniPlayerBottomMargin()
         .refreshable { await vm.loadReleases() }
         #else
         let sv = ScrollView {

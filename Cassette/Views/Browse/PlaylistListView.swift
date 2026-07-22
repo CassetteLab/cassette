@@ -107,6 +107,7 @@ struct PlaylistListView: View {
                 }
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
             .refreshable {
                 await vm.load()
                 await vm.loadBestOf()
@@ -261,6 +262,7 @@ private struct OfflinePlaylistContent: View {
                 }
             }
             .listStyle(.plain)
+            .miniPlayerBottomMargin()
         }
     }
 }

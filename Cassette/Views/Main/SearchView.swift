@@ -123,6 +123,7 @@ struct SearchView: View {
                     }
                 }
                 .listStyle(.plain)
+                .miniPlayerBottomMargin()
             }
         }
         .navigationDestination(for: ArtistID3.self) { artist in
