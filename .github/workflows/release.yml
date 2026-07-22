@@ -84,24 +84,6 @@ jobs:
           AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
         run: echo "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
 
-      - name: Archive (macOS, automatic signing)
-        run: |
-          xcodebuild \
-            -project "$PROJECT" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -destination 'generic/platform=macOS' \
-            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
-            -authenticationKeyID "$AC_API_KEY_ID" \
-            -authenticationKeyIssuerID "$AC_API_ISSUER_ID" \
-            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            archive
-
       - name: Install Developer ID provisioning profiles
         env:
           PROVISION_PROFILE_APP_BASE64: ${{ secrets.PROVISION_PROFILE_APP_BASE64 }}
@@ -111,6 +93,24 @@ jobs:
           mkdir -p "$PROFILES_DIR"
           echo "$PROVISION_PROFILE_APP_BASE64" | base64 --decode > "$PROFILES_DIR/cassette_app.provisionprofile"
           echo "$PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode > "$PROFILES_DIR/cassette_widget.provisionprofile"
+
+      - name: Archive (macOS, manual Developer ID signing)
+        run: |
+          # Manual Developer ID signing, reusing the imported certificate and the profiles installed
+          # above (matched to each target by bundle id). No automatic signing / -allowProvisioningUpdates,
+          # so the CI never mints a new development certificate and cannot hit the account's cert cap.
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
+            MARKETING_VERSION="${{ steps.version.outputs.version }}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            archive
 
       - name: Export Developer ID app
         run: |
