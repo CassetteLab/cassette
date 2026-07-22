@@ -1,5 +1,5 @@
 {
-  "originHash" : "44c5ad6c4fd29dc28ef1de55acda57c7e6a51dfc887031a1c7b3cdc19fa3d8b7",
+  "originHash" : "f039ea31b87e41894b88b6613ac723e78785b899e48200dc2b4663fb2fcdd0a4",
   "pins" : [
     {
       "identity" : "audiostreaming",
@@ -17,6 +17,15 @@
       "state" : {
         "revision" : "c0e822e18738ad913864e98d9614927ac1e9337c",
         "version" : "0.1.2"
+      }
+    },
+    {
+      "identity" : "swiftmuse",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/cassettelab/SwiftMuse",
+      "state" : {
+        "revision" : "4bf806ae3c3ac6b51d89ad9f0649ae13deb6ceaa",
+        "version" : "0.1.0"
       }
     },
     {

@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftMuse
 import OSLog
 
 /// Connects the active server to its AudioMuse-AI instance, which is what powers the weekly mood
@@ -167,10 +168,16 @@ struct AudioMuseSettingsView: View {
 
         let url = urlInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let token = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let client = AudioMuseClient(urlString: url, token: token.isEmpty ? nil : token) else {
+        guard let museConfig = SwiftMuseConfiguration(
+            urlString: url,
+            token: token.isEmpty ? nil : token,
+            serverScoping: .defaultServer,
+            logSubsystem: "app.cassette.moodplaylists"
+        ) else {
             testResult = .failure(String(localized: "That does not look like a valid address."))
             return
         }
+        let client = SwiftMuseClient(configuration: museConfig)
 
         do {
             // Goes through the PROVIDER, not the bare client, so the test exercises exactly what the
@@ -194,7 +201,12 @@ struct AudioMuseSettingsView: View {
             // playlists would keep their tag-built contents until Wednesday and the connection would
             // look like it had done nothing.
             await rebuildPlaylists()
-        } catch let error as AudioMuseError {
+        } catch MoodProviderError.internalIdsOnly {
+            // Reached only when the by-name recovery ALSO found nothing, which points at the two
+            // libraries genuinely holding different music rather than at the id mismatch.
+            Logger.moodPlaylists.warning("[AUDIOMUSE-TEST] failed: internalIdsOnly")
+            testResult = .failure(String(localized: "AudioMuse found tracks, but none of them exist in your music library. Is it analysing the same collection?"))
+        } catch let error as SwiftMuseError {
             Logger.moodPlaylists.warning("[AUDIOMUSE-TEST] failed: \(String(describing: error), privacy: .public)")
             testResult = .failure(message(for: error))
         } catch {
@@ -229,7 +241,7 @@ struct AudioMuseSettingsView: View {
         lastSource = await container.moodPlaylistService.lastSource(serverId: server.id.uuidString)
     }
 
-    private func message(for error: AudioMuseError) -> String {
+    private func message(for error: SwiftMuseError) -> String {
         switch error {
         case .searchDisabled(let serverMessage):
             return serverMessage ?? String(localized: "Sonic search is switched off on this AudioMuse instance.")
@@ -237,12 +249,12 @@ struct AudioMuseSettingsView: View {
             return String(localized: "AudioMuse has not analysed your library yet. Run an analysis, then try again.")
         case .unauthorized:
             return String(localized: "The API token was rejected.")
-        case .internalIdsOnly:
-            // Reached only when the by-name recovery ALSO found nothing, which points at the two
-            // libraries genuinely holding different music rather than at the id mismatch.
-            return String(localized: "AudioMuse found tracks, but none of them exist in your music library. Is it analysing the same collection?")
         case .badURL:
             return String(localized: "That does not look like a valid address.")
+        // Technical fallbacks, surfaced verbatim like the transport/decoding details below rather
+        // than localised — they are diagnostics, not guidance.
+        case .httpError(let statusCode):
+            return "HTTP \(statusCode)"
         case .transport(let detail), .decoding(let detail):
             return detail
         }

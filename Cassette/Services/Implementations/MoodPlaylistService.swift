@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftSonic
+import SwiftMuse
 import OSLog
 
 // MARK: - Results
@@ -89,7 +90,13 @@ actor MoodPlaylistService {
         self.makeProvider = {
             if let urlString = await MainActor.run(body: { serverState.activeServer?.audioMuseURL }),
                let credentials = try? await serverService.activeCredentials(),
-               let client = AudioMuseClient(urlString: urlString, token: credentials.audioMuseToken) {
+               let config = SwiftMuseConfiguration(
+                   urlString: urlString,
+                   token: credentials.audioMuseToken,
+                   serverScoping: .defaultServer,
+                   logSubsystem: "app.cassette.moodplaylists"
+               ) {
+                let client = SwiftMuseClient(configuration: config)
                 return AudioMuseTrackProvider(client: client, resolver: SubsonicTrackResolver(libraryService: libraryService))
             }
             return LibraryTagTrackProvider(libraryService: libraryService)

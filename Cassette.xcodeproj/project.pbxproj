@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		DB04DC0F2FB3CA280077CCD3 /* fr.mathieu-dubart.CassetteWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DBBC62D52FB3B9A600010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB2EFE092FBF805C00C2C11F /* AudioStreaming in Frameworks */ = {isa = PBXBuildFile; productRef = DB2EFE082FBF805C00C2C11F /* AudioStreaming */; };
+		DB4F5D3E3010E1F4004C2F1F /* SwiftMuse in Frameworks */ = {isa = PBXBuildFile; productRef = DB4F5D3D3010E1F4004C2F1F /* SwiftMuse */; };
 		DBA4A77D2F9BE3C8008BC5A9 /* SwiftSonic in Frameworks */ = {isa = PBXBuildFile; productRef = DBA4A77C2F9BE3C8008BC5A9 /* SwiftSonic */; };
 		DBBC62D82FB3B9A600010D3F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBBC62D72FB3B9A600010D3F /* WidgetKit.framework */; };
 		DBBC62DA2FB3B9A600010D3F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBBC62D92FB3B9A600010D3F /* SwiftUI.framework */; };
@@ -141,6 +142,7 @@
 			files = (
 				DB2EFE092FBF805C00C2C11F /* AudioStreaming in Frameworks */,
 				DBA4A77D2F9BE3C8008BC5A9 /* SwiftSonic in Frameworks */,
+				DB4F5D3E3010E1F4004C2F1F /* SwiftMuse in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +231,7 @@
 			packageProductDependencies = (
 				DBA4A77C2F9BE3C8008BC5A9 /* SwiftSonic */,
 				DB2EFE082FBF805C00C2C11F /* AudioStreaming */,
+				DB4F5D3D3010E1F4004C2F1F /* SwiftMuse */,
 			);
 			productName = Cassette;
 			productReference = DBA4A7512F9BBFCB008BC5A9 /* Cassette.app */;
@@ -348,6 +351,7 @@
 			packageReferences = (
 				DBA4A77B2F9BE3C8008BC5A9 /* XCRemoteSwiftPackageReference "swiftsonic" */,
 				DB2EFE072FBF805C00C2C11F /* XCRemoteSwiftPackageReference "AudioStreaming" */,
+				DB4F5D3C3010E1F4004C2F1F /* XCRemoteSwiftPackageReference "SwiftMuse" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DBA4A7522F9BBFCB008BC5A9 /* Products */;
@@ -951,6 +955,14 @@
 				minimumVersion = 1.4.4;
 			};
 		};
+		DB4F5D3C3010E1F4004C2F1F /* XCRemoteSwiftPackageReference "SwiftMuse" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/cassettelab/SwiftMuse";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
 		DBA4A77B2F9BE3C8008BC5A9 /* XCRemoteSwiftPackageReference "swiftsonic" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/MathieuDubart/swiftsonic";
@@ -966,6 +978,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = DB2EFE072FBF805C00C2C11F /* XCRemoteSwiftPackageReference "AudioStreaming" */;
 			productName = AudioStreaming;
+		};
+		DB4F5D3D3010E1F4004C2F1F /* SwiftMuse */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DB4F5D3C3010E1F4004C2F1F /* XCRemoteSwiftPackageReference "SwiftMuse" */;
+			productName = SwiftMuse;
 		};
 		DBA4A77C2F9BE3C8008BC5A9 /* SwiftSonic */ = {
 			isa = XCSwiftPackageProductDependency;

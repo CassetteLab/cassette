@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftSonic
+import SwiftMuse
 import OSLog
 
 // MARK: - MoodTrackProvider
@@ -30,6 +31,25 @@ nonisolated enum MoodSourceKind: String, Sendable, Equatable {
 
 // MARK: - AudioMuse
 
+/// A failure specific to how Cassette turns AudioMuse results into playlist ids, distinct from the
+/// transport and HTTP failures ``SwiftMuseError`` reports from the client itself.
+nonisolated enum MoodProviderError: Error, Equatable, Sendable {
+    /// AudioMuse answered only with internal canonical (`fp_`) ids AND none of them could be
+    /// recovered by name from the library. Distinct from an empty result: there were tracks, just
+    /// none the music server can play.
+    case internalIdsOnly
+}
+
+/// Maps a ``SonicTrack`` to the metadata used to find it in the library when AudioMuse handed back
+/// an id the music server cannot match. Kept in the app rather than on the package's model, so the
+/// client stays free of Cassette types.
+extension SonicTrack {
+    nonisolated var descriptor: TrackDescriptor? {
+        guard let title, !title.isEmpty else { return nil }
+        return TrackDescriptor(title: title, artist: author, album: album)
+    }
+}
+
 /// Sonic search. The good one.
 ///
 /// AudioMuse can answer with ids the music server does not recognise — its internal canonical ones,
@@ -37,11 +57,11 @@ nonisolated enum MoodSourceKind: String, Sendable, Equatable {
 /// carry title and artist, so the track is looked up in the library instead. What AudioMuse is good
 /// at, choosing the tracks, is kept; what it got wrong, naming them, is redone here.
 nonisolated struct AudioMuseTrackProvider: MoodTrackProvider {
-    let client: AudioMuseClient
+    let client: SwiftMuseClient
     /// Resolves tracks by metadata. Absent in tests that only exercise the id path.
     let resolver: SubsonicTrackResolver?
 
-    init(client: AudioMuseClient, resolver: SubsonicTrackResolver? = nil) {
+    init(client: SwiftMuseClient, resolver: SubsonicTrackResolver? = nil) {
         self.client = client
         self.resolver = resolver
     }
@@ -62,8 +82,8 @@ nonisolated struct AudioMuseTrackProvider: MoodTrackProvider {
         var unresolvable = 0
         var recovered = 0
         for track in results {
-            if !track.hasInternalId {
-                ids.append(track.itemId)
+            if !track.hasInternalID {
+                ids.append(track.itemID)
             } else if let resolver, let descriptor = track.descriptor, let id = await resolver.resolve(descriptor) {
                 ids.append(id)
                 recovered += 1
@@ -76,7 +96,7 @@ nonisolated struct AudioMuseTrackProvider: MoodTrackProvider {
 
         // Everything came back with an unusable id and nothing could be found in the library: the
         // caller must not treat that as a successful, empty playlist.
-        if ids.isEmpty && !results.isEmpty { throw AudioMuseError.internalIdsOnly }
+        if ids.isEmpty && !results.isEmpty { throw MoodProviderError.internalIdsOnly }
         return ids
     }
 }

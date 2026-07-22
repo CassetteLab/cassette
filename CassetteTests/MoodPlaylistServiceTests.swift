@@ -6,6 +6,7 @@
 import Testing
 import Foundation
 import SwiftSonic
+import SwiftMuse
 @testable import Cassette
 
 // MARK: - Stubs
@@ -31,7 +32,7 @@ private final class ProviderStub: MoodTrackProvider, @unchecked Sendable {
         switch outcomes[mood] ?? defaultOutcome {
         case .tracks(let n): return (0..<n).map { "track-\($0)" }
         case .empty:         return []
-        case .failure:       throw AudioMuseError.transport("stubbed failure")
+        case .failure:       throw SwiftMuseError.transport("stubbed failure")
         }
     }
 }
