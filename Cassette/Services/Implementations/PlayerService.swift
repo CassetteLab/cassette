@@ -80,10 +80,11 @@ actor PlayerService: PlayerServiceProtocol {
     /// Last saved volume from UserDefaults, defaulting to 0.7 when the key was never written.
     /// setVolume() never persists 0, so a missing key and an intentional-0 are indistinguishable
     /// here — using 0.7 as the initial default is correct.
-    nonisolated var restoredVolume: Float {
+    nonisolated static func persistedVolume() -> Float {
         guard UserDefaults.standard.object(forKey: "cassette.lastVolume") != nil else { return 0.7 }
         return Float(UserDefaults.standard.double(forKey: "cassette.lastVolume"))
     }
+    nonisolated var restoredVolume: Float { Self.persistedVolume() }
     private var positionSaveTask: Task<Void, Never>?
     /// Task reserved for the playing-now notification. Cancelled on track change.
     private var playingNowTask: Task<Void, Never>?
@@ -174,6 +175,9 @@ actor PlayerService: PlayerServiceProtocol {
             enableLogs: false
         )
         let player = AudioPlayer(configuration: playerConfig)
+        // A freshly created player defaults to full volume; seed it with the saved level so the very
+        // first track after a cold launch honours a low volume slider instead of blasting at 1.0.
+        player.volume = Self.persistedVolume()
         let delegate = AudioStreamingDelegate()
         self.audioPlayer = player
         self.audioDelegate = delegate
@@ -358,6 +362,10 @@ actor PlayerService: PlayerServiceProtocol {
 
         if fadingInAllowed {
             audioPlayer.volume = 0
+        } else {
+            // Reassert the saved volume right before play() — the one reliably-effective moment. Without
+            // it, a cold-launched player (default 1.0) plays the first track loud, ignoring a low slider.
+            audioPlayer.volume = restoredVolume
         }
         audioPlayer.play(url: source.url, headers: source.customHeaders)
         if fadingInAllowed {
