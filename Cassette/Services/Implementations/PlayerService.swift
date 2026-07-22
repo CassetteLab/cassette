@@ -107,6 +107,12 @@ actor PlayerService: PlayerServiceProtocol {
     private var originalQueueOrder: [DisplayableSong]?
     /// Single-slot guard preventing concurrent auto-extend fetches.
     private var autoExtendFetchTask: Task<Void, Never>?
+    /// True while an Instant Mix is still assembling its tracks behind the already-playing seed.
+    /// While set, auto-extend is suppressed: the seed plays as a one-track queue, and without this an
+    /// already-enabled endless mode would see "0 remaining" and immediately backfill 50 generic
+    /// library tracks — racing the mix, duplicating the queue, and jumping ahead of the real similar
+    /// songs. Cleared the moment the mix lands (or its build fails / is abandoned).
+    private var isBuildingInstantMix = false
     private nonisolated static let autoExtendUserDefaultsKey = "cassette.player.autoExtendEnabled"
 
     /// Wall-clock time when the current track first started (used as event timestamp). Nil before first track.
@@ -594,11 +600,17 @@ actor PlayerService: PlayerServiceProtocol {
             try await buildThenPlayInstantMix(from: seed)
             return
         }
-        try await play(tracks: [starter], startIndex: 0)
+        // Set BEFORE play(): starting a one-track queue re-evaluates auto-extend at once, and if
+        // endless mode is already on from an earlier mix it would fire a library backfill into the
+        // gap. The flag suppresses that until the mix itself has landed. Cleared inside appendInstantMix.
+        isBuildingInstantMix = true
+        do {
+            try await play(tracks: [starter], startIndex: 0)
+        } catch {
+            isBuildingInstantMix = false
+            throw error
+        }
         Logger.player.info("[MIX-TIMING] seed '\(starter.id, privacy: .public)' playing immediately — mix building behind it")
-        // Auto-extend deliberately stays OFF until the mix lands. Turning it on now re-evaluates at
-        // once, and with a one-track queue it would fill the gap with generic similar tracks — racing,
-        // and partly duplicating, the mix we are about to append.
         // The seed is already playing, so the audio background mode covers this on its own — the
         // assertion is the safety net for the user who hits pause while the mix is still building.
         Task { await BackgroundActivity.run("instant-mix") { await self.appendInstantMix(from: seed, behind: starter) } }
@@ -629,6 +641,9 @@ actor PlayerService: PlayerServiceProtocol {
 
     /// Builds the mix off the critical path and grafts it behind the already-playing seed.
     private func appendInstantMix(from seed: InstantMixSeed, behind seedTrack: DisplayableSong) async {
+        // Whatever the outcome — appended, empty, abandoned, or thrown — the build is over, so stop
+        // suppressing auto-extend. Safety net for the paths that return before the explicit clears below.
+        defer { isBuildingInstantMix = false }
         do {
             let tracks = try await libraryService.instantMix(from: seed, count: 100)
             // The build takes tens of seconds. If the user moved on in the meantime, appending would
@@ -642,7 +657,9 @@ actor PlayerService: PlayerServiceProtocol {
                 // A server with no similarity data (no AudioMuse, no Navidrome agent) answers empty.
                 // Endless play still works there — it is built on listening history, discographies and
                 // genres, not on the similarity endpoints — so fall through to it rather than leaving
-                // the seed to play alone and stop.
+                // the seed to play alone and stop. Clear the guard FIRST: here we *want* the immediate
+                // re-evaluation to backfill the otherwise-lone seed.
+                isBuildingInstantMix = false
                 Logger.player.info("[INSTANT-MIX] no similarity data for seed — continuing with the library-based endless queue")
                 await setAutoExtendEnabled(true)
                 await MainActor.run {
@@ -651,6 +668,10 @@ actor PlayerService: PlayerServiceProtocol {
                 return
             }
             await appendToQueue(fresh)
+            // Mix is in the queue now; re-enable evaluation before turning auto-extend on. With ~100
+            // tracks queued, the immediate re-evaluation sees plenty remaining and will not fetch —
+            // the library backfill only fires later, once the mix is nearly spent.
+            isBuildingInstantMix = false
             await setAutoExtendEnabled(true)
             Logger.player.info("[INSTANT-MIX] appended \(fresh.count, privacy: .public) tracks behind the seed (auto-extend on)")
         } catch {
@@ -726,6 +747,26 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Auto-extend
 
+    /// The pure trigger decision, factored out so it can be tested without driving the whole actor
+    /// (same rationale as `truncationTarget`). The single-slot fetch guard stays in the caller: it is
+    /// live runtime state, not a property of the queue.
+    ///
+    /// `isBuildingInstantMix` is the key addition — it holds back the fetch while a mix assembles
+    /// behind its lone seed, so an already-enabled endless mode cannot backfill generic library
+    /// tracks into the gap ahead of the real similar songs.
+    nonisolated static func shouldAutoExtend(
+        isEnabled: Bool,
+        repeatMode: RepeatMode,
+        hasRadio: Bool,
+        isBuildingInstantMix: Bool,
+        remaining: Int
+    ) -> Bool {
+        guard isEnabled, repeatMode == .off, !hasRadio, !isBuildingInstantMix else { return false }
+        // Trigger threshold : 15 or fewer tracks remaining (including zero — covers singles
+        // and starting from the last track of an album).
+        return remaining <= 15
+    }
+
     /// Reads queue position and fires a background fetch + append when ≤15 tracks remain.
     /// Called at the end of every startPlayback(). Guarded by a single-slot task to prevent
     /// parallel fetches when tracks advance rapidly. Errors are swallowed — natural queue
@@ -735,13 +776,14 @@ actor PlayerService: PlayerServiceProtocol {
             let remaining = state.queue.count - state.currentIndex - 1
             return (state.isAutoExtendEnabled, state.repeatMode, state.currentRadio, remaining, Set(state.queue.map(\.id)))
         }
-        guard isEnabled else { return }
-        guard repeatMode == .off else { return }
-        guard currentRadio == nil else { return }
+        guard Self.shouldAutoExtend(
+            isEnabled: isEnabled,
+            repeatMode: repeatMode,
+            hasRadio: currentRadio != nil,
+            isBuildingInstantMix: isBuildingInstantMix,
+            remaining: remaining
+        ) else { return }
         guard autoExtendFetchTask == nil else { return }
-        // Trigger threshold : 15 or fewer tracks remaining (including zero — covers singles
-        // and starting from the last track of an album).
-        guard remaining <= 15 else { return }
 
         Logger.player.info("Auto-extend triggered: \(remaining) tracks remaining, fetching 50 similar")
 
