@@ -57,7 +57,8 @@ struct MainTabView: View {
                             }
                             .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
                             .padding(.horizontal, CassetteSpacing.s)
-                            .padding(.bottom, CassetteSpacing.xs)
+                            // Lift clear of the tab bar (safeAreaInset draws over it), plus a small gap.
+                            .padding(.bottom, CassetteSpacing.legacyTabBarHeight + CassetteSpacing.xs)
                     }
                 }
                 .fullScreenCover(isPresented: $showingFullPlayer) {
