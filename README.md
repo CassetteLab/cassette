@@ -6,7 +6,6 @@
 [![Release](https://github.com/CassetteLab/cassette/actions/workflows/release.yml/badge.svg)](https://github.com/CassetteLab/cassette/actions/workflows/release.yml)
 [![Platform](https://img.shields.io/badge/platform-iOS%2026%2B%20%7C%20macOS%2015%2B-blue.svg)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-6-orange.svg)](https://swift.org)
-[![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/zQxUQedpex)
 
 
 ---
