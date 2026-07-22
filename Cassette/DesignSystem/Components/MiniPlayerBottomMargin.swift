@@ -16,9 +16,18 @@ private struct MiniPlayerBottomMargin: ViewModifier {
         container?.playerState.currentTrack != nil || container?.playerState.isLiveStream == true
     }
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .contentMargins(.bottom, isMiniPlayerVisible ? CassetteSpacing.miniPlayerBottomMargin : 0, for: .scrollContent)
+        if #available(iOS 26.0, *) {
+            // iOS 26: the accessory floats over content without extending the safe area,
+            // so we reserve its height manually as a scroll content margin.
+            content
+                .contentMargins(.bottom, isMiniPlayerVisible ? CassetteSpacing.miniPlayerBottomMargin : 0, for: .scrollContent)
+        } else {
+            // iOS 18: the mini player is hosted via safeAreaInset, which already reserves
+            // its height in the scroll safe area — adding a margin would double the gap.
+            content
+        }
     }
 }
 #endif

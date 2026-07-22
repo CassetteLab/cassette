@@ -24,19 +24,47 @@ struct MainTabView: View {
 
     var body: some View {
         #if os(iOS)
-        tabs
-            .tabBarMinimizeBehavior(.onScrollDown)
-            .tabViewBottomAccessory {
-                if hasTrack {
-                    MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer)
-                        .environment(\.colorScheme, colorScheme)
-                        .cassetteMatchedTransitionSource(id: fullPlayerZoomID, in: playerZoom)
+        if #available(iOS 26.0, *) {
+            tabs
+                .tabBarMinimizeBehavior(.onScrollDown)
+                .tabViewBottomAccessory {
+                    if hasTrack {
+                        MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer)
+                            .environment(\.colorScheme, colorScheme)
+                            .cassetteMatchedTransitionSource(id: fullPlayerZoomID, in: playerZoom)
+                    }
                 }
-            }
-            .fullScreenCover(isPresented: $showingFullPlayer) {
-                FullPlayerView()
-                    .cassetteZoomTransition(sourceID: fullPlayerZoomID, in: playerZoom)
-            }
+                .fullScreenCover(isPresented: $showingFullPlayer) {
+                    FullPlayerView()
+                        .cassetteZoomTransition(sourceID: fullPlayerZoomID, in: playerZoom)
+                }
+        } else {
+            // iOS 18: no tabViewBottomAccessory API. Float the mini player above the
+            // tab bar via a bottom safe-area inset, supplying the material background
+            // the accessory container would otherwise provide (glass falls back to
+            // .ultraThinMaterial pre-26). The zoom transition stays — it's iOS 18+.
+            tabs
+                .safeAreaInset(edge: .bottom) {
+                    if hasTrack {
+                        MiniPlayerAccessoryView(showingFullPlayer: $showingFullPlayer)
+                            .environment(\.colorScheme, colorScheme)
+                            .cassetteMatchedTransitionSource(id: fullPlayerZoomID, in: playerZoom)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
+                                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                            }
+                            .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+                            .padding(.horizontal, CassetteSpacing.s)
+                            .padding(.bottom, CassetteSpacing.xs)
+                    }
+                }
+                .fullScreenCover(isPresented: $showingFullPlayer) {
+                    FullPlayerView()
+                        .cassetteZoomTransition(sourceID: fullPlayerZoomID, in: playerZoom)
+                }
+        }
         #else
         tabs
             .safeAreaInset(edge: .bottom) {
