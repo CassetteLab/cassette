@@ -67,12 +67,12 @@ nonisolated struct AudioMuseTrack: Decodable, Sendable, Equatable {
     }
 }
 
-private struct ClapSearchResponse: Decodable {
+private nonisolated struct ClapSearchResponse: Decodable {
     let results: [AudioMuseTrack]
 }
 
-private struct ServersResponse: Decodable {
-    struct Server: Decodable {
+private nonisolated struct ServersResponse: Decodable {
+    nonisolated struct Server: Decodable {
         let serverId: String?
         let name: String?
         enum CodingKeys: String, CodingKey { case serverId = "server_id", name }
