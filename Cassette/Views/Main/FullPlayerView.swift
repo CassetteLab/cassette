@@ -10,6 +10,7 @@ import OSLog
 
 #if canImport(UIKit)
 import AVKit
+import UIKit
 #endif
 
 private enum PlayerSurface { case player, queue }
@@ -48,6 +49,12 @@ struct FullPlayerView: View {
     @Namespace private var morphNS
 
     #if os(iOS)
+    /// One interaction shared by the artwork and metadata hit regions, so a drag that starts in either place
+    /// drives the same title preview and commits exactly once.
+    @State private var trackSwipe = TrackSwipeInteraction()
+    #endif
+
+    #if os(iOS)
     // MARK: - Player layout knobs (iOS) — eyeball-tunable.
     /// Player cover cap. Bigger = larger artwork (also width-limited to screenWidth − 2·playerCoverHPadding).
     private static let playerCoverSize: CGFloat = 340
@@ -67,6 +74,9 @@ struct FullPlayerView: View {
                 ? playerState.currentRadio?.coverArt
                 : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id)
             content(playerState)
+                #if os(iOS)
+                .interactiveDismissDisabled(trackSwipe.isHorizontalDragActive)
+                #endif
                 // Key on the cover id AND the user colour override, so picking a colour (e.g. via the album sheet
                 // opened over the player, same track) re-runs updateColors and refreshes the vm-derived text /
                 // control colours — not just the self-healing background.
@@ -235,7 +245,8 @@ struct FullPlayerView: View {
                         playerState: playerState,
                         container: container,
                         contentColor: vm.contentColor,
-                        secondaryContentColor: vm.secondaryContentColor
+                        secondaryContentColor: vm.secondaryContentColor,
+                        trackSwipe: trackSwipe
                     )
                     .padding(.horizontal, CassetteSpacing.l)
                 }
@@ -257,6 +268,7 @@ struct FullPlayerView: View {
                     playerState: playerState,
                     playerService: container?.playerService,
                     isPlaybackAvailable: playerState.isPlaybackAvailable,
+                    keepsPauseIcon: trackSwipe.keepsPauseIcon,
                     contentColor: vm.contentColor,
                     secondaryContentColor: vm.secondaryContentColor
                 )
@@ -383,6 +395,15 @@ struct FullPlayerView: View {
                 // Top-aligned so the cover reaches the very top edge of the screen (no gap above), like the
                 // album/playlist hero; its bottom melts into the dominant body colour below.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // The artwork itself stays visually anchored; dragging anywhere across this generous region
+                // drives the same interactive metadata carousel as a drag directly on the title.
+                .trackSwipeGesture(
+                    interaction: trackSwipe,
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    reduceMotion: reduceMotion,
+                    isEnabled: isSource && playerState.isPlaybackAvailable && !playerState.isLiveStream
+                )
         }
     }
 
@@ -736,18 +757,27 @@ private struct TrackInfoSection: View {
     let contentColor: Color
     let secondaryContentColor: Color
     var compact: Bool = false
+    var trackSwipe: TrackSwipeInteraction? = nil
 
     @Query private var favoriteMatches: [FavoriteRecord]
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
 
-    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, compact: Bool = false) {
+    init(
+        playerState: PlayerState,
+        container: AppContainer?,
+        contentColor: Color,
+        secondaryContentColor: Color,
+        compact: Bool = false,
+        trackSwipe: TrackSwipeInteraction? = nil
+    ) {
         self.playerState = playerState
         self.container = container
         self.contentColor = contentColor
         self.secondaryContentColor = secondaryContentColor
         self.compact = compact
+        self.trackSwipe = trackSwipe
         let cid = "song:\(playerState.currentTrack?.id ?? "")"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -756,50 +786,10 @@ private struct TrackInfoSection: View {
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
     var body: some View {
-        HStack(alignment: .top, spacing: CassetteSpacing.m) {
-            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                Text(playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (playerState.currentTrack?.title ?? ""))
-                    .font(compact ? .cassetteSectionTitle : .title2)
-                    .fontWeight(compact ? .semibold : .bold)
-                    .foregroundStyle(contentColor)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                if !playerState.isPlaybackAvailable {
-                    Label("Reconnect to resume", systemImage: "wifi.slash")
-                        .font(.callout)
-                        .foregroundStyle(secondaryContentColor)
-                        .lineLimit(1)
-                } else if playerState.isLiveStream {
-                    Text("Live Radio")
-                        .font(.subheadline)
-                        .foregroundStyle(secondaryContentColor)
-                        .lineLimit(1)
-                } else {
-                    VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                        HStack(spacing: CassetteSpacing.xs) {
-                            if let artist = playerState.currentTrack?.artist {
-                                Button {
-                                    goToArtist()
-                                } label: {
-                                    Text(artist)
-                                        .font(.subheadline)
-                                        .foregroundStyle(secondaryContentColor)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(!isOnline)
-                            }
-                            if let format = playerState.currentTrack?.audioFormat {
-                                AudioFormatBadge(format: format, color: secondaryContentColor)
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+        HStack(alignment: .top, spacing: 0) {
+            trackMetadata
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
 
             HStack(spacing: CassetteSpacing.s) {
                 if !playerState.isLiveStream {
@@ -886,6 +876,135 @@ private struct TrackInfoSection: View {
         }
     }
 
+    /// Apple Music-style horizontal paging for the full-size iOS metadata row. The favorite and menu buttons
+    /// stay anchored while the title/artist page follows the finger and reveals the adjacent queue item.
+    @ViewBuilder
+    private var trackMetadata: some View {
+        #if os(iOS)
+        if !compact, !playerState.isLiveStream, playerState.isPlaybackAvailable, let trackSwipe {
+            SwipeableTrackMetadata(
+                playerState: playerState,
+                playerService: container?.playerService,
+                interaction: trackSwipe
+            ) { song, isCurrent in
+                metadata(for: song, isCurrent: isCurrent, blurredTitleTail: true)
+            }
+        } else {
+            metadata(for: playerState.currentTrack, isCurrent: true, blurredTitleTail: false)
+        }
+        #else
+        metadata(for: playerState.currentTrack, isCurrent: true, blurredTitleTail: false)
+        #endif
+    }
+
+    private func metadata(
+        for song: DisplayableSong?,
+        isCurrent: Bool,
+        blurredTitleTail: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+            metadataTitle(
+                playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (song?.title ?? ""),
+                animationID: song?.id ?? "",
+                blurredTail: blurredTitleTail,
+                scrolls: isCurrent
+            )
+
+            if !playerState.isPlaybackAvailable {
+                Label("Reconnect to resume", systemImage: "wifi.slash")
+                    .font(metadataSubtitleFont)
+                    .foregroundStyle(secondaryContentColor)
+                    .lineLimit(1)
+            } else if playerState.isLiveStream {
+                Text("Live Radio")
+                    .font(metadataSubtitleFont)
+                    .foregroundStyle(secondaryContentColor)
+                    .lineLimit(1)
+            } else {
+                metadataSubtitle(for: song, isCurrent: isCurrent, untruncated: blurredTitleTail)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func metadataSubtitle(
+        for song: DisplayableSong?,
+        isCurrent: Bool,
+        untruncated: Bool
+    ) -> some View {
+        let row = HStack(spacing: CassetteSpacing.xs) {
+            if let artist = song?.artist {
+                if isCurrent {
+                    Button { goToArtist() } label: { artistLabel(artist) }
+                        .buttonStyle(.plain)
+                        .disabled(!isOnline)
+                } else {
+                    artistLabel(artist)
+                }
+            }
+            if let format = song?.audioFormat {
+                AudioFormatBadge(format: format, color: secondaryContentColor)
+            }
+        }
+
+        #if os(iOS)
+        if untruncated {
+            LoopingTrackContent(animationID: song?.id ?? "", isActive: isCurrent) { row }
+                .id(song?.id)
+        } else {
+            row
+        }
+        #else
+        row
+        #endif
+    }
+
+    private func artistLabel(_ artist: String) -> some View {
+        Text(artist)
+            .font(metadataSubtitleFont)
+            .foregroundStyle(secondaryContentColor)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    @ViewBuilder
+    private func metadataTitle(_ title: String, animationID: String, blurredTail: Bool, scrolls: Bool) -> some View {
+        let label = Text(title)
+            .font(metadataTitleFont)
+            .foregroundStyle(contentColor)
+            .lineLimit(1)
+
+        #if os(iOS)
+        if blurredTail {
+            LoopingTrackContent(animationID: animationID, isActive: scrolls) { label }
+                .id(animationID)
+        } else {
+            label.truncationMode(.tail)
+        }
+        #else
+        label.truncationMode(.tail)
+        #endif
+    }
+
+    /// The full iOS player uses a tighter title/subtitle hierarchy than list and desktop surfaces: the title
+    /// steps down one Dynamic Type style while the artist steps up one, keeping both readable during a swipe.
+    private var metadataTitleFont: Font {
+        #if os(iOS)
+        .cassetteSectionTitle
+        #else
+        compact ? .cassetteSectionTitle : .cassetteDetailTitle
+        #endif
+    }
+
+    private var metadataSubtitleFont: Font {
+        #if os(iOS)
+        compact ? .cassetteCellSubtitle : .cassetteBody
+        #else
+        .cassetteCellSubtitle
+        #endif
+    }
+
     /// Navigates to the current track's artist by routing through the Home stack (via
     /// `.cassetteNavigateToArtist`), mirroring macOS. Prefers the track's own `artistId`;
     /// falls back to a name search only when the track has no artistId (incomplete metadata).
@@ -905,6 +1024,486 @@ private struct TrackInfoSection: View {
     }
 
 }
+
+@Observable
+@MainActor
+private final class TrackSwipeInteraction {
+    enum Direction: Equatable { case previous, next }
+
+    var offset: CGFloat = 0
+    var pageWidth: CGFloat = 0
+    var isHorizontalDragActive = false
+    private(set) var keepsPauseIcon = false
+    private var committing = false
+
+    func destination(_ direction: Direction, in playerState: PlayerState) -> (index: Int, song: DisplayableSong)? {
+        let queue = playerState.queue
+        let index = playerState.currentIndex
+        guard queue.indices.contains(index), queue.count > 1 else { return nil }
+
+        let target = direction == .previous ? index - 1 : index + 1
+        if queue.indices.contains(target) { return (target, queue[target]) }
+        guard direction == .next, playerState.repeatMode == .all else { return nil }
+        return (0, queue[0])
+    }
+
+    func changed(
+        translation: CGSize,
+        playerState: PlayerState,
+        playerService: (any PlayerServiceProtocol)?,
+        reduceMotion: Bool
+    ) {
+        guard !committing, pageWidth > 0, abs(translation.width) > abs(translation.height) else { return }
+        isHorizontalDragActive = true
+        let drag = activeTranslation(translation.width)
+        guard drag != 0 else {
+            offset = 0
+            return
+        }
+        let direction = direction(for: drag)
+        offset = destination(direction, in: playerState) == nil ? drag * 0.12 : drag
+        if abs(offset) >= pageWidth * 0.92 {
+            commit(direction, playerState: playerState, playerService: playerService, reduceMotion: reduceMotion)
+        }
+    }
+
+    func ended(
+        translation: CGSize,
+        predictedTranslation: CGSize,
+        playerState: PlayerState,
+        playerService: (any PlayerServiceProtocol)?,
+        reduceMotion: Bool
+    ) {
+        defer { isHorizontalDragActive = false }
+        guard !committing else { return }
+        guard abs(translation.width) > abs(translation.height) else {
+            bounceBack(reduceMotion: reduceMotion)
+            return
+        }
+        let drag = activeTranslation(translation.width)
+        let direction = direction(for: drag)
+        let shouldCommit = abs(drag) >= min(90, pageWidth * 0.30)
+            || abs(activeTranslation(predictedTranslation.width)) >= pageWidth * 0.50
+        if shouldCommit, destination(direction, in: playerState) != nil {
+            commit(direction, playerState: playerState, playerService: playerService, reduceMotion: reduceMotion)
+        } else {
+            bounceBack(reduceMotion: reduceMotion)
+        }
+    }
+
+    func skip(
+        _ direction: Direction,
+        playerState: PlayerState,
+        playerService: (any PlayerServiceProtocol)?,
+        reduceMotion: Bool
+    ) {
+        commit(direction, playerState: playerState, playerService: playerService, reduceMotion: reduceMotion)
+    }
+
+    func reset() {
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            offset = 0
+            isHorizontalDragActive = false
+            committing = false
+        }
+    }
+
+    func cancel(reduceMotion: Bool) {
+        isHorizontalDragActive = false
+        bounceBack(reduceMotion: reduceMotion)
+    }
+
+    private func commit(
+        _ direction: Direction,
+        playerState: PlayerState,
+        playerService: (any PlayerServiceProtocol)?,
+        reduceMotion: Bool
+    ) {
+        guard !committing,
+              let destination = destination(direction, in: playerState),
+              let playerService else {
+            bounceBack(reduceMotion: reduceMotion)
+            return
+        }
+
+        committing = true
+        keepsPauseIcon = playerState.playbackState == .playing
+        HapticFeedback.medium.trigger()
+        withAnimation(reduceMotion ? .easeOut(duration: 0.08) : .snappy(duration: 0.22)) {
+            offset = direction == .next ? -pageWidth : pageWidth
+        }
+
+        Task { @MainActor in
+            if !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(150))
+            }
+            do {
+                try await playerService.play(tracks: playerState.queue, startIndex: destination.index)
+                keepsPauseIcon = false
+            } catch {
+                keepsPauseIcon = false
+                guard playerState.currentIndex != destination.index else { return }
+                committing = false
+                bounceBack(reduceMotion: reduceMotion)
+            }
+        }
+    }
+
+    private func direction(for translation: CGFloat) -> Direction {
+        translation < 0 ? .next : .previous
+    }
+
+    private func activeTranslation(_ translation: CGFloat) -> CGFloat {
+        guard abs(translation) > CassetteSpacing.xl else { return 0 }
+        return translation > 0
+            ? translation - CassetteSpacing.xl
+            : translation + CassetteSpacing.xl
+    }
+
+    private func bounceBack(reduceMotion: Bool) {
+        withAnimation(reduceMotion ? .easeOut(duration: 0.08) : .spring(response: 0.30, dampingFraction: 0.78)) {
+            offset = 0
+        }
+    }
+}
+
+#if os(iOS)
+private extension View {
+    @ViewBuilder
+    func trackSwipeGesture(
+        interaction: TrackSwipeInteraction,
+        playerState: PlayerState,
+        playerService: (any PlayerServiceProtocol)?,
+        reduceMotion: Bool,
+        isEnabled: Bool,
+        pageWidth: CGFloat? = nil
+    ) -> some View {
+        if isEnabled {
+            gesture(HorizontalTrackPanGesture(
+                interaction: interaction,
+                playerState: playerState,
+                playerService: playerService,
+                reduceMotion: reduceMotion,
+                pageWidth: pageWidth
+            ))
+        } else {
+            self
+        }
+    }
+}
+
+private struct HorizontalTrackPanGesture: UIGestureRecognizerRepresentable {
+    let interaction: TrackSwipeInteraction
+    let playerState: PlayerState
+    let playerService: (any PlayerServiceProtocol)?
+    let reduceMotion: Bool
+    let pageWidth: CGFloat?
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let recognizer = UIPanGestureRecognizer()
+        recognizer.delegate = context.coordinator
+        recognizer.maximumNumberOfTouches = 1
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        context.coordinator.parent = self
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let point = context.converter.localTranslation ?? .zero
+        let translation = CGSize(width: point.x, height: point.y)
+
+        switch recognizer.state {
+        case .began, .changed:
+            if let pageWidth, pageWidth > 0 { interaction.pageWidth = pageWidth }
+            interaction.isHorizontalDragActive = true
+            interaction.changed(
+                translation: translation,
+                playerState: playerState,
+                playerService: playerService,
+                reduceMotion: reduceMotion
+            )
+        case .ended:
+            let velocity = context.converter.localVelocity ?? .zero
+            let predicted = CGSize(
+                width: translation.width + velocity.x * 0.2,
+                height: translation.height + velocity.y * 0.2
+            )
+            interaction.ended(
+                translation: translation,
+                predictedTranslation: predicted,
+                playerState: playerState,
+                playerService: playerService,
+                reduceMotion: reduceMotion
+            )
+        case .cancelled, .failed:
+            interaction.cancel(reduceMotion: reduceMotion)
+        default:
+            break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var parent: HorizontalTrackPanGesture
+
+        init(parent: HorizontalTrackPanGesture) {
+            self.parent = parent
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return false }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) > abs(velocity.y)
+        }
+    }
+}
+
+private struct LoopingTrackContent<Content: View>: View {
+    let animationID: String
+    let isActive: Bool
+    private let content: Content
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var contentWidth: CGFloat = 0
+    @State private var offset: CGFloat = 0
+
+    private let pointsPerSecond: CGFloat = 30
+
+    init(animationID: String, isActive: Bool, @ViewBuilder content: () -> Content) {
+        self.animationID = animationID
+        self.isActive = isActive
+        self.content = content()
+    }
+
+    var body: some View {
+        content.hidden().overlay(alignment: .leading) {
+            GeometryReader { geometry in
+                let overflows = contentWidth > geometry.size.width
+                let stride = contentWidth + CassetteSpacing.xxxl
+                let leadingStrength = min(abs(offset) / CassetteSpacing.m, 1)
+                let loopingContent = HStack(spacing: CassetteSpacing.xxxl) {
+                    fullContent
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
+                    if overflows { fullContent.accessibilityHidden(true) }
+                }
+                .offset(x: offset)
+                let viewport = loopingContent
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
+                    .clipped()
+
+                ZStack(alignment: .leading) {
+                    viewport.mask(edgeMask(blurred: false, leading: leadingStrength, trailing: 0))
+                    viewport
+                        .blur(radius: CassetteSpacing.xs)
+                        .mask(edgeMask(blurred: true, leading: leadingStrength, trailing: 0))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
+                .clipped()
+                .task(id: AnimationKey(
+                    animationID: animationID,
+                    contentWidth: contentWidth,
+                    viewportWidth: geometry.size.width,
+                    reduceMotion: reduceMotion,
+                    isActive: isActive
+                )) {
+                    await animate(stride: stride, overflows: overflows)
+                }
+            }
+        }
+    }
+
+    private var fullContent: some View {
+        content.fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func animate(stride: CGFloat, overflows: Bool) async {
+        resetOffset()
+        guard overflows, isActive, !reduceMotion else { return }
+
+        do {
+            try await Task.sleep(for: .seconds(1.2))
+            while !Task.isCancelled {
+                let duration = Double(stride / pointsPerSecond)
+                withAnimation(.linear(duration: duration)) { offset = -stride }
+                try await Task.sleep(for: .seconds(duration))
+                resetOffset()
+                try await Task.sleep(for: .seconds(1))
+            }
+        } catch { }
+    }
+
+    private func resetOffset() {
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) { offset = 0 }
+    }
+
+    private struct AnimationKey: Equatable {
+        let animationID: String
+        let contentWidth: CGFloat
+        let viewportWidth: CGFloat
+        let reduceMotion: Bool
+        let isActive: Bool
+    }
+}
+
+private struct TrackTextEdgeMask: View {
+    let blurred: Bool
+    let leading: CGFloat
+    let trailing: CGFloat
+
+    var body: some View {
+        HStack(spacing: 0) {
+            edge(strength: leading, isLeading: true)
+            Rectangle().fill(blurred ? .clear : .black)
+            edge(strength: trailing, isLeading: false)
+        }
+    }
+
+    private func edge(strength: CGFloat, isLeading: Bool) -> some View {
+        let colors: [Color]
+        if blurred {
+            colors = [.clear, .black.opacity(strength), .clear]
+        } else {
+            colors = isLeading
+                ? [.black.opacity(1 - strength), .black]
+                : [.black, .black.opacity(1 - strength)]
+        }
+        return LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
+            .frame(width: CassetteSpacing.m)
+    }
+}
+
+private func edgeMask(blurred: Bool, leading: CGFloat, trailing: CGFloat) -> some View {
+    TrackTextEdgeMask(blurred: blurred, leading: leading, trailing: trailing)
+}
+
+private struct SwipeableTrackMetadata<Metadata: View>: View {
+    let playerState: PlayerState
+    let playerService: (any PlayerServiceProtocol)?
+    let interaction: TrackSwipeInteraction
+    private let metadata: (DisplayableSong?, Bool) -> Metadata
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(
+        playerState: PlayerState,
+        playerService: (any PlayerServiceProtocol)?,
+        interaction: TrackSwipeInteraction,
+        @ViewBuilder metadata: @escaping (DisplayableSong?, Bool) -> Metadata
+    ) {
+        self.playerState = playerState
+        self.playerService = playerService
+        self.interaction = interaction
+        self.metadata = metadata
+    }
+
+    private var currentSong: DisplayableSong? {
+        guard playerState.queue.indices.contains(playerState.currentIndex) else {
+            return playerState.currentTrack
+        }
+        return playerState.queue[playerState.currentIndex]
+    }
+
+    var body: some View {
+        metadata(currentSong, false)
+            .hidden()
+            .overlay {
+                GeometryReader { geometry in
+                    let width = geometry.size.width
+                    let pageStride = width + CassetteSpacing.xxxl
+                    let effectStrength = min(abs(interaction.offset) / CassetteSpacing.s, 1)
+
+                    let pages = HStack(spacing: CassetteSpacing.xxxl) {
+                        page(
+                            interaction.destination(.previous, in: playerState)?.song,
+                            isCurrent: false,
+                            width: width
+                        )
+                        .accessibilityHidden(true)
+
+                        page(
+                            currentSong,
+                            isCurrent: true,
+                            width: width
+                        )
+
+                        page(
+                            interaction.destination(.next, in: playerState)?.song,
+                            isCurrent: false,
+                            width: width
+                        )
+                        .accessibilityHidden(true)
+                    }
+
+                    let carousel = pages
+                        .offset(x: -pageStride + interaction.offset)
+                        .frame(width: width, height: geometry.size.height, alignment: .leading)
+                        .clipped()
+
+                    ZStack {
+                        carousel.mask(edgeMask(blurred: false, leading: effectStrength, trailing: 1))
+                        carousel
+                            .blur(radius: CassetteSpacing.xs)
+                            .mask(edgeMask(blurred: true, leading: effectStrength, trailing: 1))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                    .contentShape(Rectangle())
+                    .trackSwipeGesture(
+                        interaction: interaction,
+                        playerState: playerState,
+                        playerService: playerService,
+                        reduceMotion: reduceMotion,
+                        isEnabled: true,
+                        pageWidth: pageStride
+                    )
+                    .onAppear { interaction.pageWidth = pageStride }
+                    .onChange(of: pageStride) { _, newStride in interaction.pageWidth = newStride }
+                }
+            }
+            .clipped()
+            .accessibilityAction(named: "Previous Track") {
+                interaction.skip(.previous, playerState: playerState, playerService: playerService, reduceMotion: reduceMotion)
+            }
+            .accessibilityAction(named: "Next Track") {
+                interaction.skip(.next, playerState: playerState, playerService: playerService, reduceMotion: reduceMotion)
+            }
+            .onChange(of: playerState.currentIndex) { _, _ in interaction.reset() }
+            .onChange(of: playerState.currentTrack?.id) { _, _ in interaction.reset() }
+    }
+
+    private func page(
+        _ song: DisplayableSong?,
+        isCurrent: Bool,
+        width: CGFloat
+    ) -> some View {
+        let content = metadata(song, isCurrent)
+            .frame(width: width, alignment: .leading)
+            .clipped()
+
+        return ZStack(alignment: .leading) {
+            content.mask(edgeMask(blurred: false, leading: 0, trailing: 1))
+            content
+                .blur(radius: CassetteSpacing.xs)
+                .mask(edgeMask(blurred: true, leading: 0, trailing: 1))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+        .frame(width: width, alignment: .leading)
+    }
+
+}
+#endif
 
 // MARK: - Scrubber
 
@@ -1079,10 +1678,13 @@ private struct PlaybackControlsView: View {
     let playerState: PlayerState
     let playerService: (any PlayerServiceProtocol)?
     var isPlaybackAvailable: Bool = true
+    var keepsPauseIcon: Bool = false
     let contentColor: Color
     let secondaryContentColor: Color
 
     var body: some View {
+        let showsPause = keepsPauseIcon || playerState.playbackState == .playing
+
         HStack(spacing: CassetteSpacing.xxxxl) {
             if !playerState.isLiveStream {
                 Button {
@@ -1111,7 +1713,7 @@ private struct PlaybackControlsView: View {
                     }
                 }
             } label: {
-                Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
+                Image(systemName: showsPause ? "pause.fill" : "play.fill")
                     .font(.system(size: 44))
                     .foregroundStyle(isPlaybackAvailable ? contentColor : contentColor.opacity(0.4))
                     .frame(width: 80, height: 80)
