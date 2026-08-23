@@ -897,19 +897,16 @@ private struct TrackInfoSection: View {
         #endif
     }
 
+    @ViewBuilder
     private func metadata(
         for song: DisplayableSong?,
         isCurrent: Bool,
         blurredTitleTail: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-            metadataTitle(
-                playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (song?.title ?? ""),
-                animationID: song?.id ?? "",
-                blurredTail: blurredTitleTail,
-                scrolls: isCurrent
-            )
-
+        let title = metadataTitle(
+            playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (song?.title ?? "")
+        )
+        let subtitle = Group {
             if !playerState.isPlaybackAvailable {
                 Label("Reconnect to resume", systemImage: "wifi.slash")
                     .font(metadataSubtitleFont)
@@ -921,19 +918,36 @@ private struct TrackInfoSection: View {
                     .foregroundStyle(secondaryContentColor)
                     .lineLimit(1)
             } else {
-                metadataSubtitle(for: song, isCurrent: isCurrent, untruncated: blurredTitleTail)
+                metadataSubtitle(for: song, isCurrent: isCurrent)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        let content = VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+            title
+            subtitle
+        }
+
+        #if os(iOS)
+        if blurredTitleTail {
+            SynchronizedTrackMarquee(animationID: song?.id ?? "", isActive: isCurrent) {
+                title
+            } subtitle: {
+                subtitle
+            }
+                .id(song?.id)
+        } else {
+            content.frame(maxWidth: .infinity, alignment: .leading)
+        }
+        #else
+        content.frame(maxWidth: .infinity, alignment: .leading)
+        #endif
     }
 
     @ViewBuilder
     private func metadataSubtitle(
         for song: DisplayableSong?,
-        isCurrent: Bool,
-        untruncated: Bool
+        isCurrent: Bool
     ) -> some View {
-        let row = HStack(spacing: CassetteSpacing.xs) {
+        HStack(spacing: CassetteSpacing.xs) {
             if let artist = song?.artist {
                 if isCurrent {
                     Button { goToArtist() } label: { artistLabel(artist) }
@@ -947,17 +961,6 @@ private struct TrackInfoSection: View {
                 AudioFormatBadge(format: format, color: secondaryContentColor)
             }
         }
-
-        #if os(iOS)
-        if untruncated {
-            LoopingTrackContent(animationID: song?.id ?? "", isActive: isCurrent) { row }
-                .id(song?.id)
-        } else {
-            row
-        }
-        #else
-        row
-        #endif
     }
 
     private func artistLabel(_ artist: String) -> some View {
@@ -968,23 +971,12 @@ private struct TrackInfoSection: View {
             .truncationMode(.tail)
     }
 
-    @ViewBuilder
-    private func metadataTitle(_ title: String, animationID: String, blurredTail: Bool, scrolls: Bool) -> some View {
-        let label = Text(title)
+    private func metadataTitle(_ title: String) -> some View {
+        Text(title)
             .font(metadataTitleFont)
             .foregroundStyle(contentColor)
             .lineLimit(1)
-
-        #if os(iOS)
-        if blurredTail {
-            LoopingTrackContent(animationID: animationID, isActive: scrolls) { label }
-                .id(animationID)
-        } else {
-            label.truncationMode(.tail)
-        }
-        #else
-        label.truncationMode(.tail)
-        #endif
+            .truncationMode(.tail)
     }
 
     /// The full iOS player uses a tighter title/subtitle hierarchy than list and desktop surfaces: the title
@@ -1265,69 +1257,112 @@ private struct HorizontalTrackPanGesture: UIGestureRecognizerRepresentable {
     }
 }
 
-private struct LoopingTrackContent<Content: View>: View {
+/// Keeps overflowing title and subtitle marquees on the same timeline while leaving either row fixed when it
+/// already fits. A common stride makes their leading edges reset together even when the format badge changes
+/// the subtitle's intrinsic width.
+private struct SynchronizedTrackMarquee<Title: View, Subtitle: View>: View {
     let animationID: String
     let isActive: Bool
-    private let content: Content
+    private let title: Title
+    private let subtitle: Subtitle
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var contentWidth: CGFloat = 0
+    @State private var titleWidth: CGFloat = 0
+    @State private var subtitleWidth: CGFloat = 0
+    @State private var viewportWidth: CGFloat = 0
     @State private var offset: CGFloat = 0
 
     private let pointsPerSecond: CGFloat = 30
 
-    init(animationID: String, isActive: Bool, @ViewBuilder content: () -> Content) {
+    init(
+        animationID: String,
+        isActive: Bool,
+        @ViewBuilder title: () -> Title,
+        @ViewBuilder subtitle: () -> Subtitle
+    ) {
         self.animationID = animationID
         self.isActive = isActive
-        self.content = content()
+        self.title = title()
+        self.subtitle = subtitle()
     }
 
     var body: some View {
-        content.hidden().overlay(alignment: .leading) {
-            GeometryReader { geometry in
-                let overflows = contentWidth > geometry.size.width
-                let stride = contentWidth + CassetteSpacing.xxxl
-                let leadingStrength = min(abs(offset) / CassetteSpacing.m, 1)
-                let loopingContent = HStack(spacing: CassetteSpacing.xxxl) {
-                    fullContent
-                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
-                    if overflows { fullContent.accessibilityHidden(true) }
-                }
-                .offset(x: offset)
-                let viewport = loopingContent
-                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
-                    .clipped()
-
-                ZStack(alignment: .leading) {
-                    viewport.mask(edgeMask(blurred: false, leading: leadingStrength, trailing: 0))
-                    viewport
-                        .blur(radius: CassetteSpacing.xs)
-                        .mask(edgeMask(blurred: true, leading: leadingStrength, trailing: 0))
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
-                .clipped()
-                .task(id: AnimationKey(
-                    animationID: animationID,
-                    contentWidth: contentWidth,
-                    viewportWidth: geometry.size.width,
-                    reduceMotion: reduceMotion,
-                    isActive: isActive
-                )) {
-                    await animate(stride: stride, overflows: overflows)
-                }
-            }
+        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+            marqueeRow(title, contentWidth: $titleWidth)
+            marqueeRow(subtitle, contentWidth: $subtitleWidth)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { viewportWidth = $0 }
+        .task(id: AnimationKey(
+            animationID: animationID,
+            titleWidth: titleWidth,
+            subtitleWidth: subtitleWidth,
+            viewportWidth: viewportWidth,
+            reduceMotion: reduceMotion,
+            isActive: isActive
+        )) {
+            await animate(stride: sharedStride, hasOverflow: titleOverflows || subtitleOverflows)
         }
     }
 
-    private var fullContent: some View {
-        content.fixedSize(horizontal: true, vertical: false)
+    private var titleOverflows: Bool {
+        viewportWidth > 0 && titleWidth > viewportWidth
     }
 
-    private func animate(stride: CGFloat, overflows: Bool) async {
+    private var subtitleOverflows: Bool {
+        viewportWidth > 0 && subtitleWidth > viewportWidth
+    }
+
+    private var sharedStride: CGFloat {
+        max(titleWidth, subtitleWidth) + CassetteSpacing.xxxl
+    }
+
+    private func marqueeRow<Row: View>(_ row: Row, contentWidth: Binding<CGFloat>) -> some View {
+        row.hidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .leading) {
+                GeometryReader { geometry in
+                    let width = contentWidth.wrappedValue
+                    let overflows = width > geometry.size.width
+                    let rowOffset = overflows ? offset : 0
+                    let leadingStrength = overflows ? min(abs(offset) / CassetteSpacing.m, 1) : 0
+                    let movingContent = ZStack(alignment: .leading) {
+                        fixed(row)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: {
+                                contentWidth.wrappedValue = $0
+                            }
+                            .offset(x: rowOffset)
+                        if overflows {
+                            fixed(row)
+                                .offset(x: rowOffset + sharedStride)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
+                    let viewport = movingContent
+                        .clipped()
+
+                    ZStack(alignment: .leading) {
+                        viewport.mask(edgeMask(blurred: false, leading: leadingStrength, trailing: 0))
+                        viewport
+                            .blur(radius: CassetteSpacing.xs)
+                            .mask(edgeMask(blurred: true, leading: leadingStrength, trailing: 0))
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(width: geometry.size.width, height: geometry.size.height, alignment: .leading)
+                    .clipped()
+                }
+            }
+    }
+
+    private func fixed<Row: View>(_ row: Row) -> some View {
+        row.fixedSize(horizontal: true, vertical: false)
+    }
+
+    private func animate(stride: CGFloat, hasOverflow: Bool) async {
         resetOffset()
-        guard overflows, isActive, !reduceMotion else { return }
+        guard hasOverflow, isActive, !reduceMotion else { return }
 
         do {
             try await Task.sleep(for: .seconds(1.2))
@@ -1349,7 +1384,8 @@ private struct LoopingTrackContent<Content: View>: View {
 
     private struct AnimationKey: Equatable {
         let animationID: String
-        let contentWidth: CGFloat
+        let titleWidth: CGFloat
+        let subtitleWidth: CGFloat
         let viewportWidth: CGFloat
         let reduceMotion: Bool
         let isActive: Bool
