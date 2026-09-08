@@ -337,6 +337,7 @@ actor PlayerService: PlayerServiceProtocol {
         stopProgressTimer()
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
+        let startingPosition = pendingRestoreInfo?.seekTime ?? 0
         currentSource = source
         pendingRestoreInfo = nil
         // Starting a new track can interrupt a muted parking play (end-of-queue rewind)
@@ -369,6 +370,7 @@ actor PlayerService: PlayerServiceProtocol {
             // it, a cold-launched player (default 1.0) plays the first track loud, ignoring a low slider.
             audioPlayer.volume = restoredVolume
         }
+        enqueuePlaybackReport(.starting, track: song, position: startingPosition)
         audioPlayer.play(url: source.url, headers: source.customHeaders)
         if fadingInAllowed {
             performFadeIn(duration: crossfadeConfig.duration)
@@ -383,7 +385,7 @@ actor PlayerService: PlayerServiceProtocol {
             state.isPlaybackAvailable = true
         }
 
-        enqueuePlaybackReport(.playing, track: song, position: 0)
+        enqueuePlaybackReport(.playing, track: song, position: startingPosition)
 
         startProgressTimer()
 
@@ -894,6 +896,7 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func resume() async {
+        let restoredPosition = pendingRestoreInfo?.seekTime
         // User explicitly pressed play — cancel any pending restore auto-pause and lift eof guard.
         restorePauseTask?.cancel()
         restorePauseTask = nil
@@ -943,7 +946,7 @@ actor PlayerService: PlayerServiceProtocol {
         startPositionSaveTimer()
         let (resumeTrack, resumePosition) = await MainActor.run { (state.currentTrack, state.position) }
         if let resumeTrack {
-            enqueuePlaybackReport(.playing, track: resumeTrack, position: resumePosition)
+            enqueuePlaybackReport(.playing, track: resumeTrack, position: restoredPosition ?? resumePosition)
         }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
@@ -986,11 +989,11 @@ actor PlayerService: PlayerServiceProtocol {
         }
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
+        audioPlayer.stop()
         let (stoppedTrack, stoppedPosition) = await MainActor.run { (state.currentTrack, state.position) }
         if let stoppedTrack {
             enqueuePlaybackReport(.stopped, track: stoppedTrack, position: stoppedPosition)
         }
-        audioPlayer.stop()
         #if os(iOS)
         sessionActivationRetryTask?.cancel()
         sessionActivationRetryTask = nil
