@@ -162,6 +162,13 @@ PERSONAL_BUNDLE_ID=com.example.Cassette # optional
 The same values may be supplied as environment variables instead. Add your Apple
 Account in **Xcode > Settings > Accounts** before using automatic detection.
 
+Two limits are worth knowing. The script re-signs the app and widget targets
+only — `CassetteTests` and `CassetteUITests` keep the repository bundle
+identifiers, so running the test suite under a Personal Team still fails to
+sign. And `with-build` restores on exit, interrupt and terminate, but not on
+`kill -9`: if the script is killed outright, the repository stays modified and
+`.personal-signing-backup` is left behind — run `restore` to recover.
+
 ---
 
 ## Quality gates
