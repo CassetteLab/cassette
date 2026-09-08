@@ -117,10 +117,7 @@ struct PlaylistDetailMacOS: View {
                 },
                 secondaryAction: {
                     Task {
-                        if container?.playerState.isShuffled != true {
-                            await container?.playerService.toggleShuffle()
-                        }
-                        try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                        try? await container?.playerService.playShuffled(tracks: songs)
                     }
                 }
             )

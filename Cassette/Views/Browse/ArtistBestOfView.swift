@@ -157,8 +157,7 @@ struct ArtistBestOfView: View {
             // Shuffle and download flank the Play disc so it stays centred, mirroring the artist hero.
             HStack(spacing: CassetteSpacing.l) {
                 Button {
-                    let shuffled = songs.shuffled()
-                    Task { try? await container?.playerService.play(tracks: shuffled, startIndex: 0) }
+                    Task { try? await container?.playerService.playShuffled(tracks: songs) }
                 } label: {
                     Image(systemName: "shuffle")
                         .font(.system(size: 16, weight: .semibold))
