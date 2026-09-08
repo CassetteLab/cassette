@@ -228,12 +228,21 @@ struct LyricsViewModelScrollTests {
         #expect(vm.isUserScrolling == true)
     }
 
-    @Test func isUserScrolling_resetAfter5Seconds() async throws {
+    @Test func isUserScrolling_resetsAfterTheResumeDelay() async throws {
         let (vm, _) = try makeViewModel()
         vm.userStartedScrolling()
         #expect(vm.isUserScrolling == true)
-        // Wait slightly over 5s for the Task.sleep to complete
-        try await Task.sleep(for: .seconds(5.1))
+
+        // The reset lands on the MainActor after the resume delay. Sleeping a fixed
+        // margin and asserting once raced the continuation on CI, where the whole
+        // suite runs in parallel and the MainActor is saturated: the test woke up and
+        // asserted before the reset got its turn. Polling yields the actor back
+        // between checks, so the deadline only has to outlast the delay, not the
+        // scheduling jitter around it.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(30))
+        while vm.isUserScrolling, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
         #expect(vm.isUserScrolling == false)
     }
 }
