@@ -43,6 +43,8 @@ actor PlayerService: PlayerServiceProtocol {
     private nonisolated(unsafe) let audioPlayer: AudioPlayer
     private let audioDelegate: AudioStreamingDelegate
     private var progressTask: Task<Void, Never>?
+    /// Serialises reports so a rapid pause/resume or stop/start transition cannot arrive out of order.
+    private var playbackReportTask: Task<Void, Never>?
     /// Pending seek + optional pause applied once the player first reaches `.playing`.
     /// Used for session restoration and end-of-queue rewind.
     private var pendingRestoreInfo: (seekTime: Double, pause: Bool)?
@@ -356,6 +358,7 @@ actor PlayerService: PlayerServiceProtocol {
         stopProgressTimer()
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
+        let startingPosition = pendingRestoreInfo?.seekTime ?? 0
         currentSource = source
         pendingRestoreInfo = nil
         // Starting a new track can interrupt a muted parking play (end-of-queue rewind)
@@ -388,6 +391,7 @@ actor PlayerService: PlayerServiceProtocol {
             // it, a cold-launched player (default 1.0) plays the first track loud, ignoring a low slider.
             audioPlayer.volume = restoredVolume
         }
+        enqueuePlaybackReport(.starting, track: song, position: startingPosition)
         audioPlayer.play(url: source.url, headers: source.customHeaders)
         if fadingInAllowed {
             performFadeIn(duration: crossfadeConfig.duration)
@@ -401,6 +405,8 @@ actor PlayerService: PlayerServiceProtocol {
             state.playbackState = .playing
             state.isPlaybackAvailable = true
         }
+
+        enqueuePlaybackReport(.playing, track: song, position: startingPosition)
 
         startProgressTimer()
 
@@ -901,13 +907,17 @@ actor PlayerService: PlayerServiceProtocol {
         stopProgressTimer()
         stopPositionSaveTimer()
         await saveSession()
-        let pauseTrack = await MainActor.run { state.currentTrack }
+        let (pauseTrack, pausePosition) = await MainActor.run { (state.currentTrack, state.position) }
+        if let pauseTrack {
+            enqueuePlaybackReport(.paused, track: pauseTrack, position: pausePosition)
+        }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
         }
     }
 
     func resume() async {
+        let restoredPosition = pendingRestoreInfo?.seekTime
         // User explicitly pressed play — cancel any pending restore auto-pause and lift eof guard.
         restorePauseTask?.cancel()
         restorePauseTask = nil
@@ -955,7 +965,10 @@ actor PlayerService: PlayerServiceProtocol {
         await pushPositionSnapshot(rate: 1.0)
         startProgressTimer()
         startPositionSaveTimer()
-        let resumeTrack = await MainActor.run { state.currentTrack }
+        let (resumeTrack, resumePosition) = await MainActor.run { (state.currentTrack, state.position) }
+        if let resumeTrack {
+            enqueuePlaybackReport(.playing, track: resumeTrack, position: restoredPosition ?? resumePosition)
+        }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
         }
@@ -998,6 +1011,10 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         audioPlayer.stop()
+        let (stoppedTrack, stoppedPosition) = await MainActor.run { (state.currentTrack, state.position) }
+        if let stoppedTrack {
+            enqueuePlaybackReport(.stopped, track: stoppedTrack, position: stoppedPosition)
+        }
         #if os(iOS)
         sessionActivationRetryTask?.cancel()
         sessionActivationRetryTask = nil
@@ -1912,6 +1929,9 @@ actor PlayerService: PlayerServiceProtocol {
         await saveSession()
 
         let endTrack = await MainActor.run { state.currentTrack }
+        if let endTrack {
+            enqueuePlaybackReport(.stopped, track: endTrack, position: duration)
+        }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: endTrack) }
         }
@@ -2039,6 +2059,27 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     // MARK: - NowPlaying position push
+
+    /// Enqueues a best-effort server report while preserving local playback responsiveness and event order.
+    private func enqueuePlaybackReport(
+        _ state: PlaybackReportState,
+        track: DisplayableSong,
+        position: TimeInterval
+    ) {
+        let previous = playbackReportTask
+        let positionMs = Self.playbackReportPositionMilliseconds(position)
+        playbackReportTask = Task { [libraryService] in
+            _ = await previous?.result
+            await libraryService.reportPlayback(songId: track.id, positionMs: positionMs, state: state)
+        }
+    }
+
+    nonisolated static func playbackReportPositionMilliseconds(_ position: TimeInterval) -> Int {
+        guard position.isFinite else { return 0 }
+        let milliseconds = max(0, position * 1000)
+        guard milliseconds < Double(Int.max) else { return Int.max }
+        return Int(milliseconds.rounded())
+    }
 
     /// Pushes a position-only snapshot when track metadata hasn't changed (pause/resume/seek).
     private func pushPositionSnapshot(rate: Float? = nil) async {

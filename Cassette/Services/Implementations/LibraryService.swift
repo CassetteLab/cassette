@@ -215,6 +215,38 @@ actor LibraryService: LibraryServiceProtocol {
         }
     }
 
+    func reportPlayback(songId: String, positionMs: Int, state: PlaybackReportState) async {
+        do {
+            let sonicClient = try await client()
+            let capabilities = try await sonicClient.loadCapabilities()
+            guard capabilities.supports(.playbackReport) else {
+                Logger.library.debug("Playback report skipped — server does not advertise the extension")
+                return
+            }
+            try await sonicClient.reportPlayback(
+                mediaId: songId,
+                positionMs: max(0, positionMs),
+                state: Self.swiftSonicPlaybackReportState(for: state),
+                ignoreScrobble: true
+            )
+            Logger.library.debug("Playback report sent for '\(songId, privacy: .public)' state=\(state.rawValue, privacy: .public) positionMs=\(positionMs, privacy: .public)")
+        } catch {
+            // Playback reporting is an optional server extension and must never interrupt audio.
+            Logger.library.debug("Playback report failed for '\(songId, privacy: .public)': \(error, privacy: .public)")
+        }
+    }
+
+    nonisolated static func swiftSonicPlaybackReportState(
+        for state: PlaybackReportState
+    ) -> SwiftSonicClient.PlaybackReportState {
+        switch state {
+        case .starting: return .starting
+        case .playing: return .playing
+        case .paused: return .paused
+        case .stopped: return .stopped
+        }
+    }
+
     func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3] {
         try await client().getAlbumList2(type: .recent, size: size)
     }

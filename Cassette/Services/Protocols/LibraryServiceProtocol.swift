@@ -6,6 +6,17 @@
 import Foundation
 import SwiftSonic
 
+/// Playback states understood by the OpenSubsonic `reportPlayback` extension.
+///
+/// Kept in the app domain so PlayerService does not depend on the concrete client
+/// implementation. Legacy Subsonic servers simply ignore these reports.
+nonisolated enum PlaybackReportState: String, Sendable, CaseIterable {
+    case starting
+    case playing
+    case paused
+    case stopped
+}
+
 /// A seed for an AudioMuse-AI Instant Mix. The case decides which Subsonic similarity endpoint is used:
 /// song/album seeds go through the folder-based `getSimilarSongs`, an artist seed through the ID3-based
 /// `getSimilarSongs2`. ("Radio" is deliberately avoided — it means Internet radio stations elsewhere.)
@@ -52,6 +63,10 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// Errors are silenced — scrobble failures must not interrupt playback or surface to the user.
     /// Network/auth errors are logged at debug level.
     func scrobble(songId: String, submission: Bool) async
+
+    /// Reports the current track state and position to servers advertising OpenSubsonic's
+    /// `playbackReport` extension. This is best effort and never interrupts playback.
+    func reportPlayback(songId: String, positionMs: Int, state: PlaybackReportState) async
 
     /// Recently played albums (Subsonic `getAlbumList2?type=recent`).
     /// Granularity is album-level — Subsonic does not expose track-level history endpoints.
@@ -127,6 +142,9 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
 }
 
 extension LibraryServiceProtocol {
+    /// Default no-op keeps lightweight offline/test conformers source-compatible.
+    func reportPlayback(songId: String, positionMs: Int, state: PlaybackReportState) async {}
+
     /// Default: fall straight through to the library heuristic. `LibraryService` overrides this to
     /// prefer a sonic Instant Mix of the seed track; the default keeps stubs and alternative
     /// conformers working without change.

@@ -40,3 +40,22 @@ struct LibraryServiceNormalizationTests {
         #expect(LibraryService.normalizeArtistName(normalized) == normalized)
     }
 }
+
+@Suite("Playback report")
+struct PlaybackReportTests {
+
+    @Test("keeps OpenSubsonic playback state names stable")
+    func stateNames() {
+        #expect(PlaybackReportState.allCases.map(\.rawValue) == ["starting", "playing", "paused", "stopped"])
+        #expect(PlaybackReportState.allCases.map { LibraryService.swiftSonicPlaybackReportState(for: $0).rawValue } == PlaybackReportState.allCases.map(\.rawValue))
+    }
+
+    @Test("converts finite playback positions to non-negative milliseconds")
+    func positionMilliseconds() {
+        #expect(PlayerService.playbackReportPositionMilliseconds(263.964) == 263_964)
+        #expect(PlayerService.playbackReportPositionMilliseconds(-1) == 0)
+        #expect(PlayerService.playbackReportPositionMilliseconds(.infinity) == 0)
+        #expect(PlayerService.playbackReportPositionMilliseconds(.nan) == 0)
+        #expect(PlayerService.playbackReportPositionMilliseconds(.greatestFiniteMagnitude) == Int.max)
+    }
+}
