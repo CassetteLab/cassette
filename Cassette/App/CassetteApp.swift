@@ -163,9 +163,15 @@ struct CassetteApp: App {
             }
             #endif
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { oldPhase, newPhase in
             #if os(iOS)
-            if newPhase == .inactive, let c = container {
+            // `.inactive` is entered in both directions on iOS:
+            //   active -> inactive -> background  (leaving)
+            //   background -> inactive -> active  (returning)
+            // Only the leaving path needs the kill guard. Flushing on the way back in
+            // writes a position the session restore has not applied yet, and logs a
+            // "flushed" line for a transition that never risked a kill.
+            if oldPhase == .active, newPhase == .inactive, let c = container {
                 Task { await c.playerService.saveCurrentPosition() }
                 Logger.session.info("App inactive — position flushed (iOS kill guard)")
             }
