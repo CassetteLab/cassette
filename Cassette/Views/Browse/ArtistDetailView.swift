@@ -518,7 +518,7 @@ struct ArtistDetailView: View {
                 sectionHeader("Liked Songs")
                 Spacer()
                 Button {
-                    Task { try? await container?.playerService.play(tracks: songs.shuffled(), startIndex: 0) }
+                    Task { try? await container?.playerService.playShuffled(tracks: songs) }
                 } label: {
                     Image(systemName: "shuffle")
                         .font(.cassetteSectionTitle)
@@ -669,7 +669,7 @@ struct ArtistDetailView: View {
         defer { viewModel?.isPlayLoading = false }
         // Offline the catalogue fetch can't run — shuffle what's on disk instead.
         if let offline = viewModel?.offlineTracks, viewModel?.isOffline == true, !offline.isEmpty {
-            try? await c.playerService.play(tracks: offline.shuffled(), startIndex: 0)
+            try? await c.playerService.playShuffled(tracks: offline)
             return
         }
         do {
