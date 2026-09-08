@@ -21,7 +21,8 @@ struct OfflineDownloadRoundTripTests {
         let service = DownloadService(
             serverService: MockServerService(),
             modelContainer: container,
-            toastService: ToastService()
+            toastService: ToastService(),
+            cacheSettings: CacheSettings()
         )
         return (service, container, UUID())
     }
