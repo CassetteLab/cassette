@@ -31,14 +31,14 @@ actor MediaResolver: MediaResolverProtocol {
     func resolve(songId: String, serverId: UUID) async throws -> MediaSource {
         // 1. Permanent download — always preferred, works offline.
         if let url = await downloadService.downloadedURL(forSongId: songId, serverId: serverId) {
-            Logger.resolver.debug("Resolved '\(songId, privacy: .public)' from permanent download.")
+            Logger.resolver.notice("[SOURCE] Resolved '\(songId, privacy: .public)' from permanent download.")
             return .downloaded(url)
         }
 
         // 2. Ephemeral cache — no network needed, bump LRU clock.
         if let url = await audioStreamCache.cachedURL(forSongId: songId, serverId: serverId) {
             await audioStreamCache.touch(songId: songId, serverId: serverId)
-            Logger.resolver.debug("Resolved '\(songId, privacy: .public)' from cache.")
+            Logger.resolver.notice("[SOURCE] Resolved '\(songId, privacy: .public)' from cache — no local download found.")
             return .cached(url)
         }
 
@@ -57,7 +57,7 @@ actor MediaResolver: MediaResolverProtocol {
             throw CassetteError.mediaNotFound(songId: songId)
         }
         let creds = try await serverService.activeCredentials()
-        Logger.resolver.debug("Resolved '\(songId, privacy: .public)' as stream.")
+        Logger.resolver.notice("[SOURCE] Resolved '\(songId, privacy: .public)' as server stream — no local download or cache found.")
         return .stream(streamURL, customHeaders: creds.customHeaders)
     }
 
