@@ -117,6 +117,51 @@ Conventional commits: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`.
 One atomic commit per subtask. Propose a plan and wait for validation before
 implementing each numbered Étape.
 
+### Personal Team signing
+
+Contributors who use a free Apple Personal Team can temporarily adapt the Xcode
+project for local signing with
+[`scripts/personal-signing.sh`](scripts/personal-signing.sh). The script detects
+the Personal Team configured in Xcode and derives a unique bundle identifier
+from its Team ID.
+
+```sh
+# Show the detected signing configuration without changing files
+scripts/personal-signing.sh detect
+
+# Apply it to the project and entitlements
+scripts/personal-signing.sh apply
+
+# Restore the repository's original signing configuration
+scripts/personal-signing.sh restore
+```
+
+`apply` creates `.personal-signing-backup` and snapshots every file it changes.
+Always run `restore` before creating a commit or pull request. A second `apply`
+is refused while a backup exists, which prevents the original configuration from
+being overwritten.
+
+For a single build, `with-build` applies personal signing and restores the
+repository files automatically when the command exits:
+
+```sh
+scripts/personal-signing.sh with-build -- \
+  xcodebuild -scheme Cassette \
+  -destination 'generic/platform=iOS Simulator' \
+  build
+```
+
+If automatic detection finds no team or more than one team, create the ignored
+`.personal-signing.env` file in the repository root with the desired overrides:
+
+```sh
+PERSONAL_TEAM_ID=ABCDE12345
+PERSONAL_BUNDLE_ID=com.example.Cassette # optional
+```
+
+The same values may be supplied as environment variables instead. Add your Apple
+Account in **Xcode > Settings > Accounts** before using automatic detection.
+
 ---
 
 ## Quality gates
