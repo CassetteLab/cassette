@@ -5,6 +5,7 @@
 
 import Testing
 import Foundation
+import SwiftSonic
 @testable import Cassette
 
 // MARK: - normalizeArtistName
