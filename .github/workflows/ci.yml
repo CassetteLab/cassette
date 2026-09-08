@@ -1,0 +1,120 @@
+name: CI
+
+# Verification only: builds both platforms and runs the test suite on every
+# pull request, including pull requests from forks. Nothing here needs a secret
+# — signing is disabled — so contributions from forks get the same checks as
+# branches on this repository. Release signing and notarisation stay in
+# release.yml, which runs on tags.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# A new push to a pull request supersedes the run in flight.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: Cassette.xcodeproj
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS
+            destination: generic/platform=iOS Simulator
+          - name: macOS
+            destination: generic/platform=macOS
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache resolved Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Build
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme Cassette \
+            -destination '${{ matrix.destination }}' \
+            -configuration Debug \
+            -clonedSourcePackagesDirPath .spm \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee build.log
+
+      - name: Fail on compiler warnings
+        run: .github/scripts/check-warnings.sh build.log
+
+  test:
+    name: Test suite
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest stable Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Cache resolved Swift packages
+        uses: actions/cache@v4
+        with:
+          path: .spm
+          key: spm-${{ runner.os }}-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      # Device names move with every Xcode release ("iPhone 16 Pro" is already
+      # gone from the newest runtime), so the destination is resolved at run
+      # time instead of pinned.
+      - name: Select an iPhone simulator
+        id: simulator
+        run: |
+          udid=$(python3 .github/scripts/pick-simulator.py)
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project "$PROJECT" \
+            -scheme CassetteTests \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.udid }}" \
+            -configuration Debug \
+            -clonedSourcePackagesDirPath .spm \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            test 2>&1 | tee test.log
+
+      # Reported, not enforced: the test target carries two pre-existing
+      # concurrency warnings (AudioMuseProviderTests, MoodPlaylistServiceTests).
+      # Drop --warn-only once those are fixed so tests match the app's policy.
+      - name: Report compiler warnings in tests
+        run: .github/scripts/check-warnings.sh test.log --warn-only
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 7

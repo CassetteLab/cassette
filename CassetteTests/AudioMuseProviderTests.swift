@@ -48,7 +48,10 @@ private final class StubProtocol: URLProtocol, @unchecked Sendable {
                 Self.lock.withLock { Self.bodies[path] = json }
             }
         }
-        let stub = Self.lock.withLock { Self.responses[path] } ?? (404, "{}")
+        // The fallback carries its labels: inferring the `??` result through withLock's
+        // generic return drops them otherwise, and `stub.status` / `stub.body` stop
+        // resolving on Xcode 26 while still compiling on 27.
+        let stub = Self.lock.withLock { Self.responses[path] } ?? (status: 404, body: "{}")
         let response = HTTPURLResponse(url: request.url!, statusCode: stub.status, httpVersion: nil, headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(stub.body.utf8))
