@@ -96,7 +96,7 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
     /// queue) is never returned; a short similar set is topped up from the same library heuristic.
     func endlessExtension(seedTrackId: String, targetSize: Int, excludedIds: Set<String>) async throws -> [DisplayableSong]
 
-    // TODO(v1.x): verify Navidrome savePlayQueue / getPlayQueue support before relying on these
+    /// Best-effort cross-device continuation through the Subsonic 1.12 play-queue endpoints.
     func savePlayQueue(songIds: [String], currentIndex: Int, positionSeconds: Double) async throws
     func getPlayQueue() async throws -> SavedPlayQueue?
 

@@ -29,6 +29,8 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func removeFromQueue(at index: Int) async
     func moveInQueue(fromIndex: Int, toIndex: Int) async
     func restoreSession() async
+    /// On launch or eligible focus, restores the queue saved by another Cassette installation.
+    func restoreFromOtherDevice() async -> Bool
     func handleNetworkRestored() async
     /// Starts live stream playback of an Internet Radio Station.
     /// Clears the current queue's playing state but preserves the queue itself.
@@ -61,4 +63,8 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Stops the audio engine synchronously without going through the actor.
     /// Only safe to call during app termination (single-threaded, no concurrent access).
     nonisolated func stopAudioEngineSync()
+}
+
+extension PlayerServiceProtocol {
+    func restoreFromOtherDevice() async -> Bool { false }
 }

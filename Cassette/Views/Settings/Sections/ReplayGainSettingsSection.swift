@@ -7,11 +7,20 @@ import SwiftUI
 
 struct ReplayGainSettingsSection: View {
     @Environment(\.appContainer) private var container
+    @AppStorage(PlaybackContinuationPreference.userDefaultsKey) private var isPlaybackContinuationEnabled = true
 
     var body: some View {
         let rg = container?.replayGainSettings
 
-        Section("Playback") {
+        Section {
+            Toggle(isOn: $isPlaybackContinuationEnabled) {
+                Label {
+                    Text("Continue Across Devices")
+                } icon: {
+                    SettingsIcon(systemImage: "iphone.and.arrow.forward", color: .blue)
+                }
+            }
+
             Toggle(isOn: Binding(
                 get: { rg?.enabled ?? false },
                 set: { newVal in
@@ -84,6 +93,10 @@ struct ReplayGainSettingsSection: View {
                     }
                 }
             }
+        } header: {
+            Text("Playback")
+        } footer: {
+            Text("When Cassette opens or becomes active while paused, load the queue, song, and position from the same server account. Playback remains paused until you press Play. This setting applies only to this device.")
         }
     }
 

@@ -9,6 +9,7 @@ import OSLog
 import Foundation
 #if os(iOS)
 import BackgroundTasks
+import UIKit
 #endif
 
 @main
@@ -123,7 +124,9 @@ struct CassetteApp: App {
                 // server is known when prepareCurrentTrackForRestoration resolves the URL.
                 await newContainer.serverService.loadPersistedState()
                 Logger.boot.notice("🟡 loadPersistedState() done — activeServer = \(String(describing: newContainer.serverState.activeServer?.baseURL), privacy: .public)")
-                await newContainer.playerService.restoreSession()
+                if !(await newContainer.playerService.restoreFromOtherDevice()) {
+                    await newContainer.playerService.restoreSession()
+                }
                 Task { await runCoverArtGarbageCollection(container: newContainer) }
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.
@@ -142,8 +145,20 @@ struct CassetteApp: App {
                 await c.playerService.handleNetworkRestored()
                 await c.listenBrainzService.flushOfflineQueue()
             }
+            #if os(iOS)
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+                guard let c = container,
+                      c.playerState.playbackState == .paused else { return }
+                Task { _ = await c.playerService.restoreFromOtherDevice() }
+            }
+            #endif
             #if os(macOS)
             .frame(minHeight: 580)
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+                guard let c = container,
+                      c.playerState.playbackState == .paused else { return }
+                Task { _ = await c.playerService.restoreFromOtherDevice() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                 guard let c = container else { return }
                 // Stop AVAudioEngine synchronously — prevents HALC frame accumulation during teardown.
@@ -163,9 +178,20 @@ struct CassetteApp: App {
             }
             #endif
         }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { oldPhase, newPhase in
+            if newPhase == .active,
+               let c = container,
+               c.playerState.playbackState == .paused {
+                Task { _ = await c.playerService.restoreFromOtherDevice() }
+            }
             #if os(iOS)
-            if newPhase == .inactive, let c = container {
+            // `.inactive` occurs in both directions on iOS:
+            //   active -> inactive -> background (leaving)
+            //   background -> inactive -> active (returning)
+            // Only flush while leaving. Flushing during the return path uploads this
+            // device's stale queue immediately before `.active` fetches continuation,
+            // overwriting the newer queue written by the other device.
+            if oldPhase == .active, newPhase == .inactive, let c = container {
                 Task { await c.playerService.saveCurrentPosition() }
                 Logger.session.info("App inactive — position flushed (iOS kill guard)")
             }

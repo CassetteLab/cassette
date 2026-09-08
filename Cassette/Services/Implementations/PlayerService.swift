@@ -17,6 +17,31 @@ nonisolated enum CrossfadePhase: Sendable {
     case fadeIn
 }
 
+nonisolated enum PlaybackContinuationPreference {
+    /// Kept device-local on purpose so each installation can opt in independently.
+    static let userDefaultsKey = "cassette.playback.continuationEnabled"
+    private static let deviceIdentifierKey = "cassette.playback.continuationDeviceIdentifier"
+
+    static func isEnabled(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: userDefaultsKey) == nil || defaults.bool(forKey: userDefaultsKey)
+    }
+
+    static func deviceIdentifier(defaults: UserDefaults = .standard) -> String {
+        if let saved = defaults.string(forKey: deviceIdentifierKey) { return saved }
+        let identifier = UUID().uuidString
+        defaults.set(identifier, forKey: deviceIdentifierKey)
+        return identifier
+    }
+
+    static func serverClientName(defaults: UserDefaults = .standard) -> String {
+        #if os(macOS)
+        return "Cassette-macOS-\(deviceIdentifier(defaults: defaults))"
+        #else
+        return "Cassette-iOS-\(deviceIdentifier(defaults: defaults))"
+        #endif
+    }
+}
+
 actor PlayerService: PlayerServiceProtocol {
     nonisolated let state: PlayerState
 
@@ -86,6 +111,8 @@ actor PlayerService: PlayerServiceProtocol {
     }
     nonisolated var restoredVolume: Float { Self.persistedVolume() }
     private var positionSaveTask: Task<Void, Never>?
+    private var lastServerQueueSaveAt = Date.distantPast
+    private var isCheckingRemoteContinuation = false
     /// Task reserved for the playing-now notification. Cancelled on track change.
     private var playingNowTask: Task<Void, Never>?
     private var detector = ScrobbleThresholdDetector()
@@ -934,6 +961,7 @@ actor PlayerService: PlayerServiceProtocol {
         await pushPositionSnapshot(rate: 1.0)
         startProgressTimer()
         startPositionSaveTimer()
+        await saveSession()
         let resumeTrack = await MainActor.run { state.currentTrack }
         if let ws = widgetSyncService {
             Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: true, currentSong: resumeTrack) }
@@ -1027,6 +1055,7 @@ actor PlayerService: PlayerServiceProtocol {
         audioPlayer.seek(to: position)
         await MainActor.run { state.position = position }
         await pushPositionSnapshot()
+        await saveSession()
     }
 
     // MARK: - Skip
@@ -1247,12 +1276,61 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Session persistence
 
+    private func continuePlayback(
+        queue: [DisplayableSong],
+        currentIndex: Int,
+        position: TimeInterval,
+        shouldResume: Bool,
+        repeatMode: RepeatMode
+    ) async throws {
+        guard queue.indices.contains(currentIndex) else { return }
+
+        // Tear down any local playback before replacing its queue. `stop()` also cancels pending
+        // restore/crossfade work, which prevents an old delegate callback from racing continuation.
+        await stop()
+        stoppedAtEndOfQueue = false
+
+        let track = queue[currentIndex]
+        let safePosition: TimeInterval
+        if position.isFinite {
+            safePosition = track.duration > 0
+                ? min(max(0, position), max(0, track.duration - 0.25))
+                : max(0, position)
+        } else {
+            safePosition = 0
+        }
+
+        await MainActor.run {
+            state.queue = queue
+            state.currentIndex = currentIndex
+            state.currentTrack = track
+            state.currentRadio = nil
+            state.position = safePosition
+            state.duration = track.duration
+            state.repeatMode = repeatMode
+            state.playbackState = .paused
+        }
+
+        await prepareCurrentTrackForRestoration(track: track, position: safePosition)
+        let isAvailable = await MainActor.run { state.isPlaybackAvailable }
+        guard isAvailable else {
+            throw CassetteError.offlineUnavailable(songId: track.id)
+        }
+
+        await saveSession()
+        if shouldResume {
+            await resume()
+        }
+        Logger.player.info("Playback continued from another device: \(queue.count) tracks, index \(currentIndex), pos=\(safePosition, format: .fixed(precision: 1))s")
+    }
+
     /// Lightweight position-only flush — called from scenePhase .inactive on iOS
     /// to protect the current position against a fast process kill.
     func saveCurrentPosition() async {
         let pos = audioPlayer.progress
         guard pos > 0 else { return }
         await sessionService.savePosition(pos)
+        Task { [weak self] in await self?.saveServerPlayQueueIfNeeded(force: true) }
     }
 
     private func saveSession() async {
@@ -1266,6 +1344,65 @@ actor PlayerService: PlayerServiceProtocol {
             )
         }
         await sessionService.save(playerState: snapshot)
+        Task { [weak self] in await self?.saveServerPlayQueueIfNeeded(force: true) }
+    }
+
+    /// Checks once on launch or eligible app activation and accepts the queue written by another
+    /// Cassette installation using the same authenticated server account.
+    func restoreFromOtherDevice() async -> Bool {
+        guard PlaybackContinuationPreference.isEnabled(), !isCheckingRemoteContinuation else {
+            return false
+        }
+        isCheckingRemoteContinuation = true
+        defer { isCheckingRemoteContinuation = false }
+        do {
+            guard let remote = try await libraryService.getPlayQueue(), !remote.entry.isEmpty else {
+                return false
+            }
+            guard remote.changedBy != PlaybackContinuationPreference.serverClientName() else {
+                return false
+            }
+
+            let queue = remote.entry.map { DisplayableSong(from: $0) }
+            let currentIndex = remote.current.flatMap { current in
+                queue.firstIndex { $0.id == current }
+            } ?? 0
+            let local = await MainActor.run { (state.queue.map(\.id), state.repeatMode) }
+            let repeatMode: RepeatMode = local.0 == queue.map(\.id) ? local.1 : .off
+            try await continuePlayback(
+                queue: queue,
+                currentIndex: currentIndex,
+                position: remote.position ?? 0,
+                shouldResume: false,
+                repeatMode: repeatMode
+            )
+            Logger.player.info("Playback continuation restored \(queue.count, privacy: .public) server tracks")
+            return true
+        } catch {
+            Logger.player.debug("Playback continuation unavailable; keeping local session: \(error, privacy: .public)")
+            return false
+        }
+    }
+
+    private func saveServerPlayQueueIfNeeded(force: Bool) async {
+        guard PlaybackContinuationPreference.isEnabled() else { return }
+        let now = Date()
+        guard force || now.timeIntervalSince(lastServerQueueSaveAt) >= 5 else { return }
+
+        let snapshot = await MainActor.run {
+            (state.queue.map(\.id), state.currentIndex, state.position, state.currentTrack != nil)
+        }
+        guard snapshot.3, !snapshot.0.isEmpty else { return }
+        lastServerQueueSaveAt = now
+        do {
+            try await libraryService.savePlayQueue(
+                songIds: snapshot.0,
+                currentIndex: snapshot.1,
+                positionSeconds: snapshot.2
+            )
+        } catch {
+            Logger.player.debug("Server play-queue save skipped: \(error, privacy: .public)")
+        }
     }
 
     func restoreSession() async {
@@ -1403,6 +1540,7 @@ actor PlayerService: PlayerServiceProtocol {
                 }
                 guard isPlaying else { continue }
                 await sessionService.savePosition(pos)
+                await saveServerPlayQueueIfNeeded(force: false)
             }
         }
     }

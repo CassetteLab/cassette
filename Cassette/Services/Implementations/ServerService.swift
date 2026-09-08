@@ -254,7 +254,12 @@ actor ServerService: ServerServiceProtocol {
 
         let transport = CustomHeadersTransport(headers: creds.customHeaders)
         return SwiftSonicClient(
-            configuration: ServerConfiguration(serverURL: url, username: snapshot.username, password: creds.password),
+            configuration: ServerConfiguration(
+                serverURL: url,
+                username: snapshot.username,
+                password: creds.password,
+                clientName: PlaybackContinuationPreference.serverClientName()
+            ),
             transport: transport,
             logSubsystem: "app.cassette.server"
         )

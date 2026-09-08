@@ -7099,6 +7099,58 @@
         }
       }
     },
+    "Continue Across Devices" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geräteübergreifend fortsetzen"
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Συνέχεια σε όλες τις συσκευές"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar entre dispositivos"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuer sur plusieurs appareils"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continua su altri dispositivi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイス間で再生を続ける"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跨设备继续播放"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跨裝置繼續播放"
+          }
+        }
+      }
+    },
     "Copyright" : {
       "localizations" : {
         "de" : {
@@ -30409,6 +30461,58 @@
         }
       }
     },
+    "When Cassette opens or becomes active while paused, load the queue, song, and position from the same server account. Playback remains paused until you press Play. This setting applies only to this device." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wenn Cassette geöffnet oder im pausierten Zustand wieder aktiv wird, werden Warteschlange, Titel und Wiedergabeposition desselben Serverkontos geladen. Die Wiedergabe bleibt pausiert, bis du auf „Wiedergabe“ drückst. Diese Einstellung gilt nur für dieses Gerät."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Όταν το Cassette ανοίγει ή ενεργοποιείται ενώ η αναπαραγωγή είναι σε παύση, φορτώνει την ουρά, το τραγούδι και τη θέση από τον ίδιο λογαριασμό διακομιστή. Η αναπαραγωγή παραμένει σε παύση μέχρι να πατήσετε Αναπαραγωγή. Αυτή η ρύθμιση ισχύει μόνο για αυτήν τη συσκευή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuando Cassette se abre o vuelve a estar activo mientras la reproducción está en pausa, carga la cola, la canción y la posición de la misma cuenta del servidor. La reproducción permanece en pausa hasta que pulses Reproducir. Este ajuste solo se aplica a este dispositivo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lorsque Cassette s’ouvre ou redevient actif alors que la lecture est en pause, l’app charge la file d’attente, le morceau et la position depuis le même compte serveur. La lecture reste en pause jusqu’à ce que vous appuyiez sur Lecture. Ce réglage s’applique uniquement à cet appareil."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quando Cassette viene aperto o torna attivo mentre la riproduzione è in pausa, carica la coda, il brano e la posizione dallo stesso account del server. La riproduzione rimane in pausa finché non premi Riproduci. Questa impostazione si applica solo a questo dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassetteを開いたとき、または一時停止中にアプリが再びアクティブになったとき、同じサーバーアカウントからキュー、曲、再生位置を読み込みます。「再生」を押すまで再生は一時停止のままです。この設定はこのデバイスにのみ適用されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当 Cassette 打开或在暂停状态下重新变为活跃时，会从同一服务器账户加载队列、歌曲和播放位置。播放会保持暂停，直到你点按“播放”。此设置仅适用于这台设备。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當 Cassette 開啟或在暫停狀態下再次變為使用中時，會從相同的伺服器帳號載入佇列、歌曲和播放位置。播放會保持暫停，直到你點按「播放」。此設定僅適用於這部裝置。"
+          }
+        }
+      }
+    },
     "Without it, mood playlists still work, built from your library's genre, BPM and mood tags. The match is rougher." : {
       "localizations" : {
         "de" : {
@@ -31762,5 +31866,5 @@
       }
     }
   },
-  "version" : "1.0"
+  "version" : "1.1"
 }
