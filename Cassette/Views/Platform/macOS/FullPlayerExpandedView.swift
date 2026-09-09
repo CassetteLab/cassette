@@ -439,6 +439,10 @@ struct FullPlayerExpandedView: View {
             Divider()
             Button("Add to Playlist…") { showAddToPlaylist = true }
                 .disabled(!isOnline)
+            if let track = currentTrack {
+                Divider()
+                SongShareButton(song: track, showsIcon: false)
+            }
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: 14))

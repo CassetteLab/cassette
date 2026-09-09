@@ -152,6 +152,10 @@ struct SongContextMenuModifier: ViewModifier {
 
             Divider()
 
+            SongShareButton(song: song)
+
+            Divider()
+
             Button {
                 let fav = isFavorite
                 Task {
