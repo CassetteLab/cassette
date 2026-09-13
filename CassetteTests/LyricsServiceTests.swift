@@ -21,6 +21,7 @@ final class MockLyricsServerService: ServerServiceProtocol {
     func updateServer(id: UUID, displayName: String, baseURL: String, username: String, password: String, customHeaders: [String: String]) async throws {}
     func setMusicFolderScope(serverId: UUID, folderId: String?) async throws {}
     func setHiddenPlaylistKinds(serverId: UUID, kinds: Set<PlaylistKind>) async throws {}
+    func setPlaylistKindHidden(serverId: UUID, kind: PlaylistKind, isHidden: Bool) async throws {}
     func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {}
     func testConnection() async throws {}
     func testConnection(url: String, username: String, password: String, customHeaders: [String: String]) async throws {}
