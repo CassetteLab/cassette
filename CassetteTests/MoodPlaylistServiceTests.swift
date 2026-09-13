@@ -69,7 +69,10 @@ private final class PlaylistStub: PlaylistSyncClient, @unchecked Sendable {
 // MARK: - Harness
 
 /// Records every cover the service asks to be applied.
-private final class CoverStub: @unchecked Sendable {
+/// `nonisolated` on purpose: the stub is already thread-safe through its own lock, and the
+/// service calls it from a `@Sendable` closure off the main actor. Without this the module's
+/// MainActor-by-default isolation applies, which is an error in the Swift 6 language mode.
+private nonisolated final class CoverStub: @unchecked Sendable {
     private let lock = NSLock()
     private var _applied: [(spec: PlaylistGradientSpec, playlistId: String)] = []
     var applied: [(spec: PlaylistGradientSpec, playlistId: String)] { lock.withLock { _applied } }
@@ -88,10 +91,10 @@ private struct Harness {
     let service: MoodPlaylistService
     let serverId = "server-1"
 
-    init() {
+    init() throws {
         // Swift Testing runs suites in parallel — every harness needs its own defaults domain.
         let name = "mood.tests.\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: name)!
+        defaults = try #require(UserDefaults(suiteName: name), "could not open defaults suite \(name)")
         preferences = MoodPreferences(userDefaults: defaults)
         let provider = provider, playlists = playlists, covers = covers
         service = MoodPlaylistService(
@@ -152,8 +155,8 @@ struct MoodPlaylistServiceTests {
     private let nextWednesday = date("2026-07-22T12:00:00Z")
 
     @Test("a first run refreshes all five moods")
-    func firstRunRefreshesEverything() async {
-        let h = Harness()
+    func firstRunRefreshesEverything() async throws {
+        let h = try Harness()
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
         #expect(outcome == .finished(source: .sonic, refreshed: Mood.allCases, kept: []))
@@ -163,8 +166,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a second run in the same week does nothing at all")
-    func secondRunSameWeekIsANoOp() async {
-        let h = Harness()
+    func secondRunSameWeekIsANoOp() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         let outcome = await h.service.runWeeklySyncIfNeeded(
             serverId: h.serverId, calendar: utc, currentDate: date("2026-07-19T08:00:00Z"))
@@ -174,8 +177,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("the next Wednesday refreshes again")
-    func newCycleRefreshes() async {
-        let h = Harness()
+    func newCycleRefreshes() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: nextWednesday)
 
@@ -184,8 +187,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a mood whose search fails keeps its playlist and is retried next launch")
-    func failedMoodKeepsItsPlaylist() async {
-        let h = Harness()
+    func failedMoodKeepsItsPlaylist() async throws {
+        let h = try Harness()
         h.provider.outcomes[.workout] = .failure
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
@@ -198,8 +201,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("an empty search result never empties the playlist")
-    func emptyResultIsNotWritten() async {
-        let h = Harness()
+    func emptyResultIsNotWritten() async throws {
+        let h = try Harness()
         h.provider.outcomes[.night] = .empty
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
@@ -209,8 +212,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("only the moods that failed are retried on the next launch")
-    func retryCoversOnlyTheFailures() async {
-        let h = Harness()
+    func retryCoversOnlyTheFailures() async throws {
+        let h = try Harness()
         h.provider.outcomes[.workout] = .failure
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
@@ -224,8 +227,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a failing sync is throttled rather than retried on every launch")
-    func failuresAreThrottled() async {
-        let h = Harness()
+    func failuresAreThrottled() async throws {
+        let h = try Harness()
         h.provider.defaultOutcome = .failure
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         let requestedAfterFirst = h.provider.requested.count
@@ -238,8 +241,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a failing playlist write leaves the mood's marker untouched")
-    func playlistWriteFailureKeepsMarker() async {
-        let h = Harness()
+    func playlistWriteFailureKeepsMarker() async throws {
+        let h = try Harness()
         h.playlists.failWrites = true
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
@@ -251,10 +254,10 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a server that stores none of the ids counts as a failure, not a success")
-    func serverStoringNothingIsAFailure() async {
+    func serverStoringNothingIsAFailure() async throws {
         // Navidrome answers 200 and silently drops ids it does not recognise, so a whole batch of
         // foreign ids produced an empty playlist that we reported as "refreshed with 75 tracks".
-        let h = Harness()
+        let h = try Harness()
         h.playlists.storesNothing = true
 
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
@@ -269,7 +272,7 @@ struct MoodPlaylistServiceTests {
 
     @Test("an existing server playlist is reused instead of creating a duplicate")
     func existingPlaylistIsReused() async throws {
-        let h = Harness()
+        let h = try Harness()
         h.playlists.existing = try Mood.allCases.map { mood in
             try JSONDecoder().decode(
                 Playlist.self,
@@ -284,12 +287,12 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("no AudioMuse configured means the feature is simply absent")
-    func notConfigured() async {
+    func notConfigured() async throws {
         let playlists = PlaylistStub()
         let service = MoodPlaylistService(
             playlistClientFactory: { playlists },
             providerFactory: { nil },
-            preferences: MoodPreferences(userDefaults: UserDefaults(suiteName: "mood.tests.\(UUID().uuidString)")!)
+            preferences: MoodPreferences(userDefaults: try #require(UserDefaults(suiteName: "mood.tests.\(UUID().uuidString)")))
         )
         let outcome = await service.runWeeklySyncIfNeeded(serverId: "s", calendar: utc, currentDate: wednesday)
 
@@ -298,8 +301,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("each mood is requested exactly once")
-    func everyMoodRequestedOnce() async {
-        let h = Harness()
+    func everyMoodRequestedOnce() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
         #expect(Set(h.provider.requested) == Set(Mood.allCases))
@@ -307,8 +310,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("the source that populated the playlists is recorded for the UI")
-    func sourceIsRecorded() async {
-        let h = Harness()
+    func sourceIsRecorded() async throws {
+        let h = try Harness()
         h.provider.kind = .tags
         let outcome = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
@@ -319,8 +322,8 @@ struct MoodPlaylistServiceTests {
     // MARK: - Covers
 
     @Test("each playlist gets its generated cover on first build")
-    func coversAreAppliedOnce() async {
-        let h = Harness()
+    func coversAreAppliedOnce() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
         #expect(h.covers.applied.count == 5)
@@ -332,8 +335,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("the cover is not re-uploaded on later refreshes")
-    func coversAreNotReapplied() async {
-        let h = Harness()
+    func coversAreNotReapplied() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: nextWednesday)
 
@@ -341,8 +344,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a mood that failed gets no cover")
-    func failedMoodGetsNoCover() async {
-        let h = Harness()
+    func failedMoodGetsNoCover() async throws {
+        let h = try Harness()
         h.provider.outcomes[.workout] = .failure
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
@@ -352,8 +355,8 @@ struct MoodPlaylistServiceTests {
     // MARK: - Forced rebuild
 
     @Test("a forced rebuild rewrites every playlist even mid-week")
-    func rebuildIgnoresTheCadence() async {
-        let h = Harness()
+    func rebuildIgnoresTheCadence() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         #expect(h.playlists.replacements.count == 5)
 
@@ -367,8 +370,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a forced rebuild bypasses the throttle")
-    func rebuildIgnoresTheThrottle() async {
-        let h = Harness()
+    func rebuildIgnoresTheThrottle() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
 
         // One minute later — well inside the throttle window, which a normal call would refuse.
@@ -380,8 +383,8 @@ struct MoodPlaylistServiceTests {
     }
 
     @Test("a forced rebuild reuses the existing playlists rather than creating new ones")
-    func rebuildKeepsPlaylistIds() async {
-        let h = Harness()
+    func rebuildKeepsPlaylistIds() async throws {
+        let h = try Harness()
         _ = await h.service.runWeeklySyncIfNeeded(serverId: h.serverId, calendar: utc, currentDate: wednesday)
         let createdFirst = h.playlists.created.count
 

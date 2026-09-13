@@ -59,11 +59,18 @@ jobs:
             -destination '${{ matrix.destination }}' \
             -configuration Debug \
             -clonedSourcePackagesDirPath .spm \
+            -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build 2>&1 | tee build.log
 
       - name: Fail on compiler warnings
         run: .github/scripts/check-warnings.sh build.log
+
+      # Reads the COMPILED bundle, not the catalog: an entry whose languages sit at the
+      # entry's root instead of under "localizations" compiles cleanly, looks right in
+      # Xcode, and ships English to all eight languages. Only the built .strings shows it.
+      - name: Verify localized strings resolve
+        run: .github/scripts/verify-i18n.py build/DerivedData/Build/Products
 
   test:
     name: Test suite
@@ -105,11 +112,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test 2>&1 | tee test.log
 
-      # Reported, not enforced: the test target carries two pre-existing
-      # concurrency warnings (AudioMuseProviderTests, MoodPlaylistServiceTests).
-      # Drop --warn-only once those are fixed so tests match the app's policy.
-      - name: Report compiler warnings in tests
-        run: .github/scripts/check-warnings.sh test.log --warn-only
+      - name: Fail on compiler warnings in tests
+        run: .github/scripts/check-warnings.sh test.log
 
       - name: Upload test results
         if: failure()
