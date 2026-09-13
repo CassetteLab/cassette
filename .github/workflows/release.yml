@@ -4,7 +4,16 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: {}
+  # Lets the macOS half be re-run on its own, without pushing a tag — so a failure here can be
+  # retried without waking Xcode Cloud and adding a duplicate TestFlight build for a version that
+  # already has one. Give it the version of an EXISTING tag to publish onto; leave it empty for a
+  # dry run that builds, notarises and hashes but publishes nothing.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Existing version to publish, e.g. 1.11.0. Empty = dry run, publishes nothing.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -28,16 +37,28 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Derive version from tag
+      - name: Derive version from tag or dispatch input
         id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${GITHUB_REF_NAME:-}" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+          # `publish` gates every step that writes somewhere permanent. A dispatch with no version
+          # is therefore a full rehearsal — archive, export, notarise, DMG, checksums — that leaves
+          # no trace, which is the only way to exercise this workflow without burning a tag.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ -n "${GITHUB_REF_NAME:-}" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
+            PUBLISH=true
+          elif [ -n "$INPUT_VERSION" ]; then
+            VERSION="${INPUT_VERSION#v}"
+            PUBLISH=true
           else
             VERSION="0.0.0-dev"
+            PUBLISH=false
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building version $VERSION"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION (publish=$PUBLISH)"
 
       - name: Build unsigned iOS .ipa (for sideloading)
         run: |
@@ -94,11 +115,18 @@ jobs:
           echo "$PROVISION_PROFILE_APP_BASE64" | base64 --decode > "$PROFILES_DIR/cassette_app.provisionprofile"
           echo "$PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode > "$PROFILES_DIR/cassette_widget.provisionprofile"
 
-      - name: Archive (macOS, manual Developer ID signing)
+      - name: Archive (macOS, unsigned — Developer ID applied at export)
         run: |
-          # Manual Developer ID signing, reusing the imported certificate and the profiles installed
-          # above (matched to each target by bundle id). No automatic signing / -allowProvisioningUpdates,
-          # so the CI never mints a new development certificate and cannot hit the account's cert cap.
+          # Nothing is signed here. Manual signing at archive time needs a
+          # PROVISIONING_PROFILE_SPECIFIER per target, and a command-line build setting applies to
+          # every target at once — but the app and the widget extension need two different profiles,
+          # and both carry App Groups, which only a matching profile can authorise. That is what
+          # failed on v1.11.0: "requires a provisioning profile with the App Groups feature".
+          #
+          # ExportOptions-DeveloperID.plist already maps each bundle id to its own profile, so the
+          # export below is the right place to sign. Still no -allowProvisioningUpdates: CI mints no
+          # certificate and cannot hit the account's cert cap, which is why archive-time signing was
+          # introduced in the first place.
           xcodebuild \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
@@ -107,9 +135,9 @@ jobs:
             -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Developer ID Application" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             archive
 
       - name: Export Developer ID app
@@ -171,9 +199,10 @@ jobs:
           echo "IPA $IPA_SHA"
 
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
             ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.ipa
@@ -183,12 +212,12 @@ jobs:
       # to the generated notes, which would put the checksums above the changelog. Failing here
       # costs the section, not the release — the artifacts are already uploaded.
       - name: Append checksums to release notes
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ steps.version.outputs.tag }}"
           DMG_SHA="${{ steps.checksums.outputs.dmg_sha }}"
           IPA_SHA="${{ steps.checksums.outputs.ipa_sha }}"
           BODY="$(gh release view "$TAG" --json body --jq .body)"
@@ -205,7 +234,7 @@ jobs:
           gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
       - name: Bump Homebrew cask
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
