@@ -44,6 +44,7 @@ struct SettingsView: View {
             integrationsSection()
             aboutSection()
             supportSection()
+            SupportersSection()
         }
         .formStyle(.grouped)
         .refreshable {

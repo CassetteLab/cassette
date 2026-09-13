@@ -13,6 +13,7 @@
 		DBA4A77D2F9BE3C8008BC5A9 /* SwiftSonic in Frameworks */ = {isa = PBXBuildFile; productRef = DBA4A77C2F9BE3C8008BC5A9 /* SwiftSonic */; };
 		DBBC62D82FB3B9A600010D3F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBBC62D72FB3B9A600010D3F /* WidgetKit.framework */; };
 		DBBC62DA2FB3B9A600010D3F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DBBC62D92FB3B9A600010D3F /* SwiftUI.framework */; };
+		DB7F563A60958C3AB310DA06 /* supporters.json in Resources */ = {isa = PBXBuildFile; fileRef = DBA66631CD5B9A8BF5668E78 /* supporters.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +76,7 @@
 		DBBC62D72FB3B9A600010D3F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		DBBC62D92FB3B9A600010D3F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		DBBC62EB2FB3BD0800010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "fr.mathieu-dubart.CassetteWidgetsExtension.entitlements"; sourceTree = "<group>"; };
+		DBA66631CD5B9A8BF5668E78 /* supporters.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = supporters.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -176,6 +178,7 @@
 			isa = PBXGroup;
 			children = (
 				DBBC62EB2FB3BD0800010D3F /* fr.mathieu-dubart.CassetteWidgetsExtension.entitlements */,
+				DBA66631CD5B9A8BF5668E78 /* supporters.json */,
 				DBA4A7532F9BBFCB008BC5A9 /* Cassette */,
 				DBA4A7612F9BBFCC008BC5A9 /* CassetteTests */,
 				DBA4A76B2F9BBFCC008BC5A9 /* CassetteUITests */,
@@ -371,6 +374,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DB7F563A60958C3AB310DA06 /* supporters.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

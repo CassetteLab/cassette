@@ -269,6 +269,7 @@ private struct AboutSettingsTab: View {
                     Link("dimitris-c", destination: CassetteURLs.audioStreaming)
                 }
             }
+            SupportersSection()
         }
         .formStyle(.grouped)
         .frame(maxWidth: 480)
