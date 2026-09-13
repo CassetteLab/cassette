@@ -6,7 +6,8 @@ Cassette is free, forever. This page thanks the people who chose to support it o
 
 Everyone is listed by the name they chose, at the same level, in the order they joined. No amounts, no tiers, no ranking. The same list is credited in the app, under Settings.
 
-Nobody is listed yet: the first public supporter on Ko-fi will be credited here.
+- Remy
+- moebasalama
 
 ## Being listed
 

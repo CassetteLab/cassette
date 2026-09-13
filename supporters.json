@@ -6,5 +6,8 @@
     "name (required): the name the person chose. since (required): YYYY-MM. url (optional): a personal link.",
     "After editing, run scripts/generate-supporters.py and commit both files. The app picks up the list at its next release."
   ],
-  "supporters": []
+  "supporters": [
+      { "name": "Remy", "since": "2026-06" },
+      { "name": "moebasalama", "since": "2026-07" }
+  ]
 }
