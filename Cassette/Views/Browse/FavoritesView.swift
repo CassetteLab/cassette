@@ -121,6 +121,18 @@ struct FavoritesView: View {
                 .listRowBackground(Color.clear)
                 .padding(.vertical, 4)
 
+                if vm.isDownloadingAll {
+                    DownloadProgressView(
+                        songs: songs,
+                        total: songs.count,
+                        serverId: container?.serverState.activeServer?.id ?? UUID(),
+                        secondaryColor: .secondary
+                    )
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+
                 FavoriteSongRows(
                     songs: songs,
                     serverId: container?.serverState.activeServer?.id ?? UUID(),

@@ -183,6 +183,18 @@ struct SongsListView: View {
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .padding(.vertical, 4)
+
+        if vm.isDownloadingAll {
+            DownloadProgressView(
+                songs: songs,
+                total: songs.count,
+                serverId: container?.serverState.activeServer?.id ?? UUID(),
+                secondaryColor: .secondary
+            )
+            .frame(maxWidth: .infinity)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        }
     }
 
     /// Icon-only "download everything in this list", styled like the album/playlist download
