@@ -1101,10 +1101,13 @@ private struct PlaybackControlsView: View {
             Button {
                 HapticFeedback.medium.trigger()
                 Task {
-                    if playerState.playbackState == .playing {
-                        await playerService?.pause()
-                    } else {
-                        await playerService?.resume()
+                    // The origin tag only labels audio-session diagnostic lines.
+                    await PlaybackCommandOrigin.$current.withValue(.ui) {
+                        if playerState.playbackState == .playing {
+                            await playerService?.pause()
+                        } else {
+                            await playerService?.resume()
+                        }
                     }
                 }
             } label: {

@@ -180,10 +180,13 @@ struct MiniPlayerAccessoryView: View {
         Button {
             HapticFeedback.medium.trigger()
             Task {
-                if isPlaying {
-                    await container?.playerService.pause()
-                } else {
-                    await container?.playerService.resume()
+                // The origin tag only labels audio-session diagnostic lines.
+                await PlaybackCommandOrigin.$current.withValue(.ui) {
+                    if isPlaying {
+                        await container?.playerService.pause()
+                    } else {
+                        await container?.playerService.resume()
+                    }
                 }
             }
         } label: {

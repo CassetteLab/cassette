@@ -11,6 +11,8 @@ import OSLog
 extension Logger {
     nonisolated static let server     = Logger(subsystem: "app.cassette.server",     category: "ServerService")
     nonisolated static let player     = Logger(subsystem: "app.cassette.player",     category: "PlayerService")
+    /// Opt-in audio-session diagnostics (AudioSessionLog). Same subsystem as `player` so one Console filter shows both.
+    nonisolated static let audioSession = Logger(subsystem: "app.cassette.player",   category: "AudioSession")
     nonisolated static let library    = Logger(subsystem: "app.cassette.library",    category: "LibraryService")
     nonisolated static let cache      = Logger(subsystem: "app.cassette.cache",      category: "AudioStreamCache")
     nonisolated static let download   = Logger(subsystem: "app.cassette.download",   category: "DownloadService")

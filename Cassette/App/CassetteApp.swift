@@ -27,6 +27,8 @@ struct CassetteApp: App {
 
     init() {
         #if os(iOS)
+        // Marks each process start in the opt-in audio-session log, so a relaunch between two events is visible.
+        AudioSessionLog.log("[APP] process start \(AudioSessionLog.environmentSummary())")
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: "app.cassette.wrapped.monthly-update",
             using: nil
@@ -94,6 +96,13 @@ struct CassetteApp: App {
                 }
             }
             .tint(CassetteColors.accent)
+            #if os(iOS)
+            // Hidden switches for the opt-in audio-session log (cassette://diagnostics/audio-session/…).
+            // Any other URL is left alone, exactly as before this handler existed.
+            .onOpenURL { url in
+                AudioSessionDiagnosticsLinkHandler.handle(url)
+            }
+            #endif
             .onAppear {
                 #if os(macOS)
                 NSApplication.shared.windows
@@ -165,6 +174,7 @@ struct CassetteApp: App {
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             #if os(iOS)
+            AudioSessionLog.log("[APP] scenePhase \(oldPhase) → \(newPhase)")
             // `.inactive` is entered in both directions on iOS:
             //   active -> inactive -> background  (leaving)
             //   background -> inactive -> active  (returning)

@@ -139,7 +139,9 @@ final class AppContainer {
         widgetSyncService = widgetSync
         pin.setWidgetSyncService(widgetSync)
 
-        NowPlayingBridge.performTogglePlayPause = { [weak player] in await player?.togglePlayPause() }
+        NowPlayingBridge.performTogglePlayPause = { [weak player] in
+            await PlaybackCommandOrigin.$current.withValue(.intent) { await player?.togglePlayPause() }
+        }
         Task { [playlist] in await playlist.retryMissingPlaylistDownloads() }
 
         let subsonicProvider = SubsonicRecommendationProvider(libraryService: library)

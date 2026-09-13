@@ -67,6 +67,10 @@ actor PlayerService: PlayerServiceProtocol {
     /// (AirPods in case). Per Apple guidance, never auto-resume after such an interruption
     /// — resuming would route playback to the built-in speaker.
     private var interruptionWasRouteDisconnect = false
+    /// Diagnostics only (AudioSessionLog): observers that log and never react, and whether a `.began` is still
+    /// waiting for its `.ended`. Nothing reads either to decide playback behavior.
+    private var diagnosticObservers: [NSObjectProtocol] = []
+    private var diagnosticInterruptionOpen = false
     #endif
 
     private var isHandlingEndOfTrack = false
@@ -1001,6 +1005,7 @@ actor PlayerService: PlayerServiceProtocol {
     // MARK: - Pause / Resume
 
     func pause() async {
+        logPlaybackCommand("pause")
         cancelFadeTasks()
         finalizePlaySegment()
         audioPlayer.pause()
@@ -1024,6 +1029,7 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func resume() async {
+        logPlaybackCommand("resume")
         let restoredPosition = pendingRestoreInfo?.seekTime
         // User explicitly pressed play — cancel any pending restore auto-pause and lift eof guard.
         restorePauseTask?.cancel()
@@ -1048,6 +1054,7 @@ actor PlayerService: PlayerServiceProtocol {
             pendingRestoreInfo = nil
             let queue = await MainActor.run { state.queue }
             if !queue.isEmpty {
+                AudioSessionLog.log("[CMD] resume path=end-of-queue → play(tracks:) from track 0 origin=\(PlaybackCommandOrigin.current.rawValue)")
                 try? await play(tracks: queue, startIndex: 0)
                 return
             }
@@ -1064,8 +1071,11 @@ actor PlayerService: PlayerServiceProtocol {
             // mirrors the always-re-resolve invariant every other playback start holds.
             let freshSource = await refreshedColdStartSource() ?? source
             currentSource = freshSource
+            AudioSessionLog.log("[CMD] resume path=cold-start → play(url:) origin=\(PlaybackCommandOrigin.current.rawValue)")
             audioPlayer.play(url: freshSource.url, headers: freshSource.customHeaders)
         } else {
+            // AudioStreaming's resume() only acts from its paused state; any other state makes it a silent no-op.
+            AudioSessionLog.log("[CMD] resume path=engine-resume engine=\(audioPlayer.state) origin=\(PlaybackCommandOrigin.current.rawValue)")
             audioPlayer.resume()
         }
         await MainActor.run { state.playbackState = .playing }
@@ -1098,6 +1108,21 @@ actor PlayerService: PlayerServiceProtocol {
     func togglePlayPause() async {
         let isPlaying = await MainActor.run { state.playbackState == .playing }
         if isPlaying { await pause() } else { await resume() }
+    }
+
+    /// Diagnostics only (AudioSessionLog): who asked, the engine state now, and again about 500 ms later, which
+    /// shows whether AudioStreaming actually followed. When the log is off: one flag read, no string, no task.
+    private func logPlaybackCommand(_ command: String) {
+        #if os(iOS)
+        guard AudioSessionLog.isEnabled else { return }
+        let origin = PlaybackCommandOrigin.current.rawValue
+        AudioSessionLog.log("[CMD] \(command) origin=\(origin) engine=\(audioPlayer.state) engineRunning=\(audioPlayer.isEngineRunning) interruptionOpen=\(diagnosticInterruptionOpen)")
+        Task.detached(priority: .utility) { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard let self else { return }
+            AudioSessionLog.log("[CMD] \(command) +500ms origin=\(origin) engine=\(self.audioPlayer.state) engineRunning=\(self.audioPlayer.isEngineRunning) \(AudioSessionLog.activitySummary())")
+        }
+        #endif
     }
 
     // MARK: - Stop
@@ -2250,13 +2275,26 @@ extension PlayerService {
             if !audioSessionConfigured {
                 // .playback disables the silent switch and allows background audio.
                 // AirPlay + Bluetooth options enable wireless output without extra entitlements.
-                try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
+                // The inner catch only logs and rethrows: the shared catch below cannot tell which call failed.
+                do {
+                    try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
+                } catch {
+                    AudioSessionLog.log("[SESSION] setCategory FAILED \(AudioSessionLog.describe(error: error)) \(AudioSessionLog.sessionSummary(session))")
+                    throw error
+                }
                 audioSessionConfigured = true
+                AudioSessionLog.log("[SESSION] setCategory ok \(AudioSessionLog.sessionSummary(session))")
             }
             // Always call setActive(true) — iOS may have deactivated the session during a
             // background interruption (phone call, Siri, other audio app) even after a
             // successful initial setup. Without this, resume() silently fails on the lock screen.
-            try session.setActive(true)
+            do {
+                try session.setActive(true)
+            } catch {
+                AudioSessionLog.log("[SESSION] setActive(true) FAILED origin=\(PlaybackCommandOrigin.current.rawValue) interruptionOpen=\(diagnosticInterruptionOpen) \(AudioSessionLog.describe(error: error)) \(AudioSessionLog.activitySummary(session))")
+                throw error
+            }
+            AudioSessionLog.log("[SESSION] setActive(true) ok origin=\(PlaybackCommandOrigin.current.rawValue) interruptionOpen=\(diagnosticInterruptionOpen) \(AudioSessionLog.activitySummary(session))")
         } catch let error as NSError {
             if error.code == -50 {
                 // Code=-50: another app holds the session — retry after short delay.
@@ -2264,7 +2302,12 @@ extension PlayerService {
                 sessionActivationRetryTask = Task {
                     try? await Task.sleep(for: .seconds(0.5))
                     guard !Task.isCancelled else { return }
-                    try? AVAudioSession.sharedInstance().setActive(true)
+                    do {
+                        try AVAudioSession.sharedInstance().setActive(true)
+                        AudioSessionLog.log("[SESSION] -50 retry setActive(true) ok — engine not restarted by the retry")
+                    } catch {
+                        AudioSessionLog.log("[SESSION] -50 retry setActive(true) FAILED \(AudioSessionLog.describe(error: error))")
+                    }
                 }
             } else {
                 Logger.player.error("Failed to configure AVAudioSession: \(error, privacy: .public)")
@@ -2277,7 +2320,9 @@ extension PlayerService {
                 queue: .main
             ) { [weak self] notification in
                 guard let self else { return }
-                Task { await self.handleAudioSessionInterruption(notification) }
+                let seq = AudioSessionLog.nextSequence()
+                AudioSessionLog.log("[RECV #\(seq)] interruption \(AudioSessionLog.describeInterruption(notification.userInfo))")
+                Task { await self.handleAudioSessionInterruption(notification, seq: seq) }
             }
         }
         if routeChangeObserver == nil {
@@ -2287,20 +2332,39 @@ extension PlayerService {
                 queue: .main
             ) { [weak self] notification in
                 guard let self else { return }
+                let seq = AudioSessionLog.nextSequence()
+                // Logged before the guard so an unparseable reason is visible instead of silently dropped.
+                AudioSessionLog.log("[RECV #\(seq)] route \(AudioSessionLog.describeRouteChange(notification.userInfo)) \(AudioSessionLog.activitySummary())")
                 guard let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                       let changeReason = AVAudioSession.RouteChangeReason(rawValue: reason) else { return }
                 // AVAudioSessionRouteDescription is not Sendable — extract the previous
                 // route's port types here on the main queue before hopping to the actor.
                 let previousOutputs = (notification.userInfo?[AVAudioSessionRouteChangePreviousRouteKey]
                     as? AVAudioSessionRouteDescription)?.outputs.map(\.portType) ?? []
-                Task { await self.handleRouteChange(changeReason, previousOutputs: previousOutputs) }
+                Task { await self.handleRouteChange(changeReason, previousOutputs: previousOutputs, seq: seq) }
+            }
+        }
+        // Diagnostics only (AudioSessionLog): these log and never react. Media-services resets would explain a
+        // player that stays dead; the iOS 27 notifications replace the interruption one we rely on.
+        if diagnosticObservers.isEmpty {
+            var names = AudioSessionLog.observedOnlyNotificationNames
+            if #available(iOS 27.0, *) {
+                names += AudioSessionLog.iOS27SessionNotificationNames
+            }
+            diagnosticObservers = names.map { name in
+                NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { notification in
+                    AudioSessionLog.log("[OBSERVED #\(AudioSessionLog.nextSequence())] \(AudioSessionLog.describeObservedOnly(notification)) \(AudioSessionLog.activitySummary())")
+                }
             }
         }
     }
 
-    private func handleAudioSessionInterruption(_ notification: Notification) async {
+    private func handleAudioSessionInterruption(_ notification: Notification, seq: Int = 0) async {
         guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            AudioSessionLog.log("[INTERRUPTION #\(seq)] unparseable type — ignored")
+            return
+        }
 
         switch type {
         case .began:
@@ -2308,7 +2372,13 @@ extension PlayerService {
             // return — .ended must never auto-resume those onto the built-in speaker.
             interruptionWasRouteDisconnect = (notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt)
                 .flatMap(AVAudioSession.InterruptionReason.init(rawValue:)) == .routeDisconnected
-            let isPlaying = await MainActor.run { state.playbackState == .playing }
+            diagnosticInterruptionOpen = true
+            // Same single MainActor hop as before; the extra fields only feed the diagnostic line.
+            let (playbackState, hasTrack, hasRadio) = await MainActor.run {
+                (state.playbackState, state.currentTrack != nil, state.currentRadio != nil)
+            }
+            let isPlaying = playbackState == .playing
+            AudioSessionLog.log("[INTERRUPTION #\(seq)] began reason=\(AudioSessionLog.describe(interruptionReason: notification.userInfo?[AVAudioSessionInterruptionReasonKey] as? UInt)) routeDisconnectFlag=\(interruptionWasRouteDisconnect) playbackState=\(playbackState) track=\(hasTrack) radio=\(hasRadio) engine=\(audioPlayer.state) engineRunning=\(audioPlayer.isEngineRunning) \(AudioSessionLog.activitySummary()) → \(isPlaying ? "pausing" : "early return: not playing, nothing paused")")
             guard isPlaying else { return }
             // Cancel any active crossfade before the OS steals audio focus.
             cancelFadeTasks()
@@ -2321,6 +2391,7 @@ extension PlayerService {
                 Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: pauseTrack) }
             }
             Logger.player.info("[INTERRUPTION] began — paused playback")
+            AudioSessionLog.log("[INTERRUPTION #\(seq)] began — paused engine=\(audioPlayer.state) engineRunning=\(audioPlayer.isEngineRunning) (now-playing rate left untouched)")
 
         case .ended:
             let shouldResume = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
@@ -2328,27 +2399,34 @@ extension PlayerService {
                 .map { $0.contains(.shouldResume) } ?? false
             let wasRouteDisconnect = interruptionWasRouteDisconnect
             interruptionWasRouteDisconnect = false
+            let beganSeen = diagnosticInterruptionOpen
+            diagnosticInterruptionOpen = false
             Logger.player.info("[INTERRUPTION] ended — shouldResume=\(shouldResume, privacy: .public) routeDisconnect=\(wasRouteDisconnect, privacy: .public)")
+            AudioSessionLog.log("[INTERRUPTION #\(seq)] ended options=\(AudioSessionLog.describe(interruptionOptions: notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)) shouldResume=\(shouldResume) routeDisconnectFlag=\(wasRouteDisconnect) beganSeen=\(beganSeen) engine=\(audioPlayer.state) engineRunning=\(audioPlayer.isEngineRunning) \(AudioSessionLog.activitySummary()) → \(shouldResume && !wasRouteDisconnect ? "resume()" : shouldResume ? "stay paused: route-disconnect flag" : "stay paused: no shouldResume")")
             if shouldResume && !wasRouteDisconnect {
-                await resume()
+                await PlaybackCommandOrigin.$current.withValue(.interruption) {
+                    await resume()
+                }
             } else {
                 Logger.player.info("[INTERRUPTION] ended — staying paused")
             }
 
         @unknown default:
-            break
+            AudioSessionLog.log("[INTERRUPTION #\(seq)] unknown type \(typeValue) — ignored")
         }
     }
 
     // internal: accessible from tests via @testable import
     func handleRouteChange(
         _ reason: AVAudioSession.RouteChangeReason,
-        previousOutputs: [AVAudioSession.Port] = []
+        previousOutputs: [AVAudioSession.Port] = [],
+        seq: Int = 0
     ) async {
         let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
             .map { $0.portType.rawValue }
             .joined(separator: ",")
         Logger.player.info("[ROUTE] routeChange reason=\(reason.logDescription, privacy: .public) outputs=[\(outputs, privacy: .public)]")
+        AudioSessionLog.log("[ROUTE #\(seq)] reason=\(AudioSessionLog.describe(routeChangeReason: reason.rawValue)) previous=\(AudioSessionLog.describe(ports: previousOutputs.map(\.rawValue))) interruptionOpen=\(diagnosticInterruptionOpen) engine=\(audioPlayer.state) \(AudioSessionLog.activitySummary())")
 
         switch reason {
         case .oldDeviceUnavailable:
@@ -2358,17 +2436,33 @@ extension PlayerService {
             // are still primed to resume on the speaker. pause() is idempotent and also
             // deactivates the session, which is what actually prevents speaker playback.
             guard previousOutputs.isEmpty
-                || PlayerService.isPersonalAudioRoute(portTypes: previousOutputs) else { break }
-            let hasActiveTrack = await MainActor.run {
-                state.currentTrack != nil && state.playbackState != .idle
+                || PlayerService.isPersonalAudioRoute(portTypes: previousOutputs) else {
+                AudioSessionLog.log("[ROUTE #\(seq)] → no pause: previous route is not a personal device")
+                break
             }
-            if hasActiveTrack { await pause() }
+            // Same single MainActor hop as before; the extra fields only feed the diagnostic line.
+            let (hasActiveTrack, hasTrack, hasRadio, playbackState) = await MainActor.run {
+                (state.currentTrack != nil && state.playbackState != .idle,
+                 state.currentTrack != nil, state.currentRadio != nil, state.playbackState)
+            }
+            AudioSessionLog.log("[ROUTE #\(seq)] → \(hasActiveTrack ? "pause()" : "no pause: no active track") track=\(hasTrack) radio=\(hasRadio) playbackState=\(playbackState)")
+            if hasActiveTrack {
+                await PlaybackCommandOrigin.$current.withValue(.route) {
+                    await pause()
+                }
+            }
 
         case .newDeviceAvailable, .routeConfigurationChange:
-            try? AVAudioSession.sharedInstance().setActive(true)
+            // do/catch instead of try? only to log the outcome; the error is still ignored.
+            do {
+                try AVAudioSession.sharedInstance().setActive(true)
+                AudioSessionLog.log("[ROUTE #\(seq)] → setActive(true) ok interruptionOpen=\(diagnosticInterruptionOpen)")
+            } catch {
+                AudioSessionLog.log("[ROUTE #\(seq)] → setActive(true) FAILED interruptionOpen=\(diagnosticInterruptionOpen) \(AudioSessionLog.describe(error: error))")
+            }
 
         default:
-            break
+            AudioSessionLog.log("[ROUTE #\(seq)] → ignored")
         }
     }
 }
@@ -2389,6 +2483,7 @@ final class AudioStreamingDelegate: AudioPlayerDelegate, @unchecked Sendable {
         with newState: AudioPlayerState,
         previous: AudioPlayerState
     ) {
+        AudioSessionLog.log("[ENGINE] \(previous) → \(newState) engineRunning=\(player.isEngineRunning)")
         // [DIAG] Correlate with [NET-COVER] logs: underrun while cover fetches are in flight
         // confirms bandwidth starvation; underrun with no concurrent covers points elsewhere.
         if newState == .bufferring && previous == .playing {
@@ -2405,6 +2500,7 @@ final class AudioStreamingDelegate: AudioPlayerDelegate, @unchecked Sendable {
         progress: Double,
         duration: Double
     ) {
+        AudioSessionLog.log("[ENGINE] finished stopReason=\(stopReason) progress=\(progress)s duration=\(duration)s")
         // Only natural completions (eof) trigger end-of-track handling.
         // User-initiated play() or stop() arrive with .userAction / .none.
         guard let service, stopReason == .eof else { return }
@@ -2412,6 +2508,7 @@ final class AudioStreamingDelegate: AudioPlayerDelegate, @unchecked Sendable {
     }
 
     func audioPlayerUnexpectedError(player: AudioPlayer, error: AudioPlayerError) {
+        AudioSessionLog.log("[ENGINE] unexpected error \(error) state=\(player.state) engineRunning=\(player.isEngineRunning)")
         guard let service else { return }
         Task { await service.handleAudioError(error) }
     }
