@@ -2,7 +2,6 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Displays the currently playing track." : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -55,7 +54,6 @@
       }
     },
     "Now Playing" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -108,7 +106,6 @@
       }
     },
     "NOW PLAYING" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -161,7 +158,6 @@
       }
     },
     "Open Cassette" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -214,7 +210,6 @@
       }
     },
     "Open Cassette to get started" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -267,7 +262,6 @@
       }
     },
     "Pause" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -320,7 +314,6 @@
       }
     },
     "Pin albums or playlists in Cassette" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -373,7 +366,6 @@
       }
     },
     "Pinned Items" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -426,7 +418,6 @@
       }
     },
     "Play" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -479,7 +470,6 @@
       }
     },
     "Play / Pause" : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -532,7 +522,6 @@
       }
     },
     "Quickly access your pinned items." : {
-      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
