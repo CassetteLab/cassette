@@ -24,8 +24,15 @@ struct FavoritesView: View {
         .navigationTitle("Favorites")
         .navigationBarTitleDisplayModeInline()
         .onAppear {
-            guard let svc = container?.libraryService else { return }
-            if viewModel == nil { viewModel = FavoritesViewModel(libraryService: svc) }
+            guard let container else { return }
+            if viewModel == nil {
+                viewModel = FavoritesViewModel(
+                    libraryService: container.libraryService,
+                    downloadService: container.downloadService,
+                    toastService: container.toastService,
+                    serverState: container.serverState
+                )
+            }
         }
         .task { await viewModel?.load() }
     }
@@ -51,7 +58,7 @@ struct FavoritesView: View {
         } else {
             let displayableSongs = vm.songs.map { DisplayableSong(from: $0) }
             List {
-                songsSection(displayableSongs)
+                songsSection(vm, displayableSongs)
                 albumsSection(vm.albums)
                 artistsSection(vm.artists)
             }
@@ -65,7 +72,7 @@ struct FavoritesView: View {
     }
 
     @ViewBuilder
-    private func songsSection(_ songs: [DisplayableSong]) -> some View {
+    private func songsSection(_ vm: FavoritesViewModel, _ songs: [DisplayableSong]) -> some View {
         if !songs.isEmpty {
             Section("Songs") {
                 HStack(spacing: 12) {
@@ -97,6 +104,8 @@ struct FavoritesView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(Color.cassetteAccent)
+
+                    downloadAllButton(vm)
                 }
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -117,6 +126,26 @@ struct FavoritesView: View {
                 }
             }
         }
+    }
+
+    /// Icon-only "download every favorite song". Starred songs only — favorited albums and artists
+    /// are untouched. Disabled once nothing is left to fetch. Icon-only means the accessibility
+    /// label is the only thing VoiceOver has to go on.
+    private func downloadAllButton(_ vm: FavoritesViewModel) -> some View {
+        Button {
+            Task { await vm.downloadAll() }
+        } label: {
+            Image(systemName: "arrow.down.circle")
+                // Swapped for a spinner in place, so the row doesn't resize mid-batch.
+                .opacity(vm.isDownloadingAll ? 0 : 1)
+                .overlay { if vm.isDownloadingAll { ProgressView().controlSize(.small) } }
+        }
+        .buttonStyle(.bordered)
+        .tint(Color.cassetteAccent)
+        .disabled(vm.pendingDownloadCount == 0 || vm.isDownloadingAll)
+        .accessibilityLabel(vm.isDownloadingAll
+            ? Text("Downloading all favorite songs")
+            : Text("Download all favorite songs"))
     }
 
     @ViewBuilder

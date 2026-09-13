@@ -34,9 +34,16 @@ struct SongsListView: View {
             }
         }
         .task(id: container?.serverState.isOnline) {
-            guard let svc = container?.libraryService else { return }
-            if viewModel == nil { viewModel = SongsListViewModel(libraryService: svc) }
-            guard container?.serverState.isOnline == true else { return }
+            guard let container else { return }
+            if viewModel == nil {
+                viewModel = SongsListViewModel(
+                    libraryService: container.libraryService,
+                    downloadService: container.downloadService,
+                    toastService: container.toastService,
+                    serverState: container.serverState
+                )
+            }
+            guard container.serverState.isOnline else { return }
             await viewModel?.load(sort: songSort)
         }
         .onChange(of: songSort) { _, newSort in
@@ -96,7 +103,7 @@ struct SongsListView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
                 }
-                playShuffleHeader(songs)
+                playShuffleHeader(vm, songs)
                 ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
                     SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: isFavorite(song))
                         .contentShape(Rectangle())
@@ -127,7 +134,7 @@ struct SongsListView: View {
     }
 
     @ViewBuilder
-    private func playShuffleHeader(_ songs: [DisplayableSong]) -> some View {
+    private func playShuffleHeader(_ vm: SongsListViewModel, _ songs: [DisplayableSong]) -> some View {
         HStack(spacing: 12) {
             Button {
                 Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
@@ -154,10 +161,30 @@ struct SongsListView: View {
             }
             .buttonStyle(.bordered)
             .tint(Color.cassetteAccent)
+
+            downloadAllButton(vm)
         }
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .padding(.vertical, 4)
+    }
+
+    /// Icon-only "download everything in this list". Disabled once nothing is left to fetch, so it
+    /// can't queue a no-op batch. Icon-only means the accessibility label is the only thing
+    /// VoiceOver has to go on.
+    private func downloadAllButton(_ vm: SongsListViewModel) -> some View {
+        Button {
+            Task { await vm.downloadAll() }
+        } label: {
+            Image(systemName: "arrow.down.circle")
+                // Swapped for a spinner in place, so the row doesn't resize mid-batch.
+                .opacity(vm.isDownloadingAll ? 0 : 1)
+                .overlay { if vm.isDownloadingAll { ProgressView().controlSize(.small) } }
+        }
+        .buttonStyle(.bordered)
+        .tint(Color.cassetteAccent)
+        .disabled(vm.pendingDownloadCount == 0 || vm.isDownloadingAll)
+        .accessibilityLabel(vm.isDownloadingAll ? Text("Downloading all songs") : Text("Download all songs"))
     }
 
     private func isFavorite(_ song: DisplayableSong) -> Bool {
