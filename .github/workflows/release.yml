@@ -115,18 +115,21 @@ jobs:
           echo "$PROVISION_PROFILE_APP_BASE64" | base64 --decode > "$PROFILES_DIR/cassette_app.provisionprofile"
           echo "$PROVISION_PROFILE_WIDGET_BASE64" | base64 --decode > "$PROFILES_DIR/cassette_widget.provisionprofile"
 
-      - name: Archive (macOS, unsigned — Developer ID applied at export)
+      - name: Archive (macOS, manual Developer ID signing)
         run: |
-          # Nothing is signed here. Manual signing at archive time needs a
-          # PROVISIONING_PROFILE_SPECIFIER per target, and a command-line build setting applies to
-          # every target at once — but the app and the widget extension need two different profiles,
-          # and both carry App Groups, which only a matching profile can authorise. That is what
-          # failed on v1.11.0: "requires a provisioning profile with the App Groups feature".
+          # Manual signing, with the profile for each target read from the project: the Release
+          # configs carry PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*], scoped to macOS so the iOS
+          # builds keep automatic signing. It cannot be passed here instead — a command-line build
+          # setting applies to every target at once, and the app and the widget extension need two
+          # different profiles. Both carry App Groups, which only a matching profile authorises;
+          # without the specifiers this failed with "requires a provisioning profile with the App
+          # Groups feature" (v1.11.0).
           #
-          # ExportOptions-DeveloperID.plist already maps each bundle id to its own profile, so the
-          # export below is the right place to sign. Still no -allowProvisioningUpdates: CI mints no
-          # certificate and cannot hit the account's cert cap, which is why archive-time signing was
-          # introduced in the first place.
+          # Signing at archive time rather than only at export is what gets every embedded
+          # framework signed with the hardened runtime, which notarisation requires.
+          #
+          # Still no -allowProvisioningUpdates: CI mints no certificate and cannot hit the
+          # account's cert cap, which is why archive-time signing was introduced in the first place.
           xcodebuild \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
@@ -135,9 +138,9 @@ jobs:
             -archivePath "$RUNNER_TEMP/$APP_NAME.xcarchive" \
             MARKETING_VERSION="${{ steps.version.outputs.version }}" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             archive
 
       - name: Export Developer ID app
