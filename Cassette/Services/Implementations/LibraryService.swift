@@ -48,6 +48,14 @@ actor LibraryService: LibraryServiceProtocol {
         return fresh
     }
 
+    /// The server's configured libraries. A single-library server reports one entry (or none on
+    /// older servers), which is what lets the UI stay out of the way for almost everybody.
+    func musicFolders() async throws -> [MusicFolder] {
+        let folders = try await client().getMusicFolders()
+        Logger.library.info("musicFolders() → \(folders.count, privacy: .public) folder(s)")
+        return folders
+    }
+
     func artists() async throws -> [ArtistIndex] {
         try await client().getArtists()
     }
