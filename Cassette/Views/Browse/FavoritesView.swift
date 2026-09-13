@@ -75,6 +75,9 @@ struct FavoritesView: View {
                         }
                     } label: {
                         Label("Play", systemImage: "play.fill")
+                            // White glyph/label on the accent-filled surface — `.borderedProminent`
+                            // would otherwise pick its own foreground. Token, not a literal.
+                            .foregroundStyle(Color.cassetteAccentText)
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
