@@ -16,6 +16,9 @@ nonisolated struct ServerSnapshot: Sendable, Equatable {
     /// Base URL of this server's AudioMuse-AI instance, or nil when none is configured.
     /// Mirrored here so views can show or hide the mood features without a SwiftData fetch.
     let audioMuseURL: String?
+    /// The library browsing is scoped to, or nil for all of them. Mirrored here so views and the
+    /// library service can read the scope without a SwiftData fetch.
+    let selectedMusicFolderId: String?
 
     init(from config: ServerConfig) {
         self.id = config.id
@@ -24,7 +27,16 @@ nonisolated struct ServerSnapshot: Sendable, Equatable {
         self.username = config.username
         self.serverVersion = config.serverVersion
         self.audioMuseURL = config.audioMuseURL
+        self.selectedMusicFolderId = config.selectedMusicFolderId
     }
+}
+
+/// Identity for `.task(id:)` on the library views: they reload when connectivity flips, and now
+/// also when the user scopes browsing to a different library. Bundling both keeps each view to a
+/// single task rather than a task plus a change handler.
+nonisolated struct LibraryLoadKey: Hashable, Sendable {
+    let isOnline: Bool
+    let musicFolderId: String?
 }
 
 /// Observable UI state for server connectivity. Updated by ServerService via MainActor.run.
@@ -36,6 +48,11 @@ final class ServerState {
     var isConnected: Bool = false
     /// Updated by NetworkMonitor. False when NWPathMonitor reports no connectivity.
     var isOnline: Bool = true
+
+    /// See ``LibraryLoadKey``.
+    var libraryLoadKey: LibraryLoadKey {
+        LibraryLoadKey(isOnline: isOnline, musicFolderId: activeServer?.selectedMusicFolderId)
+    }
     /// Updated by NetworkMonitor. True when the connection is metered (cellular, hotspot).
     /// Default false — optimistic until the first NWPath update corrects it on launch (~100ms).
     var isExpensive: Bool = false

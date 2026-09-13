@@ -27,6 +27,11 @@ nonisolated enum InstantMixSeed: Sendable, Hashable {
 }
 
 protocol LibraryServiceProtocol: AnyObject, Sendable {
+    /// The libraries the server exposes. Most servers report exactly one; Navidrome and friends
+    /// can expose several, which the user can then browse one at a time.
+    func musicFolders() async throws -> [MusicFolder]
+    /// Drops the cached library scope so the next request re-reads the user's selection.
+    func reloadMusicFolderScope() async
     func artists() async throws -> [ArtistIndex]
     func artist(id: String) async throws -> ArtistID3
     func album(id: String) async throws -> AlbumID3
@@ -142,6 +147,13 @@ protocol LibraryServiceProtocol: AnyObject, Sendable {
 }
 
 extension LibraryServiceProtocol {
+    /// Default: no libraries to choose between, which is what an offline or stub conformer should
+    /// report. Keeps the existing lightweight conformers source-compatible.
+    func musicFolders() async throws -> [MusicFolder] { [] }
+
+    /// Default no-op: a conformer with no scope to cache has nothing to drop.
+    func reloadMusicFolderScope() async {}
+
     /// Default no-op keeps lightweight offline/test conformers source-compatible.
     func reportPlayback(songId: String, positionMs: Int, state: PlaybackReportState) async {}
 

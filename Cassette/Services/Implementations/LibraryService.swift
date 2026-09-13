@@ -17,6 +17,12 @@ actor LibraryService: LibraryServiceProtocol {
     private var artistNameIndex: [String: ArtistID3]?
     private var indexBuildTask: Task<Void, Never>?
     private var artistInfoCache: [String: ArtistInfo] = [:]
+    /// The library browsing is scoped to, cached on the actor. Reading it from `ServerState` per
+    /// call would put a MainActor hop on every library request, including the ones auto-extend
+    /// makes during playback — the stall the client cache above exists to avoid. Resolved once,
+    /// then refreshed only when the user picks a different library.
+    private var cachedMusicFolderId: String?
+    private var hasResolvedMusicFolderId = false
 
     init(
         serverService: any ServerServiceProtocol,
@@ -28,6 +34,23 @@ actor LibraryService: LibraryServiceProtocol {
         self.modelContainer = modelContainer
         self.downloadService = downloadService
         self.statsService = statsService
+    }
+
+    /// `nil` means every library, which is both the default and the behaviour before scoping
+    /// existed — so a server exposing one library is unaffected.
+    private func musicFolderScope() async -> String? {
+        if hasResolvedMusicFolderId { return cachedMusicFolderId }
+        let scope = await MainActor.run { serverService.state.activeServer?.selectedMusicFolderId }
+        cachedMusicFolderId = scope
+        hasResolvedMusicFolderId = true
+        return scope
+    }
+
+    /// Drops the cached scope so the next request re-reads it. Called when the user changes the
+    /// selection; the client cache is deliberately left alone, since the server has not changed.
+    func reloadMusicFolderScope() {
+        hasResolvedMusicFolderId = false
+        Logger.library.info("Music folder scope invalidated — will re-read on next request")
     }
 
     private func client() async throws -> SwiftSonicClient {
@@ -48,8 +71,17 @@ actor LibraryService: LibraryServiceProtocol {
         return fresh
     }
 
+    /// The server's configured libraries. A single-library server reports one entry (or none on
+    /// older servers), which is what lets the UI stay out of the way for almost everybody.
+    func musicFolders() async throws -> [MusicFolder] {
+        let folders = try await client().getMusicFolders()
+        Logger.library.info("musicFolders() → \(folders.count, privacy: .public) folder(s)")
+        return folders
+    }
+
     func artists() async throws -> [ArtistIndex] {
-        try await client().getArtists()
+        let scope = await musicFolderScope()
+        return try await client().getArtists(musicFolderId: scope)
     }
 
     func artist(id: String) async throws -> ArtistID3 {
@@ -76,7 +108,8 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func search(_ query: String) async throws -> SearchResult3 {
-        try await client().search3(query)
+        let scope = await musicFolderScope()
+        return try await client().search3(query, musicFolderId: scope)
     }
 
     func coverArtURL(id: String, size: Int?) async -> URL? {
@@ -98,17 +131,20 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func getStarred2() async throws -> Starred2 {
-        try await client().getStarred2()
+        let scope = await musicFolderScope()
+        return try await client().getStarred2(musicFolderId: scope)
     }
 
     func recentlyAddedAlbums(size: Int) async throws -> [AlbumID3] {
-        try await client().getAlbumList2(type: .newest, size: size)
+        let scope = await musicFolderScope()
+        return try await client().getAlbumList2(type: .newest, size: size, musicFolderId: scope)
     }
 
     func allAlbums() async throws -> [AlbumID3] {
         Logger.library.info("allAlbums() called")
         do {
-            let result = try await client().getAlbumList2(type: .alphabeticalByName, size: 500)
+            let scope = await musicFolderScope()
+            let result = try await client().getAlbumList2(type: .alphabeticalByName, size: 500, musicFolderId: scope)
             Logger.library.info("allAlbums() done — \(result.count, privacy: .public) items")
             return result
         } catch {
@@ -119,12 +155,15 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func allSongs(offset: Int, count: Int) async throws -> [Song] {
-        try await client().search3(
+        // The scope filters server-side; offset/count paging is unchanged by it.
+        let scope = await musicFolderScope()
+        return try await client().search3(
             "",
             artistCount: 0,
             albumCount: 0,
             songCount: count,
-            songOffset: offset
+            songOffset: offset,
+            musicFolderId: scope
         ).song ?? []
     }
 
@@ -248,19 +287,23 @@ actor LibraryService: LibraryServiceProtocol {
     }
 
     func recentlyPlayedAlbums(size: Int) async throws -> [AlbumID3] {
-        try await client().getAlbumList2(type: .recent, size: size)
+        let scope = await musicFolderScope()
+        return try await client().getAlbumList2(type: .recent, size: size, musicFolderId: scope)
     }
 
     func mostPlayedAlbums(size: Int) async throws -> [AlbumID3] {
-        try await client().getAlbumList2(type: .frequent, size: size)
+        let scope = await musicFolderScope()
+        return try await client().getAlbumList2(type: .frequent, size: size, musicFolderId: scope)
     }
 
     func songsByGenre(_ genre: String, count: Int) async throws -> [Song] {
-        try await client().getSongsByGenre(genre, count: count)
+        let scope = await musicFolderScope()
+        return try await client().getSongsByGenre(genre, count: count, musicFolderId: scope)
     }
 
     func randomSongs(size: Int) async throws -> [Song] {
-        try await client().getRandomSongs(size: size)
+        let scope = await musicFolderScope()
+        return try await client().getRandomSongs(size: size, musicFolderId: scope)
     }
 
     func smartShuffleQueue(targetSize: Int) async throws -> [DisplayableSong] {
@@ -275,7 +318,7 @@ actor LibraryService: LibraryServiceProtocol {
     private func onlineSmartShuffle(targetSize: Int) async throws -> [DisplayableSong] {
         // Product rule: rediscover is TRULY random — no recency weighting,
         // no `played` filtering. The server picks uniformly across the library.
-        let songs = try await client().getRandomSongs(size: targetSize)
+        let songs = try await client().getRandomSongs(size: targetSize, musicFolderId: await musicFolderScope())
         Logger.library.debug("Smart shuffle online: \(songs.count) random tracks (target \(targetSize))")
         return songs.map { DisplayableSong(from: $0) }
     }
@@ -354,7 +397,7 @@ actor LibraryService: LibraryServiceProtocol {
             }
             // Genre candidates from local tags.
             for genre in seeds.genres {
-                if let songs = try? await client().getSongsByGenre(genre, count: Self.backfillGenreFetchCount) {
+                if let songs = try? await client().getSongsByGenre(genre, count: Self.backfillGenreFetchCount, musicFolderId: await musicFolderScope()) {
                     pool.append(contentsOf: songs.map { DisplayableSong(from: $0) })
                 }
             }
@@ -364,7 +407,7 @@ actor LibraryService: LibraryServiceProtocol {
 
         // Thin pool (small library, empty genres) or no history: top up with random.
         if result.count < targetSize {
-            let randomSongs = (try? await client().getRandomSongs(size: targetSize + excluded.count)) ?? []
+            let randomSongs = (try? await client().getRandomSongs(size: targetSize + excluded.count, musicFolderId: await musicFolderScope())) ?? []
             excluded.formUnion(result.map(\.id))
             let topUp = Self.assembleBackfill(
                 pool: randomSongs.map { DisplayableSong(from: $0) },

@@ -37,7 +37,7 @@ struct SongsListView: View {
                 SongSortMenu(sort: $songSort)
             }
         }
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.libraryLoadKey) {
             guard let container else { return }
             if viewModel == nil {
                 viewModel = SongsListViewModel(

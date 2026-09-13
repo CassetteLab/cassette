@@ -144,6 +144,8 @@ struct RootViewMacOS: View {
             }
 
             Section("Library") {
+                // Renders nothing unless the server exposes more than one library.
+                MusicFolderScopePicker()
                 sidebarRow(.albums)
                 sidebarRow(.artists)
                 sidebarRow(.songs)

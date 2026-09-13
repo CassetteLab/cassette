@@ -229,7 +229,7 @@ struct SearchView: View {
             }
             Logger.ui.debug("[SEARCH-OPEN] SearchView.onAppear done — \(Int(Date().timeIntervalSince(t0) * 1000))ms — viewModel \(wasNil ? "created" : "already existed", privacy: .public)")
         }
-        .task(id: searchQuery) {
+        .task(id: SearchScopeKey(query: searchQuery, musicFolderId: container?.serverState.activeServer?.selectedMusicFolderId)) {
             // [DIAG] Fires on every searchQuery change including the initial empty-string open.
             // search("") synchronously sets searchResults = nil on MainActor, which can
             // trigger a SwiftUI re-render while the search bar animation is in flight.
@@ -587,4 +587,11 @@ struct SearchView: View {
             content().task { await action() }
         }
     }
+}
+
+/// Re-runs the search when the query changes, and again when the user scopes browsing to a
+/// different library so the results on screen match what the rest of the app is showing.
+private struct SearchScopeKey: Hashable {
+    let query: String
+    let musicFolderId: String?
 }

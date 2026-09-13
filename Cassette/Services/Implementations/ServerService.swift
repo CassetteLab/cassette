@@ -280,6 +280,25 @@ actor ServerService: ServerServiceProtocol {
     ///
     /// Passing `nil` for `urlString` disconnects: the URL is cleared and the token is dropped from
     /// Keychain, so no stale secret outlives the integration.
+    /// Scopes browsing on this server to one library, or to all of them with `nil`.
+    /// Persisted per server, like `audioMuseURL`, because the folder ids belong to one server.
+    func setMusicFolderScope(serverId: UUID, folderId: String?) async throws {
+        try await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let descriptor = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == serverId })
+            guard let config = try context.fetch(descriptor).first else {
+                throw CassetteError.serverNotFound(id: serverId)
+            }
+            config.selectedMusicFolderId = folderId
+            try context.save()
+            // Refresh the snapshot so the views and the library service see the new scope.
+            if state.activeServer?.id == serverId {
+                state.activeServer = ServerSnapshot(from: config)
+            }
+        }
+        Logger.server.info("Music folder scope set to \(folderId ?? "all", privacy: .public)")
+    }
+
     func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {
         let trimmedURL = urlString?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedURL = (trimmedURL?.isEmpty == false) ? trimmedURL : nil

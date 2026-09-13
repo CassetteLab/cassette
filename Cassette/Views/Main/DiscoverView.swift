@@ -48,7 +48,7 @@ struct DiscoverView: View {
         .miniPlayerBottomMargin()
         .cassetteContentWidth()
         .navigationTitle("Discover")
-        .task {
+        .task(id: container?.serverState.activeServer?.selectedMusicFolderId) {
             guard let container else { return }
             if vm == nil {
                 vm = DiscoverViewModel(

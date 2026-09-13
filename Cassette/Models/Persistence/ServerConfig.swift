@@ -22,6 +22,14 @@ final class ServerConfig {
     ///
     /// The API token lives in Keychain beside the password, in `ServerCredentials`.
     var audioMuseURL: String?
+    /// The `getMusicFolders` id the user has scoped browsing to on THIS server, or `nil` for all
+    /// of them. Per-server for the same reason as `audioMuseURL`: the ids belong to one server.
+    ///
+    /// `nil` is both the default and the pre-existing behaviour, so servers that expose a single
+    /// library — nearly all of them — are unaffected. Optional by design: SwiftData's lightweight
+    /// migration adds it to existing stores as `nil` without a migration plan, exactly as
+    /// `audioMuseURL` was added.
+    var selectedMusicFolderId: String?
 
     // password + customHeaders are stored in Keychain only.
     // Keychain key: ServerCredentials.keychainKey(for: id)
@@ -34,7 +42,8 @@ final class ServerConfig {
         isActive: Bool = false,
         serverVersion: String? = nil,
         createdAt: Date = Date(),
-        audioMuseURL: String? = nil
+        audioMuseURL: String? = nil,
+        selectedMusicFolderId: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -44,5 +53,6 @@ final class ServerConfig {
         self.serverVersion = serverVersion
         self.createdAt = createdAt
         self.audioMuseURL = audioMuseURL
+        self.selectedMusicFolderId = selectedMusicFolderId
     }
 }
