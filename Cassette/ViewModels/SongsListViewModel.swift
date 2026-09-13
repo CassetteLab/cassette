@@ -3,6 +3,7 @@
 // Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
+import Foundation
 import Observation
 import OSLog
 import SwiftSonic
@@ -19,18 +20,34 @@ final class SongsListViewModel {
     /// True if the safety cap was hit (server has more songs than we loaded) — surfaced to the user.
     private(set) var didTruncate = false
     var error: UserFacingError?
+    /// How many tracks in the list are still missing locally — drives the download-all button's
+    /// enabled state. Refreshed after a load, after a batch, and again on tap.
+    private(set) var pendingDownloadCount = 0
+    /// True while a download-all batch is queueing.
+    private(set) var isDownloadingAll = false
 
     private var rawSongs: [Song] = []
     private var currentSort: SongSort = .title
     private let libraryService: any LibraryServiceProtocol
+    private let downloadService: any DownloadServiceProtocol
+    private let toastService: ToastService
+    private let serverState: ServerState
 
     /// 1000/page keeps the number of round-trips low while staying responsive. The cap is only a backstop
     /// against a server that ignores `songOffset` (metadata is light, so memory isn't the limit).
     private static let pageSize = 1000
     private static let safetyCap = 200_000
 
-    init(libraryService: any LibraryServiceProtocol) {
+    init(
+        libraryService: any LibraryServiceProtocol,
+        downloadService: any DownloadServiceProtocol,
+        toastService: ToastService,
+        serverState: ServerState
+    ) {
         self.libraryService = libraryService
+        self.downloadService = downloadService
+        self.toastService = toastService
+        self.serverState = serverState
     }
 
     /// Pages the whole library (server order), updating `loadedCount` as it goes, then sorts off-main.
@@ -66,6 +83,7 @@ final class SongsListViewModel {
             self.error = UserFacingError.from(error)
         }
         await recomputeDisplay()
+        await refreshPendingDownloadCount()
     }
 
     /// Re-sorts the already-loaded songs (no network) when the user changes the sort.
@@ -73,6 +91,37 @@ final class SongsListViewModel {
         guard sort != currentSort else { return }
         currentSort = sort
         await recomputeDisplay()
+    }
+
+    // MARK: - Download all
+
+    /// Recomputes how many tracks are still missing locally and returns it. Called on tap as well
+    /// as after a load, so a confirmation prompt quotes a live number rather than a cached one.
+    @discardableResult
+    func refreshPendingDownloadCount() async -> Int {
+        pendingDownloadCount = await pendingDownloads().count
+        return pendingDownloadCount
+    }
+
+    /// Queues every not-yet-downloaded track in the list through the shared download pipeline.
+    func downloadAll() async {
+        guard !isDownloadingAll, let serverId = serverState.activeServer?.id else { return }
+        let missing = await pendingDownloads()
+        guard !missing.isEmpty else { return }
+        isDownloadingAll = true
+        defer { isDownloadingAll = false }
+        toastService.show(String(localized: "Downloading \(missing.count) tracks"))
+        Logger.download.info("All Songs: queueing \(missing.count, privacy: .public) tracks for download")
+        await BulkDownload.run(missing, serverId: serverId, using: downloadService)
+        await refreshPendingDownloadCount()
+    }
+
+    /// The whole paged library minus what is already on disk — not just the rows scrolled into
+    /// view, since `load` pages the entire list up front.
+    private func pendingDownloads() async -> [Song] {
+        guard let serverId = serverState.activeServer?.id else { return [] }
+        let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
+        return BulkDownload.missing(from: rawSongs, downloadedIds: downloadedIds)
     }
 
     /// Sorts + maps off the main actor so large libraries never hitch the UI.
