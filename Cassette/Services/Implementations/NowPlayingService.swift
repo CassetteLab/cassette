@@ -47,23 +47,31 @@ actor NowPlayingService: NowPlayingServiceProtocol {
         await MainActor.run {
             let center = MPRemoteCommandCenter.shared()
 
+            // The origin tag only labels AudioSessionLog lines (a Bluetooth or car unit sending play/toggle while it
+            // disconnects); the command itself is unchanged.
             center.playCommand.addTarget { [playerService] _ in
                 Task.detached(priority: .userInitiated) {
-                    await playerService.resume()
+                    await PlaybackCommandOrigin.$current.withValue(.remotePlay) {
+                        await playerService.resume()
+                    }
                 }
                 return .success
             }
 
             center.pauseCommand.addTarget { [playerService] _ in
                 Task.detached(priority: .userInitiated) {
-                    await playerService.pause()
+                    await PlaybackCommandOrigin.$current.withValue(.remotePause) {
+                        await playerService.pause()
+                    }
                 }
                 return .success
             }
 
             center.togglePlayPauseCommand.addTarget { [playerService] _ in
                 Task.detached(priority: .userInitiated) {
-                    await playerService.togglePlayPause()
+                    await PlaybackCommandOrigin.$current.withValue(.remoteToggle) {
+                        await playerService.togglePlayPause()
+                    }
                 }
                 return .success
             }
