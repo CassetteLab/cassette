@@ -11,6 +11,9 @@ struct FavoritesView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: FavoritesViewModel?
     @State private var songToAddToPlaylist: DisplayableSong?
+    @State private var showDownloadWarning = false
+    /// Count quoted by the warning — captured at tap time so the dialog can't show a stale number.
+    @State private var downloadWarningCount = 0
 
     var body: some View {
         Group {
@@ -67,6 +70,9 @@ struct FavoritesView: View {
             .refreshable { await vm.load() }
             .sheet(item: $songToAddToPlaylist) { song in
                 AddToPlaylistSheet(song: song)
+            }
+            .bulkDownloadConfirmation(trackCount: downloadWarningCount, isPresented: $showDownloadWarning) {
+                Task { await vm.downloadAll() }
             }
         }
     }
@@ -133,7 +139,18 @@ struct FavoritesView: View {
     /// label is the only thing VoiceOver has to go on.
     private func downloadAllButton(_ vm: FavoritesViewModel) -> some View {
         Button {
-            Task { await vm.downloadAll() }
+            Task {
+                // Re-count against disk on tap: the warning must quote what will actually be
+                // fetched, not a number cached at load time.
+                let remaining = await vm.refreshPendingDownloadCount()
+                guard remaining > 0 else { return }
+                if remaining > BulkDownload.confirmationThreshold {
+                    downloadWarningCount = remaining
+                    showDownloadWarning = true
+                } else {
+                    await vm.downloadAll()
+                }
+            }
         } label: {
             Image(systemName: "arrow.down.circle")
                 // Swapped for a spinner in place, so the row doesn't resize mid-batch.

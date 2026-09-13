@@ -15,6 +15,9 @@ struct SongsListView: View {
     @State private var viewModel: SongsListViewModel?
     /// Persisted sort — Title by default, plus Artist / Recently Added / Release Date.
     @AppStorage("cassette.songSort") private var songSort: SongSort = .title
+    @State private var showDownloadWarning = false
+    /// Count quoted by the warning — captured at tap time so the dialog can't show a stale number.
+    @State private var downloadWarningCount = 0
 
     var body: some View {
         Group {
@@ -114,6 +117,9 @@ struct SongsListView: View {
             .listStyle(.plain)
             .miniPlayerBottomMargin()
             .refreshable { await vm.load(sort: songSort) }
+            .bulkDownloadConfirmation(trackCount: downloadWarningCount, isPresented: $showDownloadWarning) {
+                Task { await vm.downloadAll() }
+            }
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 // The A–Z jump bar only makes sense when sorted by title.
                 if songSort == .title && songs.count >= 20 {
@@ -174,7 +180,18 @@ struct SongsListView: View {
     /// VoiceOver has to go on.
     private func downloadAllButton(_ vm: SongsListViewModel) -> some View {
         Button {
-            Task { await vm.downloadAll() }
+            Task {
+                // Re-count against disk on tap: the warning must quote what will actually be
+                // fetched, not a number cached at load time.
+                let remaining = await vm.refreshPendingDownloadCount()
+                guard remaining > 0 else { return }
+                if remaining > BulkDownload.confirmationThreshold {
+                    downloadWarningCount = remaining
+                    showDownloadWarning = true
+                } else {
+                    await vm.downloadAll()
+                }
+            }
         } label: {
             Image(systemName: "arrow.down.circle")
                 // Swapped for a spinner in place, so the row doesn't resize mid-batch.

@@ -53,6 +53,136 @@
         }
       }
     },
+    "Download %lld tracks?" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Titel herunterladen?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Titel herunterladen?"
+                }
+              }
+            }
+          }
+        },
+        "el" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Λήψη %lld κομματιού;"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Λήψη %lld κομματιών;"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Download %lld track?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Download %lld tracks?"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "¿Descargar %lld pista?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "¿Descargar %lld pistas?"
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Télécharger %lld piste ?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Télécharger %lld pistes ?"
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Scaricare %lld brano?"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Scaricare %lld brani?"
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld曲をダウンロードしますか？"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载 %lld 首曲目？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載 %lld 首曲目？"
+          }
+        }
+      }
+    },
     "Download all favorite songs" : {
       "localizations" : {
         "de" : {
@@ -387,6 +517,136 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下載中全部歌曲"
+          }
+        }
+      }
+    },
+    "This downloads %lld tracks to this device. Keep Cassette open until it finishes." : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Dadurch wird %lld Titel auf dieses Gerät heruntergeladen. Lassen Sie Cassette geöffnet, bis der Vorgang abgeschlossen ist."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Dadurch werden %lld Titel auf dieses Gerät heruntergeladen. Lassen Sie Cassette geöffnet, bis der Vorgang abgeschlossen ist."
+                }
+              }
+            }
+          }
+        },
+        "el" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Θα γίνει λήψη %lld κομματιού σε αυτή τη συσκευή. Κρατήστε το Cassette ανοιχτό μέχρι να ολοκληρωθεί."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Θα γίνει λήψη %lld κομματιών σε αυτή τη συσκευή. Κρατήστε το Cassette ανοιχτό μέχρι να ολοκληρωθεί."
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This downloads %lld track to this device. Keep Cassette open until it finishes."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "This downloads %lld tracks to this device. Keep Cassette open until it finishes."
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Esto descarga %lld pista en este dispositivo. Mantén Cassette abierto hasta que termine."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Esto descarga %lld pistas en este dispositivo. Mantén Cassette abierto hasta que termine."
+                }
+              }
+            }
+          }
+        },
+        "fr" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Cela télécharge %lld piste sur cet appareil. Gardez Cassette ouvert jusqu'à la fin."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Cela télécharge %lld pistes sur cet appareil. Gardez Cassette ouvert jusqu'à la fin."
+                }
+              }
+            }
+          }
+        },
+        "it" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Questo scarica %lld brano su questo dispositivo. Tieni Cassette aperto fino al termine."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Questo scarica %lld brani su questo dispositivo. Tieni Cassette aperto fino al termine."
+                }
+              }
+            }
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld曲をこのデバイスにダウンロードします。完了するまでCassetteを開いたままにしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这会向此设备下载 %lld 首曲目。请保持 Cassette 打开直至完成。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這會向此裝置下載 %lld 首曲目。請保持 Cassette 開啟直至完成。"
           }
         }
       }
