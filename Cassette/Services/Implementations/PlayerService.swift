@@ -50,6 +50,10 @@ actor PlayerService: PlayerServiceProtocol {
     private var pendingRestoreInfo: (seekTime: Double, pause: Bool)?
     /// Source of the currently playing track; kept for repeat-one replay.
     private var currentSource: MediaSource?
+    /// The queue Smart Shuffle replaced, kept so leaving the mode can put it back.
+    /// Actor-private like `originalQueueOrder`: a snapshot of `@Observable` state does not belong
+    /// inside that state, where writing it back would feed observation into itself.
+    private var smartShuffleSnapshot: SmartShuffleSnapshot?
     private var liveStreamStallTask: Task<Void, Never>?
 
     private var audioSessionConfigured = false
@@ -600,6 +604,24 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Smart Shuffle
 
+    /// Everything needed to put playback back exactly where it was before Smart Shuffle replaced
+    /// the queue. `originalQueueOrder` and `originalQueueEndIndex` travel with it because
+    /// `play(tracks:)` clears both on the way in, and a restored queue that had a regular shuffle
+    /// applied must still be able to un-shuffle itself afterwards.
+    /// `nonisolated` + `Sendable` stated rather than inferred: it is built inside `MainActor.run`
+    /// and stored on the actor, so it crosses an isolation boundary, and this module defaults to
+    /// MainActor isolation — the same inference that produced errors on Xcode 26.6 and not on 27.
+    private nonisolated struct SmartShuffleSnapshot: Sendable {
+        let queue: [DisplayableSong]
+        let currentIndex: Int
+        let currentTrack: DisplayableSong?
+        let position: TimeInterval
+        let wasPlaying: Bool
+        let isShuffled: Bool
+        let originalQueueOrder: [DisplayableSong]?
+        let originalQueueEndIndex: Int?
+    }
+
     func playSmartShuffle() async throws {
         let tracks = try await libraryService.smartShuffleQueue(targetSize: 50)
         guard !tracks.isEmpty else {
@@ -607,11 +629,31 @@ actor PlayerService: PlayerServiceProtocol {
             throw CassetteError.smartShuffleEmpty
         }
 
+        // Capture what is playing BEFORE play(tracks:) overwrites the queue, so leaving the mode
+        // can restore it. A radio is deliberately not captured: playRadio leaves a stale queue
+        // behind with no current track, so a snapshot taken over one would restore a phantom
+        // queue rather than the station. Leaving the mode from a radio just leaves the mode.
+        // `originalQueueOrder` is actor state, so it is read here rather than inside the hop.
+        let queueOrderBeforeSmartShuffle = originalQueueOrder
+        smartShuffleSnapshot = await MainActor.run {
+            guard state.currentRadio == nil, !state.queue.isEmpty else { return nil }
+            return SmartShuffleSnapshot(
+                queue: state.queue,
+                currentIndex: state.currentIndex,
+                currentTrack: state.currentTrack,
+                position: state.position,
+                wasPlaying: state.playbackState == .playing,
+                isShuffled: state.isShuffled,
+                originalQueueOrder: queueOrderBeforeSmartShuffle,
+                originalQueueEndIndex: state.originalQueueEndIndex
+            )
+        }
+
         // play(tracks:) resets isSmartShuffleActive via the new-queue check, so set the flag after.
         try await play(tracks: tracks, startIndex: 0)
         await MainActor.run { state.isSmartShuffleActive = true }
 
-        Logger.player.info("Started Smart Shuffle session with \(tracks.count) tracks")
+        Logger.player.info("Started Smart Shuffle session with \(tracks.count) tracks (snapshot: \(self.smartShuffleSnapshot != nil, privacy: .public))")
     }
 
     // MARK: - Instant Mix
