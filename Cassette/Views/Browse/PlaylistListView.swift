@@ -43,10 +43,15 @@ struct PlaylistListView: View {
         .task(id: container?.serverState.isOnline) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = PlaylistListViewModel(libraryService: svc) }
+            syncFilter()
             guard container?.serverState.isOnline == true else { return }
             await viewModel?.load()
             await viewModel?.loadBestOf()
         }
+        // The filter is persisted per server, so it changes both when the user edits it and when
+        // they switch servers. Re-reading the snapshot covers both without a reload: the list is
+        // already in hand, only what is drawn from it changes.
+        .onChange(of: filterIdentity) { syncFilter() }
         // Deleting a playlist from a detail surface posts this — reload so the list reflects it on return,
         // without a blanket `.onAppear` reload (which would re-fetch on every navigation).
         .onReceive(NotificationCenter.default.publisher(for: .cassettePlaylistDeleted)) { _ in
@@ -81,13 +86,22 @@ struct PlaylistListView: View {
                 title: "No Playlists",
                 subtitle: "Create playlists on your server to see them here."
             )
+        } else if vm.isEmptyBecauseFiltered {
+            // Distinct from "No Playlists" on purpose: the list is empty because of a choice the
+            // user made, possibly on another launch, and saying so is what makes it undoable.
+            EmptyStateView(
+                systemImage: "line.3.horizontal.decrease.circle",
+                title: "Nothing To Show",
+                subtitle: "Every playlist is hidden by the current filter.",
+                action: .init(label: "Show All") { clearFilter() }
+            )
         } else {
             List {
                 // Derived from the user's stars, not stored on the server — hence its own section rather
                 // than being mixed in with the real playlists below.
-                if !vm.bestOfPlaylists.isEmpty {
+                if !vm.visibleBestOfPlaylists.isEmpty {
                     Section("Made For You") {
-                        ForEach(vm.bestOfPlaylists) { bestOf in
+                        ForEach(vm.visibleBestOfPlaylists) { bestOf in
                             NavigationLink(value: HomeDestination.artistBestOf(
                                 artistId: bestOf.artistId,
                                 artistName: bestOf.artistName,
@@ -100,9 +114,9 @@ struct PlaylistListView: View {
                 }
                 // Label the server playlists only when there's a derived section above to tell them apart
                 // from — on its own the header would just repeat the screen title.
-                if vm.bestOfPlaylists.isEmpty {
+                if vm.visibleBestOfPlaylists.isEmpty {
                     serverPlaylistRows(vm)
-                } else if !vm.playlists.isEmpty {
+                } else if !vm.visiblePlaylists.isEmpty {
                     Section("Playlists") { serverPlaylistRows(vm) }
                 }
             }
@@ -117,13 +131,38 @@ struct PlaylistListView: View {
 
     @ViewBuilder
     private func serverPlaylistRows(_ vm: PlaylistListViewModel) -> some View {
-        ForEach(vm.playlists) { playlist in
+        ForEach(vm.visiblePlaylists) { playlist in
             NavigationLink(value: HomeDestination.playlist(playlist)) {
                 OnlinePlaylistRow(
                     playlist: playlist,
                     namespace: zoomNamespace,
                     onActionCompleted: { Task { await vm.load() } }
                 )
+            }
+        }
+    }
+
+    // MARK: - Filter plumbing
+
+    /// What a filter change looks like from here: the server, and its hidden set.
+    private var filterIdentity: String {
+        let server = container?.serverState.activeServer
+        return "\(server?.id.uuidString ?? "none")|\(server?.hiddenPlaylistKinds ?? "")"
+    }
+
+    private func syncFilter() {
+        let server = container?.serverState.activeServer
+        viewModel?.applyFilter(hiddenKinds: server?.hiddenPlaylistKindSet ?? [], serverId: server?.id)
+    }
+
+    private func clearFilter() {
+        guard let container, let serverId = container.serverState.activeServer?.id else { return }
+        Task {
+            do {
+                try await container.serverService.setHiddenPlaylistKinds(serverId: serverId, kinds: [])
+            } catch {
+                Logger.playlist.error("[PLAYLIST] could not clear the type filter: \(error, privacy: .public)")
+                container.toastService.showError("Couldn't change the filter. Please try again.")
             }
         }
     }
