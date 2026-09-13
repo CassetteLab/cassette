@@ -1,20 +1,31 @@
-Cassette 1.8.4
+Cassette 1.11.0
 
 NEW
-• Redesigned playlists — immersive full-screen artwork, color-matched theming, and a smoother editor. Edit a playlist right in place: swap the cover (photo or generated gradient), reorder and remove tracks, and add music without leaving the page.
-• Redesigned artist pages — immersive header, latest release, most-played tracks, large album artwork, and related artists.
-• Deleting a playlist now lets you choose: remove the playlist only, or also delete its downloaded files.
+• Filter playlists by type — a new control at the top right of the Playlists screen lets you choose what the list shows: mood playlists, Cassette Wrapped, per-artist best-of, and your own playlists. Everything is shown by default, and the choice is remembered per server. Nothing is deleted — hidden playlists are still on your server.
+• Pick which library you browse — on servers that expose more than one music folder, a selector in the toolbar scopes browsing and search to one library. Servers with a single library are unaffected and show no selector.
+• Choose the download format — offline downloads can now use a format of your choosing instead of always matching the streaming cache.
+• Download a whole list at once — a download-all button in the tracks and favorites views, with per-track state, overall progress, and a warning before queuing more than 150 tracks.
+• Smart shuffle is now a toggle — turning it off restores the queue you had before, instead of leaving it scrambled.
+• Supporters and a Ko-fi link in Settings, on iOS and macOS.
 
 FIXED
-• Lock Screen / Control Center: skip and scrubber controls no longer show up greyed out.
-• End of an album/queue no longer triggers stray "phantom" playback — it now stops cleanly, and resumes from the top if you press play.
-• Volume slider no longer desyncs or jumps to random positions on launch.
-• Deleting a playlist from its detail view now updates the library right away.
-• Removing downloads now reliably frees up disk space.
-• Fixed a crash that could happen while scrubbing.
+• Playback state is now reported to OpenSubsonic servers, so "now playing" on the server reflects pause and resume rather than only track changes.
+• Shuffle state no longer desyncs between the play-shuffled button and the queue toggle.
+• Playback position is no longer written on every app state change — only when leaving the foreground.
+• The Ko-fi button now has a VoiceOver label.
+• Playlist artwork and localization fixes across all eight languages.
 
 PLEASE TEST
-• Play an album to the very end with repeat off — it should stop cleanly with no stray audio, then start from the beginning when you press play.
-• Lock your device while playing, then try skip and scrubbing from the Lock Screen.
-• Edit a playlist's cover and tracks; delete a playlist both with and without downloaded files.
-• Check the volume slider right after a cold launch.
+• Playlists, non-regression first: open the Playlists screen without touching the new filter. The list must look exactly as it did in 1.10 — same playlists, same order, same sections.
+• Then the filter itself: untick each type in turn and check only that type disappears. The icon fills in while anything is hidden. Quit and relaunch — the filter should still be there. If you use more than one server, check each keeps its own filter.
+• Multi-library servers: pick a library and confirm browsing AND search are both scoped to it. If your server has one library only, confirm nothing changed and no selector appears.
+• Smart shuffle: build a queue, turn smart shuffle on, then off — your original queue should come back in its original order.
+• Downloads: use download-all from the tracks and favorites views, watch the per-track state and overall progress, and confirm the warning appears past 150 tracks. Try a download format different from your streaming cache format and check the files play back offline.
+
+• AUDIO DIAGNOSTICS — please help if you have Siri or Bluetooth playback problems.
+  This build can record what happens to the audio session. If playback does not resume after asking Siri something, or does not pause when you disconnect Bluetooth headphones, please:
+  1. Open cassette://diagnostics/audio-session/enable in Safari and confirm "Open in Cassette".
+  2. Use the app until the problem happens again. Note roughly when it did.
+  3. Open cassette://diagnostics/audio-session/export and send us the .log file, with your device model and iOS version.
+  4. Turn it back off with cassette://diagnostics/audio-session/disable
+  The log records session states, reasons and audio port types only — never track titles, server addresses or device names. It is off unless you turn it on, and turning it on does not change how playback behaves. We need logs from several devices to fix these, not just one.
