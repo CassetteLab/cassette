@@ -7,6 +7,10 @@ CACHE_AUDIT.md
 xcuserdata/
 *.xcuserstate
 build/
+
+# Swift package checkouts. CI builds with `-clonedSourcePackagesDirPath .spm`, so running the
+# CI command locally drops several thousand files here; without this, `git status` is unusable.
+.spm/
 .personal-signing.env
 .personal-signing-backup/
 
