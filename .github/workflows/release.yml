@@ -151,11 +151,7 @@ jobs:
         run: |
           APP="$RUNNER_TEMP/export/$APP_NAME.app"
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/$APP_NAME.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/$APP_NAME.zip" \
-            --key "$RUNNER_TEMP/AuthKey.p8" \
-            --key-id "$AC_API_KEY_ID" \
-            --issuer "$AC_API_ISSUER_ID" \
-            --wait
+          .github/scripts/notarize.sh "$RUNNER_TEMP/$APP_NAME.zip"
           xcrun stapler staple "$APP"
 
       - name: Create .dmg
@@ -175,11 +171,7 @@ jobs:
       - name: Notarize + staple the .dmg
         run: |
           DMG="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
-          xcrun notarytool submit "$DMG" \
-            --key "$RUNNER_TEMP/AuthKey.p8" \
-            --key-id "$AC_API_KEY_ID" \
-            --issuer "$AC_API_ISSUER_ID" \
-            --wait
+          .github/scripts/notarize.sh "$DMG"
           xcrun stapler staple "$DMG"
 
       # Computed here, after stapling and before upload: `stapler staple` rewrites the DMG in
