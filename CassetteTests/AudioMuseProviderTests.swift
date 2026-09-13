@@ -14,7 +14,7 @@ import SwiftMuse
 
 /// Serves canned responses per path, and records the request bodies it saw.
 private final class StubProtocol: URLProtocol, @unchecked Sendable {
-    nonisolated(unsafe) static let lock = NSLock()
+    static let lock = NSLock()
     nonisolated(unsafe) static var responses: [String: (status: Int, body: String)] = [:]
     nonisolated(unsafe) static var bodies: [String: [String: Any]] = [:]
 
@@ -52,7 +52,11 @@ private final class StubProtocol: URLProtocol, @unchecked Sendable {
         // generic return drops them otherwise, and `stub.status` / `stub.body` stop
         // resolving on Xcode 26 while still compiling on 27.
         let stub = Self.lock.withLock { Self.responses[path] } ?? (status: 404, body: "{}")
-        let response = HTTPURLResponse(url: request.url!, statusCode: stub.status, httpVersion: nil, headerFields: nil)!
+        guard let url = request.url,
+              let response = HTTPURLResponse(url: url, statusCode: stub.status, httpVersion: nil, headerFields: nil) else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: Data(stub.body.utf8))
         client?.urlProtocolDidFinishLoading(self)

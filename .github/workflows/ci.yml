@@ -112,11 +112,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             test 2>&1 | tee test.log
 
-      # Reported, not enforced: the test target carries two pre-existing
-      # concurrency warnings (AudioMuseProviderTests, MoodPlaylistServiceTests).
-      # Drop --warn-only once those are fixed so tests match the app's policy.
-      - name: Report compiler warnings in tests
-        run: .github/scripts/check-warnings.sh test.log --warn-only
+      - name: Fail on compiler warnings in tests
+        run: .github/scripts/check-warnings.sh test.log
 
       - name: Upload test results
         if: failure()
