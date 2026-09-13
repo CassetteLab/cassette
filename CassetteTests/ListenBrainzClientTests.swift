@@ -30,7 +30,8 @@ private func makeClient(_ handler: @escaping @Sendable (URLRequest) async throws
     ListenBrainzClient(transport: MockTransport(handler: handler))
 }
 
-private func response(status: Int, headers: [String: String]? = nil) -> HTTPURLResponse {
+// nonisolated: called from the @Sendable transport handler off the main actor.
+private nonisolated func response(status: Int, headers: [String: String]? = nil) -> HTTPURLResponse {
     HTTPURLResponse(
         url: URL(string: "https://api.listenbrainz.org/1/user/test")!,
         statusCode: status,
