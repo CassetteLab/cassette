@@ -25,6 +25,10 @@ final class SongsListViewModel {
     private(set) var pendingDownloadCount = 0
     /// True while a download-all batch is queueing.
     private(set) var isDownloadingAll = false
+    /// Song ids whose own download is in flight, driving the per-row spinner. A bulk batch does
+    /// not populate this: there, rows flip as each file lands, through the list's `@Query` — the
+    /// same behaviour the album and playlist lists have.
+    private(set) var downloadingIds: Set<String> = []
 
     private var rawSongs: [Song] = []
     private var currentSort: SongSort = .title
@@ -113,6 +117,31 @@ final class SongsListViewModel {
         toastService.show(String(localized: "Downloading \(missing.count) tracks"))
         Logger.download.info("All Songs: queueing \(missing.count, privacy: .public) tracks for download")
         await BulkDownload.run(missing, serverId: serverId, using: downloadService)
+        await refreshPendingDownloadCount()
+    }
+
+    /// Downloads one track, mirroring the album and playlist detail views' row action.
+    func downloadSong(id: String) async {
+        guard let song = rawSongs.first(where: { $0.id == id }),
+              let serverId = serverState.activeServer?.id else { return }
+        downloadingIds.insert(id)
+        defer { downloadingIds.remove(id) }
+        do {
+            try await downloadService.download(song: song, serverId: serverId)
+        } catch {
+            Logger.download.error("All Songs: download of '\(id, privacy: .public)' failed: \(error, privacy: .public)")
+        }
+        await refreshPendingDownloadCount()
+    }
+
+    /// Removes one downloaded track, so the row's context menu matches the detail views'.
+    func removeDownload(id: String) async {
+        guard let serverId = serverState.activeServer?.id else { return }
+        do {
+            try await downloadService.remove(songId: id, serverId: serverId)
+        } catch {
+            Logger.download.error("All Songs: removing download of '\(id, privacy: .public)' failed: \(error, privacy: .public)")
+        }
         await refreshPendingDownloadCount()
     }
 

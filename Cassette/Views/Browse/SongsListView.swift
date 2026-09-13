@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import SwiftSonic
 import OSLog
 
@@ -107,12 +108,15 @@ struct SongsListView: View {
                         .listRowBackground(Color.clear)
                 }
                 playShuffleHeader(vm, songs)
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: isFavorite(song))
-                        .contentShape(Rectangle())
-                        .onTapGesture { play(songs, at: index) }
-                        .id(song.id)
-                }
+                SongsListRows(
+                    songs: songs,
+                    serverId: container?.serverState.activeServer?.id ?? UUID(),
+                    downloadingIds: vm.downloadingIds,
+                    isFavorite: { isFavorite($0) },
+                    onTap: { play(songs, at: $0) },
+                    onDownload: { id in Task { await vm.downloadSong(id: id) } },
+                    onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } }
+                )
             }
             .listStyle(.plain)
             .miniPlayerBottomMargin()
@@ -227,6 +231,65 @@ struct SongsListView: View {
             } catch {
                 Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
             }
+        }
+    }
+}
+
+// MARK: - Live download indicator rows
+
+/// The list's rows, split out so a single `@Query` on `DownloadedTrack` drives every row's
+/// downloaded state live. This is the mechanism the album and playlist detail views use; like
+/// the playlist one — and unlike the album's, which can key on an album id — a flat library
+/// list has nothing to filter on but the server.
+private struct SongsListRows: View {
+    let songs: [DisplayableSong]
+    let downloadingIds: Set<String>
+    let isFavorite: (DisplayableSong) -> Bool
+    let onTap: (Int) -> Void
+    let onDownload: (String) -> Void
+    let onRemoveDownload: (String) -> Void
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(
+        songs: [DisplayableSong],
+        serverId: UUID,
+        downloadingIds: Set<String>,
+        isFavorite: @escaping (DisplayableSong) -> Bool,
+        onTap: @escaping (Int) -> Void,
+        onDownload: @escaping (String) -> Void,
+        onRemoveDownload: @escaping (String) -> Void
+    ) {
+        self.songs = songs
+        self.downloadingIds = downloadingIds
+        self.isFavorite = isFavorite
+        self.onTap = onTap
+        self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
+        let sid = serverId
+        _downloadedTracks = Query(filter: #Predicate<DownloadedTrack> { $0.serverId == sid })
+    }
+
+    var body: some View {
+        // Built once per body evaluation rather than inside the row closure: this list can hold
+        // the whole library, and rebuilding the set per row would make it quadratic.
+        let downloadedSongIds = Set(downloadedTracks.map(\.songId))
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            let liveDownloaded = downloadedSongIds.contains(song.id)
+            let isDownloading = downloadingIds.contains(song.id)
+            SongRow(
+                song: song.withDownloaded(liveDownloaded),
+                index: index + 1,
+                showCoverArt: true,
+                isFavorite: isFavorite(song),
+                onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) },
+                onRemoveDownload: liveDownloaded ? { onRemoveDownload(song.id) } : nil,
+                isDownloading: isDownloading
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
+            // The A-Z jump bar scrolls to these ids; keep them on the row itself.
+            .id(song.id)
         }
     }
 }

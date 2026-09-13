@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import SwiftSonic
 import OSLog
 
@@ -120,19 +121,23 @@ struct FavoritesView: View {
                 .listRowBackground(Color.clear)
                 .padding(.vertical, 4)
 
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: true, onAddToPlaylist: { s in songToAddToPlaylist = s })
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task {
-                                do {
-                                    try await container?.playerService.play(tracks: songs, startIndex: index)
-                                } catch {
-                                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
-                                }
+                FavoriteSongRows(
+                    songs: songs,
+                    serverId: container?.serverState.activeServer?.id ?? UUID(),
+                    downloadingIds: vm.downloadingIds,
+                    onTap: { index in
+                        Task {
+                            do {
+                                try await container?.playerService.play(tracks: songs, startIndex: index)
+                            } catch {
+                                Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
                             }
                         }
-                }
+                    },
+                    onDownload: { id in Task { await vm.downloadSong(id: id) } },
+                    onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } },
+                    onAddToPlaylist: { songToAddToPlaylist = $0 }
+                )
             }
         }
     }
@@ -203,6 +208,62 @@ struct FavoritesView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Live download indicator rows
+
+/// The favourites' song rows, split out so a single `@Query` on `DownloadedTrack` drives every
+/// row's downloaded state live — the same mechanism the album and playlist detail views use,
+/// filtered by server since a favourites list has no album or playlist id to key on.
+private struct FavoriteSongRows: View {
+    let songs: [DisplayableSong]
+    let downloadingIds: Set<String>
+    let onTap: (Int) -> Void
+    let onDownload: (String) -> Void
+    let onRemoveDownload: (String) -> Void
+    let onAddToPlaylist: (DisplayableSong) -> Void
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(
+        songs: [DisplayableSong],
+        serverId: UUID,
+        downloadingIds: Set<String>,
+        onTap: @escaping (Int) -> Void,
+        onDownload: @escaping (String) -> Void,
+        onRemoveDownload: @escaping (String) -> Void,
+        onAddToPlaylist: @escaping (DisplayableSong) -> Void
+    ) {
+        self.songs = songs
+        self.downloadingIds = downloadingIds
+        self.onTap = onTap
+        self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
+        self.onAddToPlaylist = onAddToPlaylist
+        let sid = serverId
+        _downloadedTracks = Query(filter: #Predicate<DownloadedTrack> { $0.serverId == sid })
+    }
+
+    var body: some View {
+        // Built once per body evaluation rather than inside the row closure.
+        let downloadedSongIds = Set(downloadedTracks.map(\.songId))
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            let liveDownloaded = downloadedSongIds.contains(song.id)
+            let isDownloading = downloadingIds.contains(song.id)
+            SongRow(
+                song: song.withDownloaded(liveDownloaded),
+                index: index + 1,
+                showCoverArt: true,
+                isFavorite: true,
+                onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) },
+                onRemoveDownload: liveDownloaded ? { onRemoveDownload(song.id) } : nil,
+                isDownloading: isDownloading,
+                onAddToPlaylist: onAddToPlaylist
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
         }
     }
 }
