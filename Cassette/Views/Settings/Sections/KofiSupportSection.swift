@@ -43,6 +43,10 @@ struct KofiSupportSection: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
+            // The artwork's text is not readable by VoiceOver, which would otherwise announce
+            // the asset name. Voice Control also accepts the English words drawn on it.
+            .accessibilityLabel("Support me on Ko-fi")
+            .accessibilityInputLabels([Text("Support me on Ko-fi"), Text(verbatim: "Support me on Ko-fi")])
             #if os(macOS)
             // The default macOS style would draw a push-button bezel around the artwork.
             .buttonStyle(.plain)
