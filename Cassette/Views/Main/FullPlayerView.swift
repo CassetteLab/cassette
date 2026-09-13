@@ -850,9 +850,12 @@ private struct TrackInfoSection: View {
                         Divider()
                     }
                     Button {
-                        Task { await triggerSmartShuffle() }
+                        Task { await SmartShuffleControl.toggle(container) }
                     } label: {
-                        Label("Smart Shuffle", systemImage: "shuffle.circle")
+                        // The exit the mode never had: reachable from the player itself rather
+                        // than only by starting something else from the library.
+                        Label(playerState.isSmartShuffleActive ? "Exit Smart Shuffle" : "Smart Shuffle",
+                              systemImage: playerState.isSmartShuffleActive ? "sparkles" : "shuffle.circle")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -901,21 +904,6 @@ private struct TrackInfoSection: View {
         }
     }
 
-    private func triggerSmartShuffle() async {
-        guard let container else { return }
-        do {
-            try await container.playerService.playSmartShuffle()
-        } catch {
-            container.toastService.showError(smartShuffleErrorMessage(from: error))
-        }
-    }
-
-    private func smartShuffleErrorMessage(from error: Error) -> String {
-        if case CassetteError.smartShuffleEmpty = error {
-            return "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
-        }
-        return "Smart Shuffle failed. Please try again."
-    }
 }
 
 // MARK: - Scrubber

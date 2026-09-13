@@ -288,36 +288,25 @@ struct HomeView: View {
         }
     }
 
+    private var isSmartShuffleActive: Bool { container?.playerState.isSmartShuffleActive == true }
+
     private var smartShuffleCard: some View {
         Button {
-            Task {
-                guard let container else { return }
-                do {
-                    try await container.playerService.playSmartShuffle()
-                } catch {
-                    let msg: String
-                    if case CassetteError.smartShuffleEmpty = error {
-                        msg = "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
-                    } else {
-                        msg = "Smart Shuffle failed. Please try again."
-                    }
-                    container.toastService.showError(msg)
-                }
-            }
+            Task { await SmartShuffleControl.toggle(container) }
         } label: {
             HStack(spacing: CassetteSpacing.s) {
-                Image(systemName: "shuffle.circle.fill")
+                Image(systemName: isSmartShuffleActive ? "sparkles" : "shuffle.circle.fill")
                     .font(.title2)
                     .foregroundStyle(Color.cassetteAccent)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Smart Shuffle")
+                    Text(isSmartShuffleActive ? "Exit Smart Shuffle" : "Smart Shuffle")
                         .font(.cassetteCellTitle)
                     Text("A random mix from your library")
                         .font(.cassetteCaption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "play.fill")
+                Image(systemName: isSmartShuffleActive ? "stop.fill" : "play.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color.cassetteAccent)
             }

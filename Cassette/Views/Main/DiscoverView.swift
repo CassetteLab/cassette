@@ -227,16 +227,18 @@ struct DiscoverView: View {
         #endif
     }
 
+    private var isSmartShuffleActive: Bool { container?.playerState.isSmartShuffleActive == true }
+
     private var smartShuffleSection: some View {
         section(title: "Smart Shuffle") {
             Button {
-                Task { await triggerSmartShuffle() }
+                Task { await SmartShuffleControl.toggle(container) }
             } label: {
                 HStack(spacing: CassetteSpacing.s) {
-                    Image(systemName: "shuffle.circle.fill")
+                    Image(systemName: isSmartShuffleActive ? "sparkles" : "shuffle.circle.fill")
                         .font(.title2)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Rediscover Your Library")
+                        Text(isSmartShuffleActive ? "Exit Smart Shuffle" : "Rediscover Your Library")
                             .font(.cassetteCellTitle)
                         Text("A random mix from your library")
                             .font(.cassetteCaption)
@@ -256,22 +258,6 @@ struct DiscoverView: View {
             .buttonStyle(.plain)
             .padding(.horizontal, CassetteSpacing.m)
         }
-    }
-
-    private func triggerSmartShuffle() async {
-        guard let container else { return }
-        do {
-            try await container.playerService.playSmartShuffle()
-        } catch {
-            container.toastService.showError(smartShuffleErrorMessage(from: error))
-        }
-    }
-
-    private func smartShuffleErrorMessage(from error: Error) -> String {
-        if case CassetteError.smartShuffleEmpty = error {
-            return "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use."
-        }
-        return "Smart Shuffle failed. Please try again."
     }
 
     private var wrappedSection: some View {
