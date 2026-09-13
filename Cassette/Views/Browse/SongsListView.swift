@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import SwiftSonic
 import OSLog
 
@@ -107,12 +108,15 @@ struct SongsListView: View {
                         .listRowBackground(Color.clear)
                 }
                 playShuffleHeader(vm, songs)
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: isFavorite(song))
-                        .contentShape(Rectangle())
-                        .onTapGesture { play(songs, at: index) }
-                        .id(song.id)
-                }
+                SongsListRows(
+                    songs: songs,
+                    serverId: container?.serverState.activeServer?.id ?? UUID(),
+                    downloadingIds: vm.downloadingIds,
+                    isFavorite: { isFavorite($0) },
+                    onTap: { play(songs, at: $0) },
+                    onDownload: { id in Task { await vm.downloadSong(id: id) } },
+                    onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } }
+                )
             }
             .listStyle(.plain)
             .miniPlayerBottomMargin()
@@ -139,23 +143,17 @@ struct SongsListView: View {
         }
     }
 
+    /// Shuffle / Play / Download, laid out and sized exactly as the album and playlist headers:
+    /// 44pt Liquid Glass circles either side of the accent Play capsule. Those views take their
+    /// glyph colour from the cover's dominant colour; this list has no cover, so the glyph is
+    /// `.primary` and Play keeps its own accent defaults.
     @ViewBuilder
     private func playShuffleHeader(_ vm: SongsListViewModel, _ songs: [DisplayableSong]) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: CassetteSpacing.m) {
             Button {
-                Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
-            } label: {
-                Label("Play", systemImage: "play.fill")
-                    // White glyph/label on the accent-filled surface — `.borderedProminent` would
-                    // otherwise pick its own foreground. Token, not a literal.
-                    .foregroundStyle(Color.cassetteAccentText)
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Color.cassetteAccent)
-
-            Button {
+                HapticFeedback.medium.trigger()
                 Task {
+                    guard !songs.isEmpty else { return }
                     let idx = Int.random(in: 0..<songs.count)
                     try? await container?.playerService.play(tracks: songs, startIndex: idx)
                     if container?.playerState.isShuffled != true {
@@ -163,21 +161,48 @@ struct SongsListView: View {
                     }
                 }
             } label: {
-                Label("Shuffle", systemImage: "shuffle").frame(maxWidth: .infinity)
+                Image(systemName: "shuffle")
+                    .font(.cassetteCellTitle)
+                    .foregroundStyle(.primary)
+                    .cassetteGlassButton(size: 44)
             }
-            .buttonStyle(.bordered)
-            .tint(Color.cassetteAccent)
+            .disabled(songs.isEmpty)
+            .accessibilityLabel("Shuffle")
+
+            PlayButton(action: {
+                Task {
+                    guard !songs.isEmpty else { return }
+                    try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                }
+            }, isDisabled: songs.isEmpty || vm.isDownloadingAll)
+            .frame(maxWidth: 220)
 
             downloadAllButton(vm)
         }
+        .buttonStyle(.borderless)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
         .padding(.vertical, 4)
+
+        if vm.isDownloadingAll {
+            DownloadProgressView(
+                songs: songs,
+                total: songs.count,
+                serverId: container?.serverState.activeServer?.id ?? UUID(),
+                secondaryColor: .secondary
+            )
+            .frame(maxWidth: .infinity)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+        }
     }
 
-    /// Icon-only "download everything in this list". Disabled once nothing is left to fetch, so it
-    /// can't queue a no-op batch. Icon-only means the accessibility label is the only thing
-    /// VoiceOver has to go on.
+    /// Icon-only "download everything in this list", styled like the album/playlist download
+    /// button: 44pt glass, `arrow.down.circle` when nothing is local and `.dotted` once some of
+    /// the list is. Those views offer a third, destructive state (a trash button wiping the
+    /// album's downloads); deleting the whole library from a list header is not the same
+    /// affordance, so here a fully-downloaded list simply disables the button.
+    /// Icon-only means the accessibility label is all VoiceOver has to go on.
     private func downloadAllButton(_ vm: SongsListViewModel) -> some View {
         Button {
             Task {
@@ -193,13 +218,16 @@ struct SongsListView: View {
                 }
             }
         } label: {
-            Image(systemName: "arrow.down.circle")
+            Image(systemName: vm.pendingDownloadCount < vm.displaySongs.count
+                  ? "arrow.down.circle.dotted"
+                  : "arrow.down.circle")
+                .font(.cassetteCellTitle)
+                .foregroundStyle(.primary)
                 // Swapped for a spinner in place, so the row doesn't resize mid-batch.
                 .opacity(vm.isDownloadingAll ? 0 : 1)
                 .overlay { if vm.isDownloadingAll { ProgressView().controlSize(.small) } }
+                .cassetteGlassButton(size: 44)
         }
-        .buttonStyle(.bordered)
-        .tint(Color.cassetteAccent)
         .disabled(vm.pendingDownloadCount == 0 || vm.isDownloadingAll)
         .accessibilityLabel(vm.isDownloadingAll ? Text("Downloading all songs") : Text("Download all songs"))
     }
@@ -215,6 +243,65 @@ struct SongsListView: View {
             } catch {
                 Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
             }
+        }
+    }
+}
+
+// MARK: - Live download indicator rows
+
+/// The list's rows, split out so a single `@Query` on `DownloadedTrack` drives every row's
+/// downloaded state live. This is the mechanism the album and playlist detail views use; like
+/// the playlist one — and unlike the album's, which can key on an album id — a flat library
+/// list has nothing to filter on but the server.
+private struct SongsListRows: View {
+    let songs: [DisplayableSong]
+    let downloadingIds: Set<String>
+    let isFavorite: (DisplayableSong) -> Bool
+    let onTap: (Int) -> Void
+    let onDownload: (String) -> Void
+    let onRemoveDownload: (String) -> Void
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(
+        songs: [DisplayableSong],
+        serverId: UUID,
+        downloadingIds: Set<String>,
+        isFavorite: @escaping (DisplayableSong) -> Bool,
+        onTap: @escaping (Int) -> Void,
+        onDownload: @escaping (String) -> Void,
+        onRemoveDownload: @escaping (String) -> Void
+    ) {
+        self.songs = songs
+        self.downloadingIds = downloadingIds
+        self.isFavorite = isFavorite
+        self.onTap = onTap
+        self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
+        let sid = serverId
+        _downloadedTracks = Query(filter: #Predicate<DownloadedTrack> { $0.serverId == sid })
+    }
+
+    var body: some View {
+        // Built once per body evaluation rather than inside the row closure: this list can hold
+        // the whole library, and rebuilding the set per row would make it quadratic.
+        let downloadedSongIds = Set(downloadedTracks.map(\.songId))
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            let liveDownloaded = downloadedSongIds.contains(song.id)
+            let isDownloading = downloadingIds.contains(song.id)
+            SongRow(
+                song: song.withDownloaded(liveDownloaded),
+                index: index + 1,
+                showCoverArt: true,
+                isFavorite: isFavorite(song),
+                onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) },
+                onRemoveDownload: liveDownloaded ? { onRemoveDownload(song.id) } : nil,
+                isDownloading: isDownloading
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
+            // The A-Z jump bar scrolls to these ids; keep them on the row itself.
+            .id(song.id)
         }
     }
 }

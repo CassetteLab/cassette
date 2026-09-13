@@ -925,7 +925,7 @@ struct PlaylistDetailView: View {
 
                 if let vm, vm.isDownloadingPlaylist {
                     let serverId = container?.serverState.activeServer?.id ?? UUID()
-                    PlaylistDownloadProgressView(
+                    DownloadProgressView(
                         songs: vm.songs,
                         total: vm.songs.count,
                         serverId: serverId,
@@ -984,51 +984,6 @@ private nonisolated enum PlaylistDownloadState {
     case notDownloaded
     case partiallyDownloaded(downloaded: Int, total: Int)
     case fullyDownloaded
-}
-
-// MARK: - Download progress sub-view
-
-private struct PlaylistDownloadProgressView: View {
-    let songs: [DisplayableSong]
-    let total: Int
-    let secondaryColor: Color
-
-    @Query private var downloadedTracks: [DownloadedTrack]
-
-    init(songs: [DisplayableSong], total: Int, serverId: UUID, secondaryColor: Color) {
-        self.songs = songs
-        self.total = total
-        self.secondaryColor = secondaryColor
-        let sid = serverId
-        _downloadedTracks = Query(filter: #Predicate<DownloadedTrack> { $0.serverId == sid })
-    }
-
-    private var downloaded: Int {
-        let downloadedIds = Set(downloadedTracks.map(\.songId))
-        return songs.filter { downloadedIds.contains($0.id) }.count
-    }
-
-    var body: some View {
-        VStack(spacing: CassetteSpacing.xs) {
-            if downloaded == 0 {
-                HStack(spacing: CassetteSpacing.s) {
-                    ProgressView().scaleEffect(0.8)
-                    Text("Starting download…")
-                        .font(.cassetteCaption)
-                        .foregroundStyle(secondaryColor)
-                }
-            } else {
-                ProgressView(value: Double(downloaded), total: Double(max(total, 1)))
-                    .progressViewStyle(.linear)
-                    .tint(Color.cassetteAccent)
-                    .frame(maxWidth: 280)
-                Text("Downloading \(downloaded)/\(total) tracks")
-                    .font(.cassetteCaption)
-                    .foregroundStyle(secondaryColor)
-            }
-        }
-        .frame(minHeight: 44)
-    }
 }
 
 // MARK: - Live download indicator rows

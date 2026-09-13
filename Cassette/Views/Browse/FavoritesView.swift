@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import SwiftUI
+import SwiftData
 import SwiftSonic
 import OSLog
 
@@ -81,23 +82,15 @@ struct FavoritesView: View {
     private func songsSection(_ vm: FavoritesViewModel, _ songs: [DisplayableSong]) -> some View {
         if !songs.isEmpty {
             Section("Songs") {
-                HStack(spacing: 12) {
+                // Shuffle / Play / Download, sized exactly as the album and playlist headers:
+                // 44pt Liquid Glass circles either side of the accent Play capsule. Those views
+                // colour their glyphs from the cover's dominant colour; this list has no cover,
+                // so the glyph is `.primary` and Play keeps its own accent defaults.
+                HStack(spacing: CassetteSpacing.m) {
                     Button {
+                        HapticFeedback.medium.trigger()
                         Task {
-                            try? await container?.playerService.play(tracks: songs, startIndex: 0)
-                        }
-                    } label: {
-                        Label("Play", systemImage: "play.fill")
-                            // White glyph/label on the accent-filled surface — `.borderedProminent`
-                            // would otherwise pick its own foreground. Token, not a literal.
-                            .foregroundStyle(Color.cassetteAccentText)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color.cassetteAccent)
-
-                    Button {
-                        Task {
+                            guard !songs.isEmpty else { return }
                             let idx = Int.random(in: 0..<songs.count)
                             try? await container?.playerService.play(tracks: songs, startIndex: idx)
                             if container?.playerState.isShuffled != true {
@@ -105,39 +98,69 @@ struct FavoritesView: View {
                             }
                         }
                     } label: {
-                        Label("Shuffle", systemImage: "shuffle")
-                            .frame(maxWidth: .infinity)
+                        Image(systemName: "shuffle")
+                            .font(.cassetteCellTitle)
+                            .foregroundStyle(.primary)
+                            .cassetteGlassButton(size: 44)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(Color.cassetteAccent)
+                    .disabled(songs.isEmpty)
+                    .accessibilityLabel("Shuffle")
 
-                    downloadAllButton(vm)
+                    PlayButton(action: {
+                        Task {
+                            guard !songs.isEmpty else { return }
+                            try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                        }
+                    }, isDisabled: songs.isEmpty || vm.isDownloadingAll)
+                    .frame(maxWidth: 220)
+
+                    downloadAllButton(vm, totalCount: songs.count)
                 }
+                .buttonStyle(.borderless)
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
                 .padding(.vertical, 4)
 
-                ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
-                    SongRow(song: song, index: index + 1, showCoverArt: true, isFavorite: true, onAddToPlaylist: { s in songToAddToPlaylist = s })
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Task {
-                                do {
-                                    try await container?.playerService.play(tracks: songs, startIndex: index)
-                                } catch {
-                                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
-                                }
+                if vm.isDownloadingAll {
+                    DownloadProgressView(
+                        songs: songs,
+                        total: songs.count,
+                        serverId: container?.serverState.activeServer?.id ?? UUID(),
+                        secondaryColor: .secondary
+                    )
+                    .frame(maxWidth: .infinity)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
+                }
+
+                FavoriteSongRows(
+                    songs: songs,
+                    serverId: container?.serverState.activeServer?.id ?? UUID(),
+                    downloadingIds: vm.downloadingIds,
+                    onTap: { index in
+                        Task {
+                            do {
+                                try await container?.playerService.play(tracks: songs, startIndex: index)
+                            } catch {
+                                Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
                             }
                         }
-                }
+                    },
+                    onDownload: { id in Task { await vm.downloadSong(id: id) } },
+                    onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } },
+                    onAddToPlaylist: { songToAddToPlaylist = $0 }
+                )
             }
         }
     }
 
-    /// Icon-only "download every favorite song". Starred songs only — favorited albums and artists
-    /// are untouched. Disabled once nothing is left to fetch. Icon-only means the accessibility
-    /// label is the only thing VoiceOver has to go on.
-    private func downloadAllButton(_ vm: FavoritesViewModel) -> some View {
+    /// Icon-only "download every favorite song", styled like the album/playlist download button:
+    /// 44pt glass, `arrow.down.circle` when nothing is local and `.dotted` once some of the list
+    /// is. Starred songs only — favorited albums and artists are untouched. Those views offer a
+    /// third, destructive state (a trash button wiping the album's downloads); that is not the
+    /// same affordance here, so a fully-downloaded list simply disables the button.
+    /// Icon-only means the accessibility label is all VoiceOver has to go on.
+    private func downloadAllButton(_ vm: FavoritesViewModel, totalCount: Int) -> some View {
         Button {
             Task {
                 // Re-count against disk on tap: the warning must quote what will actually be
@@ -152,13 +175,16 @@ struct FavoritesView: View {
                 }
             }
         } label: {
-            Image(systemName: "arrow.down.circle")
+            Image(systemName: vm.pendingDownloadCount < totalCount
+                  ? "arrow.down.circle.dotted"
+                  : "arrow.down.circle")
+                .font(.cassetteCellTitle)
+                .foregroundStyle(.primary)
                 // Swapped for a spinner in place, so the row doesn't resize mid-batch.
                 .opacity(vm.isDownloadingAll ? 0 : 1)
                 .overlay { if vm.isDownloadingAll { ProgressView().controlSize(.small) } }
+                .cassetteGlassButton(size: 44)
         }
-        .buttonStyle(.bordered)
-        .tint(Color.cassetteAccent)
         .disabled(vm.pendingDownloadCount == 0 || vm.isDownloadingAll)
         .accessibilityLabel(vm.isDownloadingAll
             ? Text("Downloading all favorite songs")
@@ -194,6 +220,62 @@ struct FavoritesView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Live download indicator rows
+
+/// The favourites' song rows, split out so a single `@Query` on `DownloadedTrack` drives every
+/// row's downloaded state live — the same mechanism the album and playlist detail views use,
+/// filtered by server since a favourites list has no album or playlist id to key on.
+private struct FavoriteSongRows: View {
+    let songs: [DisplayableSong]
+    let downloadingIds: Set<String>
+    let onTap: (Int) -> Void
+    let onDownload: (String) -> Void
+    let onRemoveDownload: (String) -> Void
+    let onAddToPlaylist: (DisplayableSong) -> Void
+
+    @Query private var downloadedTracks: [DownloadedTrack]
+
+    init(
+        songs: [DisplayableSong],
+        serverId: UUID,
+        downloadingIds: Set<String>,
+        onTap: @escaping (Int) -> Void,
+        onDownload: @escaping (String) -> Void,
+        onRemoveDownload: @escaping (String) -> Void,
+        onAddToPlaylist: @escaping (DisplayableSong) -> Void
+    ) {
+        self.songs = songs
+        self.downloadingIds = downloadingIds
+        self.onTap = onTap
+        self.onDownload = onDownload
+        self.onRemoveDownload = onRemoveDownload
+        self.onAddToPlaylist = onAddToPlaylist
+        let sid = serverId
+        _downloadedTracks = Query(filter: #Predicate<DownloadedTrack> { $0.serverId == sid })
+    }
+
+    var body: some View {
+        // Built once per body evaluation rather than inside the row closure.
+        let downloadedSongIds = Set(downloadedTracks.map(\.songId))
+        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+            let liveDownloaded = downloadedSongIds.contains(song.id)
+            let isDownloading = downloadingIds.contains(song.id)
+            SongRow(
+                song: song.withDownloaded(liveDownloaded),
+                index: index + 1,
+                showCoverArt: true,
+                isFavorite: true,
+                onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) },
+                onRemoveDownload: liveDownloaded ? { onRemoveDownload(song.id) } : nil,
+                isDownloading: isDownloading,
+                onAddToPlaylist: onAddToPlaylist
+            )
+            .contentShape(Rectangle())
+            .onTapGesture { onTap(index) }
         }
     }
 }
