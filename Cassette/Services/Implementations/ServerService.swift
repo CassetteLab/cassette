@@ -299,6 +299,28 @@ actor ServerService: ServerServiceProtocol {
         Logger.server.info("Music folder scope set to \(folderId ?? "all", privacy: .public)")
     }
 
+    /// Hides (or reveals) playlist kinds in the playlist list on this server.
+    ///
+    /// Per-server for the same reason as the scope above. Nothing is deleted and nothing is written
+    /// to the server: this only changes what the list draws.
+    func setHiddenPlaylistKinds(serverId: UUID, kinds: Set<PlaylistKind>) async throws {
+        let encoded = PlaylistKind.encodeHidden(kinds)
+        try await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let descriptor = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == serverId })
+            guard let config = try context.fetch(descriptor).first else {
+                throw CassetteError.serverNotFound(id: serverId)
+            }
+            config.hiddenPlaylistKinds = encoded
+            try context.save()
+            // Refresh the snapshot so the list and its toolbar redraw against the new filter.
+            if state.activeServer?.id == serverId {
+                state.activeServer = ServerSnapshot(from: config)
+            }
+        }
+        Logger.server.info("Hidden playlist kinds set to \(encoded ?? "none", privacy: .public)")
+    }
+
     func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {
         let trimmedURL = urlString?.trimmingCharacters(in: .whitespacesAndNewlines)
         let resolvedURL = (trimmedURL?.isEmpty == false) ? trimmedURL : nil
