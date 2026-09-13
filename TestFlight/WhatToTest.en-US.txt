@@ -1,4 +1,4 @@
-Cassette 1.11.0
+Cassette 1.11.1
 
 NEW
 • Filter playlists by type — a new control at the top right of the Playlists screen lets you choose what the list shows: mood playlists, Cassette Wrapped, per-artist best-of, and your own playlists. Everything is shown by default, and the choice is remembered per server. Nothing is deleted — hidden playlists are still on your server.
