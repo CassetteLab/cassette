@@ -269,6 +269,8 @@ private struct AboutSettingsTab: View {
                     Link("dimitris-c", destination: CassetteURLs.audioStreaming)
                 }
             }
+            KofiSupportSection()
+            SupportersSection()
         }
         .formStyle(.grouped)
         .frame(maxWidth: 480)

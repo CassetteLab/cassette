@@ -3,7 +3,6 @@
 // Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
-import OSLog
 import SwiftUI
 
 struct SettingsView: View {
@@ -43,7 +42,8 @@ struct SettingsView: View {
             serverSection()
             integrationsSection()
             aboutSection()
-            supportSection()
+            KofiSupportSection()
+            SupportersSection()
         }
         .formStyle(.grouped)
         .refreshable {
@@ -103,31 +103,6 @@ struct SettingsView: View {
                     SettingsIcon(systemImage: "arrow.up.right.square", color: .orange)
                 }
             }
-        }
-    }
-
-    private func supportSection() -> some View {
-        Section {
-            VStack(spacing: 2) {
-                Text("Cassette is free, forever.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                Button {
-                    Logger.settings.debug("Ko-fi support button tapped")
-                    ExternalLinkOpener.open(CassetteURLs.kofi)
-                } label: {
-                    Image("kofiButton")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: 140)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                }
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets())
         }
     }
 

@@ -1,0 +1,13 @@
+{
+  "_readme": [
+    "People credited for supporting Cassette on Ko-fi: in SUPPORTERS.md and in the app, under Settings.",
+    "Consent: only add a supporter whose Ko-fi support was marked public. Remove anyone who asks, at any time.",
+    "Never record an amount: this file is public. Everyone is listed at the same level, oldest first: append new entries at the end.",
+    "name (required): the name the person chose. since (required): YYYY-MM. url (optional): a personal link.",
+    "After editing, run scripts/generate-supporters.py and commit both files. The app picks up the list at its next release."
+  ],
+  "supporters": [
+      { "name": "Remy", "since": "2026-06" },
+      { "name": "moebasalama", "since": "2026-07" }
+  ]
+}
