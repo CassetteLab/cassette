@@ -4,7 +4,16 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: {}
+  # Lets the macOS half be re-run on its own, without pushing a tag — so a failure here can be
+  # retried without waking Xcode Cloud and adding a duplicate TestFlight build for a version that
+  # already has one. Give it the version of an EXISTING tag to publish onto; leave it empty for a
+  # dry run that builds, notarises and hashes but publishes nothing.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Existing version to publish, e.g. 1.11.0. Empty = dry run, publishes nothing.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -28,16 +37,28 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Derive version from tag
+      - name: Derive version from tag or dispatch input
         id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [ -n "${GITHUB_REF_NAME:-}" ] && [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+          # `publish` gates every step that writes somewhere permanent. A dispatch with no version
+          # is therefore a full rehearsal — archive, export, notarise, DMG, checksums — that leaves
+          # no trace, which is the only way to exercise this workflow without burning a tag.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ -n "${GITHUB_REF_NAME:-}" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
+            PUBLISH=true
+          elif [ -n "$INPUT_VERSION" ]; then
+            VERSION="${INPUT_VERSION#v}"
+            PUBLISH=true
           else
             VERSION="0.0.0-dev"
+            PUBLISH=false
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building version $VERSION"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "publish=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "Building version $VERSION (publish=$PUBLISH)"
 
       - name: Build unsigned iOS .ipa (for sideloading)
         run: |
@@ -96,9 +117,19 @@ jobs:
 
       - name: Archive (macOS, manual Developer ID signing)
         run: |
-          # Manual Developer ID signing, reusing the imported certificate and the profiles installed
-          # above (matched to each target by bundle id). No automatic signing / -allowProvisioningUpdates,
-          # so the CI never mints a new development certificate and cannot hit the account's cert cap.
+          # Manual signing, with the profile for each target read from the project: the Release
+          # configs carry PROVISIONING_PROFILE_SPECIFIER[sdk=macosx*], scoped to macOS so the iOS
+          # builds keep automatic signing. It cannot be passed here instead — a command-line build
+          # setting applies to every target at once, and the app and the widget extension need two
+          # different profiles. Both carry App Groups, which only a matching profile authorises;
+          # without the specifiers this failed with "requires a provisioning profile with the App
+          # Groups feature" (v1.11.0).
+          #
+          # Signing at archive time rather than only at export is what gets every embedded
+          # framework signed with the hardened runtime, which notarisation requires.
+          #
+          # Still no -allowProvisioningUpdates: CI mints no certificate and cannot hit the
+          # account's cert cap, which is why archive-time signing was introduced in the first place.
           xcodebuild \
             -project "$PROJECT" \
             -scheme "$SCHEME" \
@@ -123,11 +154,7 @@ jobs:
         run: |
           APP="$RUNNER_TEMP/export/$APP_NAME.app"
           ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/$APP_NAME.zip"
-          xcrun notarytool submit "$RUNNER_TEMP/$APP_NAME.zip" \
-            --key "$RUNNER_TEMP/AuthKey.p8" \
-            --key-id "$AC_API_KEY_ID" \
-            --issuer "$AC_API_ISSUER_ID" \
-            --wait
+          .github/scripts/notarize.sh "$RUNNER_TEMP/$APP_NAME.zip"
           xcrun stapler staple "$APP"
 
       - name: Create .dmg
@@ -147,11 +174,7 @@ jobs:
       - name: Notarize + staple the .dmg
         run: |
           DMG="$RUNNER_TEMP/$APP_NAME-${{ steps.version.outputs.version }}.dmg"
-          xcrun notarytool submit "$DMG" \
-            --key "$RUNNER_TEMP/AuthKey.p8" \
-            --key-id "$AC_API_KEY_ID" \
-            --issuer "$AC_API_ISSUER_ID" \
-            --wait
+          .github/scripts/notarize.sh "$DMG"
           xcrun stapler staple "$DMG"
 
       # Computed here, after stapling and before upload: `stapler staple` rewrites the DMG in
@@ -171,9 +194,10 @@ jobs:
           echo "IPA $IPA_SHA"
 
       - name: Publish GitHub Release
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           files: |
             ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.dmg
             ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.ipa
@@ -183,12 +207,12 @@ jobs:
       # to the generated notes, which would put the checksums above the changelog. Failing here
       # costs the section, not the release — the artifacts are already uploaded.
       - name: Append checksums to release notes
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ steps.version.outputs.tag }}"
           DMG_SHA="${{ steps.checksums.outputs.dmg_sha }}"
           IPA_SHA="${{ steps.checksums.outputs.ipa_sha }}"
           BODY="$(gh release view "$TAG" --json body --jq .body)"
@@ -205,7 +229,7 @@ jobs:
           gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
 
       - name: Bump Homebrew cask
-        if: github.ref_type == 'tag'
+        if: steps.version.outputs.publish == 'true'
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |

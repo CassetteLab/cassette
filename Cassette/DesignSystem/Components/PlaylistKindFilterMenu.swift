@@ -38,8 +38,10 @@ struct PlaylistKindFilterMenu: View {
     @ViewBuilder
     private var control: some View {
         #if os(macOS)
+        // No .buttonStyle here, deliberately: it has to match the create button beside it, and
+        // `.plain` drops the toolbar button's own padding, leaving the icon flush against the edge
+        // of the section while its neighbour keeps its inset.
         Button { isPresented.toggle() } label: { icon }
-            .buttonStyle(.plain)
             .popover(isPresented: $isPresented, arrowEdge: .bottom) {
                 VStack(alignment: .leading, spacing: CassetteSpacing.s) {
                     Text("Show")
