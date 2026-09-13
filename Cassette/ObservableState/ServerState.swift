@@ -31,6 +31,14 @@ nonisolated struct ServerSnapshot: Sendable, Equatable {
     }
 }
 
+/// Identity for `.task(id:)` on the library views: they reload when connectivity flips, and now
+/// also when the user scopes browsing to a different library. Bundling both keeps each view to a
+/// single task rather than a task plus a change handler.
+nonisolated struct LibraryLoadKey: Hashable, Sendable {
+    let isOnline: Bool
+    let musicFolderId: String?
+}
+
 /// Observable UI state for server connectivity. Updated by ServerService via MainActor.run.
 @Observable
 @MainActor
@@ -40,6 +48,11 @@ final class ServerState {
     var isConnected: Bool = false
     /// Updated by NetworkMonitor. False when NWPathMonitor reports no connectivity.
     var isOnline: Bool = true
+
+    /// See ``LibraryLoadKey``.
+    var libraryLoadKey: LibraryLoadKey {
+        LibraryLoadKey(isOnline: isOnline, musicFolderId: activeServer?.selectedMusicFolderId)
+    }
     /// Updated by NetworkMonitor. True when the connection is metered (cellular, hotspot).
     /// Default false — optimistic until the first NWPath update corrects it on launch (~100ms).
     var isExpensive: Bool = false

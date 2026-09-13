@@ -48,7 +48,7 @@ struct AlbumsListView: View {
                 }
             }
         }
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.libraryLoadKey) {
             Logger.boot.notice("🟢 AlbumsListView task fired — activeServer=\(String(describing: container?.serverState.activeServer?.baseURL), privacy: .public) isOnline=\(String(describing: container?.serverState.isOnline), privacy: .public)")
             guard let svc = container?.libraryService else {
                 Logger.boot.error("🔴 AlbumsListView: container?.libraryService is nil — skipping")

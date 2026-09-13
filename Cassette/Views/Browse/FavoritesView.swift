@@ -38,7 +38,7 @@ struct FavoritesView: View {
                 )
             }
         }
-        .task { await viewModel?.load() }
+        .task(id: container?.serverState.libraryLoadKey) { await viewModel?.load() }
     }
 
     @ViewBuilder

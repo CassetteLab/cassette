@@ -127,6 +127,10 @@ struct HomeView: View {
         .navigationTitle("Home")
         .toolbar {
             #if !os(macOS)
+            // Renders nothing unless the server exposes more than one library.
+            ToolbarItem(placement: .automatic) {
+                MusicFolderScopePicker()
+            }
             ToolbarItem(placement: .automatic) {
                 Menu {
                     Button { showCreatePlaylist = true } label: {
@@ -217,7 +221,7 @@ struct HomeView: View {
         #endif
         .onAppear { localPinnedItems = allPinnedItems }
         .onChange(of: allPinnedItems.count) { _, _ in localPinnedItems = allPinnedItems }
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.libraryLoadKey) {
             guard let svc = container?.libraryService else { return }
             if viewModel == nil { viewModel = HomeViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }
