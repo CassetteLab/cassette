@@ -63,6 +63,72 @@ struct ServerServiceTests {
         return (service, state)
     }
 
+    // MARK: playlist type filter
+
+    /// Adds one server and returns its id.
+    private func makeServerId(_ service: ServerService, _ state: ServerState) async throws -> UUID {
+        try await service.addServer(
+            displayName: "S", baseURL: "https://s.example.com",
+            username: "u", password: "p", customHeaders: [:]
+        )
+        return try #require(state.activeServer?.id)
+    }
+
+    @Test("A new server hides nothing, so the list is what it always was")
+    func hiddenPlaylistKinds_defaultsToNothingHidden() async throws {
+        let (service, state) = try makeService()
+        _ = try await makeServerId(service, state)
+        #expect(state.activeServer?.hiddenPlaylistKinds == nil)
+        #expect(state.activeServer?.hiddenPlaylistKindSet.isEmpty == true)
+    }
+
+    @Test("Hiding one kind at a time accumulates rather than replacing")
+    func setPlaylistKindHidden_accumulates() async throws {
+        let (service, state) = try makeService()
+        let serverId = try await makeServerId(service, state)
+
+        try await service.setPlaylistKindHidden(serverId: serverId, kind: .moods, isHidden: true)
+        try await service.setPlaylistKindHidden(serverId: serverId, kind: .wrapped, isHidden: true)
+
+        #expect(state.activeServer?.hiddenPlaylistKindSet == [.moods, .wrapped])
+    }
+
+    /// The filter menu stays open across taps, so two writes can be in flight at once. Each reads
+    /// what is stored rather than a set the view computed earlier, so neither can undo the other.
+    @Test("Concurrent toggles of different kinds both survive")
+    func setPlaylistKindHidden_concurrentTogglesCommute() async throws {
+        let (service, state) = try makeService()
+        let serverId = try await makeServerId(service, state)
+
+        async let first: Void = service.setPlaylistKindHidden(serverId: serverId, kind: .moods, isHidden: true)
+        async let second: Void = service.setPlaylistKindHidden(serverId: serverId, kind: .artistBestOf, isHidden: true)
+        _ = try await (first, second)
+
+        #expect(state.activeServer?.hiddenPlaylistKindSet == [.moods, .artistBestOf])
+    }
+
+    @Test("Revealing a kind leaves the others hidden")
+    func setPlaylistKindHidden_revealIsAlsoADelta() async throws {
+        let (service, state) = try makeService()
+        let serverId = try await makeServerId(service, state)
+
+        try await service.setHiddenPlaylistKinds(serverId: serverId, kinds: [.moods, .wrapped, .artistBestOf])
+        try await service.setPlaylistKindHidden(serverId: serverId, kind: .wrapped, isHidden: false)
+
+        #expect(state.activeServer?.hiddenPlaylistKindSet == [.moods, .artistBestOf])
+    }
+
+    @Test("Clearing the filter stores nothing, not an empty marker")
+    func setHiddenPlaylistKinds_emptyClearsTheColumn() async throws {
+        let (service, state) = try makeService()
+        let serverId = try await makeServerId(service, state)
+
+        try await service.setPlaylistKindHidden(serverId: serverId, kind: .moods, isHidden: true)
+        try await service.setHiddenPlaylistKinds(serverId: serverId, kinds: [])
+
+        #expect(state.activeServer?.hiddenPlaylistKinds == nil)
+    }
+
     // MARK: addServer
 
     @Test func addServer_firstServer_becomesActive() async throws {

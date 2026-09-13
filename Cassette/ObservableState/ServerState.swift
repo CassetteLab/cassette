@@ -19,6 +19,13 @@ nonisolated struct ServerSnapshot: Sendable, Equatable {
     /// The library browsing is scoped to, or nil for all of them. Mirrored here so views and the
     /// library service can read the scope without a SwiftData fetch.
     let selectedMusicFolderId: String?
+    /// Encoded set of playlist kinds hidden from the playlist list. Mirrored here so the list and
+    /// its toolbar read the filter without a SwiftData fetch, like the scope above.
+    let hiddenPlaylistKinds: String?
+
+    /// The filter in usable form. Decoded on read rather than stored so the snapshot stays a plain
+    /// mirror of the persisted column.
+    var hiddenPlaylistKindSet: Set<PlaylistKind> { PlaylistKind.decodeHidden(hiddenPlaylistKinds) }
 
     init(from config: ServerConfig) {
         self.id = config.id
@@ -28,6 +35,7 @@ nonisolated struct ServerSnapshot: Sendable, Equatable {
         self.serverVersion = config.serverVersion
         self.audioMuseURL = config.audioMuseURL
         self.selectedMusicFolderId = config.selectedMusicFolderId
+        self.hiddenPlaylistKinds = config.hiddenPlaylistKinds
     }
 }
 

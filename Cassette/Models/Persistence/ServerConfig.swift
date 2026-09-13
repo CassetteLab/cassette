@@ -30,6 +30,15 @@ final class ServerConfig {
     /// migration adds it to existing stores as `nil` without a migration plan, exactly as
     /// `audioMuseURL` was added.
     var selectedMusicFolderId: String?
+    /// Playlist kinds the user has hidden from the playlist list on THIS server, as a comma
+    /// separated list of ``PlaylistKind`` raw values — `nil` or empty meaning nothing is hidden.
+    ///
+    /// Per-server like the two above: someone may want the generated playlists out of the way on a
+    /// shared family server and not on their own. Storing the HIDDEN kinds rather than the visible
+    /// ones is what makes the migration free — lightweight migration adds this as `nil` to every
+    /// existing store, and `nil` decodes to "hide nothing", which is the behaviour that shipped
+    /// before the filter existed.
+    var hiddenPlaylistKinds: String?
 
     // password + customHeaders are stored in Keychain only.
     // Keychain key: ServerCredentials.keychainKey(for: id)
@@ -43,7 +52,8 @@ final class ServerConfig {
         serverVersion: String? = nil,
         createdAt: Date = Date(),
         audioMuseURL: String? = nil,
-        selectedMusicFolderId: String? = nil
+        selectedMusicFolderId: String? = nil,
+        hiddenPlaylistKinds: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -54,5 +64,6 @@ final class ServerConfig {
         self.createdAt = createdAt
         self.audioMuseURL = audioMuseURL
         self.selectedMusicFolderId = selectedMusicFolderId
+        self.hiddenPlaylistKinds = hiddenPlaylistKinds
     }
 }

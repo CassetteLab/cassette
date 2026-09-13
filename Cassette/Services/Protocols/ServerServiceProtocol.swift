@@ -41,6 +41,8 @@ protocol ServerServiceProtocol: AnyObject, Sendable {
     /// integration and drops the token from Keychain.
     /// Scopes browsing on this server to one library, or to all of them with `nil`.
     func setMusicFolderScope(serverId: UUID, folderId: String?) async throws
+    func setHiddenPlaylistKinds(serverId: UUID, kinds: Set<PlaylistKind>) async throws
+    func setPlaylistKindHidden(serverId: UUID, kind: PlaylistKind, isHidden: Bool) async throws
     func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws
 
     /// Pings the active server via SwiftSonic. Throws if no active server or ping fails.
