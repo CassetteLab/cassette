@@ -6,8 +6,8 @@ writes SUPPORTERS.md from it, and the app bundles the JSON itself at build time.
 
 The script refuses a file it would render wrongly rather than guessing: a missing name,
 a `since` that is not YYYY-MM, an entry older than the one before it (the list is kept
-oldest first), or a field outside name/since/url/tier — which is also what stops an
-amount from being recorded by mistake. `tier` is validated but never rendered.
+oldest first), or a field outside name/since/url — which is also what stops an amount
+from being recorded by mistake.
 
 Usage: scripts/generate-supporters.py
 """
@@ -27,7 +27,7 @@ KOFI_URL = "https://ko-fi.com/mathieudbrt"
 ISSUES_URL = "https://github.com/CassetteLab/cassette/issues"
 CONTACT_EMAIL = "support@getcassette.app"
 
-ALLOWED_FIELDS = {"name", "since", "url", "tier"}
+ALLOWED_FIELDS = {"name", "since", "url"}
 SINCE_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 
 # Names are chosen by supporters, so anything Markdown would interpret is escaped: inline
@@ -82,9 +82,6 @@ def validated_supporters(document):
             if (parsed is None or parsed.scheme not in ("http", "https") or not parsed.netloc
                     or any(character.isspace() or character in "<>" for character in url)):
                 die(f'{where} ({name.strip()}) has an invalid "url"; use a full http(s) link')
-
-        if "tier" in entry and not isinstance(entry["tier"], str):
-            die(f'{where} ({name.strip()}) "tier" must be a string')
 
         supporters.append({"name": name.strip(), "url": url})
     return supporters

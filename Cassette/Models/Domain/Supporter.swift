@@ -8,8 +8,8 @@ import OSLog
 
 /// A person credited in Settings for supporting Cassette on Ko-fi.
 ///
-/// Only the name is decoded. `since` keeps `supporters.json` in order, and `url` and `tier`
-/// are not shown in the app — `tier` is internal and never displayed anywhere.
+/// Only the name is decoded: `since` keeps `supporters.json` in order, and `url` is not shown
+/// in the app.
 nonisolated struct Supporter: Decodable, Equatable, Sendable {
     let name: String
 }

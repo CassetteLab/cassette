@@ -10,13 +10,13 @@ import Testing
 @Suite("SupportersList")
 struct SupportersListTests {
 
-    @Test("decodes names in file order, ignoring the readme, since, url and tier")
+    @Test("decodes names in file order, ignoring the readme, since and url")
     func decodesNamesInFileOrder() throws {
         let json = """
         {
           "_readme": ["Rules for maintainers."],
           "supporters": [
-            { "name": "Early", "since": "2026-08", "tier": "sticker" },
+            { "name": "Early", "since": "2026-08" },
             { "name": "Later", "since": "2026-09", "url": "https://example.com" }
           ]
         }
