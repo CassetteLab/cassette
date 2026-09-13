@@ -59,6 +59,15 @@ nonisolated extension PlaylistKind {
         guard !kinds.isEmpty else { return nil }
         return displayOrder.filter(kinds.contains).map(\.rawValue).joined(separator: ",")
     }
+
+    /// The only kind still shown, given what is hidden — the one checkbox that must stay checked.
+    ///
+    /// Clearing the last one would empty the list with no obvious way back, so the control keeps it
+    /// checked. That is a different situation from a filter whose kinds simply have no playlists in
+    /// them, which the list explains instead: the user cannot fix that one by checking a box.
+    static func isLastVisible(_ kind: PlaylistKind, hidden: Set<PlaylistKind>) -> Bool {
+        !hidden.contains(kind) && hidden.count == allCases.count - 1
+    }
 }
 
 // MARK: - Classification

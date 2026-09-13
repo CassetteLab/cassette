@@ -102,6 +102,25 @@ struct PlaylistKindFilterTests {
         #expect(PlaylistKind.decodeHidden("moods,doesNotExist,wrapped") == [.moods, .wrapped])
     }
 
+    @Test("The last checked kind cannot be cleared")
+    func lastVisibleIsLocked() {
+        // Three of four hidden: the survivor is locked, the hidden ones stay free to re-check.
+        let hidden: Set<PlaylistKind> = [.moods, .wrapped, .artistBestOf]
+        #expect(PlaylistKind.isLastVisible(.userCreated, hidden: hidden))
+        for kind in hidden {
+            #expect(!PlaylistKind.isLastVisible(kind, hidden: hidden), "\(kind) is hidden, not the survivor")
+        }
+    }
+
+    @Test("Nothing is locked while more than one kind is shown")
+    func nothingLockedOtherwise() {
+        for hidden in [Set<PlaylistKind>(), [.moods], [.moods, .wrapped]] {
+            for kind in PlaylistKind.allCases {
+                #expect(!PlaylistKind.isLastVisible(kind, hidden: hidden))
+            }
+        }
+    }
+
     @Test("Display order covers every kind exactly once")
     func displayOrderIsComplete() {
         #expect(Set(PlaylistKind.displayOrder) == Set(PlaylistKind.allCases))

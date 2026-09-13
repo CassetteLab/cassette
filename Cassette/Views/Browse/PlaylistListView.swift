@@ -25,6 +25,13 @@ struct PlaylistListView: View {
         .cassetteContentWidth()
         .navigationTitle("Playlists")
         .toolbar {
+            // Declared before the create button so "+" keeps the trailing edge it has always had.
+            // Online only: offline the screen lists downloaded playlists, which this does not filter.
+            if container?.serverState.isOnline == true {
+                ToolbarItem(placement: .primaryAction) {
+                    PlaylistKindFilterMenu()
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     showCreateSheet = true
