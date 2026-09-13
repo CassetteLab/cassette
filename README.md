@@ -161,7 +161,7 @@ For the full roadmap and discussion, see [GitHub Discussions](https://github.com
 - Website — [getcassette.app](https://getcassette.app)
 - Feedback / bug reports — [support@getcassette.app](mailto:support@getcassette.app) · [GitHub Issues](https://github.com/CassetteLab/cassette/issues)
 - Ideas & discussion — [GitHub Discussions](https://github.com/CassetteLab/cassette/discussions)
-- Support development — [Ko-fi](https://ko-fi.com/mathieudbrt)
+- Support development — [Ko-fi](https://ko-fi.com/mathieudbrt) · [Supporters](SUPPORTERS.md)
 
 ---
 
