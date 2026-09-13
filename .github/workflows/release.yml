@@ -154,6 +154,22 @@ jobs:
             --wait
           xcrun stapler staple "$DMG"
 
+      # Computed here, after stapling and before upload: `stapler staple` rewrites the DMG in
+      # place, so a hash taken any earlier would not match the file people download. The cask
+      # bump below reads these outputs rather than hashing again — one hash, one source.
+      - name: Compute artifact checksums
+        id: checksums
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG="$RUNNER_TEMP/$APP_NAME-$VERSION.dmg"
+          IPA="$RUNNER_TEMP/$APP_NAME-$VERSION.ipa"
+          DMG_SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          IPA_SHA="$(shasum -a 256 "$IPA" | awk '{print $1}')"
+          echo "dmg_sha=$DMG_SHA" >> "$GITHUB_OUTPUT"
+          echo "ipa_sha=$IPA_SHA" >> "$GITHUB_OUTPUT"
+          echo "DMG $DMG_SHA"
+          echo "IPA $IPA_SHA"
+
       - name: Publish GitHub Release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
@@ -163,14 +179,38 @@ jobs:
             ${{ runner.temp }}/${{ env.APP_NAME }}-${{ steps.version.outputs.version }}.ipa
           generate_release_notes: true
 
+      # Appended after the release exists rather than passed as `body`: the API pre-pends a body
+      # to the generated notes, which would put the checksums above the changelog. Failing here
+      # costs the section, not the release — the artifacts are already uploaded.
+      - name: Append checksums to release notes
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${GITHUB_REF_NAME}"
+          DMG_SHA="${{ steps.checksums.outputs.dmg_sha }}"
+          IPA_SHA="${{ steps.checksums.outputs.ipa_sha }}"
+          BODY="$(gh release view "$TAG" --json body --jq .body)"
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          $BODY
+
+          ## Checksums (SHA-256)
+
+          \`$DMG_SHA\`  $APP_NAME-$VERSION.dmg
+          \`$IPA_SHA\`  $APP_NAME-$VERSION.ipa
+
+          Verify with: \`shasum -a 256 $APP_NAME-$VERSION.dmg\`
+          EOF
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/notes.md"
+
       - name: Bump Homebrew cask
         if: github.ref_type == 'tag'
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          DMG="$RUNNER_TEMP/$APP_NAME-$VERSION.dmg"
-          SHA="$(shasum -a 256 "$DMG" | awk '{print $1}')"
+          SHA="${{ steps.checksums.outputs.dmg_sha }}"
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/CassetteLab/homebrew-cassette.git" tap
           cd tap
           CASK="Casks/cassette.rb"
