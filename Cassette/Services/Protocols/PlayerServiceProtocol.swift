@@ -40,6 +40,8 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Builds a Smart Shuffle queue via LibraryService and starts playback. Replaces the current queue.
     /// Throws `CassetteError.smartShuffleEmpty` if no eligible tracks (library too small / no downloads offline).
     func playSmartShuffle() async throws
+    /// Enters Smart Shuffle, or leaves it and restores the queue it replaced.
+    func toggleSmartShuffle() async throws
     /// Builds an Instant Mix from a seed (song/album/artist) via LibraryService similarity and starts playback.
     /// Replaces the current queue.
     ///

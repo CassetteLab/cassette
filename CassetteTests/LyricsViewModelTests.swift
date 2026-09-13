@@ -37,6 +37,7 @@ final class MockPlayerService: PlayerServiceProtocol {
     func handleNetworkRestored() async {}
     func playRadio(_ station: InternetRadioStation) async throws {}
     func playSmartShuffle() async throws {}
+    func toggleSmartShuffle() async throws {}
     func playInstantMix(from seed: InstantMixSeed, startingWith seedTrack: DisplayableSong?) async throws {}
     func setAutoExtendEnabled(_ enabled: Bool) async {}
     func setVolume(_ volume: Float) async {}

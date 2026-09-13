@@ -656,6 +656,71 @@ actor PlayerService: PlayerServiceProtocol {
         Logger.player.info("Started Smart Shuffle session with \(tracks.count) tracks (snapshot: \(self.smartShuffleSnapshot != nil, privacy: .public))")
     }
 
+    /// Enters Smart Shuffle, or leaves it and puts the previous queue back.
+    ///
+    /// One method behind all three entry points so the mode has a single way in and out: before
+    /// this, `playSmartShuffle` was one-way and nothing anywhere cleared `isSmartShuffleActive`,
+    /// which left the sparkles badge stuck until the user started something else from the library.
+    func toggleSmartShuffle() async throws {
+        if await MainActor.run(body: { state.isSmartShuffleActive }) {
+            await exitSmartShuffle()
+        } else {
+            try await playSmartShuffle()
+        }
+    }
+
+    /// Leaves Smart Shuffle, restoring the queue, track and position captured on the way in.
+    ///
+    /// Restoring re-resolves and restarts the audio, so the exit is audible. That is inherent —
+    /// the current track is being replaced — and acceptable for an explicit undo.
+    private func exitSmartShuffle() async {
+        // (C) An auto-extend fetch in flight would append smart-similar tracks and a boundary
+        // belonging to the queue being torn down, straight into the restored one.
+        autoExtendFetchTask?.cancel()
+        autoExtendFetchTask = nil
+
+        guard let snapshot = smartShuffleSnapshot else {
+            // Entered from a radio or from nothing playing: there is no queue to go back to, so
+            // just leave the mode and let whatever is playing carry on.
+            await MainActor.run { state.isSmartShuffleActive = false }
+            await saveSession()
+            Logger.player.info("Left Smart Shuffle — no previous queue to restore")
+            return
+        }
+        smartShuffleSnapshot = nil
+
+        do {
+            try await play(tracks: snapshot.queue, startIndex: snapshot.currentIndex)
+        } catch {
+            Logger.player.error("Leaving Smart Shuffle: restoring the queue failed — \(error, privacy: .public)")
+            await MainActor.run { state.isSmartShuffleActive = false }
+            return
+        }
+
+        // (B) startPlayback consumes and clears pendingRestoreInfo, so the deferred seek can only
+        // be armed once play() has returned — before AudioStreaming reports .playing, which is
+        // where the seek is applied. If it reported already, that hook has been and gone and the
+        // seek has to be issued directly.
+        if audioPlayer.state == .playing {
+            await seek(to: snapshot.position)
+            if !snapshot.wasPlaying { await pause() }
+        } else {
+            pendingRestoreInfo = (seekTime: snapshot.position, pause: !snapshot.wasPlaying)
+        }
+
+        // (A) play(tracks:) treats this as a new queue and clears all three; they describe the
+        // queue being restored, so they go back afterwards, the way playSmartShuffle sets its own
+        // flag after play() rather than before.
+        originalQueueOrder = snapshot.originalQueueOrder
+        await MainActor.run {
+            state.isShuffled = snapshot.isShuffled
+            state.originalQueueEndIndex = snapshot.originalQueueEndIndex
+            state.isSmartShuffleActive = false
+        }
+        await saveSession()
+        Logger.player.info("Left Smart Shuffle — restored \(snapshot.queue.count, privacy: .public) tracks at index \(snapshot.currentIndex, privacy: .public), pos=\(snapshot.position, format: .fixed(precision: 1))s, wasPlaying=\(snapshot.wasPlaying, privacy: .public)")
+    }
+
     // MARK: - Instant Mix
 
     /// Starts an Instant Mix. When the caller can supply the seed TRACK (song seeds — every menu that
