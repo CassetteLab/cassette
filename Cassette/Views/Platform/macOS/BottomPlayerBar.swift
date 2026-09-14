@@ -224,6 +224,10 @@ struct BottomPlayerBar: View {
                 showAddToPlaylist = true
             }
             .disabled(noTrack || container?.serverState.isOnline != true)
+            if let track = currentTrack {
+                Divider()
+                SongShareButton(song: track, showsIcon: false)
+            }
             Divider()
             Button(isFavorite ? "Remove from Favorites" : "Add to Favorites") {
                 Task { await toggleFavorite() }

@@ -842,6 +842,10 @@ private struct TrackInfoSection: View {
                         }
                         .disabled(!isOnline || playerState.currentTrack == nil)
                         Divider()
+                        if let track = playerState.currentTrack {
+                            SongShareButton(song: track)
+                            Divider()
+                        }
                         Button("Instant Mix", systemImage: instantMixSymbol) {
                             guard let track = playerState.currentTrack else { return }
                             startInstantMix(from: .song(id: track.id), using: container, startingWith: track)
