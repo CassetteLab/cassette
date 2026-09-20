@@ -214,8 +214,7 @@ struct PlaylistDetailView: View {
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(bodyColor)
-                } else {
-                    let serverId = container?.serverState.activeServer?.id ?? UUID()
+                } else if let serverId = container?.serverState.activeServer?.id {
                     // One closure shared by the swipe-delete (onRemove) and the context menu (onContextRemove) so
                     // the two paths can't drift; nil offline (no edits).
                     let removeTrack: ((Int) -> Void)? = vm.isOffline ? nil : { index in
@@ -256,6 +255,11 @@ struct PlaylistDetailView: View {
                             .listRowSeparator(.hidden)
                             .listRowBackground(bodyColor)
                     }
+                } else {
+                    // No active server yet — it is still being restored from disk. The rows' @Query
+                    // is keyed on the server id, so show the skeleton rather than build a query on
+                    // an id that matches nothing.
+                    skeletonRows
                 }
             }
         }
@@ -923,8 +927,9 @@ struct PlaylistDetailView: View {
                 .buttonStyle(.borderless)
                 .padding(.horizontal, CassetteSpacing.l)
 
-                if let vm, vm.isDownloadingPlaylist {
-                    let serverId = container?.serverState.activeServer?.id ?? UUID()
+                // Progress is counted by a @Query keyed on the server id, so it can only be shown
+                // once the active server is known.
+                if let vm, vm.isDownloadingPlaylist, let serverId = container?.serverState.activeServer?.id {
                     DownloadProgressView(
                         songs: vm.songs,
                         total: vm.songs.count,

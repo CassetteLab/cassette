@@ -160,7 +160,6 @@ struct AlbumDetailView: View {
                 if isLoadingSkeleton {
                     skeletonRows
                 } else if let vm = viewModel {
-                    let serverId = container?.serverState.activeServer?.id ?? UUID()
                     if songs.isEmpty {
                         if mode == .downloadedOnly {
                             EmptyStateView(
@@ -182,7 +181,7 @@ struct AlbumDetailView: View {
                                 subtitle: "This album doesn't have any tracks yet."
                             )
                         }
-                    } else {
+                    } else if let serverId = container?.serverState.activeServer?.id {
                         AlbumSongRows(
                             songs: songs,
                             albumId: albumId,
@@ -207,6 +206,11 @@ struct AlbumDetailView: View {
                             },
                             onAddToPlaylist: { song in songToAddToPlaylist = song }
                         )
+                    } else {
+                        // No active server yet — it is still being restored from disk. The rows'
+                        // two @Query predicates are keyed on the server id, so show the skeleton
+                        // rather than build them on an id that matches nothing.
+                        skeletonRows
                     }
                 }
             }

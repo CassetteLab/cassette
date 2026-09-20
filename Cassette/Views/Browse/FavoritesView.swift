@@ -121,11 +121,13 @@ struct FavoritesView: View {
                 .listRowBackground(Color.clear)
                 .padding(.vertical, 4)
 
-                if vm.isDownloadingAll {
+                // Both sub-views below drive a @Query keyed on the server id, so neither is shown
+                // until the active server is known.
+                if vm.isDownloadingAll, let serverId = container?.serverState.activeServer?.id {
                     DownloadProgressView(
                         songs: songs,
                         total: songs.count,
-                        serverId: container?.serverState.activeServer?.id ?? UUID(),
+                        serverId: serverId,
                         secondaryColor: .secondary
                     )
                     .frame(maxWidth: .infinity)
@@ -133,23 +135,25 @@ struct FavoritesView: View {
                     .listRowBackground(Color.clear)
                 }
 
-                FavoriteSongRows(
-                    songs: songs,
-                    serverId: container?.serverState.activeServer?.id ?? UUID(),
-                    downloadingIds: vm.downloadingIds,
-                    onTap: { index in
-                        Task {
-                            do {
-                                try await container?.playerService.play(tracks: songs, startIndex: index)
-                            } catch {
-                                Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                if let serverId = container?.serverState.activeServer?.id {
+                    FavoriteSongRows(
+                        songs: songs,
+                        serverId: serverId,
+                        downloadingIds: vm.downloadingIds,
+                        onTap: { index in
+                            Task {
+                                do {
+                                    try await container?.playerService.play(tracks: songs, startIndex: index)
+                                } catch {
+                                    Logger.player.error("[PLAYBACK] play failed: \(error, privacy: .public)")
+                                }
                             }
-                        }
-                    },
-                    onDownload: { id in Task { await vm.downloadSong(id: id) } },
-                    onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } },
-                    onAddToPlaylist: { songToAddToPlaylist = $0 }
-                )
+                        },
+                        onDownload: { id in Task { await vm.downloadSong(id: id) } },
+                        onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } },
+                        onAddToPlaylist: { songToAddToPlaylist = $0 }
+                    )
+                }
             }
         }
     }

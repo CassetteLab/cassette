@@ -52,7 +52,6 @@ struct AlbumDetailMacOS: View {
 
     private func albumContent(_ vm: AlbumDetailViewModel) -> some View {
         let songs = vm.songs
-        let serverId = container?.serverState.activeServer?.id ?? UUID()
         return VStack(spacing: 0) {
             DetailHeroView(
                 coverArtId: vm.coverArtId ?? coverArtId,
@@ -86,7 +85,7 @@ struct AlbumDetailMacOS: View {
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
-                } else {
+                } else if let serverId = container?.serverState.activeServer?.id {
                     AlbumSongRows(
                         songs: songs,
                         albumId: albumId,
@@ -103,6 +102,13 @@ struct AlbumDetailMacOS: View {
                         },
                         onAddToPlaylist: { song in songToAddToPlaylist = song }
                     )
+                } else {
+                    // No active server yet — the rows' @Query predicates are keyed on its id.
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 60)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                 }
             }
             .listStyle(.plain)
