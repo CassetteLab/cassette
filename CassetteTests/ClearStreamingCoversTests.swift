@@ -114,6 +114,34 @@ struct ClearStreamingCoversTests {
         for name in f.bare { #expect(exists(f, name)) }
     }
 
+    /// The launch sequence used to hold a second deleter: a one-shot sweep that removed every
+    /// file without a tier suffix, which is precisely the naming offline downloads use. This
+    /// walks the whole of what launch does to the cover directory and asserts the bare files
+    /// are still there afterwards.
+    @Test("no launch-time path deletes an offline cover")
+    func launchLeavesOfflineCoversAlone() async throws {
+        let f = try makeFixture()
+        defer { tearDown(f) }
+        await seed(f)
+
+        let versionKey = "cassette.coverArtCacheVersion"
+        let previous = UserDefaults.standard.integer(forKey: versionKey)
+        UserDefaults.standard.set(0, forKey: versionKey)
+        defer { UserDefaults.standard.set(previous, forKey: versionKey) }
+
+        let cache = ArtworkImageCache(
+            downloadService: f.service,
+            libraryService: CoverTestLibraryService()
+        )
+        // Everything launch does that touches this directory, in order.
+        await AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: cache)
+        _ = await f.service.garbageCollectOrphanedCovers(referencedIds: Set(f.bare))
+
+        for name in f.bare {
+            #expect(exists(f, name), "launch must not remove offline cover \(name)")
+        }
+    }
+
     @Test("garbage collection is the exact complement: bare ids only, tier files untouched")
     func gcIsTheComplement() async throws {
         let f = try makeFixture()
