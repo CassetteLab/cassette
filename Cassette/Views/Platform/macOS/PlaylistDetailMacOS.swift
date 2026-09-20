@@ -68,13 +68,16 @@ struct PlaylistDetailMacOS: View {
             if let vm, let c = container, let serverId = c.serverState.activeServer?.id {
                 AddMusicSheet(
                     playlistName: vm.name.isEmpty ? name : vm.name,
-                    existingTrackIds: vm.songs.map(\.id)
+                    existingTrackIds: vm.playlistOrderedIds
                 ) { added in
+                    // The commit is an atomic full-list replace, so this MUST be the playlist's
+                    // own order. Sending the displayed order would persist a display sort as the
+                    // playlist's order for everyone.
                     await AddMusicCommitter.commit(
                         addedSongs: added,
                         playlistId: playlistId,
                         serverId: serverId,
-                        existingTrackIds: vm.songs.map(\.id),
+                        existingTrackIds: vm.playlistOrderedIds,
                         currentComment: vm.playlistDetail?.comment ?? "",
                         container: c,
                         colorExtractor: colorExtractor
@@ -155,7 +158,7 @@ struct PlaylistDetailMacOS: View {
                         onRemove: vm.isOffline ? nil : { index in
                             Task { await vm.removeTrack(at: index) }
                         },
-                        onReorder: vm.isOffline ? nil : { source, dest in
+                        onReorder: (vm.isOffline || !vm.canReorder) ? nil : { source, dest in
                             Task { await vm.moveTracks(from: source, to: dest) }
                         },
                         onAddToPlaylist: { song in songToAddToPlaylist = song }
@@ -218,6 +221,37 @@ struct PlaylistDetailMacOS: View {
         }
     }
 
+    /// Display ordering for this playlist. Local and reversible — it never rewrites the
+    /// playlist on the server; "Playlist Order" puts it back.
+    @ViewBuilder
+    private var sortMenu: some View {
+        if let vm, !vm.songs.isEmpty {
+            Menu {
+                Button {
+                    vm.sort = nil
+                } label: {
+                    Label("Playlist Order", systemImage: "list.number")
+                }
+                Divider()
+                ForEach(vm.availableSorts, id: \.self) { option in
+                    Button {
+                        vm.sort = option
+                    } label: {
+                        Label(option.label, systemImage: option.systemImage)
+                    }
+                }
+            } label: {
+                Image(systemName: vm.sort == nil ? "arrow.up.arrow.down" : "arrow.up.arrow.down.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .cassetteGlassButton(size: 28)
+            }
+            .buttonStyle(.borderless)
+            .menuIndicator(.hidden)
+            .help("Sort")
+        }
+    }
+
     @ToolbarContentBuilder
     private var playlistToolbar: some ToolbarContent {
         if showBackButton {
@@ -234,6 +268,11 @@ struct PlaylistDetailMacOS: View {
             }
             .cassetteSharedBackgroundVisibility(.hidden)
         }
+
+        ToolbarItem(placement: .primaryAction) {
+            sortMenu
+        }
+        .cassetteSharedBackgroundVisibility(.hidden)
 
         ToolbarItem(placement: .primaryAction) {
             Button {
