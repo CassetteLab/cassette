@@ -24,7 +24,13 @@ final class LyricsViewModel {
 
     private var lyricsList: LyricsList?
     private var trackingTimer: Timer?
-    private var resumeTask: Task<Void, Never>?
+    /// The pending auto-scroll resume. Exposed so a caller can await the reset rather than
+    /// wait out `resumeDelay` and hope the continuation has been scheduled.
+    private(set) var resumeTask: Task<Void, Never>?
+
+    /// How long after the user stops scrolling before auto-scroll resumes. Injected so tests
+    /// exercise the behaviour without spending the real delay.
+    private let resumeDelay: Duration
     private var isShown = false
 
     nonisolated enum State: Equatable {
@@ -40,13 +46,15 @@ final class LyricsViewModel {
         serverId: UUID,
         lyricsService: LyricsService,
         playerService: any PlayerServiceProtocol,
-        playerState: PlayerState
+        playerState: PlayerState,
+        resumeDelay: Duration = .seconds(3)
     ) {
         self.songId = songId
         self.serverId = serverId
         self.lyricsService = lyricsService
         self.playerService = playerService
         self.playerState = playerState
+        self.resumeDelay = resumeDelay
     }
 
     // MARK: - Load
@@ -107,10 +115,10 @@ final class LyricsViewModel {
     func userStartedScrolling() {
         isUserScrolling = true
         resumeTask?.cancel()
-        resumeTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(3))
+        resumeTask = Task { [weak self, resumeDelay] in
+            try? await Task.sleep(for: resumeDelay)
             guard !Task.isCancelled else { return }
-            await MainActor.run { self?.isUserScrolling = false }
+            self?.isUserScrolling = false
         }
     }
 
