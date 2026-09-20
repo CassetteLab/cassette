@@ -108,14 +108,18 @@ struct SongsListView: View {
                         .listRowBackground(Color.clear)
                 }
                 playShuffleHeader(vm, songs)
-                SongsListRows(
-                    songs: songs,
-                    serverId: container?.serverState.activeServer?.id ?? UUID(),
-                    downloadingIds: vm.downloadingIds,
-                    onTap: { play(songs, at: $0) },
-                    onDownload: { id in Task { await vm.downloadSong(id: id) } },
-                    onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } }
-                )
+                // The rows' @Query is keyed on the server id, so they wait for the active server
+                // rather than being built against a placeholder that matches nothing.
+                if let serverId = container?.serverState.activeServer?.id {
+                    SongsListRows(
+                        songs: songs,
+                        serverId: serverId,
+                        downloadingIds: vm.downloadingIds,
+                        onTap: { play(songs, at: $0) },
+                        onDownload: { id in Task { await vm.downloadSong(id: id) } },
+                        onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } }
+                    )
+                }
             }
             .listStyle(.plain)
             .miniPlayerBottomMargin()
@@ -183,11 +187,13 @@ struct SongsListView: View {
         .listRowBackground(Color.clear)
         .padding(.vertical, 4)
 
-        if vm.isDownloadingAll {
+        // Progress is counted by a @Query keyed on the server id, so it can only be shown once
+        // the active server is known.
+        if vm.isDownloadingAll, let serverId = container?.serverState.activeServer?.id {
             DownloadProgressView(
                 songs: songs,
                 total: songs.count,
-                serverId: container?.serverState.activeServer?.id ?? UUID(),
+                serverId: serverId,
                 secondaryColor: .secondary
             )
             .frame(maxWidth: .infinity)

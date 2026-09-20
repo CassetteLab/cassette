@@ -28,9 +28,13 @@ nonisolated enum HomeDestination: Hashable {
     case downloadedAlbum(DownloadedAlbumDisplay)
 
     // MARK: - ID-only destinations (for PinnedItem @Model and DownloadedItem)
-    /// Used when only IDs are available (PinnedItem @Model, HomeDownloadedItemCard)
-    case albumById(id: String, name: String, subtitle: String, coverArtId: String?)
-    case playlistById(id: String, name: String, coverArtId: String?)
+    /// Used when only IDs are available (PinnedItem @Model, HomeDownloadedItemCard).
+    ///
+    /// `hasZoomSource` records whether the view that pushed this route registered a matching
+    /// `matchedTransitionSource` for the same id. Only the pushing view knows that, and the zoom
+    /// transition is replayed in reverse on pop, so the destination must not assume one exists.
+    case albumById(id: String, name: String, subtitle: String, coverArtId: String?, hasZoomSource: Bool)
+    case playlistById(id: String, name: String, coverArtId: String?, hasZoomSource: Bool)
     case artistById(id: String, name: String, coverArtId: String?)
 
     // MARK: - Derived (virtual) destinations

@@ -68,6 +68,10 @@ struct AlbumDetailView: View {
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showThemeColorSheet = false
+    /// Latches on the first back tap. The toolbar button stays hit-testable while the push
+    /// animation is still running, so without this a second tap can ask for a second pop
+    /// while the first is in flight.
+    @State private var isDismissing = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -160,7 +164,6 @@ struct AlbumDetailView: View {
                 if isLoadingSkeleton {
                     skeletonRows
                 } else if let vm = viewModel {
-                    let serverId = container?.serverState.activeServer?.id ?? UUID()
                     if songs.isEmpty {
                         if mode == .downloadedOnly {
                             EmptyStateView(
@@ -182,7 +185,7 @@ struct AlbumDetailView: View {
                                 subtitle: "This album doesn't have any tracks yet."
                             )
                         }
-                    } else {
+                    } else if let serverId = container?.serverState.activeServer?.id {
                         AlbumSongRows(
                             songs: songs,
                             albumId: albumId,
@@ -207,6 +210,11 @@ struct AlbumDetailView: View {
                             },
                             onAddToPlaylist: { song in songToAddToPlaylist = song }
                         )
+                    } else {
+                        // No active server yet — it is still being restored from disk. The rows'
+                        // two @Query predicates are keyed on the server id, so show the skeleton
+                        // rather than build them on an id that matches nothing.
+                        skeletonRows
                     }
                 }
             }
@@ -251,6 +259,8 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
+                    guard !isDismissing else { return }
+                    isDismissing = true
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
@@ -473,13 +483,14 @@ struct AlbumDetailView: View {
                 .frame(maxWidth: 220)
 
                 if mode == .downloadedOnly {
+                    let activeServerId = container?.serverState.activeServer?.id
                     Button {
+                        guard let activeServerId else { return }
                         HapticFeedback.heavy.trigger()
-                        let sid = container?.serverState.activeServer?.id ?? UUID()
                         let tracks = downloadedAlbumTracks
                         Task {
                             for track in tracks {
-                                try? await container?.downloadService.remove(songId: track.songId, serverId: sid)
+                                try? await container?.downloadService.remove(songId: track.songId, serverId: activeServerId)
                             }
                         }
                     } label: {
@@ -488,6 +499,7 @@ struct AlbumDetailView: View {
                             .foregroundStyle(headerTextColor)
                             .cassetteGlassButton(size: 44)
                     }
+                    .disabled(activeServerId == nil)
                 } else if vm?.isOffline != true {
                     if let vm {
                         if vm.isDownloadingAlbum {

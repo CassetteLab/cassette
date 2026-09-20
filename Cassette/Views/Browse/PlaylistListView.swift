@@ -301,7 +301,7 @@ private struct OfflinePlaylistContent: View {
             List {
                 Section("Downloaded Playlists") {
                     ForEach(playlists) { playlist in
-                        NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)) {
+                        NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId, hasZoomSource: false)) {
                             OfflinePlaylistRow(playlist: playlist)
                         }
                     }

@@ -100,7 +100,7 @@ struct RootViewMacOS: View {
             let coverArtId = note.userInfo?["coverArtId"] as? String
             withAnimation { isShowingFullPlayer = false }
             selection = .section(.home)
-            navigationPath.append(HomeDestination.albumById(id: id, name: name, subtitle: "", coverArtId: coverArtId))
+            navigationPath.append(HomeDestination.albumById(id: id, name: name, subtitle: "", coverArtId: coverArtId, hasZoomSource: false))
         }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToArtist)) { note in
             guard let id   = note.userInfo?["artistId"]   as? String,
@@ -116,7 +116,7 @@ struct RootViewMacOS: View {
             let coverArtId = note.userInfo?["coverArtId"] as? String
             withAnimation { isShowingFullPlayer = false }
             selection = .section(.home)
-            navigationPath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId))
+            navigationPath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId, hasZoomSource: false))
         }
     }
 
@@ -269,9 +269,9 @@ struct RootViewMacOS: View {
                     PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
                 case .downloadedAlbum(let display):
                     AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-                case .albumById(let id, let name, _, let coverArtId):
+                case .albumById(let id, let name, _, let coverArtId, _):
                     AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
-                case .playlistById(let id, let name, let coverArtId):
+                case .playlistById(let id, let name, let coverArtId, _):
                     PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
                 case .offlineAlbum(let album):
                     AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)

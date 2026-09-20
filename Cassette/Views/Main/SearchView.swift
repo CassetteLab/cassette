@@ -169,15 +169,15 @@ struct SearchView: View {
                     coverArtId: album.coverArt
                 )
                 #endif
-            case .albumById(let id, let name, _, let coverArtId):
+            case .albumById(let id, let name, _, let coverArtId, let hasZoomSource):
                 #if os(macOS)
                 AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
                 #else
                 AlbumDetailView(
                     albumId: id,
                     albumName: name,
-                    zoomSourceId: id,
-                    zoomNamespace: albumZoomNamespace,
+                    zoomSourceId: hasZoomSource ? id : nil,
+                    zoomNamespace: hasZoomSource ? albumZoomNamespace : nil,
                     coverArtId: coverArtId
                 )
                 #endif

@@ -119,7 +119,7 @@ struct MainTabView: View {
             let coverArtId = note.userInfo?["coverArtId"] as? String
             showingFullPlayer = false
             selectedTab = .home
-            homePath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId))
+            homePath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId, hasZoomSource: false))
         }
     }
 }
