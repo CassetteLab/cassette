@@ -28,9 +28,12 @@ struct RootViewMacOS: View {
                 sidebarContent
             } detail: {
                 detailContent
-                    .safeAreaInset(edge: .bottom) {
-                        Color.clear.frame(height: 120)
-                    }
+                    // Content margins rather than a safeAreaInset: an inset shrinks the scroll
+                    // view, leaving a strip that belongs to no scroll view and answers neither
+                    // click nor scroll wheel. Margins keep the scroll view full height and inset
+                    // its content instead. Verified to propagate from here into the Lists nested
+                    // inside the NavigationStack below.
+                    .contentMargins(.bottom, CassetteMacOSLayout.playerBarReservedHeight, for: .scrollContent)
             }
             .navigationSplitViewStyle(.balanced)
             .overlay(alignment: .bottom) {

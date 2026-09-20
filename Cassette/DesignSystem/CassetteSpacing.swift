@@ -56,7 +56,10 @@ enum CassetteMacOSLayout {
     static let heroCoverArtSize: CGFloat = 280
     /// heroHeight = heroCoverArtSize + 32 (top) + 32 (bottom padding)
     static let heroHeight: CGFloat = 344
-    static let playerBarReservedHeight: CGFloat = 120
+    /// Bottom clearance for the floating BottomPlayerBar: its 50pt capsule + the 16pt
+    /// bottom padding it is mounted with, plus 16pt of breathing room above it.
+    /// The bar is always mounted, so this clearance is unconditional.
+    static let playerBarReservedHeight: CGFloat = 82
 }
 #endif
 

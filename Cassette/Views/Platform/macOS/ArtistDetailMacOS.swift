@@ -96,7 +96,6 @@ struct ArtistDetailMacOS: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, CassetteMacOSLayout.playerBarReservedHeight / 2)
             // Cross-fade the skeleton into the bio smoothly when it resolves.
             .animation(.easeInOut(duration: 0.35), value: vm.isLoadingArtistInfo)
         }
