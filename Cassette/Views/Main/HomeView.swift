@@ -190,23 +190,23 @@ struct HomeView: View {
                 )
             case .downloadedAlbum(let display):
                 AlbumDetailView(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId, mode: .downloadedOnly)
-            case .albumById(let id, let name, _, let coverArtId):
+            case .albumById(let id, let name, _, let coverArtId, let hasZoomSource):
                 AlbumDetailView(
                     albumId: id,
                     albumName: name,
-                    zoomSourceId: id,
-                    zoomNamespace: pinnedZoomNamespace,
+                    zoomSourceId: hasZoomSource ? id : nil,
+                    zoomNamespace: hasZoomSource ? pinnedZoomNamespace : nil,
                     coverArtId: coverArtId,
                     initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
                 )
-            case .playlistById(let id, let name, let coverArtId):
+            case .playlistById(let id, let name, let coverArtId, let hasZoomSource):
                 PlaylistDetailView(
                     playlistId: id,
                     name: name,
                     coverArtId: coverArtId,
                     initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id),
-                    zoomSourceId: id,
-                    zoomNamespace: pinnedZoomNamespace
+                    zoomSourceId: hasZoomSource ? id : nil,
+                    zoomNamespace: hasZoomSource ? pinnedZoomNamespace : nil
                 )
             case .artistById(let id, let name, let coverArtId):
                 ArtistDetailView(artist: ArtistID3(id: id, name: name, coverArt: coverArtId))
@@ -437,8 +437,8 @@ struct HomeView: View {
                     LazyVGrid(columns: recentColumns, spacing: CassetteSpacing.m) {
                         ForEach(recentDownloadedItems) { item in
                             let dest: HomeDestination = item.type == .album
-                                ? .albumById(id: item.itemId, name: item.name, subtitle: item.subtitle, coverArtId: item.coverArtId)
-                                : .playlistById(id: item.itemId, name: item.name, coverArtId: item.coverArtId)
+                                ? .albumById(id: item.itemId, name: item.name, subtitle: item.subtitle, coverArtId: item.coverArtId, hasZoomSource: false)
+                                : .playlistById(id: item.itemId, name: item.name, coverArtId: item.coverArtId, hasZoomSource: false)
                             HomeDownloadedItemCard(item: item, destination: dest)
                         }
                     }
@@ -462,11 +462,11 @@ private struct HomePinnedCard: View {
     private var homeNavDestination: HomeDestination {
         switch PinnedItemType(rawValue: item.itemType) {
         case .album:
-            .albumById(id: item.itemId, name: item.displayName, subtitle: item.displaySubtitle, coverArtId: item.coverArtId)
+            .albumById(id: item.itemId, name: item.displayName, subtitle: item.displaySubtitle, coverArtId: item.coverArtId, hasZoomSource: true)
         case .playlist:
-            .playlistById(id: item.itemId, name: item.displayName, coverArtId: item.coverArtId)
+            .playlistById(id: item.itemId, name: item.displayName, coverArtId: item.coverArtId, hasZoomSource: true)
         case .none:
-            .albumById(id: item.itemId, name: item.displayName, subtitle: item.displaySubtitle, coverArtId: item.coverArtId)
+            .albumById(id: item.itemId, name: item.displayName, subtitle: item.displaySubtitle, coverArtId: item.coverArtId, hasZoomSource: true)
         }
     }
 

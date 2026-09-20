@@ -104,7 +104,7 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)) {
+                            NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId, hasZoomSource: false)) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
@@ -163,7 +163,7 @@ private struct DownloadedContent: View {
                 if !playlists.isEmpty {
                     Section("Playlists") {
                         ForEach(playlists) { playlist in
-                            NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId)) {
+                            NavigationLink(value: HomeDestination.playlistById(id: playlist.playlistId, name: playlist.name, coverArtId: playlist.coverArtId, hasZoomSource: false)) {
                                 HStack(spacing: CassetteSpacing.m) {
                                     CoverArtCard(id: playlist.coverArtId ?? playlist.playlistId, size: 56)
                                     VStack(alignment: .leading, spacing: 2) {
