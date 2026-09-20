@@ -74,11 +74,15 @@ struct ToastOverlay: ViewModifier {
 
     /// Bottom inset so the toast floats just above the mini player when it is shown, otherwise just
     /// above the tab bar / home indicator. Tunable if the gap needs nudging on device.
+    ///
+    /// macOS takes the clearance unconditionally: unlike the iOS mini player, BottomPlayerBar is
+    /// mounted whether or not anything is playing, so a toast that dropped to the small inset
+    /// while idle would sit under it.
     private var bottomInset: CGFloat {
         #if os(iOS)
         miniPlayerVisible ? CassetteSpacing.miniPlayerBottomMargin + CassetteSpacing.s : CassetteSpacing.l
         #else
-        miniPlayerVisible ? CassetteMacOSLayout.playerBarReservedHeight + CassetteSpacing.s : CassetteSpacing.l
+        CassetteMacOSLayout.playerBarReservedHeight + CassetteSpacing.s
         #endif
     }
 
