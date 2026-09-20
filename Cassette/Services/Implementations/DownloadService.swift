@@ -129,6 +129,16 @@ actor DownloadService: DownloadServiceProtocol {
         }
     }
 
+    /// Whether a file in the cover directory is re-fetchable streaming cache (`{id}@thumb`,
+    /// `{id}@hero`) rather than a cover captured alongside an offline download (bare `{id}`).
+    ///
+    /// The two caches share one directory and the `@` is the only thing telling them apart, so
+    /// both the clear and the garbage collector read the split from here rather than each
+    /// spelling it out with the opposite sense.
+    nonisolated static func isStreamingCoverFile(_ filename: String) -> Bool {
+        filename.contains("@")
+    }
+
     /// Deletes only the re-fetchable tier files (`{id}@thumb`, `{id}@hero`) from the cover
     /// directory, and returns how many went.
     ///
@@ -145,7 +155,7 @@ actor DownloadService: DownloadServiceProtocol {
             return 0
         }
         var deletedCount = 0
-        for fileURL in entries where fileURL.lastPathComponent.contains("@") {
+        for fileURL in entries where Self.isStreamingCoverFile(fileURL.lastPathComponent) {
             do {
                 try fm.removeItem(at: fileURL)
                 deletedCount += 1
@@ -168,7 +178,7 @@ actor DownloadService: DownloadServiceProtocol {
             let filename = fileURL.lastPathComponent
             // Skip tier-suffixed files (id@thumb, id@hero) — those are streaming cache
             // managed by ArtworkImageCache's own eviction, not offline-download GC.
-            guard !filename.contains("@") else { continue }
+            guard !Self.isStreamingCoverFile(filename) else { continue }
             let coverArtId = filename
             if !referencedIds.contains(coverArtId) {
                 do {
