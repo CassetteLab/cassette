@@ -26,7 +26,23 @@ actor DownloadService: DownloadServiceProtocol {
 
     nonisolated let progressStream: AsyncStream<[DownloadProgress]>
 
-    init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer, toastService: ToastService, cacheSettings: CacheSettings) {
+    /// Where downloads and cover art live: `Documents/app.cassette` in the app.
+    ///
+    /// Injectable so tests can point at a temporary directory. The real one is shared with
+    /// every other suite and with the app host — whose launch-time legacy sweep deletes files
+    /// from a detached task — so a test that writes there races rather than measures.
+    static func defaultBaseDirectory() -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("app.cassette", isDirectory: true)
+    }
+
+    init(
+        serverService: any ServerServiceProtocol,
+        modelContainer: ModelContainer,
+        toastService: ToastService,
+        cacheSettings: CacheSettings,
+        baseDirectory: URL? = nil
+    ) {
         self.serverService = serverService
         self.modelContainer = modelContainer
         self.toastService = toastService
@@ -42,8 +58,7 @@ actor DownloadService: DownloadServiceProtocol {
         // connection was — which is every sufficiently long track.
         self.downloadSession = URLSession(configuration: sessionConfig)
 
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let base = docs.appendingPathComponent("app.cassette", isDirectory: true)
+        let base = baseDirectory ?? Self.defaultBaseDirectory()
         self.downloadsDirectory = base.appendingPathComponent("downloads", isDirectory: true)
         self.coverArtsDirectory = base.appendingPathComponent("coverarts", isDirectory: true)
 

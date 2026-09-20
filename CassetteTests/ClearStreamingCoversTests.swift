@@ -5,44 +5,127 @@
 
 import Testing
 import Foundation
+import SwiftData
 @testable import Cassette
 
-/// Both cover caches share one directory and are told apart only by the `@` in the filename.
-/// Getting that split wrong in one direction leaves stale artwork; getting it wrong in the other
-/// deletes the covers of offline downloads, which nothing re-creates short of downloading the
-/// tracks again. These pin the classification both caches read.
+/// Both cover caches share one directory and are told apart only by the `@` in the filename:
+/// `{id}@thumb` / `{id}@hero` are re-fetchable streaming cache, while a bare `{id}` is the cover
+/// captured alongside an offline download, which nothing re-creates short of downloading the
+/// tracks again. Deleting the wrong ones leaves a downloaded album with no artwork in airplane
+/// mode, so both clearing paths are pinned here against real files.
 ///
-/// Deliberately not exercised against the real directory: it lives under Documents, shared with
-/// the app host — whose launch-time legacy sweep deletes bare `{id}` files from a detached task —
-/// and with every other suite, so a filesystem test there races rather than measures.
-@Suite("Cover cache — which files are clearable")
+/// Every test runs against its own temporary directory. The app's real one lives under
+/// Documents, shared with every other suite and with the app host — whose launch-time legacy
+/// sweep deletes bare `{id}` files from a detached task — so a test that wrote there would race
+/// rather than measure.
+@Suite("Cover cache — offline artwork survives clearing")
+@MainActor
 struct ClearStreamingCoversTests {
 
-    @Test("tier files are streaming cache and may be cleared", arguments: [
-        "abc123@thumb",
-        "abc123@hero",
-        "playlist-7@thumb",
-        "id-with-dashes@hero",
-    ])
-    func tierFilesAreClearable(name: String) {
-        #expect(DownloadService.isStreamingCoverFile(name))
+    private struct Fixture {
+        let base: URL
+        let coverArts: URL
+        let service: DownloadService
+        let tiers: [String]
+        let bare: [String]
     }
 
-    @Test("bare ids belong to offline downloads and must survive", arguments: [
-        "abc123",
-        "playlist-7",
-        "id-with-dashes",
-        "al-60",
-    ])
-    func bareIdsAreProtected(name: String) {
-        #expect(!DownloadService.isStreamingCoverFile(name))
+    private func makeFixture() throws -> Fixture {
+        let base = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("cassette-covers-\(UUID().uuidString)", isDirectory: true)
+        let service = DownloadService(
+            serverService: MockServerService(),
+            modelContainer: try ModelContainer.cassette(inMemory: true),
+            toastService: ToastService(),
+            cacheSettings: CacheSettings(),
+            baseDirectory: base
+        )
+        return Fixture(
+            base: base,
+            coverArts: base.appendingPathComponent("coverarts", isDirectory: true),
+            service: service,
+            tiers: ["al-1@thumb", "al-1@hero", "pl-7@thumb"],
+            bare: ["al-1", "pl-7", "al-99"]
+        )
     }
 
-    @Test("an id containing @ is still classified by the suffix, not by luck")
-    func idWithAtSign() {
-        // A server is free to hand out a cover id containing '@'. Such an id's own file is
-        // indistinguishable from a tier file, which is a known limit of the naming scheme —
-        // this pins the current behaviour rather than pretending otherwise.
-        #expect(DownloadService.isStreamingCoverFile("weird@id"))
+    private func seed(_ f: Fixture) async {
+        for name in f.tiers + f.bare {
+            await f.service.persistCover(Data([0x89, 0x50, 0x4E, 0x47]), forId: name)
+        }
+    }
+
+    private func exists(_ f: Fixture, _ name: String) -> Bool {
+        FileManager.default.fileExists(atPath: f.coverArts.appendingPathComponent(name).path)
+    }
+
+    private func tearDown(_ f: Fixture) {
+        try? FileManager.default.removeItem(at: f.base)
+    }
+
+    @Test("clearStreamingCovers deletes the tier files and leaves the offline covers")
+    func clearKeepsOfflineCovers() async throws {
+        let f = try makeFixture()
+        defer { tearDown(f) }
+        await seed(f)
+        for name in f.tiers + f.bare { #expect(exists(f, name), "seed failed for \(name)") }
+
+        let removed = await f.service.clearStreamingCovers()
+
+        #expect(removed == f.tiers.count)
+        for name in f.tiers { #expect(!exists(f, name), "\(name) should have been cleared") }
+        for name in f.bare { #expect(exists(f, name), "offline cover \(name) must survive a cache clear") }
+    }
+
+    @Test("invalidateCoverArtCacheIfNeeded leaves the offline covers too")
+    func launchWipeKeepsOfflineCovers() async throws {
+        let f = try makeFixture()
+        defer { tearDown(f) }
+        await seed(f)
+
+        // The version gate is what decides whether the wipe runs at all; force it to.
+        let versionKey = "cassette.coverArtCacheVersion"
+        let previous = UserDefaults.standard.integer(forKey: versionKey)
+        UserDefaults.standard.set(0, forKey: versionKey)
+        defer { UserDefaults.standard.set(previous, forKey: versionKey) }
+
+        let cache = ArtworkImageCache(
+            downloadService: f.service,
+            libraryService: CoverTestLibraryService()
+        )
+        await AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: cache)
+
+        for name in f.tiers { #expect(!exists(f, name), "\(name) is re-fetchable and should go") }
+        for name in f.bare {
+            #expect(exists(f, name), "offline cover \(name) must survive the launch-time wipe")
+        }
+    }
+
+    @Test("clearing an already-clean directory is a no-op, not a failure")
+    func clearIsIdempotent() async throws {
+        let f = try makeFixture()
+        defer { tearDown(f) }
+        await seed(f)
+
+        _ = await f.service.clearStreamingCovers()
+        let second = await f.service.clearStreamingCovers()
+
+        #expect(second == 0)
+        for name in f.bare { #expect(exists(f, name)) }
+    }
+
+    @Test("garbage collection is the exact complement: bare ids only, tier files untouched")
+    func gcIsTheComplement() async throws {
+        let f = try makeFixture()
+        defer { tearDown(f) }
+        await seed(f)
+
+        // "al-1" is still referenced by a download; the other bare covers are orphans.
+        _ = await f.service.garbageCollectOrphanedCovers(referencedIds: ["al-1"])
+
+        for name in f.tiers { #expect(exists(f, name), "\(name) is streaming cache, not GC's business") }
+        #expect(exists(f, "al-1"), "a referenced offline cover must survive collection")
+        #expect(!exists(f, "pl-7"), "an unreferenced offline cover is what GC is for")
+        #expect(!exists(f, "al-99"))
     }
 }
