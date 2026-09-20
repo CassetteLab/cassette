@@ -341,13 +341,16 @@ struct PlaylistDetailView: View {
             if let vm = viewModel, let c = container, let serverId = c.serverState.activeServer?.id {
                 AddMusicSheet(
                     playlistName: vm.name,
-                    existingTrackIds: resolvedSongs(vm).map(\.id)
+                    existingTrackIds: vm.playlistOrderedIds
                 ) { added in
+                    // The commit is an atomic full-list replace, so this MUST be the playlist's
+                    // own order. Sending the displayed order would persist a display sort as the
+                    // playlist's order for everyone.
                     await AddMusicCommitter.commit(
                         addedSongs: added,
                         playlistId: playlistId,
                         serverId: serverId,
-                        existingTrackIds: resolvedSongs(vm).map(\.id),
+                        existingTrackIds: vm.playlistOrderedIds,
                         currentComment: vm.playlistDetail?.comment ?? "",
                         container: c,
                         colorExtractor: colorExtractor
@@ -664,6 +667,11 @@ struct PlaylistDetailView: View {
 
     /// Enter in-place edit: snapshot the current metadata + cover choice into the working edit state, animate in.
     private func enterEdit() {
+        // Structural counterpart to the pencil's `.disabled`. Edit mode seeds `editSongs` from
+        // the DISPLAYED list and commits it as the playlist's whole track list, so entering it
+        // under a sort would persist that sort as the playlist's order. The button is the only
+        // way in today; this makes a second one safe by construction rather than by review.
+        guard viewModel?.canReorder != false else { return }
         editName = viewModel?.name ?? initialName
         editComment = viewModel?.playlistDetail?.comment ?? ""
         editSongs = resolvedSongs(viewModel)
@@ -688,6 +696,12 @@ struct PlaylistDetailView: View {
     /// first-track color derivation — then refresh the detail view and animate back to view mode.
     private func commitEdit() async {
         guard let c = container, let serverId = c.serverState.activeServer?.id else {
+            withAnimation(.smooth) { isEditing = false }
+            return
+        }
+        // If a sort somehow became active while editing, the working list describes the sorted
+        // order and must not be written back. Drop the edit rather than persist it.
+        guard viewModel?.canReorder != false else {
             withAnimation(.smooth) { isEditing = false }
             return
         }

@@ -44,9 +44,22 @@ final class PlaylistDetailViewModel {
     /// neither `created` nor `year`.
     var availableSorts: [SongSort] { SongSort.available(hasServerMetadata: !metadataById.isEmpty) }
 
+    /// The ordering actually in effect. A stored sort the current source cannot support falls
+    /// back to the playlist's own order, and this reports that honestly so everything keyed on
+    /// "is a sort showing" agrees with what is on screen.
+    var effectiveSort: SongSort? {
+        guard let sort, availableSorts.contains(sort) else { return nil }
+        return sort
+    }
+
     /// Manual reorder rewrites the playlist on the server, so it is only meaningful while the
     /// list is showing that order.
-    var canReorder: Bool { sort == nil }
+    var canReorder: Bool { effectiveSort == nil }
+
+    /// The playlist's own order, for callers that must express a whole-list operation against
+    /// it. Add Music replaces the entire track list, so it has to send this and never the
+    /// displayed order.
+    var playlistOrderedIds: [String] { playlistOrder.map(\.id) }
 
     private let playlistId: String
     private let libraryService: any LibraryServiceProtocol
@@ -92,11 +105,11 @@ final class PlaylistDetailViewModel {
     /// support (offline, needing `created` / `year`) falls back to the playlist order rather
     /// than sorting everything equal.
     private func applySort() {
-        guard let sort, availableSorts.contains(sort) else {
+        guard let effectiveSort else {
             songs = playlistOrder
             return
         }
-        songs = sort.sorted(playlistOrder, metadata: metadataById)
+        songs = effectiveSort.sorted(playlistOrder, metadata: metadataById)
     }
 
     func load() async {
@@ -232,7 +245,14 @@ final class PlaylistDetailViewModel {
     func removeTrack(at index: Int) async {
         guard songs.indices.contains(index) else { return }
         let removed = songs[index]
-        guard let playlistIndex = playlistOrder.firstIndex(where: { $0.id == removed.id }) else { return }
+        let playlistIndex: Int
+        if effectiveSort == nil {
+            playlistIndex = index
+        } else if let resolved = playlistOrder.firstIndex(where: { $0.id == removed.id }) {
+            playlistIndex = resolved
+        } else {
+            return
+        }
         let previousOrder = playlistOrder
         playlistOrder.remove(at: playlistIndex)
         applySort()

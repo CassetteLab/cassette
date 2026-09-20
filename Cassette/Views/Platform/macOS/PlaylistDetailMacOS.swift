@@ -68,13 +68,16 @@ struct PlaylistDetailMacOS: View {
             if let vm, let c = container, let serverId = c.serverState.activeServer?.id {
                 AddMusicSheet(
                     playlistName: vm.name.isEmpty ? name : vm.name,
-                    existingTrackIds: vm.songs.map(\.id)
+                    existingTrackIds: vm.playlistOrderedIds
                 ) { added in
+                    // The commit is an atomic full-list replace, so this MUST be the playlist's
+                    // own order. Sending the displayed order would persist a display sort as the
+                    // playlist's order for everyone.
                     await AddMusicCommitter.commit(
                         addedSongs: added,
                         playlistId: playlistId,
                         serverId: serverId,
-                        existingTrackIds: vm.songs.map(\.id),
+                        existingTrackIds: vm.playlistOrderedIds,
                         currentComment: vm.playlistDetail?.comment ?? "",
                         container: c,
                         colorExtractor: colorExtractor
