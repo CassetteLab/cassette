@@ -121,8 +121,7 @@ struct CassetteApp: App {
                 newContainer.networkMonitor.start(serverState: newContainer.serverState)
                 Logger.boot.notice("🟡 setup() done — nowPlayingService.start()")
                 await newContainer.nowPlayingService.start()
-                AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
-                AppContainer.sweepLegacyCoverArtFiles()
+                await AppContainer.invalidateCoverArtCacheIfNeeded(artworkCache: newContainer.artworkImageCache)
                 Task { await AppContainer.migrateAudioExtensionsIfNeeded(modelContainer: newContainer.modelContainer, audioStreamCache: newContainer.audioStreamCache) }
                 Task { await AppContainer.migrateM4AFaststartIfNeeded(modelContainer: newContainer.modelContainer) }
                 Logger.boot.notice("🟡 container = newContainer (views will render)")

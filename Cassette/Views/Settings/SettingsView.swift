@@ -164,6 +164,7 @@ struct CacheSectionView: View {
     @State private var usedBytes: Int64 = 0
     @State private var trackCount: Int = 0
     @State private var isClearing: Bool = false
+    @State private var isClearingArtwork: Bool = false
 
     private var cacheSettings: CacheSettings? { container?.cacheSettings }
 
@@ -251,6 +252,20 @@ struct CacheSectionView: View {
             }
             .disabled(isClearing || (usedBytes == 0 && trackCount == 0))
 
+            Button(role: .destructive) {
+                Task { await clearArtworkCache() }
+            } label: {
+                if isClearingArtwork {
+                    HStack(spacing: CassetteSpacing.s) {
+                        ProgressView().scaleEffect(0.8)
+                        Text("Clearing…")
+                    }
+                } else {
+                    Label("Clear artwork cache", systemImage: "photo.badge.arrow.down")
+                }
+            }
+            .disabled(isClearingArtwork)
+
         } header: {
             Text("Cache")
         } footer: {
@@ -290,6 +305,14 @@ struct CacheSectionView: View {
         await container.audioStreamCache.clearAll()
         container.dominantColorExtractor.clearCache()
         await refreshUsage()
+    }
+
+    private func clearArtworkCache() async {
+        guard let container else { return }
+        isClearingArtwork = true
+        defer { isClearingArtwork = false }
+        await container.artworkImageCache.clearAllCovers()
+        container.dominantColorExtractor.clearCache()
     }
 }
 

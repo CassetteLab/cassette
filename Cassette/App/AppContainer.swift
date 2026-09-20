@@ -224,65 +224,18 @@ extension AppContainer {
     ///         CGImageSourceCreateThumbnailAtIndex; legacy full-res files cause ~800 ms
     ///         decodes on cold open even after the code fix — wipe forces a clean re-download.
     ///   v4 and earlier — previous resolution bumps.
-    static func invalidateCoverArtCacheIfNeeded(artworkCache: ArtworkImageCache) {
+    static func invalidateCoverArtCacheIfNeeded(artworkCache: ArtworkImageCache) async {
         let stored = UserDefaults.standard.integer(forKey: coverArtCacheVersionKey)
         guard stored < currentCoverArtCacheVersion else { return }
 
-        artworkCache.clearCache()
-        artworkCache.clearRevalidationMetadata()
-        let coverArtsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("app.cassette/coverarts")
-        try? FileManager.default.removeItem(at: coverArtsDir)
-        try? FileManager.default.createDirectory(at: coverArtsDir, withIntermediateDirectories: true)
+        // Selective: this used to delete the whole coverarts directory, which also took the
+        // bare `{id}` covers saved alongside offline downloads. Those are not re-fetchable,
+        // so every format bump silently left downloaded albums without artwork offline.
+        let removed = await artworkCache.clearAllCovers()
         URLCache.shared.removeAllCachedResponses()
 
         UserDefaults.standard.set(currentCoverArtCacheVersion, forKey: coverArtCacheVersionKey)
-        Logger.player.info("ArtworkImageCache: invalidated cover art disk cache (version \(stored) → \(currentCoverArtCacheVersion))")
-    }
-}
-
-// MARK: - Legacy cover art sweep
-
-extension AppContainer {
-    private static let artworkLegacySweepKey = "cassette.artworkLegacySweep_v2"
-
-    /// One-shot background sweep that deletes untagged cover art files written by
-    /// pre-tier builds (plain `{id}` filenames with no `@thumb` / `@hero` suffix).
-    ///
-    /// These full-res JPEGs can be 2–4 MB each; decoding them at the 240px thumb
-    /// size took ~1100ms per file on a background thread, starving the audio decode
-    /// thread and causing audible crackling during queue load. ArtworkImageCache no
-    /// longer reads them (since the legacy fallback was removed), but they still
-    /// waste disk space and could confuse future disk-hit logic. Deleting them here
-    /// forces a clean re-download at the correct tier size.
-    static func sweepLegacyCoverArtFiles() {
-        guard !UserDefaults.standard.bool(forKey: artworkLegacySweepKey) else { return }
-
-        Task.detached(priority: .utility) {
-            let fm = FileManager.default
-            guard let docs = fm.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-            let coverArtsDir = docs.appendingPathComponent("app.cassette/coverarts", isDirectory: true)
-
-            guard let items = try? fm.contentsOfDirectory(at: coverArtsDir, includingPropertiesForKeys: nil) else { return }
-
-            var deletedCount = 0
-            for fileURL in items {
-                let name = fileURL.lastPathComponent
-                // Keep files that have a tier suffix; delete untagged legacy files.
-                guard !name.contains("@thumb") && !name.contains("@hero") else { continue }
-                do {
-                    try fm.removeItem(at: fileURL)
-                    deletedCount += 1
-                } catch {
-                    Logger.artworkCache.warning("[SWEEP] Failed to delete legacy cover '\(name, privacy: .public)': \(error, privacy: .public)")
-                }
-            }
-
-            await MainActor.run {
-                UserDefaults.standard.set(true, forKey: artworkLegacySweepKey)
-            }
-            Logger.artworkCache.info("[SWEEP] Legacy cover art sweep complete: \(deletedCount) files deleted")
-        }
+        Logger.player.info("ArtworkImageCache: invalidated cover art disk cache (version \(stored) → \(currentCoverArtCacheVersion)), \(removed) file(s) removed")
     }
 }
 

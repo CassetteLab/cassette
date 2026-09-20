@@ -26,7 +26,23 @@ actor DownloadService: DownloadServiceProtocol {
 
     nonisolated let progressStream: AsyncStream<[DownloadProgress]>
 
-    init(serverService: any ServerServiceProtocol, modelContainer: ModelContainer, toastService: ToastService, cacheSettings: CacheSettings) {
+    /// Where downloads and cover art live: `Documents/app.cassette` in the app.
+    ///
+    /// Injectable so tests can point at a temporary directory. The real one is shared with
+    /// every other suite and with the app host — whose launch-time legacy sweep deletes files
+    /// from a detached task — so a test that writes there races rather than measures.
+    static func defaultBaseDirectory() -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("app.cassette", isDirectory: true)
+    }
+
+    init(
+        serverService: any ServerServiceProtocol,
+        modelContainer: ModelContainer,
+        toastService: ToastService,
+        cacheSettings: CacheSettings,
+        baseDirectory: URL? = nil
+    ) {
         self.serverService = serverService
         self.modelContainer = modelContainer
         self.toastService = toastService
@@ -42,8 +58,7 @@ actor DownloadService: DownloadServiceProtocol {
         // connection was — which is every sufficiently long track.
         self.downloadSession = URLSession(configuration: sessionConfig)
 
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let base = docs.appendingPathComponent("app.cassette", isDirectory: true)
+        let base = baseDirectory ?? Self.defaultBaseDirectory()
         self.downloadsDirectory = base.appendingPathComponent("downloads", isDirectory: true)
         self.coverArtsDirectory = base.appendingPathComponent("coverarts", isDirectory: true)
 
@@ -129,6 +144,44 @@ actor DownloadService: DownloadServiceProtocol {
         }
     }
 
+    /// Whether a file in the cover directory is re-fetchable streaming cache (`{id}@thumb`,
+    /// `{id}@hero`) rather than a cover captured alongside an offline download (bare `{id}`).
+    ///
+    /// The two caches share one directory and the `@` is the only thing telling them apart, so
+    /// both the clear and the garbage collector read the split from here rather than each
+    /// spelling it out with the opposite sense.
+    nonisolated static func isStreamingCoverFile(_ filename: String) -> Bool {
+        filename.contains("@")
+    }
+
+    /// Deletes only the re-fetchable tier files (`{id}@thumb`, `{id}@hero`) from the cover
+    /// directory, and returns how many went.
+    ///
+    /// Both cover caches share this one directory and are told apart solely by the `@` in the
+    /// filename. The bare `{id}` files are the covers captured alongside offline downloads —
+    /// `CoverArtView`'s last offline fallback and the widget's preferred source — and nothing
+    /// re-creates them short of downloading the tracks again, so clearing must never touch
+    /// them. This is the exact complement of `garbageCollectOrphanedCovers`, which skips the
+    /// tier files for the same reason in reverse.
+    @discardableResult
+    func clearStreamingCovers() async -> Int {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: coverArtsDirectory, includingPropertiesForKeys: nil) else {
+            return 0
+        }
+        var deletedCount = 0
+        for fileURL in entries where Self.isStreamingCoverFile(fileURL.lastPathComponent) {
+            do {
+                try fm.removeItem(at: fileURL)
+                deletedCount += 1
+            } catch {
+                Logger.download.warning("Failed to remove cached cover '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public)")
+            }
+        }
+        Logger.download.info("Cleared \(deletedCount) cached cover file(s); offline download covers left in place.")
+        return deletedCount
+    }
+
     @discardableResult
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int {
         let fm = FileManager.default
@@ -140,7 +193,7 @@ actor DownloadService: DownloadServiceProtocol {
             let filename = fileURL.lastPathComponent
             // Skip tier-suffixed files (id@thumb, id@hero) — those are streaming cache
             // managed by ArtworkImageCache's own eviction, not offline-download GC.
-            guard !filename.contains("@") else { continue }
+            guard !Self.isStreamingCoverFile(filename) else { continue }
             let coverArtId = filename
             if !referencedIds.contains(coverArtId) {
                 do {
