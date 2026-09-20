@@ -55,11 +55,15 @@ struct ClearStreamingCoversTests {
         }
     }
 
-    private func exists(_ f: Fixture, _ name: String) -> Bool {
+    // The FileManager work below is `nonisolated` on purpose. This suite is @MainActor for the
+    // pieces that genuinely need it — ArtworkImageCache and the launch-time wipe — and holding
+    // that actor across synchronous file I/O is contention every other suite pays for: their
+    // continuations queue behind it. It buys this suite nothing to hold it.
+    private nonisolated func exists(_ f: Fixture, _ name: String) -> Bool {
         FileManager.default.fileExists(atPath: f.coverArts.appendingPathComponent(name).path)
     }
 
-    private func tearDown(_ f: Fixture) {
+    private nonisolated func tearDown(_ f: Fixture) {
         try? FileManager.default.removeItem(at: f.base)
     }
 
