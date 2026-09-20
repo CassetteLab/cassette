@@ -75,11 +75,19 @@ actor DownloadService: DownloadServiceProtocol {
         await downloadedURL(forSongId: songId, serverId: serverId) != nil
     }
 
+    /// Every downloaded song id for one server. Callers use the result purely as a membership
+    /// set, so the fetch narrows to the one server in SQL and to the one property it reads —
+    /// fetching every row of every server and filtering in memory made this scale with the
+    /// whole store rather than with the server being asked about.
     func downloadedSongIds(serverId: UUID) async -> Set<String> {
         await MainActor.run {
             let context = ModelContext(modelContainer)
-            let all = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
-            return Set(all.filter { $0.serverId == serverId }.map(\.songId))
+            var descriptor = FetchDescriptor<DownloadedTrack>(
+                predicate: #Predicate<DownloadedTrack> { $0.serverId == serverId }
+            )
+            descriptor.propertiesToFetch = [\.songId]
+            let tracks = (try? context.fetch(descriptor)) ?? []
+            return Set(tracks.map(\.songId))
         }
     }
 
