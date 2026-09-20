@@ -112,7 +112,6 @@ struct SongsListView: View {
                     songs: songs,
                     serverId: container?.serverState.activeServer?.id ?? UUID(),
                     downloadingIds: vm.downloadingIds,
-                    isFavorite: { isFavorite($0) },
                     onTap: { play(songs, at: $0) },
                     onDownload: { id in Task { await vm.downloadSong(id: id) } },
                     onRemoveDownload: { id in Task { await vm.removeDownload(id: id) } }
@@ -232,10 +231,6 @@ struct SongsListView: View {
         .accessibilityLabel(vm.isDownloadingAll ? Text("Downloading all songs") : Text("Download all songs"))
     }
 
-    private func isFavorite(_ song: DisplayableSong) -> Bool {
-        container?.favoritesService.isFavorite(itemType: .song, itemId: song.id) == true
-    }
-
     private func play(_ songs: [DisplayableSong], at index: Int) {
         Task {
             do {
@@ -256,25 +251,27 @@ struct SongsListView: View {
 private struct SongsListRows: View {
     let songs: [DisplayableSong]
     let downloadingIds: Set<String>
-    let isFavorite: (DisplayableSong) -> Bool
     let onTap: (Int) -> Void
     let onDownload: (String) -> Void
     let onRemoveDownload: (String) -> Void
 
     @Query private var downloadedTracks: [DownloadedTrack]
+    @Query private var allFavorites: [FavoriteRecord]
+
+    private var favoriteSongIds: Set<String> {
+        Set(allFavorites.map(\.id))
+    }
 
     init(
         songs: [DisplayableSong],
         serverId: UUID,
         downloadingIds: Set<String>,
-        isFavorite: @escaping (DisplayableSong) -> Bool,
         onTap: @escaping (Int) -> Void,
         onDownload: @escaping (String) -> Void,
         onRemoveDownload: @escaping (String) -> Void
     ) {
         self.songs = songs
         self.downloadingIds = downloadingIds
-        self.isFavorite = isFavorite
         self.onTap = onTap
         self.onDownload = onDownload
         self.onRemoveDownload = onRemoveDownload
@@ -283,9 +280,10 @@ private struct SongsListRows: View {
     }
 
     var body: some View {
-        // Built once per body evaluation rather than inside the row closure: this list can hold
-        // the whole library, and rebuilding the set per row would make it quadratic.
+        // Both sets are built once per body evaluation rather than inside the row closure: this
+        // list can hold the whole library, and rebuilding them per row would make it quadratic.
         let downloadedSongIds = Set(downloadedTracks.map(\.songId))
+        let favoriteIds = favoriteSongIds
         ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
             let liveDownloaded = downloadedSongIds.contains(song.id)
             let isDownloading = downloadingIds.contains(song.id)
@@ -293,7 +291,7 @@ private struct SongsListRows: View {
                 song: song.withDownloaded(liveDownloaded),
                 index: index + 1,
                 showCoverArt: true,
-                isFavorite: isFavorite(song),
+                isFavorite: favoriteIds.contains("song:\(song.id)"),
                 onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) },
                 onRemoveDownload: liveDownloaded ? { onRemoveDownload(song.id) } : nil,
                 isDownloading: isDownloading
