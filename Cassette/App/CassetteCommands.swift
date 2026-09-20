@@ -7,6 +7,16 @@
 import SwiftUI
 
 struct CassetteCommands: Commands {
+    /// Passed in rather than read from the environment: a `Commands` body sits outside the
+    /// view hierarchy, so it has no `appContainer`. Same shape as `CassetteSettingsScene`.
+    let container: AppContainer?
+
+    /// Seeking is meaningless without a track, and impossible on a live stream.
+    private var seekUnavailable: Bool {
+        guard let state = container?.playerState else { return true }
+        return state.currentTrack == nil || state.isLiveStream
+    }
+
     var body: some Commands {
         CommandMenu("Playback") {
             Button("Play / Pause") {
@@ -25,6 +35,18 @@ struct CassetteCommands: Commands {
                 NotificationCenter.default.post(name: .cassetteSkipPrevious, object: nil)
             }
             .keyboardShortcut(.leftArrow, modifiers: [])
+
+            Button("Skip Back 10 Seconds") {
+                NotificationCenter.default.post(name: .cassetteSeekBackward, object: nil)
+            }
+            .keyboardShortcut(.leftArrow, modifiers: .option)
+            .disabled(seekUnavailable)
+
+            Button("Skip Forward 10 Seconds") {
+                NotificationCenter.default.post(name: .cassetteSeekForward, object: nil)
+            }
+            .keyboardShortcut(.rightArrow, modifiers: .option)
+            .disabled(seekUnavailable)
 
             Divider()
 

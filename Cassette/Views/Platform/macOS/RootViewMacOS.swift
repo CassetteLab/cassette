@@ -15,11 +15,16 @@ struct RootViewMacOS: View {
     @State private var localPinnedItems: [PinnedItem] = []
     @State private var selection: SidebarDestination? = .section(.home)
     @State private var searchQuery: String = ""
+    @FocusState private var isSearchFocused: Bool
     @State private var isShowingFullPlayer = false
     @State private var columnVisibility = NavigationSplitViewVisibility.all
     @State private var navigationPath = NavigationPath()
 
     var body: some View {
+        commandHandlers(mainContent)
+    }
+
+    private var mainContent: some View {
         ZStack {
             MainWindowConfigurator(isFullPlayerVisible: isShowingFullPlayer)
                 .frame(width: 0, height: 0)
@@ -56,6 +61,7 @@ struct RootViewMacOS: View {
                     .padding(.bottom, 16)
             }
             .searchable(text: $searchQuery, placement: .sidebar)
+            .searchFocused($isSearchFocused)
 
             if isShowingFullPlayer {
                 FullPlayerExpandedView(isPresented: $isShowingFullPlayer)
@@ -70,60 +76,91 @@ struct RootViewMacOS: View {
         .onChange(of: selection) { _, _ in
             if isShowingFullPlayer { withAnimation { isShowingFullPlayer = false } }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteTogglePlayPause)) { _ in
-            Task { await handleTogglePlayPause() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipNext)) { _ in
-            Task { try? await container?.playerService.skipToNext() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipPrevious)) { _ in
-            Task { try? await container?.playerService.skipToPrevious() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleShuffle)) { _ in
-            Task { await container?.playerService.toggleShuffle() }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleRepeat)) { _ in
-            Task {
-                guard let container else { return }
-                await container.playerService.setRepeatMode(container.playerState.repeatMode.next)
+    }
+
+    /// Split out of `body`: with every command handler inline, the chain grew past what the
+    /// type checker will solve in reasonable time.
+    private func commandHandlers(_ content: some View) -> some View {
+        content
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteTogglePlayPause)) { _ in
+                Task { await handleTogglePlayPause() }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayer)) { _ in
-            withAnimation { isShowingFullPlayer = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
-            withAnimation { isShowingFullPlayer = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteSelectAlbums)) { _ in
-            selection = .section(.albums)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToAlbum)) { note in
-            guard let id   = note.userInfo?["albumId"]   as? String,
-                  let name = note.userInfo?["albumName"]  as? String else { return }
-            let coverArtId = note.userInfo?["coverArtId"] as? String
-            withAnimation { isShowingFullPlayer = false }
-            selection = .section(.home)
-            navigationPath.append(HomeDestination.albumById(id: id, name: name, subtitle: "", coverArtId: coverArtId, hasZoomSource: false))
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToArtist)) { note in
-            guard let id   = note.userInfo?["artistId"]   as? String,
-                  let name = note.userInfo?["artistName"]  as? String else { return }
-            let coverArtId = note.userInfo?["coverArtId"] as? String
-            withAnimation { isShowingFullPlayer = false }
-            selection = .section(.home)
-            navigationPath.append(HomeDestination.artistById(id: id, name: name, coverArtId: coverArtId))
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToPlaylist)) { note in
-            guard let id   = note.userInfo?["playlistId"] as? String,
-                  let name = note.userInfo?["name"]       as? String else { return }
-            let coverArtId = note.userInfo?["coverArtId"] as? String
-            withAnimation { isShowingFullPlayer = false }
-            selection = .section(.home)
-            navigationPath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId, hasZoomSource: false))
-        }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipNext)) { _ in
+                Task { try? await container?.playerService.skipToNext() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteSkipPrevious)) { _ in
+                Task { try? await container?.playerService.skipToPrevious() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteSeekBackward)) { _ in
+                Task { await seekRelative(-Self.seekStep) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteSeekForward)) { _ in
+                Task { await seekRelative(Self.seekStep) }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteFocusSearch)) { _ in
+                isSearchFocused = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleShuffle)) { _ in
+                Task { await container?.playerService.toggleShuffle() }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleRepeat)) { _ in
+                Task {
+                    guard let container else { return }
+                    await container.playerService.setRepeatMode(container.playerState.repeatMode.next)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayer)) { _ in
+                withAnimation { isShowingFullPlayer = true }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
+                withAnimation { isShowingFullPlayer = true }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteSelectAlbums)) { _ in
+                selection = .section(.albums)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToAlbum)) { note in
+                guard let id   = note.userInfo?["albumId"]   as? String,
+                      let name = note.userInfo?["albumName"]  as? String else { return }
+                let coverArtId = note.userInfo?["coverArtId"] as? String
+                withAnimation { isShowingFullPlayer = false }
+                selection = .section(.home)
+                navigationPath.append(HomeDestination.albumById(id: id, name: name, subtitle: "", coverArtId: coverArtId, hasZoomSource: false))
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToArtist)) { note in
+                guard let id   = note.userInfo?["artistId"]   as? String,
+                      let name = note.userInfo?["artistName"]  as? String else { return }
+                let coverArtId = note.userInfo?["coverArtId"] as? String
+                withAnimation { isShowingFullPlayer = false }
+                selection = .section(.home)
+                navigationPath.append(HomeDestination.artistById(id: id, name: name, coverArtId: coverArtId))
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateToPlaylist)) { note in
+                guard let id   = note.userInfo?["playlistId"] as? String,
+                      let name = note.userInfo?["name"]       as? String else { return }
+                let coverArtId = note.userInfo?["coverArtId"] as? String
+                withAnimation { isShowingFullPlayer = false }
+                selection = .section(.home)
+                navigationPath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId, hasZoomSource: false))
+            }
     }
 
     // MARK: - Playback
+
+    /// How far the Skip Back / Skip Forward menu commands move.
+    private static let seekStep: TimeInterval = 10
+
+    /// Relative seek built on the existing absolute `seek(to:)` — the one chokepoint every
+    /// seek caller already goes through. It refuses live streams and non-finite targets on
+    /// its own but does not clamp, so the bounds are applied here.
+    private func seekRelative(_ delta: TimeInterval) async {
+        guard let container else { return }
+        let state = container.playerState
+        guard state.currentTrack != nil, !state.isLiveStream else { return }
+        let duration = state.duration
+        guard duration > 0 else { return }
+        let target = min(max(state.position + delta, 0), duration)
+        await container.playerService.seek(to: target)
+    }
 
     private func handleTogglePlayPause() async {
         guard let container else { return }

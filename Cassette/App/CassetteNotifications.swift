@@ -63,6 +63,8 @@ extension Notification.Name {
     static let cassetteToggleShuffle = Notification.Name("cassette.toggleShuffle")
     static let cassetteToggleRepeat = Notification.Name("cassette.toggleRepeat")
     static let cassetteToggleQueue = Notification.Name("cassette.toggleQueue")
+    static let cassetteSeekBackward = Notification.Name("cassette.seekBackward")
+    static let cassetteSeekForward = Notification.Name("cassette.seekForward")
     static let cassetteOpenFullPlayer = Notification.Name("cassette.openFullPlayer")
     static let cassetteOpenFullPlayerLyrics = Notification.Name("cassette.openFullPlayerLyrics")
     static let cassetteSelectAlbums = Notification.Name("cassette.selectAlbums")

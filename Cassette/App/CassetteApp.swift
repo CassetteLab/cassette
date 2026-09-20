@@ -202,7 +202,7 @@ struct CassetteApp: App {
         .windowResizability(.contentMinSize)
         .restorationBehavior(.disabled)
         .commands {
-            CassetteCommands()
+            CassetteCommands(container: container)
         }
         #endif
 
