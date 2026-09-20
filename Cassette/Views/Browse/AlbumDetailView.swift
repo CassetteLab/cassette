@@ -477,13 +477,14 @@ struct AlbumDetailView: View {
                 .frame(maxWidth: 220)
 
                 if mode == .downloadedOnly {
+                    let activeServerId = container?.serverState.activeServer?.id
                     Button {
+                        guard let activeServerId else { return }
                         HapticFeedback.heavy.trigger()
-                        let sid = container?.serverState.activeServer?.id ?? UUID()
                         let tracks = downloadedAlbumTracks
                         Task {
                             for track in tracks {
-                                try? await container?.downloadService.remove(songId: track.songId, serverId: sid)
+                                try? await container?.downloadService.remove(songId: track.songId, serverId: activeServerId)
                             }
                         }
                     } label: {
@@ -492,6 +493,7 @@ struct AlbumDetailView: View {
                             .foregroundStyle(headerTextColor)
                             .cassetteGlassButton(size: 44)
                     }
+                    .disabled(activeServerId == nil)
                 } else if vm?.isOffline != true {
                     if let vm {
                         if vm.isDownloadingAlbum {
