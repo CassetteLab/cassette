@@ -64,6 +64,12 @@ final class ServerState {
     /// Updated by NetworkMonitor. True when the connection is metered (cellular, hotspot).
     /// Default false — optimistic until the first NWPath update corrects it on launch (~100ms).
     var isExpensive: Bool = false
+
+    /// False until NWPathMonitor has reported once. `isOnline` and `isExpensive` both start
+    /// optimistic, so before the first update their values are assumptions, not observations,
+    /// and nothing can tell the two apart. Work that should not run on a guess — a background
+    /// repair pass, say — waits for this rather than trusting the defaults.
+    var hasResolvedNetworkPath: Bool = false
     // Prevents OnboardingView flash before persisted state is restored on launch.
     var isLoadingPersistedState: Bool = true
 }

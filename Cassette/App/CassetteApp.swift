@@ -133,6 +133,8 @@ struct CassetteApp: App {
                 Logger.boot.notice("🟡 loadPersistedState() done — activeServer = \(String(describing: newContainer.serverState.activeServer?.baseURL), privacy: .public)")
                 await newContainer.playerService.restoreSession()
                 Task { await runCoverArtGarbageCollection(container: newContainer) }
+                // After the collector, so it never races the pass that decides what is orphaned.
+                Task { await runOfflineCoverHeal(container: newContainer) }
                 // Cold start fallback: primary trigger for Wrapped updates (BGTask is best-effort).
                 // Fire-and-forget — must never block app launch.
                 Task { await runWrappedUpdate(container: newContainer) }
@@ -257,6 +259,57 @@ struct CassetteApp: App {
         }
 
         await container.downloadService.garbageCollectOrphanedCovers(referencedIds: referencedIds)
+    }
+
+    /// Restores offline cover art that is referenced by a download but missing from disk.
+    ///
+    /// One detached pass per launch, never awaited by launch. A shipped sweep deleted these
+    /// files wholesale for a time and only a download writes them, so without this a library
+    /// damaged then stays damaged.
+    @MainActor
+    private func runOfflineCoverHeal(container: AppContainer) async {
+        let state = container.serverState
+
+        // isOnline and isExpensive both start optimistic, so reading them now would be reading
+        // a guess: offline, the pass would fire every request and fail them all; on cellular
+        // with the setting off it would ignore the user's choice. Wait for the first real path
+        // instead, and give up rather than act on the defaults if it never arrives.
+        let deadline = Date().addingTimeInterval(10)
+        while !state.hasResolvedNetworkPath {
+            guard Date() < deadline else {
+                Logger.artworkCache.debug("[HEAL] Skipped — no network path resolved within 10s.")
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+
+        guard state.isOnline else { return }
+        // Same rule the player's prefetch follows; no separate setting for this.
+        guard PlayerService.shouldProceedWithPrefetch(
+            isExpensive: state.isExpensive,
+            allowCellular: container.cacheSettings.cacheOverCellular
+        ) else {
+            Logger.artworkCache.debug("[HEAL] Skipped — metered connection and cellular caching is off.")
+            return
+        }
+
+        // Albums, tracks and playlists only. PinnedItem cover ids are in the collector's
+        // referenced set to protect a file a download may have written, but nothing writes one
+        // for a pin on its own — healing them would fetch files the app never creates.
+        let context = container.modelContainer.mainContext
+        var referencedIds: Set<String> = []
+        for album in (try? context.fetch(FetchDescriptor<DownloadedAlbum>())) ?? [] {
+            if let id = album.coverArtId { referencedIds.insert(id) }
+        }
+        for track in (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? [] {
+            if let id = track.coverArtId { referencedIds.insert(id) }
+        }
+        for playlist in (try? context.fetch(FetchDescriptor<DownloadedPlaylist>())) ?? [] {
+            if let id = playlist.coverArtId { referencedIds.insert(id) }
+        }
+        guard !referencedIds.isEmpty else { return }
+
+        await container.downloadService.healMissingCovers(referencedIds: referencedIds)
     }
 
     // MARK: - Wrapped update
