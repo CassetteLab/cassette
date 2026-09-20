@@ -33,8 +33,13 @@ actor DownloadService: DownloadServiceProtocol {
         self.cacheSettings = cacheSettings
 
         let sessionConfig = URLSessionConfiguration.default
+        // Stall detector only: the maximum gap between two bytes. A download that keeps
+        // receiving data is never interrupted by this.
         sessionConfig.timeoutIntervalForRequest = 30
-        sessionConfig.timeoutIntervalForResource = 30
+        // timeoutIntervalForResource is deliberately left at the system default. It is a
+        // deadline for the WHOLE transfer, not an idle timer, so the 30s it used to carry
+        // failed any download that took longer than half a minute no matter how healthy the
+        // connection was — which is every sufficiently long track.
         self.downloadSession = URLSession(configuration: sessionConfig)
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -280,7 +285,15 @@ actor DownloadService: DownloadServiceProtocol {
             try await self._downloadSong(song, serverId: serverId, key: key)
         }
         inFlightTasks[key] = task
-        try await task.value
+        do {
+            try await task.value
+        } catch {
+            // Every download path funnels through here, batches included. Without this the
+            // failure of a single track produced no log line anywhere: `_downloadSong` has no
+            // catch, and several callers discard the error with `try?`.
+            Logger.download.error("Download failed for '\(song.id, privacy: .public)': \(error, privacy: .public)")
+            throw error
+        }
     }
 
     private func _downloadSong(_ song: Song, serverId: UUID, key: String) async throws {
@@ -513,6 +526,8 @@ actor DownloadService: DownloadServiceProtocol {
         Logger.download.info("Album '\(album.id, privacy: .public)': \(succeeded)/\(total) tracks downloaded.")
         if succeeded == total {
             await toastService.showSuccess(String(localized: "\(album.name) downloaded"))
+        } else {
+            await toastService.showError(String(localized: "Download failed"))
         }
     }
 
@@ -609,6 +624,8 @@ actor DownloadService: DownloadServiceProtocol {
         Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
         if tracksSucceeded == totalTracks {
             await toastService.showSuccess(String(localized: "\(playlist.name) downloaded"))
+        } else {
+            await toastService.showError(String(localized: "Download failed"))
         }
     }
 

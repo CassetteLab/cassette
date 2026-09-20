@@ -130,6 +130,7 @@ final class SongsListViewModel {
             try await downloadService.download(song: song, serverId: serverId)
         } catch {
             Logger.download.error("All Songs: download of '\(id, privacy: .public)' failed: \(error, privacy: .public)")
+            toastService.showError(String(localized: "Download failed"))
         }
         await refreshPendingDownloadCount()
     }

@@ -126,7 +126,11 @@ final class PlaylistDetailViewModel {
               let serverId = serverState.activeServer?.id else { return }
         downloadingIds.insert(id)
         defer { downloadingIds.remove(id) }
-        try? await downloadService.download(song: song, serverId: serverId)
+        do {
+            try await downloadService.download(song: song, serverId: serverId)
+        } catch {
+            toastService.showError(String(localized: "Download failed"))
+        }
         let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
         if let idx = songs.firstIndex(where: { $0.id == id }) {
             songs[idx] = songs[idx].withDownloaded(allDownloaded.contains(id))
