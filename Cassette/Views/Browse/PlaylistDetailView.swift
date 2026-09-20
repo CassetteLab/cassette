@@ -90,6 +90,10 @@ struct PlaylistDetailView: View {
     @State private var showDeletePlaylistConfirm = false
     @State private var showRemoveSongsConfirm = false
     @State private var isSaving = false
+    /// Latches on the first back tap. The toolbar button stays hit-testable while the push
+    /// animation is still running, so without this a second tap — or a tap racing the delete
+    /// path below — can ask for a second pop while the first is in flight.
+    @State private var isDismissing = false
     #if os(iOS)
     @State private var pendingImage: UIImage?
     @State private var showImageOptions = false
@@ -472,11 +476,14 @@ struct PlaylistDetailView: View {
         } else {
             ToolbarItem(placement: .navigation) {
                 Button {
+                    guard !isDismissing else { return }
+                    isDismissing = true
                     dismiss()
                 } label: {
                     navBarIcon("chevron.left")
                 }
                 .buttonStyle(.plain)
+                .disabled(isDismissing)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -772,6 +779,9 @@ struct PlaylistDetailView: View {
         do {
             try await c.playlistService.deletePlaylist(id: playlistId, purgeDownloads: purgeDownloads)
             postPlaylistDeleted()
+            // Same latch as the back button: deleting also pops, and the two must not both fire.
+            guard !isDismissing else { return }
+            isDismissing = true
             dismiss()
         } catch {
             Logger.playlist.error("PlaylistDetailView: in-place delete failed: \(error, privacy: .public)")

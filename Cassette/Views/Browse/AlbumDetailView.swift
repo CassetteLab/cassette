@@ -68,6 +68,10 @@ struct AlbumDetailView: View {
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showThemeColorSheet = false
+    /// Latches on the first back tap. The toolbar button stays hit-testable while the push
+    /// animation is still running, so without this a second tap can ask for a second pop
+    /// while the first is in flight.
+    @State private var isDismissing = false
     @Query private var albumFavoriteMatches: [FavoriteRecord]
     @Query private var downloadedAlbumTracks: [DownloadedTrack]
 
@@ -255,6 +259,8 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
+                    guard !isDismissing else { return }
+                    isDismissing = true
                     dismiss()
                 } label: {
                     Image(systemName: "chevron.left")
