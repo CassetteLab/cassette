@@ -224,20 +224,18 @@ extension AppContainer {
     ///         CGImageSourceCreateThumbnailAtIndex; legacy full-res files cause ~800 ms
     ///         decodes on cold open even after the code fix — wipe forces a clean re-download.
     ///   v4 and earlier — previous resolution bumps.
-    static func invalidateCoverArtCacheIfNeeded(artworkCache: ArtworkImageCache) {
+    static func invalidateCoverArtCacheIfNeeded(artworkCache: ArtworkImageCache) async {
         let stored = UserDefaults.standard.integer(forKey: coverArtCacheVersionKey)
         guard stored < currentCoverArtCacheVersion else { return }
 
-        artworkCache.clearCache()
-        artworkCache.clearRevalidationMetadata()
-        let coverArtsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("app.cassette/coverarts")
-        try? FileManager.default.removeItem(at: coverArtsDir)
-        try? FileManager.default.createDirectory(at: coverArtsDir, withIntermediateDirectories: true)
+        // Selective: this used to delete the whole coverarts directory, which also took the
+        // bare `{id}` covers saved alongside offline downloads. Those are not re-fetchable,
+        // so every format bump silently left downloaded albums without artwork offline.
+        let removed = await artworkCache.clearAllCovers()
         URLCache.shared.removeAllCachedResponses()
 
         UserDefaults.standard.set(currentCoverArtCacheVersion, forKey: coverArtCacheVersionKey)
-        Logger.player.info("ArtworkImageCache: invalidated cover art disk cache (version \(stored) → \(currentCoverArtCacheVersion))")
+        Logger.player.info("ArtworkImageCache: invalidated cover art disk cache (version \(stored) → \(currentCoverArtCacheVersion)), \(removed) file(s) removed")
     }
 }
 
