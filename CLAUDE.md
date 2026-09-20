@@ -24,6 +24,24 @@ git worktree remove ../cassette-<topic>
 
 Read-only inspection of another branch needs no checkout at all: `git show <branch>:<path>`.
 
+## Reading a test run
+
+**A filtered test run that executes 0 tests is not a success — check how many ran.**
+
+`xcodebuild ... -only-testing:<...>` prints `** TEST SUCCEEDED **` when the filter matches
+nothing at all. A mistyped suite name, or a Swift Testing function name where the runner
+wanted a suite, silently turns "my change is covered" into "nothing ran". The same trap makes
+a mutation check pass while proving nothing.
+
+Read the per-test lines, not just the final banner:
+
+```sh
+xcodebuild ... test 2>&1 | grep -E "Test case .*(passed|failed)|Test run with"
+```
+
+If a change is meant to be covered by a test, confirm that test's name appears in the output
+and that removing the fix makes it fail.
+
 ## Commit and PR trailers
 
 **Never add `Co-authored-by` or `Claude-Session` trailers to commits or pull requests.**
