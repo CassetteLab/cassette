@@ -495,14 +495,47 @@ struct PlaylistDetailView: View {
                 .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
             }
             ToolbarItem(placement: .primaryAction) {
+                sortMenu
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button {
                     enterEdit()
                 } label: {
                     navBarIcon("pencil")
                 }
                 .buttonStyle(.plain)
-                .disabled(container?.serverState.isOnline != true || viewModel?.playlistDetail == nil)
+                // Reordering rewrites the playlist order on the server, so editing is only
+                // offered while the list is actually showing that order.
+                .disabled(container?.serverState.isOnline != true
+                          || viewModel?.playlistDetail == nil
+                          || viewModel?.canReorder == false)
             }
+        }
+    }
+
+    /// Display ordering for this playlist. Local and reversible — it never rewrites the
+    /// playlist on the server; "Playlist Order" puts it back.
+    @ViewBuilder
+    private var sortMenu: some View {
+        if let vm = viewModel, !resolvedSongs(vm).isEmpty {
+            Menu {
+                Button {
+                    vm.sort = nil
+                } label: {
+                    Label("Playlist Order", systemImage: "list.number")
+                }
+                Divider()
+                ForEach(vm.availableSorts, id: \.self) { option in
+                    Button {
+                        vm.sort = option
+                    } label: {
+                        Label(option.label, systemImage: option.systemImage)
+                    }
+                }
+            } label: {
+                navBarIcon(vm.sort == nil ? "arrow.up.arrow.down" : "arrow.up.arrow.down.circle.fill")
+            }
+            .buttonStyle(.plain)
         }
     }
 

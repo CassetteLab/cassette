@@ -53,4 +53,45 @@ nonisolated enum SongSort: String, CaseIterable, Sendable {
 
     /// Prefer the server's canonical `sortName` (drops articles like "The") when present, else the title.
     private func key(_ song: Song) -> String { song.sortName ?? song.title }
+
+    // MARK: - Display-model path
+
+    /// True when this ordering needs fields `DisplayableSong` does not carry (`created`, `year`).
+    /// Those come from the server DTO, so the case is only offerable where one is available.
+    var needsServerMetadata: Bool {
+        switch self {
+        case .title, .artist: return false
+        case .recentlyAdded, .releaseDate: return true
+        }
+    }
+
+    /// Orderings that can be applied to a list of `DisplayableSong`. Offline lists are rebuilt
+    /// from `DownloadedTrack`, which carries neither `created` nor `year`, so those two are
+    /// dropped rather than silently sorting everything equal.
+    static func available(hasServerMetadata: Bool) -> [SongSort] {
+        hasServerMetadata ? allCases : allCases.filter { !$0.needsServerMetadata }
+    }
+
+    /// Orders display models, taking `created` / `year` from `metadata` keyed by song id when the
+    /// ordering needs them. Missing entries sort last, matching the DTO path above.
+    func sorted(_ songs: [DisplayableSong], metadata: [String: Song] = [:]) -> [DisplayableSong] {
+        switch self {
+        case .title:
+            return songs.sorted { $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+        case .artist:
+            return songs.sorted {
+                let byArtist = ($0.artist ?? "").localizedStandardCompare($1.artist ?? "")
+                if byArtist != .orderedSame { return byArtist == .orderedAscending }
+                return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+            }
+        case .recentlyAdded:
+            return songs.sorted {
+                (metadata[$0.id]?.created ?? .distantPast) > (metadata[$1.id]?.created ?? .distantPast)
+            }
+        case .releaseDate:
+            return songs.sorted {
+                (metadata[$0.id]?.year ?? Int.min) > (metadata[$1.id]?.year ?? Int.min)
+            }
+        }
+    }
 }

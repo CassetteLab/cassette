@@ -14,7 +14,8 @@ final class PlaylistDetailViewModel {
     var name: String = ""
     var owner: String? = nil
     var coverArtId: String? = nil
-    var songs: [DisplayableSong] = []
+    /// What the list shows: the playlist's own order, or that order sorted.
+    private(set) var songs: [DisplayableSong] = []
     var isOffline: Bool = false
     var isLoading = false
     var error: UserFacingError?
@@ -22,6 +23,31 @@ final class PlaylistDetailViewModel {
     var downloadingIds: Set<String> = []
 
     private(set) var playlistDetail: PlaylistWithSongs?
+
+    /// The playlist's own order, exactly as the server (or the downloaded copy) gives it.
+    /// `songs` is derived from this; every server-side mutation is expressed against it, so a
+    /// display sort can never be written back as the playlist's order.
+    private var playlistOrder: [DisplayableSong] = []
+    /// Server DTOs by id, for the orderings that need `created` / `year`. Empty offline.
+    private var metadataById: [String: Song] = [:]
+
+    /// Display ordering; `nil` is the playlist's own order. Persisted per playlist.
+    var sort: SongSort? {
+        didSet {
+            guard sort != oldValue else { return }
+            Self.persist(sort, playlistId: playlistId)
+            applySort()
+        }
+    }
+
+    /// Orderings offerable here — offline lists come from `DownloadedTrack`, which carries
+    /// neither `created` nor `year`.
+    var availableSorts: [SongSort] { SongSort.available(hasServerMetadata: !metadataById.isEmpty) }
+
+    /// Manual reorder rewrites the playlist on the server, so it is only meaningful while the
+    /// list is showing that order.
+    var canReorder: Bool { sort == nil }
+
     private let playlistId: String
     private let libraryService: any LibraryServiceProtocol
     private let downloadService: any DownloadServiceProtocol
@@ -43,6 +69,34 @@ final class PlaylistDetailViewModel {
         self.playlistService = playlistService
         self.toastService = toastService
         self.serverState = serverState
+        self.sort = Self.restore(playlistId: playlistId)
+    }
+
+    // MARK: - Sort persistence
+
+    private static func key(_ playlistId: String) -> String { "cassette.playlistSort.\(playlistId)" }
+
+    private static func restore(playlistId: String) -> SongSort? {
+        UserDefaults.standard.string(forKey: key(playlistId)).flatMap(SongSort.init(rawValue:))
+    }
+
+    private static func persist(_ sort: SongSort?, playlistId: String) {
+        if let sort {
+            UserDefaults.standard.set(sort.rawValue, forKey: key(playlistId))
+        } else {
+            UserDefaults.standard.removeObject(forKey: key(playlistId))
+        }
+    }
+
+    /// Recomputes `songs` from the playlist's own order. A sort the current source cannot
+    /// support (offline, needing `created` / `year`) falls back to the playlist order rather
+    /// than sorting everything equal.
+    private func applySort() {
+        guard let sort, availableSorts.contains(sort) else {
+            songs = playlistOrder
+            return
+        }
+        songs = sort.sorted(playlistOrder, metadata: metadataById)
     }
 
     func load() async {
@@ -72,7 +126,10 @@ final class PlaylistDetailViewModel {
             name = apiPlaylist.name
             owner = apiPlaylist.owner
             coverArtId = apiPlaylist.coverArt
-            songs = (apiPlaylist.entry ?? []).map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
+            let entries = apiPlaylist.entry ?? []
+            metadataById = Dictionary(entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+            playlistOrder = entries.map { DisplayableSong(from: $0, isDownloaded: downloadedIds.contains($0.id)) }
+            applySort()
             isOffline = false
             // Self-heal: if this playlist was downloaded before songIds existed (or with an
             // empty list), repair it now from the authoritative order so it reads offline next time.
@@ -99,7 +156,9 @@ final class PlaylistDetailViewModel {
               !data.songs.isEmpty else { return false }
         name = data.name
         coverArtId = data.coverArtId
-        songs = data.songs
+        metadataById = [:]
+        playlistOrder = data.songs
+        applySort()
         isOffline = true
         return true
     }
@@ -109,7 +168,8 @@ final class PlaylistDetailViewModel {
         isDownloadingPlaylist = true
         try? await downloadService.download(playlist: playlist, serverId: serverId)
         let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
-        songs = songs.map { $0.withDownloaded(downloadedIds.contains($0.id)) }
+        playlistOrder = playlistOrder.map { $0.withDownloaded(downloadedIds.contains($0.id)) }
+        applySort()
         isDownloadingPlaylist = false
     }
 
@@ -132,8 +192,9 @@ final class PlaylistDetailViewModel {
             toastService.showError(String(localized: "Download failed"))
         }
         let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
-        if let idx = songs.firstIndex(where: { $0.id == id }) {
-            songs[idx] = songs[idx].withDownloaded(allDownloaded.contains(id))
+        if let idx = playlistOrder.firstIndex(where: { $0.id == id }) {
+            playlistOrder[idx] = playlistOrder[idx].withDownloaded(allDownloaded.contains(id))
+            applySort()
         }
     }
 
@@ -149,7 +210,8 @@ final class PlaylistDetailViewModel {
             try? await downloadService.download(song: song, serverId: serverId)
         }
         let allDownloaded = await downloadService.downloadedSongIds(serverId: serverId)
-        songs = songs.map { $0.withDownloaded(allDownloaded.contains($0.id)) }
+        playlistOrder = playlistOrder.map { $0.withDownloaded(allDownloaded.contains($0.id)) }
+        applySort()
         isDownloadingPlaylist = false
     }
 
@@ -159,30 +221,44 @@ final class PlaylistDetailViewModel {
             try? await downloadService.remove(songId: song.id, serverId: serverId)
         }
         try? await downloadService.remove(playlistId: playlistId, serverId: serverId)
-        songs = songs.map { $0.withDownloaded(false) }
+        playlistOrder = playlistOrder.map { $0.withDownloaded(false) }
+        applySort()
     }
 
+    /// `index` is a position in the displayed list, which is not the playlist's own order while
+    /// a sort is active — and `removeTracks(indices:)` takes playlist positions. Translate
+    /// through the song id rather than passing the displayed index straight through, which
+    /// would remove a different track.
     func removeTrack(at index: Int) async {
         guard songs.indices.contains(index) else { return }
         let removed = songs[index]
-        songs.remove(at: index)
+        guard let playlistIndex = playlistOrder.firstIndex(where: { $0.id == removed.id }) else { return }
+        let previousOrder = playlistOrder
+        playlistOrder.remove(at: playlistIndex)
+        applySort()
         do {
-            try await playlistService.removeTracks(playlistId: playlistId, indices: [index])
+            try await playlistService.removeTracks(playlistId: playlistId, indices: [playlistIndex])
         } catch {
-            songs.insert(removed, at: index)
+            playlistOrder = previousOrder
+            applySort()
             Logger.playlist.error("PlaylistDetailViewModel: remove track failed: \(error)")
             toastService.showError("Failed to remove track")
         }
     }
 
     func moveTracks(from source: IndexSet, to destination: Int) async {
-        let originalSongs = songs
-        songs.move(fromOffsets: source, toOffset: destination)
-        let newOrder = songs.map(\.id)
+        // Dragging writes a new playlist order to the server. Under a display sort the dragged
+        // positions describe the sorted list, not the playlist, so the move is refused rather
+        // than silently persisting the sort as the playlist's order.
+        guard canReorder else { return }
+        let previousOrder = playlistOrder
+        playlistOrder.move(fromOffsets: source, toOffset: destination)
+        applySort()
         do {
-            try await playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: newOrder)
+            try await playlistService.reorderTracks(playlistId: playlistId, orderedSongIds: playlistOrder.map(\.id))
         } catch {
-            songs = originalSongs
+            playlistOrder = previousOrder
+            applySort()
             Logger.playlist.error("PlaylistDetailViewModel: reorder failed: \(error)")
             toastService.showError("Failed to reorder tracks")
         }
