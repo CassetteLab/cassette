@@ -33,8 +33,13 @@ actor DownloadService: DownloadServiceProtocol {
         self.cacheSettings = cacheSettings
 
         let sessionConfig = URLSessionConfiguration.default
+        // Stall detector only: the maximum gap between two bytes. A download that keeps
+        // receiving data is never interrupted by this.
         sessionConfig.timeoutIntervalForRequest = 30
-        sessionConfig.timeoutIntervalForResource = 30
+        // timeoutIntervalForResource is deliberately left at the system default. It is a
+        // deadline for the WHOLE transfer, not an idle timer, so the 30s it used to carry
+        // failed any download that took longer than half a minute no matter how healthy the
+        // connection was — which is every sufficiently long track.
         self.downloadSession = URLSession(configuration: sessionConfig)
 
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
