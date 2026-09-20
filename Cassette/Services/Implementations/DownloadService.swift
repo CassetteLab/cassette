@@ -129,6 +129,34 @@ actor DownloadService: DownloadServiceProtocol {
         }
     }
 
+    /// Deletes only the re-fetchable tier files (`{id}@thumb`, `{id}@hero`) from the cover
+    /// directory, and returns how many went.
+    ///
+    /// Both cover caches share this one directory and are told apart solely by the `@` in the
+    /// filename. The bare `{id}` files are the covers captured alongside offline downloads —
+    /// `CoverArtView`'s last offline fallback and the widget's preferred source — and nothing
+    /// re-creates them short of downloading the tracks again, so clearing must never touch
+    /// them. This is the exact complement of `garbageCollectOrphanedCovers`, which skips the
+    /// tier files for the same reason in reverse.
+    @discardableResult
+    func clearStreamingCovers() async -> Int {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: coverArtsDirectory, includingPropertiesForKeys: nil) else {
+            return 0
+        }
+        var deletedCount = 0
+        for fileURL in entries where fileURL.lastPathComponent.contains("@") {
+            do {
+                try fm.removeItem(at: fileURL)
+                deletedCount += 1
+            } catch {
+                Logger.download.warning("Failed to remove cached cover '\(fileURL.lastPathComponent, privacy: .public)': \(error, privacy: .public)")
+            }
+        }
+        Logger.download.info("Cleared \(deletedCount) cached cover file(s); offline download covers left in place.")
+        return deletedCount
+    }
+
     @discardableResult
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int {
         let fm = FileManager.default

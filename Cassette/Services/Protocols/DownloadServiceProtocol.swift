@@ -57,6 +57,11 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
     /// Removes the cached cover art file for the given ID. No-op if not on disk.
     func removeCover(forId coverArtId: String) async
 
+    /// Deletes only the re-fetchable `{id}@thumb` / `{id}@hero` tier files, never the bare
+    /// `{id}` covers kept for offline downloads. Returns count deleted.
+    @discardableResult
+    func clearStreamingCovers() async -> Int
+
     /// Deletes orphaned cover files whose name is not in `referencedIds`. Returns count deleted.
     @discardableResult
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int

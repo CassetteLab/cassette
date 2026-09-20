@@ -290,6 +290,26 @@ final class ArtworkImageCache {
         accessOrder.removeAll()
     }
 
+    /// Drops every cached cover — memory and the re-fetchable tier files on disk — and forces
+    /// the views to re-resolve.
+    ///
+    /// Covers captured alongside offline downloads (bare `{id}` files) are deliberately left
+    /// alone: nothing re-creates them short of downloading the tracks again, so removing them
+    /// would leave a downloaded album with no artwork in airplane mode. Returns the number of
+    /// disk files removed.
+    @discardableResult
+    func clearAllCovers() async -> Int {
+        clearCache()
+        clearRevalidationMetadata()
+        let removed = await downloadService.clearStreamingCovers()
+        // Every CoverArtView folds this counter into its task id, so bumping it is what makes
+        // already-visible artwork re-resolve rather than sit on a now-deleted image.
+        let key = "coverArtUploadVersion"
+        UserDefaults.standard.set(UserDefaults.standard.integer(forKey: key) + 1, forKey: key)
+        Logger.artworkCache.info("Artwork cache cleared — \(removed) cached file(s) removed.")
+        return removed
+    }
+
     /// Forgets all revalidation metadata. Called from the version-bump disk wipe so a fresh cache
     /// doesn't carry `Last-Modified` values describing images that were just deleted.
     func clearRevalidationMetadata() {
