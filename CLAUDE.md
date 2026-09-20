@@ -42,6 +42,31 @@ xcodebuild ... test 2>&1 | grep -E "Test case .*(passed|failed)|Test run with"
 If a change is meant to be covered by a test, confirm that test's name appears in the output
 and that removing the fix makes it fail.
 
+## Waiting in tests
+
+**No test sleeps on the real clock. Await the work — the task — not the time; every delay is
+injectable and short in tests.**
+
+A test that waits out a delay and then asserts is racing the scheduler, not testing the
+behaviour. It fails on a loaded CI runner, where the continuation it is waiting for has not
+been given the actor yet. Lengthening the wait does not fix it: a fixed sleep failed, a 30-second
+polling deadline failed on the same test, and the commit it failed on passed on re-run.
+
+Expose the task and await it, so that when the `await` returns the work has happened by
+definition:
+
+```swift
+private(set) var resumeTask: Task<Void, Never>?   // was private
+```
+
+```swift
+await vm.resumeTask?.value
+#expect(vm.isUserScrolling == false)
+```
+
+Inject the delay so the suite does not spend it — production keeps its real default, the test
+passes milliseconds. `Task.sleep(for: .seconds(...))` in a test is the smell.
+
 ## Commit and PR trailers
 
 **Never add `Co-authored-by` or `Claude-Session` trailers to commits or pull requests.**
