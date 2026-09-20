@@ -285,7 +285,15 @@ actor DownloadService: DownloadServiceProtocol {
             try await self._downloadSong(song, serverId: serverId, key: key)
         }
         inFlightTasks[key] = task
-        try await task.value
+        do {
+            try await task.value
+        } catch {
+            // Every download path funnels through here, batches included. Without this the
+            // failure of a single track produced no log line anywhere: `_downloadSong` has no
+            // catch, and several callers discard the error with `try?`.
+            Logger.download.error("Download failed for '\(song.id, privacy: .public)': \(error, privacy: .public)")
+            throw error
+        }
     }
 
     private func _downloadSong(_ song: Song, serverId: UUID, key: String) async throws {
@@ -518,6 +526,8 @@ actor DownloadService: DownloadServiceProtocol {
         Logger.download.info("Album '\(album.id, privacy: .public)': \(succeeded)/\(total) tracks downloaded.")
         if succeeded == total {
             await toastService.showSuccess(String(localized: "\(album.name) downloaded"))
+        } else {
+            await toastService.showError(String(localized: "Download failed"))
         }
     }
 
@@ -614,6 +624,8 @@ actor DownloadService: DownloadServiceProtocol {
         Logger.download.info("Playlist '\(playlist.id, privacy: .public)': \(tracksSucceeded)/\(total) tracks downloaded.")
         if tracksSucceeded == totalTracks {
             await toastService.showSuccess(String(localized: "\(playlist.name) downloaded"))
+        } else {
+            await toastService.showError(String(localized: "Download failed"))
         }
     }
 

@@ -90,6 +90,7 @@ final class FavoritesViewModel {
             try await downloadService.download(song: song, serverId: serverId)
         } catch {
             Logger.download.error("Favorites: download of '\(id, privacy: .public)' failed: \(error, privacy: .public)")
+            toastService.showError(String(localized: "Download failed"))
         }
         await refreshPendingDownloadCount()
     }
