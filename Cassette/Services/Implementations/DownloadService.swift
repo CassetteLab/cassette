@@ -182,6 +182,56 @@ actor DownloadService: DownloadServiceProtocol {
         return deletedCount
     }
 
+    /// Re-fetches the offline covers named in `referencedIds` that are missing from disk, and
+    /// returns how many were repaired.
+    ///
+    /// These are the bare `{id}` files saved beside a download — `CoverArtView`'s last offline
+    /// fallback and the widget's preferred source. Only a download writes them, so once one is
+    /// gone nothing restores it short of downloading the tracks again; a shipped sweep deleted
+    /// them wholesale for a time, and this repairs that.
+    ///
+    /// Bounded on purpose: three at a time, every failure swallowed per cover, and no retry —
+    /// it is a background repair, not something the user is waiting on. `_downloadCoverArt`
+    /// skips ids already on disk, so a repaired library costs one file check per id.
+    @discardableResult
+    func healMissingCovers(referencedIds: Set<String>) async -> Int {
+        let missing = referencedIds.filter {
+            !FileManager.default.fileExists(atPath: coverArtsDirectory.appendingPathComponent($0).path)
+        }
+        guard !missing.isEmpty else { return 0 }
+
+        let repaired = await withTaskGroup(of: Bool.self) { group -> Int in
+            var running = 0
+            var healed = 0
+            var pending = Array(missing)
+
+            func addNext() {
+                guard let id = pending.popLast() else { return }
+                running += 1
+                group.addTask { [weak self] in
+                    guard let self else { return false }
+                    do {
+                        try await self._downloadCoverArt(id: id)
+                        return true
+                    } catch {
+                        return false
+                    }
+                }
+            }
+
+            for _ in 0..<min(3, pending.count) { addNext() }
+            while running > 0, let didHeal = await group.next() {
+                running -= 1
+                if didHeal { healed += 1 }
+                addNext()
+            }
+            return healed
+        }
+
+        Logger.artworkCache.info("[HEAL] Restored \(repaired) of \(missing.count) missing offline cover(s).")
+        return repaired
+    }
+
     @discardableResult
     func garbageCollectOrphanedCovers(referencedIds: Set<String>) async -> Int {
         let fm = FileManager.default

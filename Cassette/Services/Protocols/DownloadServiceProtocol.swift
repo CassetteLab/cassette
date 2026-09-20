@@ -61,6 +61,10 @@ protocol DownloadServiceProtocol: AnyObject, Sendable {
     /// `{id}` covers kept for offline downloads. Returns count deleted.
     @discardableResult
     func clearStreamingCovers() async -> Int
+    /// Re-fetches the offline covers in `referencedIds` that are missing from disk, bounded and
+    /// silent. Returns count repaired.
+    @discardableResult
+    func healMissingCovers(referencedIds: Set<String>) async -> Int
 
     /// Deletes orphaned cover files whose name is not in `referencedIds`. Returns count deleted.
     @discardableResult

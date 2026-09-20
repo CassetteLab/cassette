@@ -20,6 +20,7 @@ final class NetworkMonitor: Sendable {
             Task { @MainActor in
                 serverState.isOnline = online
                 serverState.isExpensive = expensive
+                serverState.hasResolvedNetworkPath = true
             }
         }
         monitor.start(queue: queue)
