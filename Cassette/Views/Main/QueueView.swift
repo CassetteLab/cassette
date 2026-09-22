@@ -304,6 +304,10 @@ private struct QueueRow: View {
 
             Divider()
 
+            SongShareButton(song: song)
+
+            Divider()
+
             Button {
                 showAddToPlaylist = true
             } label: {
