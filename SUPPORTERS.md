@@ -8,6 +8,7 @@ Everyone is listed by the name they chose, at the same level, in the order they 
 
 - Remy
 - moebasalama
+- Gabe
 
 ## Being listed
 

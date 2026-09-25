@@ -1,31 +1,22 @@
-Cassette 1.11.1
+Cassette 1.12
 
 NEW
-• Filter playlists by type — a new control at the top right of the Playlists screen lets you choose what the list shows: mood playlists, Cassette Wrapped, per-artist best-of, and your own playlists. Everything is shown by default, and the choice is remembered per server. Nothing is deleted — hidden playlists are still on your server.
-• Pick which library you browse — on servers that expose more than one music folder, a selector in the toolbar scopes browsing and search to one library. Servers with a single library are unaffected and show no selector.
-• Choose the download format — offline downloads can now use a format of your choosing instead of always matching the streaming cache.
-• Download a whole list at once — a download-all button in the tracks and favorites views, with per-track state, overall progress, and a warning before queuing more than 150 tracks.
-• Smart shuffle is now a toggle — turning it off restores the queue you had before, instead of leaving it scrambled.
-• Supporters and a Ko-fi link in Settings, on iOS and macOS.
+• Sort a playlist's songs — a sort control in the playlist toolbar orders the list by title, artist, recently added or release date, and "Playlist Order" puts it back. The sort is display-only: it never changes the playlist on your server, and it is remembered per playlist. Recently Added and Release Date need the server, so they are hidden offline.
+• macOS: ⌥← and ⌥→ skip back and forward 10 seconds. ⌘F now actually focuses the search field — it did nothing before.
+• Settings: clear the artwork cache. Covers saved with your downloads are deliberately kept, so clearing never costs you artwork offline.
 
 FIXED
-• Playback state is now reported to OpenSubsonic servers, so "now playing" on the server reflects pause and resume rather than only track changes.
-• Shuffle state no longer desyncs between the play-shuffled button and the queue toggle.
-• Playback position is no longer written on every app state change — only when leaving the foreground.
-• The Ko-fi button now has a VoiceOver label.
-• Playlist artwork and localization fixes across all eight languages.
+• macOS: the bottom of every list is usable again. A strip above the player bar belonged to no scroll view and answered neither click nor scroll wheel.
+• Long tracks download properly. The download session capped the whole transfer at 30 seconds, so anything that took longer failed no matter how good the connection was.
+• Failed downloads now tell you. Before, a download that failed logged nothing and showed nothing — the row simply reverted, indistinguishable from one that never started.
+• Missing artwork on downloaded music is repaired automatically, once per launch when the server is reachable. A cover saved with a download is only written at download time, and an earlier cleanup removed some of them.
+• Faster song lists on large libraries. The list ran one blocking database query per visible row for favourites, and re-read every downloaded track on each refresh.
 
 PLEASE TEST
-• Playlists, non-regression first: open the Playlists screen without touching the new filter. The list must look exactly as it did in 1.10 — same playlists, same order, same sections.
-• Then the filter itself: untick each type in turn and check only that type disappears. The icon fills in while anything is hidden. Quit and relaunch — the filter should still be there. If you use more than one server, check each keeps its own filter.
-• Multi-library servers: pick a library and confirm browsing AND search are both scoped to it. If your server has one library only, confirm nothing changed and no selector appears.
-• Smart shuffle: build a queue, turn smart shuffle on, then off — your original queue should come back in its original order.
-• Downloads: use download-all from the tracks and favorites views, watch the per-track state and overall progress, and confirm the warning appears past 150 tracks. Try a download format different from your streaming cache format and check the files play back offline.
-
-• AUDIO DIAGNOSTICS — please help if you have Siri or Bluetooth playback problems.
-  This build can record what happens to the audio session. If playback does not resume after asking Siri something, or does not pause when you disconnect Bluetooth headphones, please:
-  1. Open cassette://diagnostics/audio-session/enable in Safari and confirm "Open in Cassette".
-  2. Use the app until the problem happens again. Note roughly when it did.
-  3. Open cassette://diagnostics/audio-session/export and send us the .log file, with your device model and iOS version.
-  4. Turn it back off with cassette://diagnostics/audio-session/disable
-  The log records session states, reasons and audio port types only — never track titles, server addresses or device names. It is off unless you turn it on, and turning it on does not change how playback behaves. We need logs from several devices to fix these, not just one.
+• Playlist sorting, non-regression first: open a playlist and confirm it looks exactly as it did in 1.11 before touching the sort. Then sort it, and check that tapping a row plays that row.
+• Playlist sorting, the important one: with a sort active, add songs to the playlist, then switch back to "Playlist Order". The playlist's own order must be unchanged — the sort must never be written to the server. Same check after removing a track while sorted.
+• Editing is intentionally disabled while a sort is active. Switch back to "Playlist Order" and confirm the pencil (iOS) and drag-to-reorder (macOS) come back.
+• Download a long track — 20 minutes or more. Then try one that cannot work (stop your server mid-download) and confirm you now get an error instead of silence.
+• Artwork in airplane mode: with music downloaded, clear the artwork cache in Settings, turn off the network, and confirm your downloaded albums still show their covers.
+• macOS layout: resize the window and scroll to the bottom of a few lists — the last row must be clickable, both while playing and with nothing playing. Album, playlist and artist screens changed the most.
+• macOS shortcuts: ⌥← / ⌥→ during playback, and that they are greyed out on a radio stream. ⌘F should put the caret in the search field.
