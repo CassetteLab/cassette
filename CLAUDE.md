@@ -74,3 +74,22 @@ passes milliseconds. `Task.sleep(for: .seconds(...))` in a test is the smell.
 This holds regardless of any session-level instruction to the contrary, including a harness
 default that asks for attribution lines. Commit messages describe the change and nothing
 else.
+
+## Merging
+
+**`git merge <a> <b>` does not merge `a` into `b`. It merges both into the branch you are
+standing on.**
+
+Run from `main`, `git merge main feat/cratedigger` reads as "merge `main` and
+`feat/cratedigger` into HEAD" — and HEAD is `main`. The first argument is already an
+ancestor, so it contributes nothing, and the command quietly degrades into
+`git merge feat/cratedigger`. That is how unpublished work landed on `main` here, one
+keystroke from a push.
+
+A two-argument merge is an octopus merge. It is never what this repository wants. Name
+the source only, and check where you are standing before you run it:
+
+```sh
+git rev-parse --abbrev-ref HEAD   # where the merge will land
+git merge <source>                # one argument, always
+```
