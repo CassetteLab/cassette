@@ -20,11 +20,13 @@ nonisolated enum AudioContainer: String, Sendable, CaseIterable {
     case flac = "flac"
     case mp3  = "mp3"
     case ogg  = "ogg"
+    // Ogg-wrapped Opus; `.ogg` would route it to AudioStreaming's Vorbis-only decoder.
+    case opus = "opus"
     case wav  = "wav"
     case aiff = "aiff"
 
-    /// Bytes needed to recognise every container below (`FORM`/`RIFF` need the type at offset 8).
-    static let magicPrefixLength = 12
+    /// Bytes needed to recognise every container below (Ogg header 27 + segment table 255 + `OpusHead` 8).
+    static let magicPrefixLength = 290
 
     /// Identifies the container from a file prefix, or nil when it matches nothing known.
     /// Pure, so the byte patterns are unit-testable without touching the disk.
@@ -36,7 +38,11 @@ nonisolated enum AudioContainer: String, Sendable, CaseIterable {
         }
 
         if matches("fLaC", at: 0) { return .flac }
-        if matches("OggS", at: 0) { return .ogg }
+        if matches("OggS", at: 0) {
+            // The first packet starts after the 27-byte page header and its segment table.
+            guard bytes.count > 26 else { return .ogg }
+            return matches("OpusHead", at: 27 + Int(bytes[26])) ? .opus : .ogg
+        }
         if matches("RIFF", at: 0), matches("WAVE", at: 8) { return .wav }
         if matches("FORM", at: 0), matches("AIFF", at: 8) || matches("AIFC", at: 8) { return .aiff }
         // ISO-BMFF: the `ftyp` box type sits after the 4-byte box size.

@@ -20,6 +20,8 @@ actor DownloadService: DownloadServiceProtocol {
     private var inFlightTasks: [String: Task<Void, Error>] = [:]
     private var activeAlbumDownloads: Set<String> = []
     private var activePlaylistDownloads: Set<String> = []
+    /// Keyed by the record's old path; concurrent lookups share one migration, a failed one is not retried.
+    private var opusMigrations: [String: Task<URL?, Never>] = [:]
     private let toastService: ToastService
     private let downloadSession: URLSession
     private let cacheSettings: CacheSettings
@@ -71,24 +73,80 @@ actor DownloadService: DownloadServiceProtocol {
     // MARK: - Lookup
 
     func downloadedURL(forSongId songId: String, serverId: UUID) async -> URL? {
-        let entry: (filePath: String, fileSize: Int64)? = await MainActor.run {
+        guard var entry = await downloadEntry(songId: songId, serverId: serverId) else { return nil }
+        var url = downloadsDirectory.appendingPathComponent(entry.filePath)
+        // A missing, empty, or size-mismatched file must fall through to cache/stream —
+        // never hand a broken local file to the player. The file is NOT deleted here
+        // (permanent downloads are user data); the record's size 0 means a legacy entry
+        // whose size read failed at write time, where only non-emptiness can be checked.
+        var diskSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+        if diskSize == 0 || (entry.fileSize != 0 && diskSize != entry.fileSize),
+           let fresh = await downloadEntry(songId: songId, serverId: serverId), fresh.filePath != entry.filePath {
+            // A concurrent Opus migration repointed the record and deleted the file read above.
+            entry = fresh
+            url = downloadsDirectory.appendingPathComponent(entry.filePath)
+            diskSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
+        }
+        guard diskSize > 0, entry.fileSize == 0 || diskSize == entry.fileSize else {
+            Logger.download.warning("Downloaded track record exists but file missing or invalid (disk \(diskSize) bytes, record \(entry.fileSize)): \(entry.filePath, privacy: .public)")
+            return nil
+        }
+        if ["ogg", "opus"].contains(url.pathExtension), AudioContainer.sniff(atPath: url.path) == .opus {
+            // Unmigrated .ogg would reach the Vorbis-only decoder; nil falls back to the stream.
+            let fallback = url.pathExtension == "opus" ? url : nil
+            if let running = opusMigrations[entry.filePath] { return await running.value ?? fallback }
+            let migration = Task { await migrateOpusToCAF(songId: songId, serverId: serverId, filePath: entry.filePath) }
+            opusMigrations[entry.filePath] = migration
+            let migrated = await migration.value
+            if migrated != nil { opusMigrations[entry.filePath] = nil }
+            return migrated ?? fallback
+        }
+        return url
+    }
+
+    private func downloadEntry(songId: String, serverId: UUID) async -> (filePath: String, fileSize: Int64)? {
+        await MainActor.run {
             let context = ModelContext(modelContainer)
             let predicate = #Predicate<DownloadedTrack> { $0.songId == songId }
             let tracks = (try? context.fetch(FetchDescriptor(predicate: predicate))) ?? []
             return tracks.first(where: { $0.serverId == serverId }).map { ($0.filePath, $0.fileSize) }
         }
-        guard let entry else { return nil }
-        let url = downloadsDirectory.appendingPathComponent(entry.filePath)
-        // A missing, empty, or size-mismatched file must fall through to cache/stream —
-        // never hand a broken local file to the player. The file is NOT deleted here
-        // (permanent downloads are user data); the record's size 0 means a legacy entry
-        // whose size read failed at write time, where only non-emptiness can be checked.
-        let diskSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
-        guard diskSize > 0, entry.fileSize == 0 || diskSize == entry.fileSize else {
-            Logger.download.warning("Downloaded track record exists but file missing or invalid (disk \(diskSize) bytes, record \(entry.fileSize)): \(entry.filePath, privacy: .public)")
+    }
+
+    /// Remuxes an Opus download to `.caf`, repoints its record, then deletes the old file; nil on failure.
+    private func migrateOpusToCAF(songId: String, serverId: UUID, filePath: String) async -> URL? {
+        let newPath = (filePath as NSString).deletingPathExtension + ".caf"
+        let oldURL = downloadsDirectory.appendingPathComponent(filePath)
+        let newURL = downloadsDirectory.appendingPathComponent(newPath)
+        do {
+            try OpusRemuxer.remuxToCAF(from: oldURL, to: newURL)
+        } catch {
+            Logger.download.error("Opus remux failed '\(filePath, privacy: .public)': \(error, privacy: .public)")
             return nil
         }
-        return url
+        let fileSize = (try? FileManager.default.attributesOfItem(atPath: newURL.path)[.size] as? Int64) ?? 0
+        let saved: Bool = await MainActor.run {
+            let context = ModelContext(modelContainer)
+            let predicate = #Predicate<DownloadedTrack> { $0.songId == songId }
+            let tracks = (try? context.fetch(FetchDescriptor(predicate: predicate))) ?? []
+            guard let record = tracks.first(where: { $0.serverId == serverId }) else { return false }
+            record.filePath = newPath
+            record.fileSize = fileSize
+            do {
+                try context.save()
+                return true
+            } catch {
+                return false
+            }
+        }
+        guard saved else {
+            try? FileManager.default.removeItem(at: newURL)
+            Logger.download.error("Opus remux not saved, reverted '\(filePath, privacy: .public)'")
+            return nil
+        }
+        try? FileManager.default.removeItem(at: oldURL)
+        Logger.download.info("Remuxed Opus download '\(filePath, privacy: .public)' → '\(newPath, privacy: .public)'")
+        return newURL
     }
 
     func isDownloaded(songId: String, serverId: UUID) async -> Bool {
@@ -455,14 +513,28 @@ actor DownloadService: DownloadServiceProtocol {
             Logger.download.warning("Container mismatch for '\(song.id, privacy: .public)': server declared '\(declared, privacy: .public)', bytes are \(sniffed.rawValue, privacy: .public) — naming the file after the bytes")
         }
         let ext = sniffed?.rawValue ?? song.suffix ?? mimeType.split(separator: "/").last.map(String.init) ?? "bin"
-        let relativePath = "\(serverId.uuidString)/\(song.id).\(ext)"
-        let fileURL = downloadsDirectory.appendingPathComponent(relativePath)
+        var relativePath = "\(serverId.uuidString)/\(song.id).\(ext)"
+        var fileURL = downloadsDirectory.appendingPathComponent(relativePath)
 
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         if FileManager.default.fileExists(atPath: fileURL.path) {
             try FileManager.default.removeItem(at: fileURL)
         }
         try FileManager.default.moveItem(at: tempURL, to: fileURL)
+
+        if sniffed == .opus {
+            // CAF gives the player exact seeking; the `.opus` file stays as a fallback that plays without it.
+            let cafPath = "\(serverId.uuidString)/\(song.id).caf"
+            let cafURL = downloadsDirectory.appendingPathComponent(cafPath)
+            do {
+                try OpusRemuxer.remuxToCAF(from: fileURL, to: cafURL)
+                try? FileManager.default.removeItem(at: fileURL)
+                relativePath = cafPath
+                fileURL = cafURL
+            } catch {
+                Logger.download.error("Opus remux failed for '\(song.id, privacy: .public)', saving as .opus: \(error, privacy: .public)")
+            }
+        }
 
         // Faststart-remux non-faststart m4a in place so AudioStreaming can play it offline
         // (lossless passthrough; no-op for every other format). MUST run before the fileSize
@@ -485,6 +557,7 @@ actor DownloadService: DownloadServiceProtocol {
         let duration = song.duration
         let coverArtId = song.coverArt
         let suffix = song.suffix
+        let storedPath = relativePath
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? 0
         let rgTrackGain    = song.replayGain?.trackGain
         let rgTrackPeak    = song.replayGain?.trackPeak
@@ -510,7 +583,7 @@ actor DownloadService: DownloadServiceProtocol {
                 songId: songId,
                 serverId: serverId,
                 albumId: albumId,
-                filePath: relativePath,
+                filePath: storedPath,
                 fileSize: fileSize,
                 mimeType: mimeType,
                 title: title,

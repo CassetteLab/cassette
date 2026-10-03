@@ -67,7 +67,9 @@ actor AudioStreamCache: AudioStreamCacheProtocol {
         // Self-healing covers missing, empty, and size-mismatched files — a partial or
         // corrupt cache file must fall through to stream, never reach the player.
         let diskSize = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? 0
-        guard diskSize > 0, diskSize == entry.fileSize else {
+        // An Opus file stored as `.ogg` before Opus was sniffed would reach the Vorbis-only decoder; `.opus` stays as the remux fallback.
+        let mislabelledOpus = url.pathExtension == "ogg" && AudioContainer.sniff(atPath: url.path) == .opus
+        guard diskSize > 0, diskSize == entry.fileSize, !mislabelledOpus else {
             Logger.cache.warning("Cache record exists but file missing or invalid (disk \(diskSize) bytes, record \(entry.fileSize)): \(entry.filePath, privacy: .public)")
             await invalidate(songId: songId, serverId: serverId)
             return nil
@@ -83,19 +85,35 @@ actor AudioStreamCache: AudioStreamCacheProtocol {
 
     /// Stores audio data in the cache. Upserts the SwiftData record, then runs FIFO eviction.
     func store(data: Data, forSongId songId: String, serverId: UUID, mimeType: String) async throws -> URL {
-        let ext = audioExtension(mimeType: mimeType)
-        let relativePath = "\(serverId.uuidString)-\(songId).\(ext)"
-        let fileURL = cacheDirectory.appendingPathComponent(relativePath)
+        // Navidrome serves transcoded Opus as audio/ogg; the extension picks the decoder.
+        let isOpus = AudioContainer.sniff(magic: [UInt8](data.prefix(AudioContainer.magicPrefixLength))) == .opus
+        let ext = isOpus ? AudioContainer.opus.rawValue : audioExtension(mimeType: mimeType)
+        var relativePath = "\(serverId.uuidString)-\(songId).\(ext)"
+        var fileURL = cacheDirectory.appendingPathComponent(relativePath)
 
         try data.write(to: fileURL, options: .atomic)
+        if isOpus {
+            // CAF gives the player exact seeking; the `.opus` file stays as a fallback that plays without it.
+            let cafPath = "\(serverId.uuidString)-\(songId).caf"
+            let cafURL = cacheDirectory.appendingPathComponent(cafPath)
+            do {
+                try OpusRemuxer.remuxToCAF(from: fileURL, to: cafURL)
+                try? FileManager.default.removeItem(at: fileURL)
+                relativePath = cafPath
+                fileURL = cafURL
+            } catch {
+                Logger.cache.error("Opus remux failed for '\(songId, privacy: .public)', caching as .opus: \(error, privacy: .public)")
+            }
+        }
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? Int64(data.count)
+        let storedPath = relativePath
 
         await MainActor.run {
             let context = ModelContext(modelContainer)
             let existing = (try? context.fetch(FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId })))?
                 .first { $0.serverId == serverId }
             if let existing {
-                existing.filePath = relativePath
+                existing.filePath = storedPath
                 existing.fileSize = fileSize
                 existing.mimeType = mimeType
                 existing.cachedAt = Date()
@@ -103,7 +121,7 @@ actor AudioStreamCache: AudioStreamCacheProtocol {
                 context.insert(CachedTrack(
                     songId: songId,
                     serverId: serverId,
-                    filePath: relativePath,
+                    filePath: storedPath,
                     fileSize: fileSize,
                     mimeType: mimeType
                 ))

@@ -43,6 +43,29 @@ struct AudioContainerSnifferTests {
         #expect(AudioContainer.sniff(magic: Array("FORM".utf8) + [0, 0, 0, 0] + Array("AIFC".utf8)) == .aiff)
     }
 
+    /// A first Ogg page carrying one packet: 26-byte header, segment count 1, segment table, packet.
+    private func oggFirstPage(_ packet: [UInt8]) -> [UInt8] {
+        Array("OggS".utf8) + [0, 2] + [UInt8](repeating: 0, count: 20) + [1, UInt8(packet.count)] + packet
+    }
+
+    @Test("Ogg with an OpusHead first packet is Opus, Vorbis stays ogg")
+    func opusInOgg() {
+        let opusHead = Array("OpusHead".utf8) + [1, 1, 0x38, 0x01, 0x80, 0xBB, 0, 0, 0, 0, 0]
+        #expect(AudioContainer.sniff(magic: oggFirstPage(opusHead)) == .opus)
+        let vorbisHead = [0x01] + Array("vorbis".utf8) + [UInt8](repeating: 0, count: 23)
+        #expect(AudioContainer.sniff(magic: oggFirstPage(vorbisHead)) == .ogg)
+    }
+
+    @Test("Truncated, empty or non-Ogg bytes are never Opus")
+    func opusNeedsOggAndFullHead() {
+        let opusHead = Array("OpusHead".utf8)
+        #expect(AudioContainer.sniff(magic: Array(oggFirstPage(opusHead).prefix(32))) == .ogg)
+        #expect(AudioContainer.sniff(magic: Array(oggFirstPage(opusHead).prefix(20))) == .ogg)
+        #expect(AudioContainer.sniff(magic: []) == nil)
+        #expect(AudioContainer.sniff(magic: bytes("OpusHead")) == nil)
+        #expect(AudioContainer.sniff(magic: Array("RIFF".utf8) + [0, 0, 0, 0] + Array("WAVE".utf8) + opusHead) == .wav)
+    }
+
     @Test("RIFF without WAVE, and unknown or truncated bytes, match nothing")
     func unknownBytes() {
         // A RIFF container that is not WAVE must not be claimed.
