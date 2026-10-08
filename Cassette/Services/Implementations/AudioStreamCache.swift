@@ -108,11 +108,13 @@ actor AudioStreamCache: AudioStreamCacheProtocol {
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: fileURL.path)[.size] as? Int64) ?? Int64(data.count)
         let storedPath = relativePath
 
-        await MainActor.run {
+        let replacedPath: String? = await MainActor.run {
             let context = ModelContext(modelContainer)
             let existing = (try? context.fetch(FetchDescriptor<CachedTrack>(predicate: #Predicate { $0.songId == songId })))?
                 .first { $0.serverId == serverId }
+            var replaced: String?
             if let existing {
+                if existing.filePath != storedPath { replaced = existing.filePath }
                 existing.filePath = storedPath
                 existing.fileSize = fileSize
                 existing.mimeType = mimeType
@@ -128,9 +130,14 @@ actor AudioStreamCache: AudioStreamCacheProtocol {
             }
             do {
                 try context.save()
+                return replaced
             } catch {
                 Logger.cache.debug("AudioStreamCache: store save failed — \(error)")
+                return nil
             }
+        }
+        if let replacedPath {
+            try? FileManager.default.removeItem(at: cacheDirectory.appendingPathComponent(replacedPath))
         }
 
         await evictToFitLimit()

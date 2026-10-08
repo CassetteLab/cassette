@@ -381,6 +381,24 @@ struct OpusFileTests {
         await cache.clearAllForServer(serverId)
     }
 
+    @Test("Re-storing a song under another extension deletes the previous file")
+    func cacheStoreRemovesReplacedFile() async throws {
+        let (cache, _) = try makeCache()
+        let serverId = UUID()
+
+        let flac = try await cache.store(data: Data([1]), forSongId: "song", serverId: serverId, mimeType: "audio/flac")
+        let m4a = try await cache.store(data: Data([2]), forSongId: "song", serverId: serverId, mimeType: "audio/mp4")
+        #expect(flac.pathExtension == "flac")
+        #expect(m4a.pathExtension == "m4a")
+        #expect(!FileManager.default.fileExists(atPath: flac.path))
+        #expect(FileManager.default.fileExists(atPath: m4a.path))
+
+        let again = try await cache.store(data: Data([3]), forSongId: "song", serverId: serverId, mimeType: "audio/mp4")
+        #expect(again == m4a)
+        #expect(FileManager.default.fileExists(atPath: m4a.path))
+        await cache.clearAllForServer(serverId)
+    }
+
     @Test("A cached Opus file stored as .ogg is dropped on lookup")
     func cacheDropsMislabelledOpus() async throws {
         let (cache, container) = try makeCache()
