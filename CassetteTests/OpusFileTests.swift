@@ -277,6 +277,21 @@ struct OpusFileTests {
         #expect(!FileManager.default.fileExists(atPath: destination.path))
     }
 
+    @Test("Opus with more packets than the bound is rejected and leaves no file")
+    func remuxRejectsTooManyPackets() throws {
+        let source = temporaryURL("opus")
+        let destination = temporaryURL("caf")
+        try Self.opusFile.write(to: source)
+        defer {
+            try? FileManager.default.removeItem(at: source)
+            try? FileManager.default.removeItem(at: destination)
+        }
+
+        #expect(throws: OpusRemuxer.RemuxError.self) { try OpusRemuxer.remuxToCAF(from: source, to: destination, maxPackets: 2) }
+        #expect(!FileManager.default.fileExists(atPath: destination.path))
+        #expect(throws: Never.self) { try OpusRemuxer.remuxToCAF(from: source, to: destination) }
+    }
+
     // MARK: - Cache
 
     @Test("An Opus payload served as audio/ogg is cached as .caf, Vorbis stays .ogg")

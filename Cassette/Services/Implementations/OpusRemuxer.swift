@@ -14,15 +14,19 @@ nonisolated enum OpusRemuxer {
         var description: String { "Opus remux failed at \(step) (OSStatus \(status))" }
     }
 
+    /// 10 hours of audio at the shortest Opus frame (2.5 ms).
+    static let maxPackets: Int64 = 14_400_000
+
     /// Writes the Opus packets of `source` into a new CAF at `destination`; on failure no partial CAF is left there.
-    static func remuxToCAF(from source: URL, to destination: URL) throws {
+    /// Sources with more than `maxPackets` packets are rejected.
+    static func remuxToCAF(from source: URL, to destination: URL, maxPackets: Int64 = OpusRemuxer.maxPackets) throws {
         guard source.standardizedFileURL.resolvingSymlinksInPath() != destination.standardizedFileURL.resolvingSymlinksInPath() else {
             throw RemuxError(step: "destination", status: kAudioFileOperationNotSupportedError)
         }
         // Written next to the destination and moved into place, so a failure never touches what is there.
         let temporary = destination.deletingLastPathComponent().appendingPathComponent(".\(UUID().uuidString).caf.tmp")
         do {
-            try remux(from: source, to: temporary)
+            try remux(from: source, to: temporary, maxPackets: maxPackets)
             var isDirectory: ObjCBool = false
             if FileManager.default.fileExists(atPath: destination.path, isDirectory: &isDirectory) {
                 guard !isDirectory.boolValue else { throw RemuxError(step: "destination", status: kAudioFileOperationNotSupportedError) }
@@ -41,7 +45,7 @@ nonisolated enum OpusRemuxer {
     }
 
     // The CAF is written by hand: Apple's writer stores Opus with variable packet length, AudioStreaming needs a fixed one to seek.
-    private static func remux(from source: URL, to destination: URL) throws {
+    private static func remux(from source: URL, to destination: URL, maxPackets: Int64) throws {
         var input: AudioFileID?
         try check(AudioFileOpenURL(source as CFURL, .readPermission, 0, &input), "open")
         guard let input else { throw RemuxError(step: "open", status: kAudioFileUnspecifiedError) }
@@ -78,10 +82,14 @@ nonisolated enum OpusRemuxer {
         var audioBytes: Int64 = 0
         var variableFrames = Set<UInt32>()
         var tocSamples = Set<Int>()
+        var seenPackets: Int64 = 0
         let packetCount = try readPackets(input, maxPacketSize: maxPacketSize) { descriptions, buffer in
             for description in descriptions {
+                seenPackets += 1
+                guard seenPackets <= maxPackets else { throw RemuxError(step: "packet count", status: kAudioFileInvalidFileError) }
                 let start = Int(description.mStartOffset)
                 tocSamples.insert(samplesAt48kHz(buffer[start..<start + Int(description.mDataByteSize)]) ?? 0)
+                guard tocSamples.count == 1 else { throw RemuxError(step: "frames per packet", status: kAudioFileUnsupportedDataFormatError) }
                 packetSizes += berEncoded(UInt64(description.mDataByteSize))
                 audioBytes += Int64(description.mDataByteSize)
                 variableFrames.insert(description.mVariableFramesInPacket)
