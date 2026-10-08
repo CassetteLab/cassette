@@ -97,7 +97,7 @@ actor AudioStreamCache: AudioStreamCacheProtocol {
             let cafPath = "\(serverId.uuidString)-\(songId).caf"
             let cafURL = cacheDirectory.appendingPathComponent(cafPath)
             do {
-                try OpusRemuxer.remuxToCAF(from: fileURL, to: cafURL)
+                try await OpusRemuxer.remuxToCAFOffActor(from: fileURL, to: cafURL)
                 try? FileManager.default.removeItem(at: fileURL)
                 relativePath = cafPath
                 fileURL = cafURL

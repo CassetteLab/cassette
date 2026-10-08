@@ -17,6 +17,12 @@ nonisolated enum OpusRemuxer {
     /// 10 hours of audio at the shortest Opus frame (2.5 ms).
     static let maxPackets: Int64 = 14_400_000
 
+    /// Runs `remuxToCAF` on the global executor so a calling actor stays responsive.
+    @concurrent
+    static func remuxToCAFOffActor(from source: URL, to destination: URL) async throws {
+        try remuxToCAF(from: source, to: destination)
+    }
+
     /// Writes the Opus packets of `source` into a new CAF at `destination`; on failure no partial CAF is left there.
     /// Sources with more than `maxPackets` packets are rejected.
     static func remuxToCAF(from source: URL, to destination: URL, maxPackets: Int64 = OpusRemuxer.maxPackets) throws {

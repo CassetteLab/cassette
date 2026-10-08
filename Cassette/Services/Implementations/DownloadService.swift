@@ -119,7 +119,7 @@ actor DownloadService: DownloadServiceProtocol {
         let oldURL = downloadsDirectory.appendingPathComponent(filePath)
         let newURL = downloadsDirectory.appendingPathComponent(newPath)
         do {
-            try OpusRemuxer.remuxToCAF(from: oldURL, to: newURL)
+            try await OpusRemuxer.remuxToCAFOffActor(from: oldURL, to: newURL)
         } catch {
             Logger.download.error("Opus remux failed '\(filePath, privacy: .public)': \(error, privacy: .public)")
             return nil
@@ -527,7 +527,7 @@ actor DownloadService: DownloadServiceProtocol {
             let cafPath = "\(serverId.uuidString)/\(song.id).caf"
             let cafURL = downloadsDirectory.appendingPathComponent(cafPath)
             do {
-                try OpusRemuxer.remuxToCAF(from: fileURL, to: cafURL)
+                try await OpusRemuxer.remuxToCAFOffActor(from: fileURL, to: cafURL)
                 try? FileManager.default.removeItem(at: fileURL)
                 relativePath = cafPath
                 fileURL = cafURL
