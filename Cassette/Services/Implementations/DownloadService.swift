@@ -578,7 +578,13 @@ actor DownloadService: DownloadServiceProtocol {
             }
         }
 
-        await MainActor.run {
+        let stalePaths: [String] = await MainActor.run {
+            // A legacy record that is not served (failed Opus migration) is replaced, not duplicated.
+            let context = modelContainer.mainContext
+            let existing = (try? context.fetch(FetchDescriptor<DownloadedTrack>(predicate: #Predicate { $0.songId == songId }))) ?? []
+            let stale = existing.filter { $0.serverId == serverId }
+            let stalePaths = stale.map(\.filePath)
+            stale.forEach(context.delete)
             let record = DownloadedTrack(
                 songId: songId,
                 serverId: serverId,
@@ -602,12 +608,17 @@ actor DownloadService: DownloadServiceProtocol {
                 replayGainBaseGain: rgBaseGain,
                 replayGainFallbackGain: rgFallbackGain
             )
-            modelContainer.mainContext.insert(record)
+            context.insert(record)
             do {
-                try modelContainer.mainContext.save()
+                try context.save()
+                return stalePaths
             } catch {
                 Logger.download.error("DownloadService: track record save failed for '\(songId, privacy: .public)' — \(error)")
+                return []
             }
+        }
+        for path in stalePaths where path != storedPath {
+            try? FileManager.default.removeItem(at: downloadsDirectory.appendingPathComponent(path))
         }
 
         emit(progress: DownloadProgress(songId: song.id, serverId: serverId, progress: 1.0, totalBytes: fileSize, receivedBytes: fileSize))

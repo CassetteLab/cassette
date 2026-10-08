@@ -7,8 +7,65 @@ import Testing
 import Foundation
 import AVFoundation
 import AudioToolbox
+import Network
 import SwiftData
+import SwiftSonic
 @testable import Cassette
+
+/// Points the client at a local port; credentials are fixed.
+@MainActor
+private final class LocalServerStub: ServerServiceProtocol {
+    let state = ServerState()
+    let port: UInt16
+    init(port: UInt16) { self.port = port }
+
+    func makeSwiftSonicClient() async throws -> SwiftSonicClient {
+        SwiftSonicClient(configuration: ServerConfiguration(serverURL: URL(string: "http://127.0.0.1:\(port)")!, username: "u", password: "p"))
+    }
+    func activeCredentials() async throws -> ServerCredentials { ServerCredentials(password: "p", customHeaders: [:]) }
+
+    func testConnection() async throws {}
+    func testConnection(url: String, username: String, password: String, customHeaders: [String: String]) async throws {}
+    func addServer(displayName: String, baseURL: String, username: String, password: String, customHeaders: [String: String]) async throws {}
+    func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {}
+    func loadPersistedState() async {}
+    func removeServer(id: UUID) async throws {}
+    func setActiveServer(id: UUID) async throws {}
+    func updateCustomHeaders(_ headers: [String: String], forServer id: UUID) async throws {}
+    func updateServer(id: UUID, displayName: String, baseURL: String, username: String, password: String, customHeaders: [String: String]) async throws {}
+    func setMusicFolderScope(serverId: UUID, folderId: String?) async throws {}
+    func setHiddenPlaylistKinds(serverId: UUID, kinds: Set<PlaylistKind>) async throws {}
+    func setPlaylistKindHidden(serverId: UUID, kind: PlaylistKind, isHidden: Bool) async throws {}
+}
+
+/// Answers every request on 127.0.0.1 with `body` as audio/ogg.
+private func startServer(serving body: Data) async throws -> (listener: NWListener, port: UInt16) {
+    let listener = try NWListener(using: .tcp, on: .any)
+    listener.newConnectionHandler = { connection in
+        connection.start(queue: .global())
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { _, _, _, _ in
+            let head = "HTTP/1.1 200 OK\r\nContent-Type: audio/ogg\r\nContent-Length: \(body.count)\r\nConnection: close\r\n\r\n"
+            connection.send(content: Data(head.utf8) + body, completion: .contentProcessed { _ in connection.cancel() })
+        }
+    }
+    let port: UInt16 = try await withCheckedThrowingContinuation { continuation in
+        nonisolated(unsafe) var resumed = false
+        listener.stateUpdateHandler = { state in
+            guard !resumed else { return }
+            switch state {
+            case .ready:
+                resumed = true
+                continuation.resume(returning: listener.port?.rawValue ?? 0)
+            case .failed(let error):
+                resumed = true
+                continuation.resume(throwing: error)
+            default: break
+            }
+        }
+        listener.start(queue: .global())
+    }
+    return (listener, port)
+}
 
 @Suite("Opus files — remuxed to CAF so Apple's decoder plays and seeks them")
 @MainActor
@@ -53,11 +110,11 @@ struct OpusFileTests {
 
     /// Plants a download record and its file at `serverId/song.<ext>`; returns the service and file URL.
     private func makeDownload(
-        base: URL, ext: String, data: Data
+        base: URL, ext: String, data: Data, serverService: (any ServerServiceProtocol)? = nil
     ) throws -> (service: DownloadService, container: ModelContainer, serverId: UUID, url: URL) {
         let container = try ModelContainer.cassette(inMemory: true)
         let service = DownloadService(
-            serverService: MockServerService(),
+            serverService: serverService ?? MockServerService(),
             modelContainer: container,
             toastService: ToastService(),
             cacheSettings: CacheSettings(),
@@ -406,5 +463,24 @@ struct OpusFileTests {
         #expect(!FileManager.default.fileExists(atPath: oldURL.deletingPathExtension().appendingPathExtension("caf").path))
         let record = try #require(try ModelContext(container).fetch(FetchDescriptor<DownloadedTrack>()).first)
         #expect(record.filePath == "\(serverId.uuidString)/song.\(ext)")
+    }
+
+    @Test("Downloading again after a failed legacy Opus migration replaces the record instead of duplicating it")
+    func redownloadReplacesUnmigratedRecord() async throws {
+        let base = makeBase()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let (listener, port) = try await startServer(serving: Self.opusFile)
+        defer { listener.cancel() }
+        let (service, container, serverId, oldURL) = try makeDownload(
+            base: base, ext: "ogg", data: Self.brokenOpusFile, serverService: LocalServerStub(port: port)
+        )
+        #expect(!(await service.isDownloaded(songId: "song", serverId: serverId)))
+
+        try await service.download(song: Song(id: "song", title: "Song"), serverId: serverId)
+
+        let records = try ModelContext(container).fetch(FetchDescriptor<DownloadedTrack>())
+        #expect(records.map(\.filePath) == ["\(serverId.uuidString)/song.caf"])
+        #expect(!FileManager.default.fileExists(atPath: oldURL.path))
+        #expect(await service.isDownloaded(songId: "song", serverId: serverId))
     }
 }
