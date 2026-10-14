@@ -97,7 +97,7 @@ struct AlbumsListView: View {
         }
     }
 
-    /// List of AlbumRow (with the A–Z jump bar on iOS when sorted by name).
+    /// List of AlbumRow (with the A–Z jump bar on iOS when sorted by name or artist).
     @ViewBuilder
     private func albumsList(_ vm: AlbumListViewModel) -> some View {
         let albums = sortedAlbums(vm)
@@ -119,12 +119,13 @@ struct AlbumsListView: View {
             .refreshable { await vm.load() }
             #if os(iOS)
             .safeAreaInset(edge: .trailing, spacing: 0) {
-                // The A–Z jump bar only makes sense when sorted by name.
-                if albumSort == .name && albums.count >= 20 {
+                // The A–Z jump bar only makes sense when sorted alphabetically, keyed by what is sorted on.
+                if (albumSort == .name || albumSort == .artist) && albums.count >= 20 {
+                    let key: KeyPath<AlbumID3, String> = albumSort == .artist ? \.artistOrEmpty : \.name
                     AlphabetJumpBar(
-                        availableLetters: albums.availableAlphabetLetters(keyPath: \.name),
+                        availableLetters: albums.availableAlphabetLetters(keyPath: key),
                         onLetterTap: { letter in
-                            if let id = firstAlphabetItemID(forLetter: letter, in: albums, keyPath: \.name) {
+                            if let id = firstAlphabetItemID(forLetter: letter, in: albums, keyPath: key) {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     proxy.scrollTo(id, anchor: .top)
                                 }

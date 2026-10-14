@@ -7,16 +7,19 @@ import Foundation
 import SwiftSonic
 
 /// User-selectable ordering for the artists list. Persists via `@AppStorage("cassette.artistSort")`.
-/// (ArtistID3 carries no date, so "recently added" isn't available without a different fetch — hence just
-/// Name and Album Count.)
+/// (ArtistID3 carries no creation date, so "recently added" isn't available without a different fetch.)
 nonisolated enum ArtistSort: String, CaseIterable, Sendable {
     case name
     case albumCount
+    case starred
+    case rating
 
     var label: String {
         switch self {
         case .name: return "Name"
         case .albumCount: return "Album Count"
+        case .starred: return "Starred"
+        case .rating: return "Rating"
         }
     }
 
@@ -24,6 +27,8 @@ nonisolated enum ArtistSort: String, CaseIterable, Sendable {
         switch self {
         case .name: return "textformat"
         case .albumCount: return "square.stack"
+        case .starred: return "star"
+        case .rating: return "star.leadinghalf.filled"
         }
     }
 
@@ -35,6 +40,19 @@ nonisolated enum ArtistSort: String, CaseIterable, Sendable {
             return artists.sorted {
                 let a = $0.albumCount ?? 0, b = $1.albumCount ?? 0
                 if a != b { return a > b } // most albums first
+                return key($0).localizedStandardCompare(key($1)) == .orderedAscending
+            }
+        case .starred:
+            // Starred artists first, most recently starred at the top.
+            return artists.sorted {
+                let a = $0.starred ?? .distantPast, b = $1.starred ?? .distantPast
+                if a != b { return a > b }
+                return key($0).localizedStandardCompare(key($1)) == .orderedAscending
+            }
+        case .rating:
+            return artists.sorted {
+                let a = $0.userRating ?? 0, b = $1.userRating ?? 0
+                if a != b { return a > b }
                 return key($0).localizedStandardCompare(key($1)) == .orderedAscending
             }
         }
