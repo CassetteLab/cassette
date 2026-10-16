@@ -7,7 +7,7 @@ import SwiftUI
 
 struct ReplayGainSettingsSection: View {
     @Environment(\.appContainer) private var container
-    @AppStorage(PlaybackContinuationPreference.userDefaultsKey) private var isPlaybackContinuationEnabled = true
+    @AppStorage(PlaybackContinuationPreference.userDefaultsKey) private var isPlaybackContinuationEnabled = false
 
     var body: some View {
         let rg = container?.replayGainSettings

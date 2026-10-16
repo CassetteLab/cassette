@@ -17,31 +17,6 @@ nonisolated enum CrossfadePhase: Sendable {
     case fadeIn
 }
 
-nonisolated enum PlaybackContinuationPreference {
-    /// Kept device-local on purpose so each installation can opt in independently.
-    static let userDefaultsKey = "cassette.playback.continuationEnabled"
-    private static let deviceIdentifierKey = "cassette.playback.continuationDeviceIdentifier"
-
-    static func isEnabled(defaults: UserDefaults = .standard) -> Bool {
-        defaults.object(forKey: userDefaultsKey) == nil || defaults.bool(forKey: userDefaultsKey)
-    }
-
-    static func deviceIdentifier(defaults: UserDefaults = .standard) -> String {
-        if let saved = defaults.string(forKey: deviceIdentifierKey) { return saved }
-        let identifier = UUID().uuidString
-        defaults.set(identifier, forKey: deviceIdentifierKey)
-        return identifier
-    }
-
-    static func serverClientName(defaults: UserDefaults = .standard) -> String {
-        #if os(macOS)
-        return "Cassette-macOS-\(deviceIdentifier(defaults: defaults))"
-        #else
-        return "Cassette-iOS-\(deviceIdentifier(defaults: defaults))"
-        #endif
-    }
-}
-
 actor PlayerService: PlayerServiceProtocol {
     nonisolated let state: PlayerState
 
@@ -1454,6 +1429,13 @@ actor PlayerService: PlayerServiceProtocol {
         repeatMode: RepeatMode
     ) async throws {
         guard queue.indices.contains(currentIndex) else { return }
+        // Re-checked here, next to the mutation it guards: between the caller's check and this
+        // actor running, the user can press play — and then we would stop what they just started.
+        let isPaused = await MainActor.run { state.playbackState == .paused }
+        guard isPaused else {
+            Logger.player.debug("Playback continuation skipped: playback started locally")
+            return
+        }
 
         // Tear down any local playback before replacing its queue. `stop()` also cancels pending
         // restore/crossfade work, which prevents an old delegate callback from racing continuation.
@@ -1491,7 +1473,7 @@ actor PlayerService: PlayerServiceProtocol {
         if shouldResume {
             await resume()
         }
-        Logger.player.info("Playback continued from another device: \(queue.count) tracks, index \(currentIndex), pos=\(safePosition, format: .fixed(precision: 1))s")
+        Logger.player.info("Playback continued from another device: \(queue.count, privacy: .public) tracks, index \(currentIndex, privacy: .public), pos=\(safePosition, format: .fixed(precision: 1), privacy: .public)s")
     }
 
     /// Lightweight position-only flush — called from scenePhase .inactive on iOS
@@ -1514,11 +1496,15 @@ actor PlayerService: PlayerServiceProtocol {
             )
         }
         await sessionService.save(playerState: snapshot)
-        Task { [weak self] in await self?.saveServerPlayQueueIfNeeded(force: true) }
+        // Throttled: saveSession() is called from a dozen places, and every upload sends the
+        // whole list of queue ids. Only the backgrounding flush below skips the throttle.
+        Task { [weak self] in await self?.saveServerPlayQueueIfNeeded(force: false) }
     }
 
-    /// Checks once on launch or eligible app activation and accepts the queue written by another
-    /// Cassette installation using the same authenticated server account.
+    /// Adopts the queue saved by another Cassette installation on the same server account.
+    ///
+    /// Runs off the cold-start path (see `AppLaunchSteps.live`), so a slow server delays nothing
+    /// the user is waiting for. Returns `true` only when a remote queue was actually adopted.
     func restoreFromOtherDevice() async -> Bool {
         guard PlaybackContinuationPreference.isEnabled(), !isCheckingRemoteContinuation else {
             return false
@@ -1526,27 +1512,25 @@ actor PlayerService: PlayerServiceProtocol {
         isCheckingRemoteContinuation = true
         defer { isCheckingRemoteContinuation = false }
         do {
-            guard let remote = try await libraryService.getPlayQueue(), !remote.entry.isEmpty else {
-                return false
+            guard let remote = try await libraryService.getPlayQueue() else { return false }
+            let local = await MainActor.run {
+                (ids: state.queue.map(\.id), currentId: state.currentTrack?.id, repeatMode: state.repeatMode)
             }
-            guard remote.changedBy != PlaybackContinuationPreference.serverClientName() else {
-                return false
-            }
+            guard let plan = PlaybackContinuationPlan.make(
+                from: remote,
+                localQueueIds: local.ids,
+                localCurrentId: local.currentId
+            ) else { return false }
 
-            let queue = remote.entry.map { DisplayableSong(from: $0) }
-            let currentIndex = remote.current.flatMap { current in
-                queue.firstIndex { $0.id == current }
-            } ?? 0
-            let local = await MainActor.run { (state.queue.map(\.id), state.repeatMode) }
-            let repeatMode: RepeatMode = local.0 == queue.map(\.id) ? local.1 : .off
+            // Same queue as ours keeps its repeat mode; a queue from elsewhere starts clean.
+            let repeatMode: RepeatMode = local.ids == plan.songIds ? local.repeatMode : .off
             try await continuePlayback(
-                queue: queue,
-                currentIndex: currentIndex,
-                position: remote.position ?? 0,
+                queue: plan.songs,
+                currentIndex: plan.currentIndex,
+                position: plan.position,
                 shouldResume: false,
                 repeatMode: repeatMode
             )
-            Logger.player.info("Playback continuation restored \(queue.count, privacy: .public) server tracks")
             return true
         } catch {
             Logger.player.debug("Playback continuation unavailable; keeping local session: \(error, privacy: .public)")
