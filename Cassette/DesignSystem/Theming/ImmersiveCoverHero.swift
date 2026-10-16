@@ -22,6 +22,13 @@ struct ImmersiveCoverHero<Content: View>: View {
     /// When true the cover keeps its square ratio and the content sits BELOW it (album/playlist covers shown in
     /// full); when false (default) the content floats over the full-bleed cover (artist photos).
     var contentBelow: Bool = false
+    /// Takes the cover full-frame in the screen it already lives in. Attached to the cover alone,
+    /// not the whole hero: the content below (or over) it owns its taps — transport, artist links.
+    var onCoverTap: (() -> Void)? = nil
+    /// Marks the cover as the source of the zoom transition to the full-frame artwork, so the
+    /// thing that grows is the thing that was tapped.
+    var zoomSourceID: String? = nil
+    var zoomNamespace: Namespace.ID? = nil
     @ViewBuilder let content: () -> Content
 
     var body: some View {
@@ -63,5 +70,8 @@ struct ImmersiveCoverHero<Content: View>: View {
             .id(coverRefreshID)
         }
         .frame(height: heroHeight)
+        .cassetteMatchedTransitionSource(id: zoomSourceID, in: zoomNamespace)
+        .contentShape(Rectangle())
+        .onTapGesture { onCoverTap?() }
     }
 }
