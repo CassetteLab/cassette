@@ -32,6 +32,11 @@ struct LyricsView: View {
         }
         .onAppear { viewModel.setVisible(true) }
         .onDisappear { viewModel.setVisible(false) }
+        // A track change hands this view a brand-new view model, which starts out believing it is
+        // not on screen — and `onAppear` does not fire again, because the view itself never left.
+        // Without this, the line tracking stopped at the end of the first song and only came back
+        // by hiding and showing the panel.
+        .onChange(of: viewModel.songId) { _, _ in viewModel.setVisible(true) }
         .onChange(of: viewModel.isPlaying) { _, _ in viewModel.reconcileTracking() }
     }
 

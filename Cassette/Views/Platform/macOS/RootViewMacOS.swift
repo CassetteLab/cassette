@@ -103,6 +103,9 @@ struct RootViewMacOS: View {
             .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleShuffle)) { _ in
                 Task { await container?.playerService.toggleShuffle() }
             }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleFavorite)) { _ in
+                Task { await toggleCurrentTrackFavorite() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleRepeat)) { _ in
                 Task {
                     guard let container else { return }
@@ -160,6 +163,24 @@ struct RootViewMacOS: View {
         guard duration > 0 else { return }
         let target = min(max(state.position + delta, 0), duration)
         await container.playerService.seek(to: target)
+    }
+
+    /// The Playback menu's ⌘L. Lives here because the root view is always mounted, where the
+    /// player surfaces come and go — and it tells them afterwards rather than letting each one
+    /// guess when its own copy of the flag went stale.
+    private func toggleCurrentTrackFavorite() async {
+        guard let container, let track = container.playerState.currentTrack else { return }
+        let isFavorite = container.favoritesService.isFavorite(itemType: .song, itemId: track.id)
+        do {
+            if isFavorite {
+                try await container.favoritesService.unstar(itemType: .song, itemId: track.id)
+            } else {
+                try await container.favoritesService.star(itemType: .song, itemId: track.id)
+            }
+            NotificationCenter.default.post(name: .cassetteFavoriteDidChange, object: nil)
+        } catch {
+            container.toastService.showError(String(localized: "Couldn't update favorites. Please try again."))
+        }
     }
 
     private func handleTogglePlayPause() async {

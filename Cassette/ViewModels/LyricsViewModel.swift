@@ -12,7 +12,9 @@ final class LyricsViewModel {
     private let lyricsService: LyricsService
     private let playerService: any PlayerServiceProtocol
     private let playerState: PlayerState
-    private let songId: String
+    /// Readable so the view can tell one song's view model from the next: a new instance arrives
+    /// without the view appearing again, and that difference is what has to be noticed.
+    let songId: String
     private let serverId: UUID
 
     private(set) var state: State = .loading

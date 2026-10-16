@@ -1130,6 +1130,10 @@ struct PlaylistSongRows: View {
         SongRow(song: liveSong, index: index + 1, showCoverArt: true, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onRemoveFromPlaylist: onContextRemove.map { remove in { remove(index) } }, onAddToPlaylist: onAddToPlaylist)
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
+            // In a removable list the trailing edge is already "remove from playlist"; an explicit
+            // `.swipeActions` there would replace it without saying so, so only the leading edge
+            // (favourite, download) is added.
+            .songSwipeActions(song: liveSong, onDownload: downloadAction, includesQueueActions: onRemove == nil)
             .listRowBackground(Color.clear)
         #if os(macOS)
         .listRowSeparator(.hidden)

@@ -63,6 +63,11 @@ extension Notification.Name {
     static let cassetteToggleShuffle = Notification.Name("cassette.toggleShuffle")
     static let cassetteToggleRepeat = Notification.Name("cassette.toggleRepeat")
     static let cassetteToggleQueue = Notification.Name("cassette.toggleQueue")
+    /// Posted by the Playback menu shortcut; the macOS root view owns the toggle.
+    static let cassetteToggleFavorite = Notification.Name("cassette.toggleFavorite")
+    /// Posted after a favorite changed outside a view, so the player surfaces re-read it
+    /// instead of each one guessing when its own copy went stale.
+    static let cassetteFavoriteDidChange = Notification.Name("cassette.favoriteDidChange")
     static let cassetteSeekBackward = Notification.Name("cassette.seekBackward")
     static let cassetteSeekForward = Notification.Name("cassette.seekForward")
     static let cassetteOpenFullPlayer = Notification.Name("cassette.openFullPlayer")

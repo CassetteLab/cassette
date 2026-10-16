@@ -60,6 +60,12 @@ struct CassetteCommands: Commands {
             }
             .keyboardShortcut("r", modifiers: .command)
 
+            Button("Toggle Favorite") {
+                NotificationCenter.default.post(name: .cassetteToggleFavorite, object: nil)
+            }
+            .keyboardShortcut("l", modifiers: .command)
+            .disabled(container?.playerState.currentTrack == nil)
+
             Divider()
 
             Button("Show Queue") {
