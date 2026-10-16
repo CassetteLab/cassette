@@ -17,7 +17,14 @@ private final class ADLibraryStub: LibraryServiceProtocol {
     /// When set, `album(id:)` returns this instead of throwing — used to drive the
     /// empty-but-successful (200, no songs) path that the catch block can't catch.
     var albumResult: AlbumID3?
+    /// Fired as the API call is entered — i.e. after `load()` has done whatever it does first.
+    /// Lets a test observe the screen's state during the window the server is still thinking,
+    /// with no sleeping or polling.
+    var onAlbumCalled: (() -> Void)?
+    private(set) var albumCallCount = 0
     func album(id: String) async throws -> AlbumID3 {
+        albumCallCount += 1
+        onAlbumCalled?()
         if let albumResult { return albumResult }
         throw URLError(.notConnectedToInternet)
     }
@@ -100,6 +107,12 @@ struct AlbumDetailOfflineTests {
     }
 
     private func makeVM(albumData: LocalAlbumData?, isOnline: Bool, apiAlbum: AlbumID3? = nil) -> AlbumDetailViewModel {
+        makeParts(albumData: albumData, isOnline: isOnline, apiAlbum: apiAlbum).vm
+    }
+
+    private func makeParts(
+        albumData: LocalAlbumData?, isOnline: Bool, apiAlbum: AlbumID3? = nil
+    ) -> (vm: AlbumDetailViewModel, library: ADLibraryStub, download: ADDownloadStub) {
         let state = ServerState()
         state.isOnline = isOnline
         state.activeServer = ServerSnapshot(from: ServerConfig(
@@ -109,13 +122,14 @@ struct AlbumDetailOfflineTests {
         download.albumData = albumData
         let library = ADLibraryStub()
         library.albumResult = apiAlbum
-        return AlbumDetailViewModel(
+        let vm = AlbumDetailViewModel(
             albumId: "album-1",
             libraryService: library,
             downloadService: download,
             toastService: ToastService(),
             serverState: state
         )
+        return (vm, library, download)
     }
 
     /// Builds a genuine, empty `AlbumID3` (200 OK, no songs) through SwiftSonic's real
@@ -197,5 +211,68 @@ struct AlbumDetailOfflineTests {
         await vm.load()
         #expect(vm.songs.isEmpty)
         #expect(vm.error == nil)
+    }
+
+    // MARK: - Head start: the downloaded copy goes up before the server answers
+    //
+    // `isOnline` only means an interface exists. On a network that resolves but never answers
+    // (airplane mode leaves Wi-Fi associated) the request burns its whole timeout on every
+    // retry, and the screen used to sit on a skeleton for that entire minute with the tracks
+    // already on the device.
+
+    @Test("online, the downloaded copy is already on screen while the server is still thinking")
+    func localCopyIsShownBeforeTheAPIAnswers() async throws {
+        let parts = makeParts(albumData: downloadedAlbum, isOnline: true, apiAlbum: try await fullSuccessAlbum())
+        var observed: (songs: Int, name: String, offline: Bool)?
+        parts.library.onAlbumCalled = { [vm = parts.vm] in
+            observed = (vm.songs.count, vm.albumName, vm.isOffline)
+        }
+        await parts.vm.load()
+
+        let seen = try #require(observed)
+        #expect(seen.songs == 2, "the downloaded tracks should be readable during the wait")
+        #expect(seen.name == "Album", "and the header filled in, not blank")
+        // The screen must not wear the offline badge while the server may still answer:
+        // that is what hides the download controls and unlinks the artist.
+        #expect(seen.offline == false)
+    }
+
+    @Test("a successful response replaces the head start and clears the offline flag")
+    func apiResultWinsOverTheHeadStart() async throws {
+        let vm = makeVM(albumData: downloadedAlbum, isOnline: true, apiAlbum: try await fullSuccessAlbum())
+        await vm.load()
+        #expect(vm.songs.count == 3, "the catalog list, not the two downloaded tracks")
+        #expect(vm.isOffline == false)
+        #expect(vm.error == nil)
+    }
+
+    @Test("a reload does not swap the loaded list for the smaller downloaded copy mid-flight")
+    func reloadKeepsWhatIsAlreadyOnScreen() async throws {
+        let parts = makeParts(albumData: downloadedAlbum, isOnline: true, apiAlbum: try await fullSuccessAlbum())
+        await parts.vm.load()
+        #expect(parts.vm.songs.count == 3)
+
+        var songsWhenCalled: Int?
+        parts.library.onAlbumCalled = { [vm = parts.vm] in songsWhenCalled = vm.songs.count }
+        await parts.vm.load()
+
+        #expect(parts.library.albumCallCount == 2)
+        #expect(songsWhenCalled == 3, "the head start is for an empty screen only")
+    }
+
+    /// A genuine 200 with three songs, decoded by SwiftSonic itself — one more than the
+    /// downloaded copy, so the two lists can be told apart.
+    private func fullSuccessAlbum() async throws -> AlbumID3 {
+        let json = Data(#"""
+        {"subsonic-response":{"status":"ok","version":"1.16.1","album":{"id":"album-1","name":"Album","artist":"Artist","artistId":"ar-1","songCount":3,"duration":600,"created":"2024-01-01T00:00:00.000Z","coverArt":"al-1","song":[{"id":"1","title":"One","duration":200},{"id":"2","title":"Two","duration":200},{"id":"3","title":"Three","duration":200}]}}}
+        """#.utf8)
+        let client = SwiftSonicClient(
+            configuration: ServerConfiguration(
+                serverURL: URL(string: "https://stub.example.com")!, username: "u", password: "p"
+            ),
+            transport: StubHTTPTransport(outcome: .response(data: json, statusCode: 200)),
+            retryPolicy: .none
+        )
+        return try await client.getAlbum(id: "album-1")
     }
 }

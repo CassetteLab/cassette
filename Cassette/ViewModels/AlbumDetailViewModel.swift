@@ -47,24 +47,33 @@ final class AlbumDetailViewModel {
     func load() async {
         isLoading = true
         error = nil
+        // The downloaded copy goes up first, whenever there is one. `isOnline` only reports that
+        // an interface exists, not that the server answers: airplane mode leaves Wi-Fi associated,
+        // so a request still burns its full timeout on every retry before failing, and the screen
+        // sat on a skeleton for over a minute with the tracks already on the device. One disk read
+        // costs a fetch and means the screen is never empty for that window.
+        // Only as a head start for an empty screen: on a reload there is already content,
+        // and re-reading the downloaded copy would replace it with a smaller one mid-flight.
+        let hasLocalCopy = songs.isEmpty
+            ? await loadFromLocal(markOffline: !serverState.isOnline)
+            : false
         if serverState.isOnline {
-            await loadFromAPI()
+            await loadFromAPI(hasLocalCopy: hasLocalCopy)
         } else {
             isOffline = true
-            await loadFromLocal()
         }
         isLoading = false
         isDownloadingAlbum = await downloadService.isDownloadingAlbum(albumId)
     }
 
-    private func loadFromAPI() async {
+    private func loadFromAPI(hasLocalCopy: Bool) async {
         do {
             let apiAlbum = try await libraryService.album(id: albumId)
             // Empty-success guard: behind a captive proxy / Cloudflare-WARP edge the server
             // is reachable but answers 200 with no songs. That never throws, so the catch
             // below can't help — treat an empty result exactly like a failure and prefer the
             // downloaded copy before clobbering the UI with an empty state.
-            if (apiAlbum.song ?? []).isEmpty, await loadFromLocal() { return }
+            if (apiAlbum.song ?? []).isEmpty, await keepLocalCopy(alreadyLoaded: hasLocalCopy) { return }
             loadedAlbum = apiAlbum
             guard let serverId = serverState.activeServer?.id else { return }
             let downloadedIds = await downloadService.downloadedSongIds(serverId: serverId)
@@ -80,16 +89,26 @@ final class AlbumDetailViewModel {
         } catch {
             // Server unreachable (airplane mode with stale isOnline, VPN-satisfied path,
             // server down): fall back to the downloaded copy before surfacing an error.
-            if await loadFromLocal() { return }
+            if await keepLocalCopy(alreadyLoaded: hasLocalCopy) { return }
             self.error = UserFacingError.from(error)
         }
     }
 
+    /// The API gave us nothing usable. When `load()` already put the downloaded copy on screen
+    /// there is nothing left to read — only the offline flag to raise.
+    private func keepLocalCopy(alreadyLoaded: Bool) async -> Bool {
+        if alreadyLoaded {
+            isOffline = true
+            return true
+        }
+        return await loadFromLocal(markOffline: true)
+    }
+
     /// Returns true when a downloaded copy with at least one track was loaded.
-    /// Sets isOffline only on success — a transient online failure must not flip
-    /// the UI into offline mode while songs from a previous load are still shown.
+    /// `markOffline` is false when this runs as a head start for an online load: the copy is
+    /// shown, but the screen must not claim to be offline while the API is still on its way.
     @discardableResult
-    private func loadFromLocal() async -> Bool {
+    private func loadFromLocal(markOffline: Bool) async -> Bool {
         guard let serverId = serverState.activeServer?.id,
               let data = await downloadService.localAlbumData(albumId: albumId, serverId: serverId),
               !data.songs.isEmpty else { return false }
@@ -103,7 +122,7 @@ final class AlbumDetailViewModel {
         year = nil
         genre = nil
         artistId = nil
-        isOffline = true
+        if markOffline { isOffline = true }
         return true
     }
 

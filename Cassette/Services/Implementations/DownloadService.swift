@@ -265,9 +265,14 @@ actor DownloadService: DownloadServiceProtocol {
             let context = ModelContext(modelContainer)
             // Tracks are the primary source — present whether the album was downloaded
             // directly or via a playlist download that never created a DownloadedAlbum record.
-            let allTracks = (try? context.fetch(FetchDescriptor<DownloadedTrack>())) ?? []
-            let albumTracks = allTracks
-                .filter { $0.albumId == albumId && $0.serverId == serverId }
+            // Filtered in the fetch, not in memory: this now runs on every album open, online
+            // included, and a whole-table read per screen scales with the size of the library.
+            let aid = albumId
+            let sid = serverId
+            let descriptor = FetchDescriptor<DownloadedTrack>(
+                predicate: #Predicate { $0.albumId == aid && $0.serverId == sid }
+            )
+            let albumTracks = ((try? context.fetch(descriptor)) ?? [])
                 .sorted { ($0.trackNumber ?? Int.max) < ($1.trackNumber ?? Int.max) }
             guard !albumTracks.isEmpty else { return nil }
             let first = albumTracks[0]

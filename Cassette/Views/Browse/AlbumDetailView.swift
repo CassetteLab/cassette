@@ -94,8 +94,13 @@ struct AlbumDetailView: View {
         colorExtractor.setColorOverride(nil, forIds: albumThemeIds)
         dominantColor = colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor
     }
-    private var isLoadingSkeleton: Bool {
-        viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
+    /// The skeleton stands in for content we do not have yet — never for content we do.
+    /// `displaySongs()` already falls back to the downloaded copy, and a load can stay in flight
+    /// for a minute on a connection that resolves but never answers, so checking it first is what
+    /// keeps a downloaded album readable the whole time.
+    private func isLoadingSkeleton(_ songs: [DisplayableSong]) -> Bool {
+        guard songs.isEmpty else { return false }
+        return viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
     private var headerTextColor: Color { theme.contentColor }
     private var headerSecondaryColor: Color { theme.secondaryContentColor }
@@ -165,7 +170,7 @@ struct AlbumDetailView: View {
                 albumHeader(vm: viewModel, songs: songs)
                     .frame(maxWidth: .infinity)
 
-                if isLoadingSkeleton {
+                if isLoadingSkeleton(songs) {
                     skeletonRows
                 } else if let vm = viewModel {
                     if songs.isEmpty {
@@ -324,7 +329,7 @@ struct AlbumDetailView: View {
         .cassetteFullScreenCover(isPresented: $isCoverExpanded) {
             ExpandedCoverOverlay(
                 coverArtId: albumCoverId,
-                title: viewModel?.albumName ?? initialName,
+                title: displayTitle(viewModel),
                 backgroundColor: bodyColor,
                 contentColor: headerTextColor,
                 initialImage: effectiveInitialImage,
@@ -430,6 +435,14 @@ struct AlbumDetailView: View {
 
     // MARK: - Header
 
+    /// `??` only catches a nil view model, not one that exists and has not loaded a name yet —
+    /// which is most of the window this screen spends waiting on a server. The name navigation
+    /// already handed us is better than an empty line.
+    private func displayTitle(_ vm: AlbumDetailViewModel?) -> String {
+        guard let name = vm?.albumName, !name.isEmpty else { return initialName }
+        return name
+    }
+
     private func albumHeader(vm: AlbumDetailViewModel?, songs: [DisplayableSong]) -> some View {
         return ImmersiveCoverHero(
             coverArtId: vm?.coverArtId ?? coverArtId ?? albumId,
@@ -443,7 +456,7 @@ struct AlbumDetailView: View {
         ) {
             VStack(spacing: CassetteSpacing.l) {
                 VStack(spacing: 0) {
-                    Text(vm?.albumName ?? initialName)
+                    Text(displayTitle(vm))
                     .font(.system(.title, design: .rounded, weight: .semibold))
                     .foregroundStyle(headerTextColor)
                     .multilineTextAlignment(.center)
