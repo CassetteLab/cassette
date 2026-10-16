@@ -155,8 +155,13 @@ struct PlaylistDetailView: View {
     private var heroButtonVariant: (background: Color, foreground: Color) {
         CassetteColors.heroButtonVariant(on: dominantColor)
     }
-    private var isLoadingSkeleton: Bool {
-        viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
+    /// The skeleton stands in for content we do not have yet — never for content we do.
+    /// `resolvedSongs` already falls back to the downloaded copy, and a load can stay in flight
+    /// for a minute on a connection that resolves but never answers, so checking it first is what
+    /// keeps a downloaded playlist readable the whole time.
+    private func isLoadingSkeleton(_ songs: [DisplayableSong]) -> Bool {
+        guard songs.isEmpty else { return false }
+        return viewModel == nil || (viewModel?.isLoading == true && viewModel?.songs.isEmpty == true)
     }
 
     /// Downloaded tracks reconstructed from SwiftData in playlist order, independent of the
@@ -195,12 +200,13 @@ struct PlaylistDetailView: View {
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
 
-            if isLoadingSkeleton {
+            let resolved = resolvedSongs(viewModel)
+            if isLoadingSkeleton(resolved) {
                 skeletonRows
             } else if isEditing {
                 editableSongRows
             } else if let vm = viewModel {
-                let songs = resolvedSongs(vm)
+                let songs = resolved
                 if songs.isEmpty, let error = vm.error {
                     EmptyStateView(
                         systemImage: "exclamationmark.triangle",
