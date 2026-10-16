@@ -36,6 +36,9 @@ struct ArtistDetailView: View {
     @State private var bioExpanded = false
     /// Shows a spinner in place of the Instant Mix button while a mix is being generated (anti-spam).
     @State private var isGeneratingMix = false
+    /// The artist photo full-frame, grown out of the hero by the app's zoom transition.
+    @State private var isCoverExpanded = false
+    @Namespace private var coverZoom
     /// Offset that bottom-aligns the COLLAPSED content to the cover's foot. Because it depends only on the
     /// collapsed height (frozen while expanded), the name stays put when the bio expands — the extra lines
     /// reveal downward from a fixed top instead of the whole block jumping. The hero itself has NO fixed
@@ -194,6 +197,17 @@ struct ArtistDetailView: View {
             await viewModel?.loadSimilarArtists()
             await viewModel?.loadArtistInfo()
         }
+        .cassetteFullScreenCover(isPresented: $isCoverExpanded) {
+            ExpandedCoverOverlay(
+                coverArtId: heroCoverArtId,
+                title: artist.name,
+                backgroundColor: bodyColor,
+                contentColor: headerTextColor,
+                initialImage: nil,
+                onClose: { isCoverExpanded = false }
+            )
+            .cassetteZoomTransition(sourceID: coverZoomID, in: coverZoom)
+        }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
                 artist: rec,
@@ -227,6 +241,11 @@ struct ArtistDetailView: View {
                 .offset(y: -stretch)
             }
             .frame(height: heroCoverHeight)
+            .cassetteMatchedTransitionSource(id: coverZoomID, in: coverZoom)
+            // The hero content sits above this in the ZStack and keeps its own taps; what is left
+            // is the photo itself.
+            .contentShape(Rectangle())
+            .onTapGesture { expandCover() }
 
             // Content offset so its collapsed form bottom-aligns to the cover's foot. Expanding reveals the
             // extra lines DOWNWARD from this fixed top (the name doesn't move); the ZStack (no fixed height)
@@ -468,6 +487,13 @@ struct ArtistDetailView: View {
     /// when the screen loaded; `filteredByLocalStars` keeps it honest as stars change under it.
     private func likedSongs(_ vm: ArtistDetailViewModel) -> [DisplayableSong] {
         ArtistBestOf.filteredByLocalStars(vm.likedSongs, starredSongIds: Set(songFavorites.map(\.itemId)))
+    }
+
+    private var coverZoomID: String { "expanded-cover-\(heroCoverArtId)" }
+
+    private func expandCover() {
+        HapticFeedback.light.trigger()
+        isCoverExpanded = true
     }
 
     /// The "The best of <artist>" card, shown under the discography once the artist has enough liked tracks

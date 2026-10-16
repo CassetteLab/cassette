@@ -68,6 +68,10 @@ struct AlbumDetailView: View {
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showThemeColorSheet = false
+    /// The cover full-frame. Presented with the app's zoom transition, so it grows out of the
+    /// hero rather than fading in over it.
+    @State private var isCoverExpanded = false
+    @Namespace private var coverZoom
     /// Latches on the first back tap. The toolbar button stays hit-testable while the push
     /// animation is still running, so without this a second tap can ask for a second pop
     /// while the first is in flight.
@@ -317,6 +321,17 @@ struct AlbumDetailView: View {
                 .accessibilityLabel("More options")
             }
         }
+        .cassetteFullScreenCover(isPresented: $isCoverExpanded) {
+            ExpandedCoverOverlay(
+                coverArtId: albumCoverId,
+                title: viewModel?.albumName ?? initialName,
+                backgroundColor: bodyColor,
+                contentColor: headerTextColor,
+                initialImage: effectiveInitialImage,
+                onClose: { isCoverExpanded = false }
+            )
+            .cassetteZoomTransition(sourceID: coverZoomID, in: coverZoom)
+        }
         .sheet(isPresented: $showThemeColorSheet) {
             ThemeColorSheet(
                 color: Binding(
@@ -403,6 +418,16 @@ struct AlbumDetailView: View {
         return .partiallyDownloaded
     }
 
+    // MARK: - Cover
+
+    /// Ties the hero to the presented cover for the zoom transition.
+    private var coverZoomID: String { "expanded-cover-\(albumCoverId)" }
+
+    private func expandCover() {
+        HapticFeedback.light.trigger()
+        isCoverExpanded = true
+    }
+
     // MARK: - Header
 
     private func albumHeader(vm: AlbumDetailViewModel?, songs: [DisplayableSong]) -> some View {
@@ -411,7 +436,10 @@ struct AlbumDetailView: View {
             coverImage: effectiveInitialImage,
             theme: theme,
             heroHeight: heroHeight,
-            contentBelow: true
+            contentBelow: true,
+            onCoverTap: { expandCover() },
+            zoomSourceID: coverZoomID,
+            zoomNamespace: coverZoom
         ) {
             VStack(spacing: CassetteSpacing.l) {
                 VStack(spacing: 0) {
