@@ -10,6 +10,7 @@ import OSLog
 
 #if canImport(UIKit)
 import AVKit
+import UIKit
 #endif
 
 private enum PlayerSurface { case player, queue }
@@ -48,6 +49,12 @@ struct FullPlayerView: View {
     @Namespace private var morphNS
 
     #if os(iOS)
+    /// One interaction shared by the artwork and metadata hit regions, so a drag that starts in either place
+    /// drives the same title preview and commits exactly once.
+    @State private var trackSwipe = TrackSwipeInteraction()
+    #endif
+
+    #if os(iOS)
     // MARK: - Player layout knobs (iOS) — eyeball-tunable.
     /// Player cover cap. Bigger = larger artwork (also width-limited to screenWidth − 2·playerCoverHPadding).
     private static let playerCoverSize: CGFloat = 340
@@ -67,6 +74,9 @@ struct FullPlayerView: View {
                 ? playerState.currentRadio?.coverArt
                 : (playerState.currentTrack?.coverArtId ?? playerState.currentTrack?.id)
             content(playerState)
+                #if os(iOS)
+                .interactiveDismissDisabled(trackSwipe.isHorizontalDragActive)
+                #endif
                 // Key on the cover id AND the user colour override, so picking a colour (e.g. via the album sheet
                 // opened over the player, same track) re-runs updateColors and refreshes the vm-derived text /
                 // control colours — not just the self-healing background.
@@ -235,7 +245,8 @@ struct FullPlayerView: View {
                         playerState: playerState,
                         container: container,
                         contentColor: vm.contentColor,
-                        secondaryContentColor: vm.secondaryContentColor
+                        secondaryContentColor: vm.secondaryContentColor,
+                        trackSwipe: trackSwipe
                     )
                     .padding(.horizontal, CassetteSpacing.l)
                 }
@@ -257,6 +268,7 @@ struct FullPlayerView: View {
                     playerState: playerState,
                     playerService: container?.playerService,
                     isPlaybackAvailable: playerState.isPlaybackAvailable,
+                    keepsPauseIcon: trackSwipe.keepsPauseIcon,
                     contentColor: vm.contentColor,
                     secondaryContentColor: vm.secondaryContentColor
                 )
@@ -383,6 +395,15 @@ struct FullPlayerView: View {
                 // Top-aligned so the cover reaches the very top edge of the screen (no gap above), like the
                 // album/playlist hero; its bottom melts into the dominant body colour below.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                // The artwork itself stays visually anchored; dragging anywhere across this generous region
+                // drives the same interactive metadata carousel as a drag directly on the title.
+                .trackSwipeGesture(
+                    interaction: trackSwipe,
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    reduceMotion: reduceMotion,
+                    isEnabled: isSource && playerState.isPlaybackAvailable && !playerState.isLiveStream
+                )
         }
     }
 
@@ -736,18 +757,27 @@ private struct TrackInfoSection: View {
     let contentColor: Color
     let secondaryContentColor: Color
     var compact: Bool = false
+    var trackSwipe: TrackSwipeInteraction? = nil
 
     @Query private var favoriteMatches: [FavoriteRecord]
     @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showAlbumSheet = false
 
-    init(playerState: PlayerState, container: AppContainer?, contentColor: Color, secondaryContentColor: Color, compact: Bool = false) {
+    init(
+        playerState: PlayerState,
+        container: AppContainer?,
+        contentColor: Color,
+        secondaryContentColor: Color,
+        compact: Bool = false,
+        trackSwipe: TrackSwipeInteraction? = nil
+    ) {
         self.playerState = playerState
         self.container = container
         self.contentColor = contentColor
         self.secondaryContentColor = secondaryContentColor
         self.compact = compact
+        self.trackSwipe = trackSwipe
         let cid = "song:\(playerState.currentTrack?.id ?? "")"
         _favoriteMatches = Query(filter: #Predicate<FavoriteRecord> { $0.id == cid })
     }
@@ -756,50 +786,10 @@ private struct TrackInfoSection: View {
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
     var body: some View {
-        HStack(alignment: .top, spacing: CassetteSpacing.m) {
-            VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                Text(playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (playerState.currentTrack?.title ?? ""))
-                    .font(compact ? .cassetteSectionTitle : .title2)
-                    .fontWeight(compact ? .semibold : .bold)
-                    .foregroundStyle(contentColor)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                if !playerState.isPlaybackAvailable {
-                    Label("Reconnect to resume", systemImage: "wifi.slash")
-                        .font(.callout)
-                        .foregroundStyle(secondaryContentColor)
-                        .lineLimit(1)
-                } else if playerState.isLiveStream {
-                    Text("Live Radio")
-                        .font(.subheadline)
-                        .foregroundStyle(secondaryContentColor)
-                        .lineLimit(1)
-                } else {
-                    VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
-                        HStack(spacing: CassetteSpacing.xs) {
-                            if let artist = playerState.currentTrack?.artist {
-                                Button {
-                                    goToArtist()
-                                } label: {
-                                    Text(artist)
-                                        .font(.subheadline)
-                                        .foregroundStyle(secondaryContentColor)
-                                        .lineLimit(1)
-                                        .truncationMode(.tail)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(!isOnline)
-                            }
-                            if let format = playerState.currentTrack?.audioFormat {
-                                AudioFormatBadge(format: format, color: secondaryContentColor)
-                            }
-                        }
-                    }
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+        HStack(alignment: .top, spacing: 0) {
+            trackMetadata
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
 
             HStack(spacing: CassetteSpacing.s) {
                 if !playerState.isLiveStream {
@@ -890,6 +880,100 @@ private struct TrackInfoSection: View {
         }
     }
 
+    /// Apple Music-style horizontal paging for the full-size iOS metadata row. The favorite and menu buttons
+    /// stay anchored while the title/artist page follows the finger and reveals the adjacent queue item.
+    @ViewBuilder
+    private var trackMetadata: some View {
+        #if os(iOS)
+        if !compact, !playerState.isLiveStream, playerState.isPlaybackAvailable, let trackSwipe {
+            SwipeableTrackMetadata(
+                playerState: playerState,
+                playerService: container?.playerService,
+                interaction: trackSwipe
+            ) { song, _ in
+                metadataTitle(song?.title ?? "")
+            } subtitle: { song, isCurrent in
+                metadataSubtitle(for: song, isCurrent: isCurrent)
+            }
+        } else {
+            metadata(for: playerState.currentTrack, isCurrent: true)
+        }
+        #else
+        metadata(for: playerState.currentTrack, isCurrent: true)
+        #endif
+    }
+
+    private func metadata(
+        for song: DisplayableSong?,
+        isCurrent: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.xs) {
+            metadataTitle(
+                playerState.isLiveStream ? (playerState.currentRadio?.name ?? "") : (song?.title ?? "")
+            )
+
+            if !playerState.isPlaybackAvailable {
+                Label("Reconnect to resume", systemImage: "wifi.slash")
+                    .font(.callout)
+                    .foregroundStyle(secondaryContentColor)
+                    .lineLimit(1)
+            } else if playerState.isLiveStream {
+                Text("Live Radio")
+                    .font(metadataSubtitleFont)
+                    .foregroundStyle(secondaryContentColor)
+                    .lineLimit(1)
+            } else {
+                metadataSubtitle(for: song, isCurrent: isCurrent)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func metadataSubtitle(
+        for song: DisplayableSong?,
+        isCurrent: Bool
+    ) -> some View {
+        HStack(spacing: CassetteSpacing.xs) {
+            if let artist = song?.artist {
+                if isCurrent {
+                    Button { goToArtist() } label: { artistLabel(artist) }
+                        .buttonStyle(.plain)
+                        .disabled(!isOnline)
+                } else {
+                    artistLabel(artist)
+                }
+            }
+            if let format = song?.audioFormat {
+                AudioFormatBadge(format: format, color: secondaryContentColor)
+            }
+        }
+    }
+
+    private func artistLabel(_ artist: String) -> some View {
+        Text(artist)
+            .font(metadataSubtitleFont)
+            .foregroundStyle(secondaryContentColor)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    private func metadataTitle(_ title: String) -> some View {
+        Text(title)
+            .font(metadataTitleFont)
+            .foregroundStyle(contentColor)
+            .lineLimit(1)
+            .truncationMode(.tail)
+    }
+
+    /// Unchanged from before the swipe work: the design system's type scale is settled, so a
+    /// change to it belongs in its own pull request rather than riding along with a gesture.
+    private var metadataTitleFont: Font {
+        compact ? Font.cassetteSectionTitle.weight(.semibold) : Font.title2.bold()
+    }
+
+    private var metadataSubtitleFont: Font { .subheadline }
+
     /// Navigates to the current track's artist by routing through the Home stack (via
     /// `.cassetteNavigateToArtist`), mirroring macOS. Prefers the track's own `artistId`;
     /// falls back to a name search only when the track has no artistId (incomplete metadata).
@@ -909,6 +993,7 @@ private struct TrackInfoSection: View {
     }
 
 }
+
 
 // MARK: - Scrubber
 
@@ -1083,10 +1168,13 @@ private struct PlaybackControlsView: View {
     let playerState: PlayerState
     let playerService: (any PlayerServiceProtocol)?
     var isPlaybackAvailable: Bool = true
+    var keepsPauseIcon: Bool = false
     let contentColor: Color
     let secondaryContentColor: Color
 
     var body: some View {
+        let showsPause = keepsPauseIcon || playerState.playbackState == .playing
+
         HStack(spacing: CassetteSpacing.xxxxl) {
             if !playerState.isLiveStream {
                 Button {
@@ -1115,7 +1203,7 @@ private struct PlaybackControlsView: View {
                     }
                 }
             } label: {
-                Image(systemName: playerState.playbackState == .playing ? "pause.fill" : "play.fill")
+                Image(systemName: showsPause ? "pause.fill" : "play.fill")
                     .font(.system(size: 44))
                     .foregroundStyle(isPlaybackAvailable ? contentColor : contentColor.opacity(0.4))
                     .frame(width: 80, height: 80)
