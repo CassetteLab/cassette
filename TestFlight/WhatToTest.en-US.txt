@@ -1,22 +1,30 @@
-Cassette 1.12
+Cassette 1.13
 
 NEW
-• Sort a playlist's songs — a sort control in the playlist toolbar orders the list by title, artist, recently added or release date, and "Playlist Order" puts it back. The sort is display-only: it never changes the playlist on your server, and it is remembered per playlist. Recently Added and Release Date need the server, so they are hidden offline.
-• macOS: ⌥← and ⌥→ skip back and forward 10 seconds. ⌘F now actually focuses the search field — it did nothing before.
-• Settings: clear the artwork cache. Covers saved with your downloads are deliberately kept, so clearing never costs you artwork offline.
+• Share a song as a public link. Cassette asks your server for a share link and copies it — anyone can open it, no account needed. The text share is still there beside it. Thanks to peanball for the idea.
+• Playback follows you between devices. Stop on your phone, open Cassette on your Mac, and it offers to pick up where you left off, at the right position in the right queue.
+• Swipe the player to change track, the way Apple Music does. Long titles now scroll instead of being cut off, and the title and subtitle scroll together rather than drifting apart. Thanks to fcannizzaro.
+• Swipe a song row for its actions — play next, add to queue, add to a playlist — without opening a menu.
+• Tap a cover to open it full-frame, with the zoom transition the rest of the app uses.
+• Sort albums by artist, play count, genre, favourites or rating, not just by name and date. Thanks to isaacault.
+• Playlists remember their layout, grid or list, like the albums screen already did.
+• macOS: a favourite star in the player bar, and Toggle Favorite on ⌘L in the Playback menu.
 
 FIXED
-• macOS: the bottom of every list is usable again. A strip above the player bar belonged to no scroll view and answered neither click nor scroll wheel.
-• Long tracks download properly. The download session capped the whole transfer at 30 seconds, so anything that took longer failed no matter how good the connection was.
-• Failed downloads now tell you. Before, a download that failed logged nothing and showed nothing — the row simply reverted, indistinguishable from one that never started.
-• Missing artwork on downloaded music is repaired automatically, once per launch when the server is reachable. A cover saved with a download is only written at download time, and an earlier cleanup removed some of them.
-• Faster song lists on large libraries. The list ran one blocking database query per visible row for favourites, and re-read every downloaded track on each refresh.
+• A downloaded album is readable straight away in airplane mode. Cassette asked the network whether it was online, got "yes" from a Wi-Fi with nothing behind it, and spent over a minute waiting on a server that never answered — showing placeholder rows the whole time, with the tracks already on the device. It now shows what is on disk first and lets the server catch up.
+• ListenBrainz usernames containing a dot are accepted. They are valid on ListenBrainz, and Cassette refused them.
+• Lyrics keep following the song when the track changes. They stopped scrolling after the first track and only came back by closing and reopening the view.
+• macOS: "Download the missing tracks" is offered on a partly-downloaded album. The action existed and was only ever wired up on iOS.
+• The A–Z bar on the albums screen agrees with the list beside it. It used its own ordering, so a letter could land you somewhere else entirely.
+• Sort labels are translated. They were built in a way that always resolved to English, whatever the device language.
+• The Lock Screen and Control Centre stop showing a track as playing after an interruption, and on radio streams.
 
 PLEASE TEST
-• Playlist sorting, non-regression first: open a playlist and confirm it looks exactly as it did in 1.11 before touching the sort. Then sort it, and check that tapping a row plays that row.
-• Playlist sorting, the important one: with a sort active, add songs to the playlist, then switch back to "Playlist Order". The playlist's own order must be unchanged — the sort must never be written to the server. Same check after removing a track while sorted.
-• Editing is intentionally disabled while a sort is active. Switch back to "Playlist Order" and confirm the pencil (iOS) and drag-to-reorder (macOS) come back.
-• Download a long track — 20 minutes or more. Then try one that cannot work (stop your server mid-download) and confirm you now get an error instead of silence.
-• Artwork in airplane mode: with music downloaded, clear the artwork cache in Settings, turn off the network, and confirm your downloaded albums still show their covers.
-• macOS layout: resize the window and scroll to the bottom of a few lists — the last row must be clickable, both while playing and with nothing playing. Album, playlist and artist screens changed the most.
-• macOS shortcuts: ⌥← / ⌥→ during playback, and that they are greyed out on a radio stream. ⌘F should put the caret in the search field.
+• Share links, first: share a song, open the link in a private window or on a device that is not signed in, and confirm it plays. Then check the link is NOT in any log you can see — it is a capability token, anyone holding it has access.
+• Share links on a server that has sharing disabled: you should get a clear message, not a silent failure.
+• Cross-device continuation: play something on one device, pause, open Cassette on another, and accept the offer. The queue and the position must both be right. Then decline it once and confirm nothing is disturbed.
+• Airplane mode, the important one: download an album, turn on airplane mode WITHOUT turning off Wi-Fi, then open that album from Downloads. The title, the artist and the tracks must be there immediately — no placeholder rows. Same check on a downloaded playlist.
+• Still in airplane mode, pull to refresh an artist page that has already loaded: the biography and top songs must not disappear.
+• Swipe-to-change-track: swipe both ways, including on the first and last track of a queue, and with a single-track queue. The marquee should scroll title and subtitle in step.
+• Album sorts: switch between them on a large library and confirm the A–Z bar follows the order you picked.
+• macOS: ⌘L on a playing track, then check the star in the player bar and the one on the song row agree — both ways round.
