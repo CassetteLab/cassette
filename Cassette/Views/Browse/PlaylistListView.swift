@@ -13,6 +13,12 @@ struct PlaylistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistListViewModel?
     @State private var showCreateSheet = false
+    /// List vs grid, mirroring the albums screen: same per-platform defaults, its own key.
+    #if os(macOS)
+    @AppStorage("cassette.playlistListGrid") private var gridLayout = true
+    #else
+    @AppStorage("cassette.playlistListGrid") private var gridLayout = false
+    #endif
 
     var body: some View {
         Group {
@@ -30,6 +36,14 @@ struct PlaylistListView: View {
             if container?.serverState.isOnline == true {
                 ToolbarItem(placement: .primaryAction) {
                     PlaylistKindFilterMenu()
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        gridLayout.toggle()
+                    } label: {
+                        Image(systemName: gridLayout ? "list.bullet" : "square.grid.2x2")
+                    }
+                    .accessibilityLabel(gridLayout ? "List view" : "Grid view")
                 }
             }
             ToolbarItem(placement: .primaryAction) {
@@ -102,6 +116,8 @@ struct PlaylistListView: View {
                 subtitle: "Every playlist is hidden by the current filter.",
                 action: .init(label: "Show All") { clearFilter() }
             )
+        } else if gridLayout {
+            playlistsGrid(vm)
         } else {
             List {
                 // Derived from the user's stars, not stored on the server — hence its own section rather
@@ -147,6 +163,75 @@ struct PlaylistListView: View {
                 )
             }
         }
+    }
+
+    /// Grid counterpart of the list. Keeps the same two groups in the same order, so switching
+    /// layout never reorders anything — only the shape of each entry changes.
+    @ViewBuilder
+    private func playlistsGrid(_ vm: PlaylistListViewModel) -> some View {
+        ScrollView {
+            LazyVGrid(columns: Self.gridColumns, spacing: CassetteSpacing.l) {
+                if !vm.visibleBestOfPlaylists.isEmpty {
+                    Section {
+                        ForEach(vm.visibleBestOfPlaylists) { bestOf in
+                            NavigationLink(value: HomeDestination.artistBestOf(
+                                artistId: bestOf.artistId,
+                                artistName: bestOf.artistName,
+                                coverArtId: bestOf.coverArtId
+                            )) {
+                                BestOfGridCell(bestOf: bestOf)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } header: {
+                        gridSectionHeader("Made For You")
+                    }
+                }
+                Section {
+                    ForEach(vm.visiblePlaylists) { playlist in
+                        NavigationLink(value: HomeDestination.playlist(playlist)) {
+                            PlaylistGridCell(
+                                playlist: playlist,
+                                zoomNamespace: zoomNamespace,
+                                onActionCompleted: { Task { await vm.load() } }
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                } header: {
+                    // Same rule as the list: the header earns its place only when there is a
+                    // derived section above to tell these apart from.
+                    if !vm.visibleBestOfPlaylists.isEmpty, !vm.visiblePlaylists.isEmpty {
+                        gridSectionHeader("Playlists")
+                    }
+                }
+            }
+            .padding(CassetteSpacing.l)
+        }
+        .refreshable {
+            await vm.load()
+            await vm.loadBestOf()
+        }
+        #if os(iOS)
+        .miniPlayerBottomMargin()
+        #endif
+    }
+
+    private func gridSectionHeader(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.cassetteSectionTitle)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, CassetteSpacing.s)
+    }
+
+    /// Adaptive on both platforms: playlist covers carry a title, so they read fine a little
+    /// larger than album cells, and the count follows the window rather than a fixed table.
+    private static var gridColumns: [GridItem] {
+        #if os(macOS)
+        [GridItem(.adaptive(minimum: 170, maximum: 240), spacing: 16)]
+        #else
+        [GridItem(.adaptive(minimum: 110, maximum: 180), spacing: CassetteSpacing.l)]
+        #endif
     }
 
     // MARK: - Filter plumbing
@@ -272,6 +357,34 @@ private struct BestOfPlaylistRow: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, CassetteSpacing.xs)
+    }
+}
+
+/// Grid counterpart of `BestOfPlaylistRow`. No context menu either: there is nothing on the
+/// server to rename, delete, pin or download.
+private struct BestOfGridCell: View {
+    let bestOf: ArtistBestOf
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CassetteSpacing.s) {
+            GeometryReader { geo in
+                CoverArtView(id: bestOf.coverArtId ?? bestOf.artistId, size: Int(geo.size.width * 2))
+                    .frame(width: geo.size.width, height: geo.size.width)
+                    .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.standard)
+            }
+            .aspectRatio(1, contentMode: .fit)
+
+            Text("The best of \(bestOf.artistName)")
+                .font(.cassetteCellTitle)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("\(bestOf.songs.count) tracks")
+                .font(.cassetteCaption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
