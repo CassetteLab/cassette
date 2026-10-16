@@ -19,8 +19,8 @@ struct SongShareButton: View {
         #if os(macOS)
         Button {
             let text = SongShareContent(song: song).text
-            // Wait for the originating menu to close before showing the sharing-service picker.
-            DispatchQueue.main.async {
+            // Let the originating menu finish closing before the sharing-service picker appears.
+            Task { @MainActor in
                 MacOSSongSharePresenter.present(text: text)
             }
         } label: {
@@ -41,7 +41,9 @@ struct SongShareButton: View {
 #if os(macOS)
 @MainActor
 private enum MacOSSongSharePresenter {
-    private static var activePicker: NSSharingServicePicker?
+    /// Holds the picker only while it is on screen: `show(relativeTo:…)` does not retain it, and
+    /// the delegate callback is what tells us it is gone.
+    private static let keeper = PickerKeeper()
 
     static func present(text: String) {
         guard let contentView = (NSApp.mainWindow ?? NSApp.keyWindow)?.contentView else { return }
@@ -52,8 +54,23 @@ private enum MacOSSongSharePresenter {
             height: 1
         )
         let picker = NSSharingServicePicker(items: [text])
-        activePicker = picker
+        keeper.hold(picker)
         picker.show(relativeTo: anchor, of: contentView, preferredEdge: .minY)
+    }
+
+    @MainActor
+    private final class PickerKeeper: NSObject, NSSharingServicePickerDelegate {
+        private var picker: NSSharingServicePicker?
+
+        func hold(_ picker: NSSharingServicePicker) {
+            picker.delegate = self
+            self.picker = picker
+        }
+
+        /// Called with a service when the user picks one, and with `nil` when they dismiss.
+        func sharingServicePicker(_ picker: NSSharingServicePicker, didChoose service: NSSharingService?) {
+            self.picker = nil
+        }
     }
 }
 #endif
