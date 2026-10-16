@@ -15,12 +15,14 @@ nonisolated enum SongSort: String, CaseIterable, Sendable {
     case recentlyAdded
     case releaseDate
 
+    /// Shown in the sort menus. `String(localized:)` and not a bare literal: the menus pass this
+    /// through as a `String`, which SwiftUI does not localize on its own.
     var label: String {
         switch self {
-        case .title: return "Title"
-        case .artist: return "Artist"
-        case .recentlyAdded: return "Recently Added"
-        case .releaseDate: return "Release Date"
+        case .title: return String(localized: "Title")
+        case .artist: return String(localized: "Artist")
+        case .recentlyAdded: return String(localized: "Recently Added")
+        case .releaseDate: return String(localized: "Release Date")
         }
     }
 
