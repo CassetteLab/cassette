@@ -119,13 +119,14 @@ struct AlbumsListView: View {
             .refreshable { await vm.load() }
             #if os(iOS)
             .safeAreaInset(edge: .trailing, spacing: 0) {
-                // The A–Z jump bar only makes sense when sorted alphabetically, keyed by what is sorted on.
-                if (albumSort == .name || albumSort == .artist) && albums.count >= 20 {
-                    let key: KeyPath<AlbumID3, String> = albumSort == .artist ? \.artistOrEmpty : \.name
+                // The A–Z jump bar only makes sense when sorted alphabetically, keyed by what is
+                // sorted on — and addressing only the albums it can honestly reach.
+                if let alphabetKey = albumSort.alphabetKeyPath, albums.count >= 20 {
+                    let addressable = albumSort.alphabetAddressableAlbums(albums)
                     AlphabetJumpBar(
-                        availableLetters: albums.availableAlphabetLetters(keyPath: key),
+                        availableLetters: addressable.availableAlphabetLetters(keyPath: alphabetKey),
                         onLetterTap: { letter in
-                            if let id = firstAlphabetItemID(forLetter: letter, in: albums, keyPath: key) {
+                            if let id = firstAlphabetItemID(forLetter: letter, in: addressable, keyPath: alphabetKey) {
                                 withAnimation(.easeInOut(duration: 0.2)) {
                                     proxy.scrollTo(id, anchor: .top)
                                 }
