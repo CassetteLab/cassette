@@ -42,7 +42,7 @@ env:
 jobs:
   build:
     name: Build ${{ matrix.name }}
-    runs-on: macos-26
+    runs-on: xcode-27
     strategy:
       fail-fast: false
       matrix:
@@ -54,10 +54,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select latest stable Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      # The runner label now carries the Xcode major (xcode-27), so the image's default IS
+      # the toolchain we want and setup-xcode would only add a way to land on another one.
+      # Printed rather than assumed: a silent mismatch between this toolchain and the one
+      # used locally is what made the last macOS break impossible to reproduce.
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Cache resolved Swift packages
         uses: actions/cache@v4
@@ -107,14 +111,18 @@ jobs:
 
   test:
     name: Test suite
-    runs-on: macos-26
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select latest stable Xcode
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
+      # The runner label now carries the Xcode major (xcode-27), so the image's default IS
+      # the toolchain we want and setup-xcode would only add a way to land on another one.
+      # Printed rather than assumed: a silent mismatch between this toolchain and the one
+      # used locally is what made the last macOS break impossible to reproduce.
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
 
       - name: Cache resolved Swift packages
         uses: actions/cache@v4
