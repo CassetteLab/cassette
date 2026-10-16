@@ -114,12 +114,42 @@ nonisolated enum AlbumSort: String, CaseIterable, Sendable {
         sortKey(lhs).localizedStandardCompare(sortKey(rhs)) == .orderedAscending
     }
 
-    /// Prefer the server's canonical `sortName` (drops articles like "The") when present, else the name.
-    private func sortKey(_ album: AlbumID3) -> String { album.sortName ?? album.name }
+    private func sortKey(_ album: AlbumID3) -> String { album.alphabetSortKey }
+}
+
+// MARK: - A–Z jump bar
+
+nonisolated extension AlbumSort {
+    /// What the bar files albums under, or `nil` when this ordering is not alphabetical at all.
+    ///
+    /// It has to be the same key the list is sorted by, or the bar lies: a name-ordered list uses
+    /// the server's `sortName`, so "The Bends" sits under B while keying the bar on `name` would
+    /// file it under T and scroll somewhere else entirely.
+    var alphabetKeyPath: KeyPath<AlbumID3, String>? {
+        switch self {
+        case .name:   return \.alphabetSortKey
+        case .artist: return \.artistOrEmpty
+        default:      return nil
+        }
+    }
+
+    /// The albums the bar can actually reach.
+    ///
+    /// Under `.artist`, "#" would otherwise stand for two groups at opposite ends of the list:
+    /// artists whose initial is not a letter sort to the top, while albums with no artist sort
+    /// last. One letter cannot point at both, so the nameless tail is left out of the bar — it is
+    /// still there, at the bottom, a scroll away.
+    func alphabetAddressableAlbums(_ albums: [AlbumID3]) -> [AlbumID3] {
+        guard self == .artist else { return albums }
+        return albums.filter { !$0.artistOrEmpty.isEmpty }
+    }
 }
 
 nonisolated extension AlbumID3 {
-    /// The artist name as a non-optional string, for the A–Z jump bar when sorting by artist
-    /// (albums with no artist count under "#").
+    /// The artist name as a non-optional string, for the A–Z jump bar when sorting by artist.
     var artistOrEmpty: String { artist ?? "" }
+
+    /// What a name-ordered list is really sorted by: the server's canonical `sortName` when it has
+    /// one (it drops articles like "The"), else the name.
+    var alphabetSortKey: String { sortName ?? name }
 }

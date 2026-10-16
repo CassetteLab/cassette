@@ -91,9 +91,9 @@ struct AlbumSortTests {
         }
     }
 
-    @Test("the jump bar files albums under their artist's initial, missing artist under #")
+    @Test("the jump bar files albums under their artist's initial")
     func artistJumpBarKey() {
-        let albums = [album("a", artist: "Marrow"), album("b", artist: "3 Doors Down"), album("c")]
+        let albums = [album("a", artist: "Marrow"), album("b", artist: "3 Doors Down")]
         #expect(albums.availableAlphabetLetters(keyPath: \.artistOrEmpty) == ["M", "#"])
     }
 }
@@ -119,5 +119,60 @@ struct ArtistSortTests {
     func byRating() {
         let artists = [artist("b"), artist("a"), artist("five", rating: 5), artist("three", rating: 3)]
         #expect(ArtistSort.rating.sorted(artists).map(\.id) == ["five", "three", "a", "b"])
+    }
+}
+
+
+// MARK: - A–Z jump bar
+
+@Suite("AlbumSort jump bar")
+struct AlbumSortJumpBarTests {
+
+    private func album(_ id: String, name: String? = nil, sortName: String? = nil, artist: String? = nil) -> AlbumID3 {
+        AlbumID3(id: id, name: name ?? id, songCount: 10, duration: 2400, artist: artist, sortName: sortName)
+    }
+
+    @Test("a name-ordered list is addressed by the key it is sorted by, not by the raw name")
+    func nameUsesTheSortName() {
+        #expect(AlbumSort.name.alphabetKeyPath == \AlbumID3.alphabetSortKey)
+        // The server drops the article: "The Bends" sorts under B, so the bar must file it there.
+        let albums = [album("1", name: "The Bends", sortName: "Bends")]
+        #expect(albums.availableAlphabetLetters(keyPath: \.alphabetSortKey) == ["B"])
+    }
+
+    @Test("without a sort name the album name is used")
+    func nameFallsBackToName() {
+        #expect(album("1", name: "Kid A").alphabetSortKey == "Kid A")
+    }
+
+    @Test("an artist-ordered list is addressed by the artist")
+    func artistUsesTheArtist() {
+        #expect(AlbumSort.artist.alphabetKeyPath == \AlbumID3.artistOrEmpty)
+    }
+
+    @Test("orderings that are not alphabetical get no bar at all")
+    func noBarForTheRest() {
+        for sort in AlbumSort.allCases where sort != .name && sort != .artist {
+            #expect(sort.alphabetKeyPath == nil, "\(sort) should not offer a jump bar")
+        }
+    }
+
+    @Test("albums with no artist are left out of the bar, so # means one thing")
+    func namelessAlbumsAreNotAddressable() {
+        let albums = [
+            album("marrow", artist: "Marrow"),
+            album("doors", artist: "3 Doors Down"),
+            album("orphan"),
+        ]
+        let addressable = AlbumSort.artist.alphabetAddressableAlbums(albums)
+        #expect(addressable.map(\.id) == ["marrow", "doors"])
+        // "#" now covers the non-letter initial at the top of the list, and nothing else.
+        #expect(addressable.availableAlphabetLetters(keyPath: \.artistOrEmpty) == ["M", "#"])
+    }
+
+    @Test("a name-ordered list addresses every album")
+    func nameAddressesEverything() {
+        let albums = [album("a"), album("b"), album("c")]
+        #expect(AlbumSort.name.alphabetAddressableAlbums(albums).count == 3)
     }
 }
