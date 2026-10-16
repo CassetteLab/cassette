@@ -304,6 +304,10 @@ private struct SongsListRows: View {
             )
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
+            .songSwipeActions(
+                song: song.withDownloaded(liveDownloaded),
+                onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) }
+            )
             // The A-Z jump bar scrolls to these ids; keep them on the row itself.
             .id(song.id)
         }

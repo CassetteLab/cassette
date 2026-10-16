@@ -280,6 +280,10 @@ private struct FavoriteSongRows: View {
             )
             .contentShape(Rectangle())
             .onTapGesture { onTap(index) }
+            .songSwipeActions(
+                song: song.withDownloaded(liveDownloaded),
+                onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) }
+            )
         }
     }
 }
