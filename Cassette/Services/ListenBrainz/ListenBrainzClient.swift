@@ -80,13 +80,12 @@ actor ListenBrainzClient {
     /// the user exists and 404 when not. The former `/1/user/{name}` route is an HTML web route
     /// (308 redirect + HTML body) and is not suitable for API use.
     ///
-    /// Local format check (`[a-zA-Z0-9_-]{1,40}`) runs before any network call.
+    /// Only names that cannot work are refused locally (see ``ListenBrainzUsername``); whether the
+    /// account exists is ListenBrainz's answer, not ours.
     func validateUsername(_ username: String) async throws -> Bool {
-        guard Self.isValidUsernameFormat(username) else {
-            throw ListenBrainzError.invalidUsername
-        }
-
-        guard let url = URL(string: "https://api.listenbrainz.org/1/user/\(username)/listen-count") else {
+        guard ListenBrainzUsername.isPlausible(username),
+              let segment = ListenBrainzUsername.pathSegment(username),
+              let url = URL(string: "https://api.listenbrainz.org/1/user/\(segment)/listen-count") else {
             throw ListenBrainzError.invalidUsername
         }
 
@@ -149,6 +148,7 @@ actor ListenBrainzClient {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "api.listenbrainz.org"
+        // URLComponents escapes the path for us, so the raw name is the right thing to assign here.
         components.path = "/1/user/\(username)/fresh_releases"
         components.queryItems = [
             URLQueryItem(name: "days",   value: String(daysWindow)),
@@ -349,12 +349,6 @@ actor ListenBrainzClient {
     }
 
     // MARK: - Helpers
-
-    private static func isValidUsernameFormat(_ username: String) -> Bool {
-        guard (1...40).contains(username.count) else { return false }
-        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
-        return username.unicodeScalars.allSatisfy { allowed.contains($0) }
-    }
 
     private struct LBValidateTokenResponse: Decodable {
         let valid: Bool

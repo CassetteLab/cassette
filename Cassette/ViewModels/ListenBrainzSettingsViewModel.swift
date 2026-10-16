@@ -56,12 +56,11 @@ final class ListenBrainzSettingsViewModel {
             usernameInputValidationError = nil
             return
         }
-        let allowed = CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
-        let isValid = (1...40).contains(usernameInput.count) &&
-                      usernameInput.unicodeScalars.allSatisfy { allowed.contains($0) }
-        usernameInputValidationError = isValid
+        // One rule, in one place: this field and the client used to carry their own copy of an
+        // allowlist, and both refused names ListenBrainz is perfectly happy with.
+        usernameInputValidationError = ListenBrainzUsername.isPlausible(usernameInput)
             ? nil
-            : "Username contains invalid characters. Use letters, numbers, dashes, or underscores."
+            : String(localized: "That doesn't look like a username — check for spaces or a slash.")
     }
 
     func connect() async {
@@ -190,7 +189,7 @@ final class ListenBrainzSettingsViewModel {
     private func userFacingMessage(for error: ListenBrainzError) -> String {
         switch error {
         case .invalidUsername:
-            return "Username contains invalid characters. Use letters, numbers, dashes, or underscores."
+            return String(localized: "That doesn't look like a username — check for spaces or a slash.")
         case .userNotFound:
             return "No ListenBrainz user found with this username."
         case .rateLimited(let retryAfter):
