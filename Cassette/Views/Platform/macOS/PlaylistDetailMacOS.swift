@@ -316,7 +316,7 @@ struct PlaylistDetailMacOS: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Cancel Download")
-            } else if vm?.songs.contains(where: { $0.isDownloaded }) == true {
+            } else if LocalCopyState(songs: vm?.songs ?? []) == .complete {
                 // Downloaded → this button manages the LOCAL copy (free space) — distinct from the trash, which
                 // deletes the playlist itself. Reuses the existing "Remove downloaded playlist?" confirmation.
                 Button {
@@ -329,6 +329,20 @@ struct PlaylistDetailMacOS: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Remove Download")
+            } else if case .partial = LocalCopyState(songs: vm?.songs ?? []) {
+                // Some tracks are here and some are not: the only useful action is to fetch the rest.
+                // Before this state existed, one downloaded track turned the button into "remove".
+                Button {
+                    Task { await vm?.downloadMissingTracks() }
+                } label: {
+                    Image(systemName: "arrow.down.circle.dotted")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .cassetteGlassButton(size: 28)
+                }
+                .buttonStyle(.borderless)
+                .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
+                .help("Download Missing Tracks")
             } else {
                 Button {
                     Task { await vm?.downloadPlaylist() }

@@ -159,17 +159,45 @@ struct AlbumDetailMacOS: View {
                 .buttonStyle(.borderless)
                 .help("Cancel Download")
             } else {
-                Button {
-                    Task { await vm?.downloadAlbum() }
-                } label: {
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
+                // Same three states as the playlist screen. The album screen used to offer "download"
+                // whatever was already here, so a part-downloaded album re-fetched every track.
+                switch LocalCopyState(songs: vm?.songs ?? []) {
+                case .complete:
+                    Button {
+                    } label: {
+                        Image(systemName: "arrow.down.circle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .cassetteGlassButton(size: 28)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(true)
+                    .help("Album Downloaded")
+                case .partial:
+                    Button {
+                        Task { await vm?.downloadMissingTracks() }
+                    } label: {
+                        Image(systemName: "arrow.down.circle.dotted")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .cassetteGlassButton(size: 28)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
+                    .help("Download Missing Tracks")
+                case .none:
+                    Button {
+                        Task { await vm?.downloadAlbum() }
+                    } label: {
+                        Image(systemName: "arrow.down.circle")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .cassetteGlassButton(size: 28)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
+                    .help("Download Album")
                 }
-                .buttonStyle(.borderless)
-                .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
-                .help("Download Album")
             }
         }
         .cassetteSharedBackgroundVisibility(.hidden)
