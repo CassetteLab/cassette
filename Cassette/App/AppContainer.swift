@@ -32,6 +32,7 @@ final class AppContainer {
     let pinService: any PinServiceProtocol
     let playlistService: any PlaylistServiceProtocol
     let radioService: any RadioServiceProtocol
+    let shareService: any ShareServiceProtocol
     let toastService = ToastService()
     let networkMonitor = NetworkMonitor()
     let sessionService: PlaybackSessionService
@@ -73,6 +74,7 @@ final class AppContainer {
         lyricsService = LyricsService(serverService: server, modelContainer: modelContainer)
         wrappedPlaylistService = WrappedPlaylistService(serverService: server, statsService: stats)
         radioService = RadioService(serverService: server)
+        shareService = ShareService(serverService: server)
 
         let download = DownloadService(serverService: server, modelContainer: modelContainer, toastService: toastService, cacheSettings: cacheSettings)
         downloadService = download
