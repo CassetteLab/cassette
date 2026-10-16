@@ -165,6 +165,27 @@ For the full roadmap and discussion, see [GitHub Discussions](https://github.com
 
 ---
 
+## Contributors
+
+Cassette is built in the open, and part of it was written by people who simply
+opened a pull request. Thank you:
+
+**[Francesco Saverio Cannizzaro](https://github.com/fcannizzaro)**
+
+- [#53](https://github.com/CassetteLab/cassette/pull/53) — **Continue playback across devices.** Cassette picks the queue, track and position back up from your server, so a session you started on another client carries over to this one.
+- [#55](https://github.com/CassetteLab/cassette/pull/55) — **Song sharing.** Share a track from the player, the queue, a song row or a context menu, on both iOS and macOS.
+- [#56](https://github.com/CassetteLab/cassette/pull/56) — **Swipe to change track, and scrolling titles.** A horizontal swipe on the full player moves through the queue, and titles too long to fit now scroll instead of being cut off.
+
+**[mikemikimike](https://github.com/mikemikimike)**
+
+- [#60](https://github.com/CassetteLab/cassette/pull/60) — **Playback state reported to the server.** Pausing or stopping a track now tells the server so, instead of leaving it convinced the track is still playing — so other clients, and anything reading your server's now-playing, stay in sync. Brought OpenSubsonic `reportPlayback` support with it.
+
+**[Isaac Ault](https://github.com/isaacault)**
+
+- [#107](https://github.com/CassetteLab/cassette/pull/107) — **More ways to sort albums.** Albums can now be ordered by artist — grouped by artist, oldest release first, so a discography reads chronologically — and by most played, recently played, genre, starred or rating; artists gained starred and rating too. The A–Z jump bar follows along when you sort by artist.
+
+---
+
 ## Contributing
 
 Contributions are welcome. A few things before you start:
