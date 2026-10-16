@@ -195,6 +195,10 @@ struct SongRow: View {
 
             Divider()
 
+            SongShareButton(song: song)
+
+            Divider()
+
             Button {
                 onAddToPlaylist?(song)
             } label: {
