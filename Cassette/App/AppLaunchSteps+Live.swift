@@ -53,6 +53,9 @@ extension AppLaunchSteps {
             await container.playerService.restoreSession()
         },
         background: { container in
+            // Cross-device continuation is a bonus, never a gate: the local session is already
+            // restored above, so a slow or unreachable server costs the user nothing here.
+            Task { _ = await container.playerService.restoreFromOtherDevice() }
             Task { await runCoverArtGarbageCollection(container: container) }
             // After the collector, so it never races the pass that decides what is orphaned.
             Task { await runOfflineCoverHeal(container: container) }

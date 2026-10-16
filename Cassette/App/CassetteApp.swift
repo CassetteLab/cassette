@@ -148,6 +148,11 @@ struct CassetteApp: App {
             #endif
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
+            // Single trigger for cross-device continuation. The paused check lives inside the
+            // actor, next to the mutation it guards.
+            if newPhase == .active, let c = container {
+                Task { _ = await c.playerService.restoreFromOtherDevice() }
+            }
             #if os(iOS)
             AudioSessionLog.log("[APP] scenePhase \(oldPhase) → \(newPhase)")
             // `.inactive` is entered in both directions on iOS:

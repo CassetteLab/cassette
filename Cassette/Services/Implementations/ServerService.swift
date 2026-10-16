@@ -254,7 +254,15 @@ actor ServerService: ServerServiceProtocol {
 
         let transport = CustomHeadersTransport(headers: creds.customHeaders)
         return SwiftSonicClient(
-            configuration: ServerConfiguration(serverURL: url, username: snapshot.username, password: creds.password),
+            configuration: ServerConfiguration(
+                serverURL: url,
+                username: snapshot.username,
+                password: creds.password,
+                // Fixed on purpose. `c=` goes out on every request and Navidrome keys a player
+                // entry on (user, client): a per-install name would create one permanent entry
+                // per device and per reinstall, with orphaned transcoding profiles each time.
+                clientName: "Cassette"
+            ),
             transport: transport,
             logSubsystem: "app.cassette.server"
         )
