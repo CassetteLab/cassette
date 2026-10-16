@@ -94,6 +94,9 @@ struct BottomPlayerBar: View {
             await refreshFavorite()
             await refreshDownloadState()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteFavoriteDidChange)) { _ in
+            Task { await refreshFavorite() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleQueue)) { _ in
             showQueue.toggle()
         }
@@ -409,6 +412,20 @@ struct BottomPlayerBar: View {
 
     private var secondaryIconsGroup: some View {
         HStack(spacing: 12) {
+            // Favouriting what is playing was two clicks into the … menu; ⌘L and this star are
+            // the same action, reachable without aiming.
+            Button {
+                Task { await toggleFavorite() }
+            } label: {
+                Image(systemName: isFavorite ? "star.fill" : "star")
+                    .font(.system(size: 12))
+                    .foregroundStyle(isFavorite ? Color.cassetteAccent : .primary.opacity(0.8))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .disabled(noTrack || container?.serverState.isOnline != true)
+            .help(isFavorite ? "Remove from Favorites" : "Add to Favorites")
+
             Button {
                 UserDefaults.standard.set(true, forKey: "cassette.fullPlayerLastPanel")
                 NotificationCenter.default.post(name: .cassetteOpenFullPlayerLyrics, object: nil)

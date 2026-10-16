@@ -108,6 +108,9 @@ struct FullPlayerExpandedView: View {
             lyricsViewModel = newVM
             await newVM.load()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .cassetteFavoriteDidChange)) { _ in
+            Task { await refreshFavorite() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
             selectedPanel = .lyrics
         }
