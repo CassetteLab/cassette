@@ -38,17 +38,6 @@ enum CassetteCornerRadius {
     static let pill: CGFloat      = 999  // capsule buttons
 }
 
-// MARK: - Shadow presets
-
-/// Cassette shadow values. In dark mode, shadows are invisible against black backgrounds;
-/// use `CassetteCoverModifier` (via `.cassetteCoverStyle()`) which switches to a thin
-/// border in dark mode automatically.
-enum CassetteShadow {
-    static let coverRadius: CGFloat  = 8
-    static let coverY: CGFloat       = 4
-    static let coverOpacity: Double  = 0.15
-}
-
 // MARK: - macOS Layout
 
 #if os(macOS)
