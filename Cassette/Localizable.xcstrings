@@ -1821,6 +1821,58 @@
         }
       }
     },
+    "That doesn't look like a username — check for spaces or a slash." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das sieht nicht nach einem Benutzernamen aus – prüfe auf Leerzeichen oder Schrägstriche."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό δεν μοιάζει με όνομα χρήστη — ελέγξτε για κενά ή κάθετο."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eso no parece un nombre de usuario: comprueba si hay espacios o barras."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cela ne ressemble pas à un nom d'utilisateur — vérifiez les espaces et les barres obliques."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non sembra un nome utente: controlla spazi o barre."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザー名ではないようです。スペースやスラッシュが入っていないか確認してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这看起来不像用户名——请检查是否有空格或斜杠。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這看起來不像使用者名稱——請檢查是否有空格或斜線。"
+          }
+        }
+      }
+    },
     "This downloads %lld tracks to this device. Keep Cassette open until it finishes." : {
       "localizations" : {
         "de" : {
