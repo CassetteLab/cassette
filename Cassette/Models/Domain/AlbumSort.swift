@@ -116,7 +116,7 @@ nonisolated enum AlbumSort: String, CaseIterable, Sendable {
     private func sortKey(_ album: AlbumID3) -> String { album.sortName ?? album.name }
 }
 
-extension AlbumID3 {
+nonisolated extension AlbumID3 {
     /// The artist name as a non-optional string, for the A–Z jump bar when sorting by artist
     /// (albums with no artist count under "#").
     var artistOrEmpty: String { artist ?? "" }
