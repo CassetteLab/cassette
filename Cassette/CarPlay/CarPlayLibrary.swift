@@ -28,6 +28,7 @@ final class CarPlayLibrary {
     private let searchTabTemplate: CPListTemplate
     private var search: CarPlaySearch?
     private var nowPlaying: CarPlayNowPlaying?
+    private var limits: CarPlaySessionLimits?
 
     /// Never hardcoded: CarPlay refuses a list longer than this, and the cap moves between releases.
     var itemLimit: Int { CPListTemplate.maximumItemCount }
@@ -66,6 +67,7 @@ final class CarPlayLibrary {
         self.nowPlaying = nowPlaying
         nowPlaying.configure()
 
+        limits = CarPlaySessionLimits { [weak self] in self?.buildSearchTab() }
         buildSearchTab()
 
         let tabBar = CPTabBarTemplate(templates: [homeTemplate, recentsTemplate, libraryTemplate, searchTabTemplate])
@@ -124,6 +126,14 @@ final class CarPlayLibrary {
     }
 
     private func buildSearchTab() {
+        guard limits?.isKeyboardAvailable ?? true else {
+            // Saying why beats a row that looks tappable and opens nothing.
+            let blocked = CPListItem(text: "Search is unavailable while driving", detailText: "Ask Siri, or search once you have stopped")
+            blocked.setImage(UIImage(systemName: "hand.raised"))
+            searchTabTemplate.updateSections([CPListSection(items: [blocked])])
+            return
+        }
+
         let item = CPListItem(text: "Search your library", detailText: nil)
         item.setImage(UIImage(systemName: "magnifyingglass"))
         item.handler = { [weak self] _, completion in
