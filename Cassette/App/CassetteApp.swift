@@ -14,6 +14,11 @@ import BackgroundTasks
 @main
 struct CassetteApp: App {
     @State private var container: AppContainer?
+
+    // CarPlay has no SwiftUI equivalent, so scene routing goes through a UIKit delegate.
+    #if os(iOS)
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
     @Environment(\.scenePhase) private var scenePhase
 
     // Statics for BGTask handler access — set once after AppContainer init.
