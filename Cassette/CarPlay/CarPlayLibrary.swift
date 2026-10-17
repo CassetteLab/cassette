@@ -24,6 +24,7 @@ final class CarPlayLibrary {
     private let libraryTemplate: CPListTemplate
     private let searchTemplate = CPSearchTemplate()
     private var search: CarPlaySearch?
+    private var nowPlaying: CarPlayNowPlaying?
 
     /// Never hardcoded: CarPlay refuses a list longer than this, and the cap moves between releases.
     var itemLimit: Int { CPListTemplate.maximumItemCount }
@@ -56,6 +57,10 @@ final class CarPlayLibrary {
         let search = CarPlaySearch(library: self)
         self.search = search
         searchTemplate.delegate = search
+
+        let nowPlaying = CarPlayNowPlaying(library: self)
+        self.nowPlaying = nowPlaying
+        nowPlaying.configure()
 
         let tabBar = CPTabBarTemplate(templates: [homeTemplate, recentsTemplate, libraryTemplate, searchTemplate])
         interfaceController.setRootTemplate(tabBar, animated: false, completion: nil)
@@ -209,6 +214,7 @@ final class CarPlayLibrary {
         guard !tracks.isEmpty else { return }
         do {
             try await container.playerService.play(tracks: tracks, startIndex: startIndex)
+            nowPlaying?.refreshButtons()
             showNowPlaying()
         } catch {
             log(error, what: "playback")
