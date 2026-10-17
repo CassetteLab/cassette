@@ -23,6 +23,9 @@ final class CarPlayLibrary {
     private let recentsTemplate: CPListTemplate
     private let libraryTemplate: CPListTemplate
     private let searchTemplate = CPSearchTemplate()
+    /// The tab itself is a list: CPTabBarTemplate only accepts certain template classes, and a
+    /// search template handed to it directly takes the whole root down with it.
+    private let searchTabTemplate: CPListTemplate
     private var search: CarPlaySearch?
     private var nowPlaying: CarPlayNowPlaying?
 
@@ -49,8 +52,9 @@ final class CarPlayLibrary {
         libraryTemplate.tabTitle = "Library"
         libraryTemplate.tabImage = UIImage(systemName: "music.note.house")
 
-        searchTemplate.tabTitle = "Search"
-        searchTemplate.tabImage = UIImage(systemName: "magnifyingglass")
+        searchTabTemplate = CPListTemplate(title: "Search", sections: [])
+        searchTabTemplate.tabTitle = "Search"
+        searchTabTemplate.tabImage = UIImage(systemName: "magnifyingglass")
     }
 
     func start() {
@@ -62,8 +66,18 @@ final class CarPlayLibrary {
         self.nowPlaying = nowPlaying
         nowPlaying.configure()
 
-        let tabBar = CPTabBarTemplate(templates: [homeTemplate, recentsTemplate, libraryTemplate, searchTemplate])
-        interfaceController.setRootTemplate(tabBar, animated: false, completion: nil)
+        buildSearchTab()
+
+        let tabBar = CPTabBarTemplate(templates: [homeTemplate, recentsTemplate, libraryTemplate, searchTabTemplate])
+        interfaceController.setRootTemplate(tabBar, animated: false) { success, error in
+            // CarPlay rejects a root it does not like and leaves a blank screen behind, with no
+            // crash and nothing in the app's own logs. This is the only place it says why.
+            if let error {
+                Logger.carPlay.error("Root template refused: \(String(describing: error), privacy: .public)")
+            } else {
+                Logger.carPlay.notice("Root template set: \(success, privacy: .public)")
+            }
+        }
 
         buildLibraryMenu()
         for template in [homeTemplate, recentsTemplate] {
@@ -107,6 +121,21 @@ final class CarPlayLibrary {
         } catch {
             fail(recentsTemplate, error, what: "recents")
         }
+    }
+
+    private func buildSearchTab() {
+        let item = CPListItem(text: "Search your library", detailText: nil)
+        item.setImage(UIImage(systemName: "magnifyingglass"))
+        item.handler = { [weak self] _, completion in
+            guard let self else { completion(); return }
+            interfaceController.pushTemplate(searchTemplate, animated: true) { _, error in
+                if let error {
+                    Logger.carPlay.error("Search template refused: \(String(describing: error), privacy: .public)")
+                }
+                completion()
+            }
+        }
+        searchTabTemplate.updateSections([CPListSection(items: [item])])
     }
 
     // MARK: - Library
@@ -299,7 +328,11 @@ final class CarPlayLibrary {
         let template = CPListTemplate(title: title, sections: [
             CPListSection(items: [CPListItem(text: "Loading…", detailText: nil)]),
         ])
-        interfaceController.pushTemplate(template, animated: true, completion: nil)
+        interfaceController.pushTemplate(template, animated: true) { _, error in
+            if let error {
+                Logger.carPlay.error("Push refused for \(title, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
         do {
             let items = try await loading()
             fill(template, with: items, emptyMessage: "Nothing here")
