@@ -115,8 +115,8 @@ struct FullPlayerView: View {
         let isPlaying = playerState.playbackState == .playing
         let showingQueue = isQueueVisible(playerState)
 
-        surfaceStack(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
-                     showingQueue: showingQueue)
+        adaptiveSurface(playerState, coverArtId: coverArtId, isPlaying: isPlaying,
+                        showingQueue: showingQueue)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .cassetteContentWidth()
             #if os(macOS)
@@ -158,6 +158,78 @@ struct FullPlayerView: View {
             #endif
         }
     }
+
+    @ViewBuilder
+    private func adaptiveSurface(_ playerState: PlayerState, coverArtId: String,
+                                 isPlaying: Bool, showingQueue: Bool) -> some View {
+        #if os(iOS)
+        GeometryReader { geometry in
+            if geometry.size.width >= CassetteLayout.wideDetailMinimum && !dynamicTypeSize.isAccessibilitySize {
+                widePlayer(playerState, coverArtId: coverArtId, showingQueue: showingQueue)
+            } else {
+                surfaceStack(playerState, coverArtId: coverArtId, isPlaying: isPlaying, showingQueue: showingQueue)
+            }
+        }
+        #else
+        surfaceStack(playerState, coverArtId: coverArtId, isPlaying: isPlaying, showingQueue: showingQueue)
+        #endif
+    }
+
+    #if os(iOS)
+    private func widePlayer(_ playerState: PlayerState, coverArtId: String, showingQueue: Bool) -> some View {
+        HStack(spacing: CassetteSpacing.xxxxl) {
+            CoverArtView(id: coverArtId, size: 1000)
+                .aspectRatio(1, contentMode: .fit)
+                .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.large)
+                .frame(maxWidth: CassetteLayout.playerArtworkMaximum)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .trackSwipeGesture(
+                    interaction: trackSwipe,
+                    playerState: playerState,
+                    playerService: container?.playerService,
+                    reduceMotion: reduceMotion,
+                    isEnabled: playerState.isPlaybackAvailable && !playerState.isLiveStream
+                )
+
+            VStack(spacing: CassetteSpacing.l) {
+                if showingQueue {
+                    queuePills(playerState)
+                    upNextHeader(playerState)
+                    InlineQueueList(
+                        playerState: playerState,
+                        contentColor: vm.contentColor,
+                        secondaryContentColor: vm.secondaryContentColor,
+                        loadArtwork: true
+                    )
+                    .environment(\.colorScheme, vm.isLightBackground ? .light : .dark)
+                    queueStatusLine(playerState)
+                } else if showLyrics, let lyricsViewModel {
+                    LyricsView(viewModel: lyricsViewModel)
+                        .frame(maxHeight: .infinity)
+                } else {
+                    Spacer(minLength: 0)
+                }
+
+                TrackInfoSection(
+                    playerState: playerState,
+                    container: container,
+                    contentColor: vm.contentColor,
+                    secondaryContentColor: vm.secondaryContentColor,
+                    trackSwipe: trackSwipe
+                )
+                .padding(.horizontal, CassetteSpacing.l)
+                sharedFooter(playerState)
+                if !showingQueue && !showLyrics { Spacer(minLength: 0) }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(CassetteSpacing.xxxl)
+        .padding(.top, CassetteSpacing.xxl)
+        .frame(maxWidth: CassetteLayout.playerContentMaximum)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .overlay(alignment: .top) { topBar }
+    }
+    #endif
 
     /// The two morphing surfaces (player ⇄ queue) plus the transport controls.
     ///

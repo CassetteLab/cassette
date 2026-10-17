@@ -13,11 +13,17 @@ struct AlbumsListView: View {
     @State private var viewModel: AlbumListViewModel?
     /// Shared album ordering, persisted and reused by the artist discography too.
     @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
-    /// List vs grid layout. Defaults preserve each platform's current look (macOS grid, iOS list).
+    /// Honor saved choices; otherwise use a grid when the window has room for one.
     #if os(macOS)
     @AppStorage("cassette.albumListGrid") private var gridLayout = true
     #else
-    @AppStorage("cassette.albumListGrid") private var gridLayout = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage("cassette.albumListGrid") private var gridPreference: Bool?
+
+    private var gridLayout: Bool {
+        get { gridPreference ?? (horizontalSizeClass == .regular) }
+        nonmutating set { gridPreference = newValue }
+    }
     #endif
 
     /// Albums in the user's chosen order (client-side, so switching sort never re-fetches).

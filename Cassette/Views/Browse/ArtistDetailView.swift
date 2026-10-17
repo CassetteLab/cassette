@@ -21,6 +21,7 @@ struct ArtistDetailView: View {
     private var songFavorites: [FavoriteRecord]
     @Environment(DominantColorExtractor.self) private var colorExtractor
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var dominantColor: Color = .clear
     /// Shared album ordering, persisted and reused by the global album list too.
     @AppStorage("cassette.albumSort") private var albumSort: AlbumSort = .recentlyAdded
@@ -28,7 +29,9 @@ struct ArtistDetailView: View {
     /// catalogues where horizontal scrolling gets tedious).
     @AppStorage("cassette.artistAlbumsGrid") private var artistAlbumsGrid = false
     /// Fixed cover height — the artist photo NEVER resizes when the content below it grows.
-    private let heroCoverHeight: CGFloat = 680
+    private var heroCoverHeight: CGFloat {
+        horizontalSizeClass == .regular ? CassetteLayout.artistHeroHeight : CassetteLayout.compactArtistHeroHeight
+    }
     /// Height of the collapsed content, measured while collapsed (also catches the async bio arriving).
     /// The hero grows DOWNWARD by the delta so expanding the bio pushes the page down while the cover
     /// stays put; collapsed artists (no/short bio) keep the transport at the cover's foot.

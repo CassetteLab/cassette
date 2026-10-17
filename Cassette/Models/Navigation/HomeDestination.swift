@@ -5,8 +5,8 @@
 
 import SwiftSonic
 
-/// All value-based navigation destinations reachable from the Home tab NavigationStack.
-/// Registered via .navigationDestination(for: HomeDestination.self) on HomeView.
+/// Value-based routes shared by Home and the iPad library navigation stacks.
+/// HomeDestinationView constructs their destination screens.
 nonisolated enum HomeDestination: Hashable {
 
     // MARK: - Library sections (iOS only — macOS uses NavigationSplitView sidebar)

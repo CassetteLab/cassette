@@ -1,10 +1,10 @@
 # Cassette
 
-> A native iOS and macOS client for Subsonic, OpenSubsonic, and Navidrome servers. Built for people who self-host their music.
+> A native iOS, iPadOS, and macOS client for Subsonic, OpenSubsonic, and Navidrome servers. Built for people who self-host their music.
 
 [![License: MPL 2.0](https://img.shields.io/badge/license-MPL--2.0-brightgreen.svg)](LICENSE)
 [![Release](https://github.com/CassetteLab/cassette/actions/workflows/release.yml/badge.svg)](https://github.com/CassetteLab/cassette/actions/workflows/release.yml)
-[![Platform](https://img.shields.io/badge/platform-iOS%2026%2B%20%7C%20macOS%2015%2B-blue.svg)](#requirements)
+[![Platform](https://img.shields.io/badge/platform-iOS%20%2F%20iPadOS%2018%2B%20%7C%20macOS%2015%2B-blue.svg)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-6-orange.svg)](https://swift.org)
 
 
@@ -20,7 +20,7 @@
 
 ## What is Cassette?
 
-Cassette is a native Swift / SwiftUI music client for iOS and macOS, built for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, so it works with Navidrome and any other compliant server.
+Cassette is a native Swift / SwiftUI music client for iOS, iPadOS, and macOS, built for people who run their own music server. It speaks the Subsonic and OpenSubsonic API, so it works with Navidrome and any other compliant server.
 
 It's a pure streaming client for *your* library — no accounts, no subscriptions, no tracking. Your music stays between your device and your server. The iOS app is distributed via TestFlight; the macOS app ships as a notarized build through Homebrew.
 
@@ -32,6 +32,7 @@ Licensed under MPL-2.0.
 
 **Listening**
 - Native iOS 18+ / macOS 15 client, with a Liquid Glass design language on iOS 26 (graceful Material fallback on iOS 18)
+- iPadOS 18+ support with an adaptable sidebar, library shortcuts, and layouts for portrait, landscape, and resizable windows
 - Background playback with lock screen and Control Center controls, plus AirPlay
 - True offline mode: download albums, playlists, or individual tracks
 - Playback powered by the AudioStreaming engine — FLAC, MP3, AAC, WAV, and Ogg/Vorbis
@@ -104,7 +105,7 @@ Join the beta: <https://testflight.apple.com/join/pxCpfpxF>
 
 ## Requirements
 
-- iOS 18 or later, or macOS 15 (Sequoia) or later
+- iOS / iPadOS 18 or later, or macOS 15 (Sequoia) or later
 - A running Subsonic, OpenSubsonic, or Navidrome server
 
 ---

@@ -41,6 +41,14 @@ enum CassetteSpacing {
 
 ---
 
+## Adaptive layouts
+
+`CassetteLayout` defines shared artwork sizes and width thresholds for iPad.
+Album and playlist headers put metadata beside a 280pt cover when their content
+area is at least 700pt wide. Narrower windows keep the stacked immersive header.
+The full player uses two columns at the same threshold, and onboarding stays
+within a 560pt column. Home's pinned grid adds columns as space becomes available.
+
 ## Corner Radii
 
 ```swift

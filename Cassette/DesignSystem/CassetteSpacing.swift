@@ -38,6 +38,20 @@ enum CassetteCornerRadius {
     static let pill: CGFloat      = 999  // capsule buttons
 }
 
+// MARK: - Adaptive music layouts
+
+enum CassetteLayout {
+    static let wideDetailMinimum: CGFloat = 700
+    static let detailCoverSize: CGFloat = 280
+    static let artistHeroHeight: CGFloat = 440
+    static let compactArtistHeroHeight: CGFloat = 680
+    static let playerArtworkMaximum: CGFloat = 440
+    static let playerContentMaximum: CGFloat = 1100
+    static let onboardingMaximum: CGFloat = 560
+    static let pinnedCoverMinimum: CGFloat = 120
+    static let pinnedCoverMaximum: CGFloat = 180
+}
+
 // MARK: - macOS Layout
 
 #if os(macOS)

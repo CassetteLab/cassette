@@ -10,6 +10,7 @@ REPO_ROOT=${SCRIPT_DIR:h}
 SCRIPT_PATH="$SCRIPT_DIR/${0:t}"
 PROJECT_FILE="$REPO_ROOT/Cassette.xcodeproj/project.pbxproj"
 APP_ENTITLEMENTS="$REPO_ROOT/Cassette/Cassette-macOS.entitlements"
+IOS_ENTITLEMENTS="$REPO_ROOT/Cassette/Cassette-iOS.entitlements"
 WIDGET_ENTITLEMENTS="$REPO_ROOT/fr.mathieu-dubart.CassetteWidgetsExtension.entitlements"
 BACKUP_DIR="$REPO_ROOT/.personal-signing-backup"
 SIGNING_ENV_FILE=${SIGNING_ENV_FILE:-$REPO_ROOT/.personal-signing.env}
@@ -97,6 +98,7 @@ backup_files() {
     mkdir -p "$BACKUP_DIR"
     cp "$PROJECT_FILE" "$BACKUP_DIR/project.pbxproj"
     cp "$APP_ENTITLEMENTS" "$BACKUP_DIR/Cassette-macOS.entitlements"
+    cp "$IOS_ENTITLEMENTS" "$BACKUP_DIR/Cassette-iOS.entitlements"
     cp "$WIDGET_ENTITLEMENTS" "$BACKUP_DIR/widgets.entitlements"
 }
 
@@ -120,6 +122,10 @@ apply_signing() {
     /usr/libexec/PlistBuddy -c \
         'Delete :com.apple.security.application-groups' "$APP_ENTITLEMENTS" 2>/dev/null || true
     /usr/libexec/PlistBuddy -c \
+        'Delete :com.apple.security.application-groups' "$IOS_ENTITLEMENTS" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c \
+        'Delete :com.apple.developer.carplay-audio' "$IOS_ENTITLEMENTS" 2>/dev/null || true
+    /usr/libexec/PlistBuddy -c \
         'Delete :com.apple.security.application-groups' "$WIDGET_ENTITLEMENTS" 2>/dev/null || true
 
     print "Applied Personal Team signing:"
@@ -136,6 +142,11 @@ restore_signing() {
     fi
     cp "$BACKUP_DIR/project.pbxproj" "$PROJECT_FILE"
     cp "$BACKUP_DIR/Cassette-macOS.entitlements" "$APP_ENTITLEMENTS"
+    # Backups created before iPad support did not include the iOS entitlements.
+    if [[ -f "$BACKUP_DIR/Cassette-iOS.entitlements" ]]; then
+        cp "$BACKUP_DIR/Cassette-iOS.entitlements" "$IOS_ENTITLEMENTS"
+        rm "$BACKUP_DIR/Cassette-iOS.entitlements"
+    fi
     cp "$BACKUP_DIR/widgets.entitlements" "$WIDGET_ENTITLEMENTS"
     rm "$BACKUP_DIR/project.pbxproj"
     rm "$BACKUP_DIR/Cassette-macOS.entitlements"

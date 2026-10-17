@@ -862,27 +862,15 @@ struct PlaylistDetailView: View {
     // MARK: - Header
 
     private func playlistHeader(vm: PlaylistDetailViewModel?) -> some View {
-        VStack(spacing: 0) {
-            // The cover + blurred melt live HERE, in the scroll content (the first row), so they scroll up
-            // with the list. ignoresSafeArea(.container, .top) bleeds the cover under the transparent nav bar.
-            GeometryReader { geo in
-                // Stretchy header: on over-scroll at the top, grow the cover UPWARD to fill the bounce
-                // instead of revealing the solid page color behind it.
-                let stretch = max(0, geo.frame(in: .global).minY)
-                PlaylistThemedBackground(
-                    coverArtId: effectiveCoverArtId,
-                    coverImage: initialCoverImage,
-                    theme: theme,
-                    heroHeight: heroHeight,
-                    gradientSpec: gradientSpec,
-                    lightMelt: true
-                )
-                .frame(width: geo.size.width, height: heroHeight + stretch)
-                .offset(y: -stretch)
-                .id(coverRefreshID)
-            }
-            .frame(height: heroHeight)
-
+        ImmersiveCoverHero(
+            coverArtId: effectiveCoverArtId,
+            coverImage: initialCoverImage,
+            theme: theme,
+            heroHeight: heroHeight,
+            coverRefreshID: coverRefreshID,
+            contentBelow: true,
+            gradientSpec: gradientSpec
+        ) {
             VStack(spacing: CassetteSpacing.l) {
                 VStack(spacing: 0) {
                     Text(vm?.name ?? initialName)
@@ -1002,8 +990,6 @@ struct PlaylistDetailView: View {
                 }
             }
             }
-            .padding(.top, CassetteSpacing.m)
-            .padding(.bottom, CassetteSpacing.xl)
         }
         .frame(maxWidth: .infinity)
     }
