@@ -14,6 +14,7 @@ import OSLog
 /// `CassetteApp`'s `@State`, which does not exist when no window ever connected.
 final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate {
     private var interfaceController: CPInterfaceController?
+    private var library: CarPlayLibrary?
 
     func templateApplicationScene(
         _ templateApplicationScene: CPTemplateApplicationScene,
@@ -23,16 +24,16 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         Logger.carPlay.notice("CarPlay connected")
 
         Task { @MainActor in
-            let container = await AppContainer.launched()
-            Logger.carPlay.notice("Shared container ready: \(container != nil, privacy: .public)")
-
-            let item = CPListItem(
-                text: "Cassette",
-                detailText: container == nil ? "Launch failed" : "Connected"
-            )
-            let section = CPListSection(items: [item])
-            let template = CPListTemplate(title: "Cassette", sections: [section])
-            interfaceController.setRootTemplate(template, animated: false, completion: nil)
+            guard let container = await AppContainer.launched() else {
+                Logger.carPlay.error("Shared container unavailable — CarPlay stops here")
+                let item = CPListItem(text: "Cassette unavailable", detailText: "Open the app on your iPhone")
+                let template = CPListTemplate(title: "Cassette", sections: [CPListSection(items: [item])])
+                interfaceController.setRootTemplate(template, animated: false, completion: nil)
+                return
+            }
+            let library = CarPlayLibrary(container: container, interfaceController: interfaceController)
+            self.library = library
+            library.start()
         }
     }
 
@@ -40,8 +41,9 @@ final class CarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegat
         _ templateApplicationScene: CPTemplateApplicationScene,
         didDisconnectInterfaceController interfaceController: CPInterfaceController
     ) {
-        // Dropped so the controller — and the templates holding it — are released when the car
+        // Both dropped so the controller — and the templates holding it — are released when the car
         // goes away. A retained controller here survives every connect/disconnect cycle.
+        self.library = nil
         self.interfaceController = nil
         Logger.carPlay.notice("CarPlay disconnected")
     }
