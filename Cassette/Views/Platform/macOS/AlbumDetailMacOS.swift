@@ -81,7 +81,7 @@ struct AlbumDetailMacOS: View {
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Album",
                         subtitle: LocalizedStringKey(error.displayMessage),
-                        action: .init(label: "Retry") { Task { await vm.load() } }
+                        action: error.retryAction { Task { await vm.load() } }
                     )
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)

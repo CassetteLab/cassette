@@ -55,6 +55,20 @@ struct EmptyStateView: View {
     }
 }
 
+// MARK: - Retry
+
+extension UserFacingError {
+    /// A Retry action for this error, or `nil` when another attempt cannot change the answer.
+    ///
+    /// Offering Retry on an error the server has already settled — "I don't implement that",
+    /// "you're not allowed" — is a promise the app can't keep: the same request fails the same
+    /// way and nothing says why. Let the message stand on its own instead.
+    func retryAction(_ handler: @escaping () -> Void) -> EmptyStateView.Action? {
+        guard isRetryable else { return nil }
+        return .init(label: "Retry", handler: handler)
+    }
+}
+
 #Preview("With action") {
     EmptyStateView(
         systemImage: "magnifyingglass",

@@ -261,6 +261,162 @@
         }
       }
     },
+    "Ask whoever runs the server to check your permissions." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitte die Person, die den Server betreibt, deine Berechtigungen zu prüfen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ζήτα από όποιον διαχειρίζεται τον διακομιστή να ελέγξει τα δικαιώματά σου."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pide a quien administra el servidor que revise tus permisos."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Demandez à la personne qui administre le serveur de vérifier vos autorisations."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chiedi a chi gestisce il server di controllare i tuoi permessi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーの管理者に権限を確認してもらってください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请服务器管理员检查你的权限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請伺服器管理員檢查你的權限。"
+          }
+        }
+      }
+    },
+    "Cassette blocked it. Check your reverse proxy configuration." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette hat das blockiert. Prüfe die Konfiguration deines Reverse-Proxys."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Το Cassette το απέκλεισε. Έλεγξε τη διαμόρφωση του reverse proxy σου."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette lo ha bloqueado. Revisa la configuración de tu proxy inverso."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette l'a bloquée. Vérifiez la configuration de votre reverse proxy."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette l'ha bloccato. Controlla la configurazione del tuo reverse proxy."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette はこれをブロックしました。リバースプロキシの設定を確認してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette 已阻止该请求。请检查你的反向代理配置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cassette 已阻擋該請求。請檢查你的反向代理設定。"
+          }
+        }
+      }
+    },
+    "Check your server's logs, then try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sieh in den Logs deines Servers nach und versuche es erneut."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Έλεγξε τα αρχεία καταγραφής του διακομιστή σου και δοκίμασε ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revisa los registros de tu servidor y vuelve a intentarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Consultez les journaux de votre serveur, puis réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controlla i log del tuo server, poi riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーのログを確認してから、もう一度お試しください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请查看服务器日志后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請查看伺服器記錄後重試。"
+          }
+        }
+      }
+    },
     "Clear artwork cache" : {
       "localizations" : {
         "de" : {
@@ -309,6 +465,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "清除封面快取"
+          }
+        }
+      }
+    },
+    "Contact whoever runs the server." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wende dich an die Person, die den Server betreibt."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Επικοινώνησε με όποιον διαχειρίζεται τον διακομιστή."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contacta con quien administra el servidor."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contactez la personne qui administre le serveur."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contatta chi gestisce il server."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーの管理者に連絡してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请联系服务器管理员。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請聯絡伺服器管理員。"
           }
         }
       }
@@ -1301,6 +1509,58 @@
         }
       }
     },
+    "It may not be a Subsonic server, or it may implement only part of the API." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Es ist vielleicht kein Subsonic-Server oder implementiert die API nur teilweise."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ίσως να μην είναι διακομιστής Subsonic ή να υλοποιεί μόνο μέρος του API."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puede que no sea un servidor Subsonic, o que solo implemente parte de la API."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ce n'est peut-être pas un serveur Subsonic, ou il n'implémente qu'une partie de l'API."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Potrebbe non essere un server Subsonic, o implementarne solo una parte dell'API."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subsonic サーバーではないか、API の一部しか実装していない可能性があります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它可能不是 Subsonic 服务器，或只实现了部分 API。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它可能不是 Subsonic 伺服器，或只實作了部分 API。"
+          }
+        }
+      }
+    },
     "Library: %@" : {
       "localizations" : {
         "de" : {
@@ -1349,6 +1609,58 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "音樂庫：%@"
+          }
+        }
+      }
+    },
+    "Not every Subsonic server implements every feature. The rest of your library still works." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht jeder Subsonic-Server implementiert jede Funktion. Der Rest deiner Bibliothek funktioniert weiterhin."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Δεν υλοποιούν όλοι οι διακομιστές Subsonic κάθε λειτουργία. Η υπόλοιπη βιβλιοθήκη σου λειτουργεί κανονικά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No todos los servidores Subsonic implementan todas las funciones. El resto de tu biblioteca sigue funcionando."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tous les serveurs Subsonic n'implémentent pas toutes les fonctionnalités. Le reste de votre bibliothèque fonctionne normalement."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Non tutti i server Subsonic implementano ogni funzione. Il resto della tua libreria continua a funzionare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべての Subsonic サーバーがすべての機能を実装しているわけではありません。ライブラリの他の部分は通常どおり使えます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "并非所有 Subsonic 服务器都实现了全部功能。你的其余音乐库仍可正常使用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "並非所有 Subsonic 伺服器都實作了全部功能。你的其餘音樂庫仍可正常使用。"
           }
         }
       }
@@ -2003,6 +2315,58 @@
         }
       }
     },
+    "This isn't on your server anymore." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist nicht mehr auf deinem Server."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Αυτό δεν υπάρχει πια στον διακομιστή σου."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto ya no está en tu servidor."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cet élément n'est plus sur votre serveur."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Questo non è più sul tuo server."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これはサーバー上にもうありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个已不在你的服务器上。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個已不在你的伺服器上。"
+          }
+        }
+      }
+    },
     "Title" : {
       "localizations" : {
         "de" : {
@@ -2107,6 +2471,58 @@
         }
       }
     },
+    "Wait a moment and try again." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Warte einen Moment und versuche es erneut."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Περίμενε λίγο και δοκίμασε ξανά."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Espera un momento y vuelve a intentarlo."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Patientez un instant puis réessayez."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Attendi un momento e riprova."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "少し待ってからもう一度お試しください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请稍候片刻后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請稍候片刻後重試。"
+          }
+        }
+      }
+    },
     "Your account is not allowed to create share links." : {
       "localizations" : {
         "de" : {
@@ -2159,6 +2575,110 @@
         }
       }
     },
+    "Your account isn't allowed to do this." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Konto darf das nicht."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο λογαριασμός σου δεν έχει δικαίωμα γι' αυτό."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu cuenta no tiene permiso para hacer esto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre compte n'est pas autorisé à faire cela."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo account non è autorizzato a farlo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このアカウントにはこの操作の権限がありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的账号没有执行此操作的权限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的帳號沒有執行此操作的權限。"
+          }
+        }
+      }
+    },
+    "Your server doesn't support this." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Server unterstützt das nicht."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο διακομιστής σου δεν το υποστηρίζει αυτό."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu servidor no admite esto."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur ne prend pas cela en charge."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo server non supporta questa funzione."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お使いのサーバーはこの機能に対応していません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的服务器不支持此功能。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的伺服器不支援此功能。"
+          }
+        }
+      }
+    },
     "Your server has sharing turned off." : {
       "localizations" : {
         "de" : {
@@ -2207,6 +2727,266 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的伺服器已關閉分享功能。"
+          }
+        }
+      }
+    },
+    "Your server is asking Cassette to slow down." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Server bittet Cassette, langsamer zu machen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο διακομιστής σου ζητά από το Cassette να επιβραδύνει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu servidor pide a Cassette que vaya más despacio."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur demande à Cassette de ralentir."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo server chiede a Cassette di rallentare."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーがリクエストの間隔を空けるよう求めています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的服务器要求 Cassette 降低请求频率。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的伺服器要求 Cassette 降低請求頻率。"
+          }
+        }
+      }
+    },
+    "Your server ran into an error." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf deinem Server ist ein Fehler aufgetreten."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο διακομιστής σου αντιμετώπισε σφάλμα."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu servidor encontró un error."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur a rencontré une erreur."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo server ha riscontrato un errore."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーでエラーが発生しました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的服务器发生了错误。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的伺服器發生了錯誤。"
+          }
+        }
+      }
+    },
+    "Your server redirected to another address." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Server hat auf eine andere Adresse weitergeleitet."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο διακομιστής σου ανακατεύθυνε σε άλλη διεύθυνση."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu servidor redirigió a otra dirección."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur a redirigé vers une autre adresse."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo server ha reindirizzato a un altro indirizzo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーが別のアドレスにリダイレクトしました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的服务器重定向到了另一个地址。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的伺服器重新導向到了另一個位址。"
+          }
+        }
+      }
+    },
+    "Your server replied with something Cassette couldn't read." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Server hat mit etwas geantwortet, das Cassette nicht lesen konnte."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ο διακομιστής σου απάντησε με κάτι που το Cassette δεν μπόρεσε να διαβάσει."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu servidor respondió con algo que Cassette no pudo leer."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Votre serveur a répondu quelque chose que Cassette n'a pas su lire."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il tuo server ha risposto con qualcosa che Cassette non è riuscita a leggere."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーの応答を Cassette が読み取れませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的服务器返回了 Cassette 无法解析的内容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的伺服器回應了 Cassette 無法解析的內容。"
+          }
+        }
+      }
+    },
+    "Your server's trial period has ended." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Testphase deines Servers ist abgelaufen."
+          }
+        },
+        "el" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Η δοκιμαστική περίοδος του διακομιστή σου έληξε."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El periodo de prueba de tu servidor ha terminado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La période d'essai de votre serveur est terminée."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Il periodo di prova del tuo server è terminato."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーの試用期間が終了しました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的服务器试用期已结束。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的伺服器試用期已結束。"
           }
         }
       }

@@ -266,7 +266,7 @@ struct SearchView: View {
                 systemImage: "exclamationmark.triangle",
                 title: "Search Unavailable",
                 subtitle: LocalizedStringKey(error.localizedDescription),
-                action: .init(label: "Retry") { Task { await vm.search(query: searchQuery) } }
+                action: error.retryAction { Task { await vm.search(query: searchQuery) } }
             )
             .listRowSeparator(.hidden)
             // The server is unreachable while the device still has a path (server down, off-VPN):
