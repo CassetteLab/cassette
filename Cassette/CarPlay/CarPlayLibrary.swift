@@ -135,11 +135,7 @@ final class CarPlayLibrary {
     private func showPlaylists() async {
         await push(title: "Playlists", loading: {
             let playlists = try await self.container.libraryService.playlists()
-            return playlists.prefix(self.itemLimit).map { playlist in
-                self.item(title: playlist.name, subtitle: self.trackCount(playlist.songCount), coverArtId: playlist.coverArt) { [weak self] in
-                    await self?.openPlaylist(playlist)
-                }
-            }
+            return playlists.prefix(self.itemLimit).map(self.playlistItem)
         })
     }
 
@@ -153,11 +149,7 @@ final class CarPlayLibrary {
     private func showArtists() async {
         await push(title: "Artists", loading: {
             let artists = try await self.container.libraryService.artists().flatMap(\.artist)
-            return artists.prefix(self.itemLimit).map { artist in
-                self.item(title: artist.name, subtitle: nil, coverArtId: artist.coverArt) { [weak self] in
-                    await self?.openArtist(artist)
-                }
-            }
+            return artists.prefix(self.itemLimit).map(self.artistItem)
         })
     }
 
@@ -229,6 +221,18 @@ final class CarPlayLibrary {
     }
 
     // MARK: - Building blocks
+
+    func playlistItem(_ playlist: Playlist) -> CPListItem {
+        item(title: playlist.name, subtitle: trackCount(playlist.songCount), coverArtId: playlist.coverArt) { [weak self] in
+            await self?.openPlaylist(playlist)
+        }
+    }
+
+    func artistItem(_ artist: ArtistID3) -> CPListItem {
+        item(title: artist.name, subtitle: nil, coverArtId: artist.coverArt) { [weak self] in
+            await self?.openArtist(artist)
+        }
+    }
 
     func albumItem(_ album: AlbumID3) -> CPListItem {
         item(title: album.name, subtitle: album.artist, coverArtId: album.coverArt) { [weak self] in
