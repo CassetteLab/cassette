@@ -26,6 +26,10 @@ final class CarPlayLibrary {
     /// Never hardcoded: CarPlay refuses a list longer than this, and the cap moves between releases.
     private var itemLimit: Int { CPListTemplate.maximumItemCount }
 
+    /// How many covers go in the top row. CarPlay silently drops the extras, and this is the only
+    /// number here that is not read from an API — confirm it against CPListImageRowItem's own cap.
+    private let imageRowCount = 8
+
     init(container: AppContainer, interfaceController: CPInterfaceController) {
         self.container = container
         self.interfaceController = interfaceController
@@ -62,7 +66,11 @@ final class CarPlayLibrary {
         do {
             let playlists = try await container.libraryService.playlists()
             let items = playlists.prefix(itemLimit).map { playlist in
-                item(title: playlist.name, subtitle: trackCount(playlist.songCount)) { [weak self] in
+                item(
+                    title: playlist.name,
+                    subtitle: trackCount(playlist.songCount),
+                    coverArtId: playlist.coverArt
+                ) { [weak self] in
                     await self?.playPlaylist(id: playlist.id)
                 }
             }
@@ -74,16 +82,51 @@ final class CarPlayLibrary {
 
     private func loadAlbums() async {
         do {
-            let albums = try await container.libraryService.recentlyAddedAlbums(size: itemLimit)
-            let items = albums.prefix(itemLimit).map { album in
-                item(title: album.name, subtitle: album.artist) { [weak self] in
+            let albums = Array(try await container.libraryService.recentlyAddedAlbums(size: itemLimit)
+                .prefix(itemLimit))
+            guard !albums.isEmpty else {
+                fill(albumsTemplate, with: [], emptyMessage: "No albums")
+                return
+            }
+
+            // The list goes up first with no covers at all, then the covers land on it. Waiting for
+            // the artwork would leave a driver looking at a spinner over a mobile connection.
+            let items = albums.map { album in
+                item(title: album.name, subtitle: album.artist, coverArtId: album.coverArt) { [weak self] in
                     await self?.playAlbum(id: album.id)
                 }
             }
-            fill(albumsTemplate, with: Array(items), emptyMessage: "No albums")
+            albumsTemplate.updateSections([CPListSection(items: items, header: "Recently added", sectionIndexTitle: nil)])
+
+            await addCoverRow(for: Array(albums.prefix(imageRowCount)), below: items)
         } catch {
             fail(albumsTemplate, error, what: "albums")
         }
+    }
+
+    /// Adds the Deezer-style row of covers above the list, once its images are in hand.
+    private func addCoverRow(for albums: [AlbumID3], below items: [CPListItem]) async {
+        let ids = albums.compactMap(\.coverArt)
+        guard !ids.isEmpty else { return }
+        let images = await CarPlayArtwork.load(
+            coverArtIds: ids,
+            cache: container.artworkImageCache,
+            size: CPListImageRowItem.maximumImageSize
+        )
+        guard images.count == ids.count else { return }
+
+        let row = CPListImageRowItem(text: "Jump back in", images: images)
+        row.listImageRowHandler = { [weak self] _, index, completion in
+            Task { @MainActor in
+                guard let self, albums.indices.contains(index) else { completion(); return }
+                await self.playAlbum(id: albums[index].id)
+                completion()
+            }
+        }
+        albumsTemplate.updateSections([
+            CPListSection(items: [row]),
+            CPListSection(items: items, header: "Recently added", sectionIndexTitle: nil),
+        ])
     }
 
     private func loadFavorites() async {
@@ -91,7 +134,7 @@ final class CarPlayLibrary {
             let songs = try await container.libraryService.getStarred2().song ?? []
             let tracks = songs.map { DisplayableSong(from: $0) }
             let items = tracks.prefix(itemLimit).enumerated().map { index, track in
-                item(title: track.title, subtitle: track.artist) { [weak self] in
+                item(title: track.title, subtitle: track.artist, coverArtId: track.coverArtId) { [weak self] in
                     // Starts the whole favourites list at the tapped track, so the queue carries on
                     // afterwards instead of stopping at one song.
                     await self?.play(Array(tracks.prefix(self?.itemLimit ?? 0)), startIndex: index)
@@ -147,6 +190,7 @@ final class CarPlayLibrary {
     private func item(
         title: String,
         subtitle: String?,
+        coverArtId: String? = nil,
         action: @escaping @MainActor () async -> Void
     ) -> CPListItem {
         let listItem = CPListItem(text: title, detailText: subtitle)
@@ -156,6 +200,12 @@ final class CarPlayLibrary {
                 completion()
             }
         }
+        CarPlayArtwork.attach(
+            to: listItem,
+            coverArtId: coverArtId,
+            cache: container.artworkImageCache,
+            size: CPListItem.maximumImageSize
+        )
         return listItem
     }
 
