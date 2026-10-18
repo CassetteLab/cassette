@@ -54,10 +54,10 @@ struct PlaylistCoverManager {
 
     private func cacheLocally(_ data: Data, playlistId: String) async {
         // Invalidate FIRST — it deletes the tier disk files and clears RAM; persisting first would let the
-        // invalidate wipe what we just wrote. Then persist under BOTH tier keys, because load() reads only
+        // invalidate wipe what we just wrote. Then persist under every tier key, because load() reads only
         // `{id}@{tier}` (never the untagged `{id}`, which is swept on launch).
         await artworkImageCache.invalidate(for: playlistId)
-        for tier in [ArtworkTier.thumb, .hero] {
+        for tier in ArtworkTier.allCases {
             await downloadService.persistCover(data, forId: "\(playlistId)@\(tier.rawValue)")
         }
         // The SINGLE cross-surface refresh signal — a UserDefaults-backed global counter every CoverArtView

@@ -13,11 +13,17 @@ struct PlaylistListView: View {
     @Environment(\.appContainer) private var container
     @State private var viewModel: PlaylistListViewModel?
     @State private var showCreateSheet = false
-    /// List vs grid, mirroring the albums screen: same per-platform defaults, its own key.
+    /// List vs grid, mirroring the albums screen: adaptive defaults, its own saved choice.
     #if os(macOS)
     @AppStorage("cassette.playlistListGrid") private var gridLayout = true
     #else
-    @AppStorage("cassette.playlistListGrid") private var gridLayout = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage("cassette.playlistListGrid") private var gridPreference: Bool?
+
+    private var gridLayout: Bool {
+        get { gridPreference ?? (horizontalSizeClass == .regular) }
+        nonmutating set { gridPreference = newValue }
+    }
     #endif
 
     var body: some View {

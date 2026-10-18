@@ -10,6 +10,7 @@ import SwiftSonic
 struct HomeView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: \PinnedItem.sortOrder) private var allPinnedItems: [PinnedItem]
     @Query private var recentDownloadedAlbums: [DownloadedAlbum]
     @Query private var recentDownloadedPlaylists: [DownloadedPlaylist]
@@ -30,8 +31,6 @@ struct HomeView: View {
     @Namespace private var pinnedZoomNamespace
     @Namespace private var recentlyAddedZoomNamespace
     @Namespace private var playlistZoomNamespace
-    @Environment(DominantColorExtractor.self) private var colorExtractor
-    @Environment(ArtworkImageCache.self) private var artworkImageCache
     @State private var viewModel: HomeViewModel?
     @State private var showCreatePlaylist = false
     @State private var navigateToSettings = false
@@ -42,11 +41,12 @@ struct HomeView: View {
     private let recentColumns = [
         GridItem(.adaptive(minimum: 140, maximum: 180), spacing: CassetteSpacing.m)
     ]
-    private let pinnedColumns = [
-        GridItem(.flexible()),
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
+    private var pinnedColumns: [GridItem] {
+        horizontalSizeClass == .regular
+            ? [GridItem(.adaptive(minimum: CassetteLayout.pinnedCoverMinimum,
+                                 maximum: CassetteLayout.pinnedCoverMaximum), spacing: CassetteSpacing.m)]
+            : Array(repeating: GridItem(.flexible()), count: 3)
+    }
 
     private var isOnline: Bool { container?.serverState.isOnline == true }
 
@@ -111,7 +111,9 @@ struct HomeView: View {
                 }
                 #endif
                 #if os(iOS)
-                librarySection
+                if horizontalSizeClass != .regular {
+                    librarySection
+                }
                 #endif
                 #if os(macOS)
                 macOSCarousels
@@ -156,67 +158,12 @@ struct HomeView: View {
         #endif
         #if os(iOS)
         .navigationDestination(for: HomeDestination.self) { destination in
-            switch destination {
-            case .libraryAlbums:
-                AlbumsListView()
-            case .libraryArtists:
-                ArtistListView()
-            case .librarySongs:
-                SongsListView()
-            case .libraryPlaylists:
-                PlaylistListView(zoomNamespace: playlistZoomNamespace)
-            case .libraryFavorites:
-                FavoritesView()
-            case .libraryDownloads:
-                DownloadedView()
-            case .album(let album):
-                AlbumDetailView(
-                    album: album,
-                    zoomSourceId: album.id,
-                    zoomNamespace: recentlyAddedZoomNamespace,
-                    coverArtId: album.coverArt,
-                    initialDominantColor: colorExtractor.dominantColor(for: album.coverArt ?? album.id, image: nil),
-                    initialCoverImage: artworkImageCache.cachedImage(for: album.coverArt ?? album.id)
-                )
-            case .artist(let artist):
-                ArtistDetailView(artist: artist)
-            case .playlist(let playlist):
-                PlaylistDetailView(
-                    playlist: playlist,
-                    coverArtId: playlist.coverArt ?? playlist.id,
-                    initialCoverImage: artworkImageCache.cachedImage(for: playlist.coverArt ?? playlist.id),
-                    zoomSourceId: playlist.id,
-                    zoomNamespace: playlistZoomNamespace
-                )
-            case .downloadedAlbum(let display):
-                AlbumDetailView(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId, mode: .downloadedOnly)
-            case .albumById(let id, let name, _, let coverArtId, let hasZoomSource):
-                AlbumDetailView(
-                    albumId: id,
-                    albumName: name,
-                    zoomSourceId: hasZoomSource ? id : nil,
-                    zoomNamespace: hasZoomSource ? pinnedZoomNamespace : nil,
-                    coverArtId: coverArtId,
-                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id)
-                )
-            case .playlistById(let id, let name, let coverArtId, let hasZoomSource):
-                PlaylistDetailView(
-                    playlistId: id,
-                    name: name,
-                    coverArtId: coverArtId,
-                    initialCoverImage: artworkImageCache.cachedImage(for: coverArtId ?? id),
-                    zoomSourceId: hasZoomSource ? id : nil,
-                    zoomNamespace: hasZoomSource ? pinnedZoomNamespace : nil
-                )
-            case .artistById(let id, let name, let coverArtId):
-                ArtistDetailView(artist: ArtistID3(id: id, name: name, coverArt: coverArtId))
-            case .artistBestOf(let id, let name, let coverArtId):
-                ArtistBestOfView(artistId: id, artistName: name, coverArtId: coverArtId)
-            case .offlineArtist(let artist):
-                OfflineArtistAlbumsView(artist: artist)
-            case .offlineAlbum(let album):
-                AlbumDetailView(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
-            }
+            HomeDestinationView(
+                destination: destination,
+                pinnedZoomNamespace: pinnedZoomNamespace,
+                recentlyAddedZoomNamespace: recentlyAddedZoomNamespace,
+                playlistZoomNamespace: playlistZoomNamespace
+            )
         }
         #endif
         .onAppear { localPinnedItems = allPinnedItems }

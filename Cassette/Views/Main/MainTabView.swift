@@ -8,6 +8,7 @@ import SwiftUI
 struct MainTabView: View {
     @Environment(\.appContainer) private var container
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @State private var searchText = ""
     @State private var searchPath = NavigationPath()
     @State private var homePath = NavigationPath()
@@ -16,7 +17,10 @@ struct MainTabView: View {
     @Namespace private var playerZoom
     private let fullPlayerZoomID = "full-player"
 
-    private enum AppTab: Hashable { case home, discover, search }
+    private enum AppTab: Hashable {
+        case home, discover, search
+        case playlists, albums, artists, songs, favorites, downloads
+    }
 
     private var hasTrack: Bool {
         container?.playerState.currentTrack != nil || container?.playerState.isLiveStream == true
@@ -58,7 +62,9 @@ struct MainTabView: View {
                             .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
                             .padding(.horizontal, CassetteSpacing.s)
                             // Lift clear of the tab bar (safeAreaInset draws over it), plus a small gap.
-                            .padding(.bottom, CassetteSpacing.legacyTabBarHeight + CassetteSpacing.xs)
+                            .padding(.bottom, horizontalSizeClass == .compact
+                                     ? CassetteSpacing.legacyTabBarHeight + CassetteSpacing.xs
+                                     : CassetteSpacing.xs)
                     }
                 }
                 .fullScreenCover(isPresented: $showingFullPlayer) {
@@ -91,6 +97,30 @@ struct MainTabView: View {
                 }
             }
 
+            #if os(iOS)
+            TabSection("Library") {
+                Tab("Playlists", systemImage: "music.note.list", value: AppTab.playlists) {
+                    LibraryNavigationView(destination: .libraryPlaylists)
+                }
+                Tab("Albums", systemImage: "square.stack", value: AppTab.albums) {
+                    LibraryNavigationView(destination: .libraryAlbums)
+                }
+                Tab("Artists", systemImage: "music.mic", value: AppTab.artists) {
+                    LibraryNavigationView(destination: .libraryArtists)
+                }
+                Tab("Songs", systemImage: "music.note", value: AppTab.songs) {
+                    LibraryNavigationView(destination: .librarySongs)
+                }
+                Tab("Favorites", systemImage: "star.fill", value: AppTab.favorites) {
+                    LibraryNavigationView(destination: .libraryFavorites)
+                }
+                Tab("Downloads", systemImage: "arrow.down.circle.fill", value: AppTab.downloads) {
+                    LibraryNavigationView(destination: .libraryDownloads)
+                }
+            }
+            .defaultVisibility(.hidden, for: .tabBar)
+            #endif
+
             Tab(value: AppTab.search, role: .search) {
                 NavigationStack(path: $searchPath) {
                     SearchView(searchQuery: $searchText, path: $searchPath)
@@ -99,6 +129,10 @@ struct MainTabView: View {
                 .searchable(text: $searchText, prompt: "Artists, albums, songs\u{2026}")
             }
         }
+        #if os(iOS)
+        .tabViewStyle(.sidebarAdaptable)
+        .defaultAdaptableTabBarPlacement(.sidebar)
+        #endif
         .accentColor(.cassetteAccent)
 
         .task(id: container?.serverState.isOnline) {
@@ -123,3 +157,19 @@ struct MainTabView: View {
         }
     }
 }
+
+#if os(iOS)
+private struct LibraryNavigationView: View {
+    let destination: HomeDestination
+    @State private var path = NavigationPath()
+
+    var body: some View {
+        NavigationStack(path: $path) {
+            HomeDestinationView(destination: destination)
+                .navigationDestination(for: HomeDestination.self) { destination in
+                    HomeDestinationView(destination: destination)
+                }
+        }
+    }
+}
+#endif

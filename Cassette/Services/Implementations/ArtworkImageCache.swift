@@ -88,10 +88,10 @@ private actor CoverFetchGate {
 ///
 /// Resolution order per tier: RAM → disk (`id@tier`) → server fetch + persist to `id@tier`.
 ///
-/// Plain-`id` files are never read here: pre-tier builds wrote full-res JPEGs under that
+/// The tiered `load` never reads plain-`id` files: pre-tier builds wrote full-res JPEGs under that
 /// name and decoding one takes ~1100ms, starving the audio decode thread. The same name is
 /// also used for the covers saved alongside offline downloads, which must be left alone —
-/// `CoverArtView` reads those directly as its offline fallback.
+/// `localImage` reads those only as an offline fallback for `CoverArtView`.
 @MainActor
 @Observable
 final class ArtworkImageCache {
@@ -148,9 +148,39 @@ final class ArtworkImageCache {
         return image
     }
 
-    /// Read-only sync lookup — no LRU touch, no fetch.
-    func cachedImage(for id: String, tier: ArtworkTier = .thumb) -> PlatformImage? {
+    /// Read-only sync lookup for an exact tier — no LRU touch, no fetch.
+    func cachedImage(for id: String, tier: ArtworkTier) -> PlatformImage? {
         cache[cacheKey(id: id, tier: tier)]
+    }
+
+    /// Best available image for a transition or placeholder while the requested tier loads.
+    func cachedImage(for id: String) -> PlatformImage? {
+        for tier in ArtworkTier.allCases.reversed() {
+            if let image = cachedImage(for: id, tier: tier) { return image }
+        }
+        return nil
+    }
+
+    /// On-disk fallback, including other tiers when the requested size isn't cached.
+    /// Never fetches or stores a lower-resolution fallback under the requested tier's key.
+    func localImage(for id: String, tier: ArtworkTier) async -> PlatformImage? {
+        // The untagged `id` file goes LAST: pre-tier builds and offline downloads wrote full-res
+        // JPEGs under that name, and decoding one takes ~1100ms, starving the audio decode thread.
+        // Any tiered file is smaller and decodes in a fraction of that, so probe them all first.
+        let diskIds = [cacheKey(id: id, tier: tier)]
+            + ArtworkTier.allCases.reversed().filter { $0 != tier }.map { cacheKey(id: id, tier: $0) }
+            + [id]
+        for diskId in diskIds {
+            guard !Task.isCancelled else { return nil }
+            guard let url = await downloadService.localCoverArtURL(forId: diskId) else { continue }
+            let image = await Task.detached(priority: .userInitiated) {
+                guard let data = try? Data(contentsOf: url) else { return nil as PlatformImage? }
+                return Self.thumbnailImage(from: data, maxDimension: tier.decodePixels)
+            }.value
+            guard !Task.isCancelled else { return nil }
+            if let image { return image }
+        }
+        return nil
     }
 
     /// Returns the image from cache if available; otherwise fetches from disk or server.

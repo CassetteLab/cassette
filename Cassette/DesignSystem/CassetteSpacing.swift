@@ -38,6 +38,36 @@ enum CassetteCornerRadius {
     static let pill: CGFloat      = 999  // capsule buttons
 }
 
+// MARK: - Adaptive music layouts
+
+/// Widths and heights that change with the window, not with the device.
+///
+/// Everything here is measured against the window's own width, never against the device idiom:
+/// an iPad in Split View is as narrow as a phone, and must lay out like one.
+enum CassetteLayout {
+    /// Below this width a detail screen stacks its cover and metadata; above it, they sit
+    /// side by side. Chosen to stay narrow in a half-screen Split View (~507pt) and go wide on a
+    /// full iPad.
+    static let wideDetailMinimum: CGFloat = 700
+    /// The cover's side in the side-by-side layout, where it no longer spans the window.
+    static let detailCoverSize: CGFloat = 280
+    /// Artist hero on a wide window: shorter, because the width already carries the image.
+    static let artistHeroHeight: CGFloat = 440
+    /// Artist hero on a narrow window. Deliberately TALLER than the wide one — a phone screen is
+    /// narrow and tall, so a full-bleed photo needs the height to read as a hero rather than a band.
+    static let compactArtistHeroHeight: CGFloat = 680
+    /// Cap on the player artwork, so a large window does not turn the cover into a poster.
+    static let playerArtworkMaximum: CGFloat = 440
+    /// Cap on the whole player, so its two columns stay a readable distance apart on a 13" iPad.
+    static let playerContentMaximum: CGFloat = 1100
+    /// Onboarding stays a column; full width would spread a handful of fields across the screen.
+    static let onboardingMaximum: CGFloat = 560
+    /// Pinned covers flow between these two sides, so the row refills itself at any width
+    /// instead of being pinned to a column count.
+    static let pinnedCoverMinimum: CGFloat = 120
+    static let pinnedCoverMaximum: CGFloat = 180
+}
+
 // MARK: - macOS Layout
 
 #if os(macOS)

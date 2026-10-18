@@ -58,6 +58,11 @@ struct OnboardingView: View {
                     ))
             }
         }
+        #if os(iOS)
+        .frame(maxWidth: CassetteLayout.onboardingMaximum)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(CassetteColors.backgroundPrimary.ignoresSafeArea())
+        #endif
         .preferredColorScheme(.dark)
         .animation(.easeInOut(duration: 0.3), value: step)
         .task {
