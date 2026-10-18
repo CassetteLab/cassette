@@ -77,12 +77,14 @@ private actor CoverFetchGate {
 
 /// Shared in-memory cache for cover art PlatformImages, keyed by `"\(coverArtId)@\(tier)"`.
 ///
-/// Two decode tiers keep memory and decode cost proportional to display context:
-///   • thumb (240 px) — list rows, grid cells, Wrapped cards, mini player
+/// Three decode tiers keep memory and decode cost proportional to display context:
+///   • thumb (240 px) — list rows, Wrapped cards, mini player, small avatars
+///   • grid  (600 px) — album and playlist grid cells
 ///   • hero  (1200 px) — detail view heroes, full-player cover, lock screen artwork
 ///
-/// Both tiers for the same id can coexist in RAM. LRU eviction is unified across tiers;
-/// maxEntries is sized to accommodate ~100 thumb + ~10 hero images.
+/// Every tier for the same id can coexist in RAM. LRU eviction is unified across tiers and
+/// bounded in bytes (`costLimit`), not in entries: a hero weighs 25x a thumb, so a count
+/// bounds nothing.
 ///
 /// Resolution order per tier: RAM → disk (`id@tier`) → server fetch + persist to `id@tier`.
 ///
@@ -113,7 +115,7 @@ final class ArtworkImageCache {
     // MARK: - Revalidation
     /// Per-cover `Last-Modified` + last-checked, so a cached cover is re-verified on a slow cadence.
     private let revalidationStore: CoverRevalidationStore
-    /// Cover ids whose revalidation is in flight, so the two tiers of one id don't both HEAD it.
+    /// Cover ids whose revalidation is in flight, so the tiers of one id don't each HEAD it.
     private var revalidating: Set<String> = []
     /// Ids whose revalidation failed this run (offline / error). Skipped until relaunch so an
     /// offline session doesn't fire a HEAD per cover on every scroll.
@@ -192,7 +194,7 @@ final class ArtworkImageCache {
             }.value
             if let image {
                 store(image: image, forKey: key)
-                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
+                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) (\(self.cache.count, privacy: .public) covers, \(self.totalCost / 1_048_576, privacy: .public) MB)")
                 revalidateIfDue(coverArtId: coverArtId, tier: tier)
                 return image
             }
