@@ -164,8 +164,12 @@ final class ArtworkImageCache {
     /// On-disk fallback, including other tiers when the requested size isn't cached.
     /// Never fetches or stores a lower-resolution fallback under the requested tier's key.
     func localImage(for id: String, tier: ArtworkTier) async -> PlatformImage? {
-        let diskIds = [cacheKey(id: id, tier: tier), id]
+        // The untagged `id` file goes LAST: pre-tier builds and offline downloads wrote full-res
+        // JPEGs under that name, and decoding one takes ~1100ms, starving the audio decode thread.
+        // Any tiered file is smaller and decodes in a fraction of that, so probe them all first.
+        let diskIds = [cacheKey(id: id, tier: tier)]
             + ArtworkTier.allCases.reversed().filter { $0 != tier }.map { cacheKey(id: id, tier: $0) }
+            + [id]
         for diskId in diskIds {
             guard !Task.isCancelled else { return nil }
             guard let url = await downloadService.localCoverArtURL(forId: diskId) else { continue }

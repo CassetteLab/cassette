@@ -160,9 +160,14 @@ private struct CoverArtViewContent: View {
                 return
             }
 
-            // Reuse another cached size immediately while the requested tier loads.
+            // Reuse another cached size immediately while the requested tier loads. This writes
+            // `displayedId = id`, so the "already correct for this id" guard below would otherwise
+            // read it as a finished resolution and skip the disk fallbacks — leaving a thumb on
+            // screen while a hero sits on disk. The flag keeps the two states apart.
+            var showingOtherTier = false
             if displayedId != id, let ram = artworkCache.cachedImage(for: id) {
                 apply(ram, for: id)
+                showingOtherTier = true
             }
 
             // 2. Tiered load (RAM → disk `{id}@{tier}` → network). Network is online-only — offline
@@ -175,7 +180,8 @@ private struct CoverArtViewContent: View {
 
             // The image already on screen is correct for this id (a caller-provided initialImage,
             // or an unchanged id) — keep it rather than fall back to a lower tier or clear it.
-            if displayedId == id { return }
+            // A stand-in from another tier does not count: a better one may still be on disk.
+            if displayedId == id, !showingOtherTier { return }
 
             // 3. Decode a local file off-main, including the grid tier if no hero or download exists.
             if let image = await artworkCache.localImage(for: id, tier: t) {
@@ -185,11 +191,13 @@ private struct CoverArtViewContent: View {
             }
             guard !Task.isCancelled else { return }
 
-            // 4. Nothing local resolved and the on-screen image belongs to a previous id — clear it
-            //    so a mismatched cover is never left up, then try the online URL safety net
-            //    (AsyncImage falls through to the placeholder when offline).
-            cachedImage = nil
-            displayedId = nil
+            // 4. Nothing local resolved. Clear the image only when it belongs to a PREVIOUS id —
+            //    a stand-in from another tier is this track's own cover, just not at the requested
+            //    size, and wiping it would trade a slightly soft cover for an empty square.
+            if !showingOtherTier {
+                cachedImage = nil
+                displayedId = nil
+            }
             let fallbackURL = await container?.libraryService.coverArtURL(id: id, size: size)
             guard !Task.isCancelled else { return }
             url = fallbackURL
