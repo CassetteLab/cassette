@@ -27,8 +27,8 @@ import SwiftUI
 ///
 /// - Parameters:
 ///   - size: Requested pixel size, used for the AsyncImage fallback URL only.
-///           Tier is auto-detected: `size >= 480` → `.hero` (1200 px decode);
-///           `size < 480` → `.thumb` (240 px decode).
+///           Tier is auto-detected: `< 160` → `.thumb` (240 px), `< 480` → `.grid` (600 px),
+///           otherwise `.hero` (1200 px).
 ///   - tier: Optional explicit tier override. Pass `.hero` for detail-view hero images
 ///           whose pixel size is below 480 (e.g. macOS DetailHeroView at 280 px).
 struct CoverArtView: View {
@@ -96,8 +96,17 @@ private struct CoverArtViewContent: View {
         _displayedId = State(initialValue: initialImage == nil ? nil : id)
     }
 
+    /// Callers pass `size` as roughly twice the point size they display at — a convention from
+    /// when screens were @2x. It is left alone deliberately: raising it to the real @3x scale
+    /// would push every grid cell past the hero threshold and decode 1200 px for a 180pt tile.
+    /// The tiers absorb the difference instead.
     private var resolvedTier: ArtworkTier {
-        tier ?? ((size ?? 0) >= 480 ? .hero : .thumb)
+        if let tier { return tier }
+        switch size ?? 0 {
+        case ..<160: return .thumb   // rows and avatars: 44–64pt, 192 px at @3x
+        case ..<480: return .grid    // grid cells: 90–180pt, up to 540 px at @3x
+        default: return .hero
+        }
     }
 
     var body: some View {

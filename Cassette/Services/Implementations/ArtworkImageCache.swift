@@ -18,17 +18,29 @@ import AppKit
 ///
 /// Tier determines both the pixel dimension passed to CGImageSourceCreateThumbnailAtIndex
 /// and the disk/RAM cache key suffix (`id@thumb`, `id@hero`).
-nonisolated enum ArtworkTier: String, Sendable {
-    /// 240 px — list rows, grid cells, queue rows, mini player, Wrapped cards.
+nonisolated enum ArtworkTier: String, Sendable, CaseIterable {
+    /// 240 px — list rows, queue rows, mini player, small avatars.
     case thumb
+    /// 600 px — album and playlist grid cells.
+    case grid
     /// 1200 px — detail view heroes, full-player cover, lock screen artwork.
     case hero
 
+    /// `thumb` used to cover grid cells too, and that was the bug: a 180pt cell on a @3x screen
+    /// needs 540 px, and 240 was both decoded AND requested from the server, so the blur came
+    /// down the wire. A 44pt row needs 132 px, so giving both the same tier meant either blurry
+    /// grids or 25× the memory every list row deserves.
     var decodePixels: Int {
         switch self {
         case .thumb: return 240
+        case .grid: return 600
         case .hero: return 1200
         }
+    }
+
+    /// Decoded bytes once in RAM: 4 bytes per pixel, squared.
+    var approximateBytes: Int {
+        decodePixels * decodePixels * 4
     }
 }
 
@@ -65,12 +77,14 @@ private actor CoverFetchGate {
 
 /// Shared in-memory cache for cover art PlatformImages, keyed by `"\(coverArtId)@\(tier)"`.
 ///
-/// Two decode tiers keep memory and decode cost proportional to display context:
-///   • thumb (240 px) — list rows, grid cells, Wrapped cards, mini player
+/// Three decode tiers keep memory and decode cost proportional to display context:
+///   • thumb (240 px) — list rows, Wrapped cards, mini player, small avatars
+///   • grid  (600 px) — album and playlist grid cells
 ///   • hero  (1200 px) — detail view heroes, full-player cover, lock screen artwork
 ///
-/// Both tiers for the same id can coexist in RAM. LRU eviction is unified across tiers;
-/// maxEntries is sized to accommodate ~100 thumb + ~10 hero images.
+/// Every tier for the same id can coexist in RAM. LRU eviction is unified across tiers and
+/// bounded in bytes (`costLimit`), not in entries: a hero weighs 25x a thumb, so a count
+/// bounds nothing.
 ///
 /// Resolution order per tier: RAM → disk (`id@tier`) → server fetch + persist to `id@tier`.
 ///
@@ -83,7 +97,14 @@ private actor CoverFetchGate {
 final class ArtworkImageCache {
     private var cache: [String: PlatformImage] = [:]
     private var accessOrder: [String] = []
-    private let maxEntries = 110
+    private var costs: [String: Int] = [:]
+    private var totalCost = 0
+
+    /// Bounded in bytes, not in entries. A count cannot bound anything here: a hero weighs 25×
+    /// a thumb, so the old limit of 110 entries allowed anything between 24 MB (all thumb) and
+    /// 604 MB (all hero) — and this process also runs an audio engine, which iOS is far less
+    /// forgiving about.
+    private let costLimit = 120 * 1024 * 1024
 
     private let downloadService: any DownloadServiceProtocol
     private let libraryService: any LibraryServiceProtocol
@@ -94,7 +115,7 @@ final class ArtworkImageCache {
     // MARK: - Revalidation
     /// Per-cover `Last-Modified` + last-checked, so a cached cover is re-verified on a slow cadence.
     private let revalidationStore: CoverRevalidationStore
-    /// Cover ids whose revalidation is in flight, so the two tiers of one id don't both HEAD it.
+    /// Cover ids whose revalidation is in flight, so the tiers of one id don't each HEAD it.
     private var revalidating: Set<String> = []
     /// Ids whose revalidation failed this run (offline / error). Skipped until relaunch so an
     /// offline session doesn't fire a HEAD per cover on every scroll.
@@ -173,7 +194,7 @@ final class ArtworkImageCache {
             }.value
             if let image {
                 store(image: image, forKey: key)
-                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) (\(self.cache.count, privacy: .public)/\(self.maxEntries, privacy: .public))")
+                Logger.artworkCache.debug("ArtworkImageCache: disk hit \(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) (\(self.cache.count, privacy: .public) covers, \(self.totalCost / 1_048_576, privacy: .public) MB)")
                 revalidateIfDue(coverArtId: coverArtId, tier: tier)
                 return image
             }
@@ -259,11 +280,11 @@ final class ArtworkImageCache {
     /// re-read it. The tier that triggered the check is fetched now; the other tier is dropped so it
     /// re-fetches fresh on its next access.
     private func refetchChangedCover(coverArtId: String, tier: ArtworkTier, newLastModified: String?) async {
-        // Drop stale copies of BOTH tiers so nothing old survives.
-        for staleTier in [ArtworkTier.thumb, .hero] {
+        // Drop stale copies of EVERY tier so nothing old survives. Iterating allCases rather
+        // than a hand-written list is what stops a new tier from silently keeping stale covers.
+        for staleTier in ArtworkTier.allCases {
             let staleKey = cacheKey(id: coverArtId, tier: staleTier)
-            cache.removeValue(forKey: staleKey)
-            accessOrder.removeAll { $0 == staleKey }
+            drop(staleKey)
             await downloadService.removeCover(forId: staleKey)
         }
         // Fetch the tier we were asked for; serverFetch re-records the baseline from its response.
@@ -277,10 +298,9 @@ final class ArtworkImageCache {
     }
 
     func invalidate(for coverArtId: String) async {
-        // Remove both tier RAM entries and their disk files, plus the plain-id offline file.
-        for key in ["\(coverArtId)@thumb", "\(coverArtId)@hero", coverArtId] {
-            cache.removeValue(forKey: key)
-            accessOrder.removeAll { $0 == key }
+        // Every tier's RAM entry and disk file, plus the plain-id offline file.
+        for key in ArtworkTier.allCases.map({ cacheKey(id: coverArtId, tier: $0) }) + [coverArtId] {
+            drop(key)
             await downloadService.removeCover(forId: key)
         }
         Logger.artworkCache.debug("ArtworkImageCache: invalidated \(coverArtId, privacy: .public) (RAM + disk)")
@@ -289,6 +309,8 @@ final class ArtworkImageCache {
     func clearCache() {
         cache.removeAll()
         accessOrder.removeAll()
+        costs.removeAll()
+        totalCost = 0
     }
 
     /// Drops every cached cover — memory and the re-fetchable tier files on disk — and forces
@@ -326,12 +348,38 @@ final class ArtworkImageCache {
     }
 
     private func store(image: PlatformImage, forKey key: String) {
+        drop(key)
         cache[key] = image
+        let cost = Self.bytes(of: image)
+        costs[key] = cost
+        totalCost += cost
         touch(key)
-        while cache.count > maxEntries, let oldest = accessOrder.first {
-            cache.removeValue(forKey: oldest)
-            accessOrder.removeFirst()
+
+        // Never evict what was just stored, however large: a single oversized cover must not
+        // empty the cache and then drop itself.
+        while totalCost > costLimit, accessOrder.count > 1, let oldest = accessOrder.first {
+            drop(oldest)
         }
+    }
+
+    /// Removes one entry and its cost. Every removal goes through here, so `totalCost` cannot
+    /// drift away from what is actually held.
+    private func drop(_ key: String) {
+        guard cache.removeValue(forKey: key) != nil else {
+            accessOrder.removeAll { $0 == key }
+            return
+        }
+        totalCost -= costs.removeValue(forKey: key) ?? 0
+        accessOrder.removeAll { $0 == key }
+    }
+
+    private static func bytes(of image: PlatformImage) -> Int {
+        #if canImport(UIKit)
+        guard let cg = image.cgImage else { return 0 }
+        #else
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return 0 }
+        #endif
+        return cg.width * cg.height * 4
     }
 
     private func touch(_ key: String) {
