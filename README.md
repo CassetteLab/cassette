@@ -176,6 +176,7 @@ opened a pull request. Thank you:
 - [#53](https://github.com/CassetteLab/cassette/pull/53) — **Continue playback across devices.** Cassette picks the queue, track and position back up from your server, so a session you started on another client carries over to this one.
 - [#55](https://github.com/CassetteLab/cassette/pull/55) — **Song sharing.** Share a track from the player, the queue, a song row or a context menu, on both iOS and macOS.
 - [#56](https://github.com/CassetteLab/cassette/pull/56) — **Swipe to change track, and scrolling titles.** A horizontal swipe on the full player moves through the queue, and titles too long to fit now scroll instead of being cut off.
+- [#125](https://github.com/CassetteLab/cassette/pull/125) — **iPad support.** A sidebar with direct entries for playlists, albums, artists, songs, favourites and downloads; detail screens that set the cover beside its metadata once there is room; and a two-column player. Every layout follows the window's width rather than the device, so Split View and Slide Over behave like a phone.
 
 **[mikemikimike](https://github.com/mikemikimike)**
 

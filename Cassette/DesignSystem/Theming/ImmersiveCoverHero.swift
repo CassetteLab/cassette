@@ -31,7 +31,17 @@ struct ImmersiveCoverHero<Content: View>: View {
     var zoomSourceID: String? = nil
     var zoomNamespace: Namespace.ID? = nil
     @ViewBuilder let content: () -> Content
-    @State private var usesWideLayout = false
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// nil until the first measurement. Starting at `false` would render one frame in the narrow
+    /// layout on iPad and then snap, which reads as a flicker when opening an album.
+    @State private var measuredWideLayout: Bool?
+
+    /// The size class is the best guess available before the view has a width; the measurement
+    /// replaces it as soon as there is one, because a regular-width window can still be narrow
+    /// in Split View.
+    private var usesWideLayout: Bool {
+        measuredWideLayout ?? (contentBelow && horizontalSizeClass == .regular)
+    }
 
     private var coverHeight: CGFloat {
         usesWideLayout ? CassetteLayout.detailCoverSize : heroHeight
@@ -72,7 +82,7 @@ struct ImmersiveCoverHero<Content: View>: View {
         }
         .onGeometryChange(for: Bool.self) { geometry in
             contentBelow && geometry.size.width >= CassetteLayout.wideDetailMinimum
-        } action: { usesWideLayout = $0 }
+        } action: { measuredWideLayout = $0 }
     }
 
     private var coverHero: some View {
