@@ -160,6 +160,11 @@ private struct CoverArtViewContent: View {
                 return
             }
 
+            // Reuse another cached size immediately while the requested tier loads.
+            if displayedId != id, let ram = artworkCache.cachedImage(for: id) {
+                apply(ram, for: id)
+            }
+
             // 2. Tiered load (RAM → disk `{id}@{tier}` → network). Network is online-only — offline
             //    we skip straight to the local fallbacks rather than wait on a doomed fetch.
             if online, let image = await artworkCache.load(coverArtId: id, tier: t) {
@@ -172,31 +177,15 @@ private struct CoverArtViewContent: View {
             // or an unchanged id) — keep it rather than fall back to a lower tier or clear it.
             if displayedId == id { return }
 
-            // 3. Local on-disk file, decoded off-main at the requested tier size. Try the tiered file
-            //    `{id}@{tier}` FIRST — generated gradient covers and the online cache both persist there
-            //    (DownloadService.persistCover), so it is what resolves a gradient playlist (or any
-            //    online-cached cover) offline — then the untagged base file saved at download time (the
-            //    primary offline source for downloaded tracks).
-            for diskId in ["\(id)@\(t.rawValue)", id] {
-                if let baseURL = await container?.downloadService.localCoverArtURL(forId: diskId),
-                   let image = await Self.decodedImage(at: baseURL, maxDimension: t.decodePixels) {
-                    guard !Task.isCancelled else { return }
-                    apply(image, for: id)
-                    return
-                }
-                // A track change cancels this task; bail before the next probe / any @State write so a
-                // cancelled task that resumed after `id` changed can never stomp the new id's resolution.
+            // 3. Decode a local file off-main, including the grid tier if no hero or download exists.
+            if let image = await artworkCache.localImage(for: id, tier: t) {
                 guard !Task.isCancelled else { return }
-            }
-
-            // 4. Local thumb already in RAM — lower-res but the correct track (only when a larger
-            //    tier was requested; a thumb request was already covered by step 1).
-            if t != .thumb, let ramThumb = artworkCache.cachedImage(for: id, tier: .thumb) {
-                apply(ramThumb, for: id)
+                apply(image, for: id)
                 return
             }
+            guard !Task.isCancelled else { return }
 
-            // 5. Nothing local resolved and the on-screen image belongs to a previous id — clear it
+            // 4. Nothing local resolved and the on-screen image belongs to a previous id — clear it
             //    so a mismatched cover is never left up, then try the online URL safety net
             //    (AsyncImage falls through to the placeholder when offline).
             cachedImage = nil
@@ -212,15 +201,6 @@ private struct CoverArtViewContent: View {
         cachedImage = image
         displayedId = resolvedId
         url = nil
-    }
-
-    /// Decodes a local cover file off the main actor at `maxDimension`, reusing the cache's ImageIO
-    /// thumbnail path so the base-file fallback decodes identically to the tiered cache.
-    private static func decodedImage(at url: URL, maxDimension: Int) async -> PlatformImage? {
-        await Task.detached(priority: .userInitiated) {
-            guard let data = try? Data(contentsOf: url) else { return nil as PlatformImage? }
-            return ArtworkImageCache.thumbnailImage(from: data, maxDimension: maxDimension)
-        }.value
     }
 
     private var placeholder: some View {
