@@ -1,30 +1,10 @@
-Cassette 1.13
-
-NEW
-• Share a song as a public link. Cassette asks your server for a share link and copies it — anyone can open it, no account needed. The text share is still there beside it. Thanks to peanball for the idea.
-• Playback follows you between devices. Stop on your phone, open Cassette on your Mac, and it offers to pick up where you left off, at the right position in the right queue.
-• Swipe the player to change track, the way Apple Music does. Long titles now scroll instead of being cut off, and the title and subtitle scroll together rather than drifting apart. Thanks to fcannizzaro.
-• Swipe a song row for its actions — play next, add to queue, add to a playlist — without opening a menu.
-• Tap a cover to open it full-frame, with the zoom transition the rest of the app uses.
-• Sort albums by artist, play count, genre, favourites or rating, not just by name and date. Thanks to isaacault.
-• Playlists remember their layout, grid or list, like the albums screen already did.
-• macOS: a favourite star in the player bar, and Toggle Favorite on ⌘L in the Playback menu.
+Cassette 1.13.1
 
 FIXED
-• A downloaded album is readable straight away in airplane mode. Cassette asked the network whether it was online, got "yes" from a Wi-Fi with nothing behind it, and spent over a minute waiting on a server that never answered — showing placeholder rows the whole time, with the tracks already on the device. It now shows what is on disk first and lets the server catch up.
-• ListenBrainz usernames containing a dot are accepted. They are valid on ListenBrainz, and Cassette refused them.
-• Lyrics keep following the song when the track changes. They stopped scrolling after the first track and only came back by closing and reopening the view.
-• macOS: "Download the missing tracks" is offered on a partly-downloaded album. The action existed and was only ever wired up on iOS.
-• The A–Z bar on the albums screen agrees with the list beside it. It used its own ordering, so a letter could land you somewhere else entirely.
-• Sort labels are translated. They were built in a way that always resolved to English, whatever the device language.
-• The Lock Screen and Control Centre stop showing a track as playing after an interruption, and on radio streams.
+• When your server refuses something, Cassette now tells you which of the two has a problem. Errors the server reports — a feature it doesn't implement, insufficient permissions, content that's gone, a reply Cassette can't read — all showed up as "Something went wrong", next to a Retry button that replayed the same failing request and failed the same way. The message now says what the server actually answered, and Retry only appears when trying again could change anything.
 
 PLEASE TEST
-• Share links, first: share a song, open the link in a private window or on a device that is not signed in, and confirm it plays. Then check the link is NOT in any log you can see — it is a capability token, anyone holding it has access.
-• Share links on a server that has sharing disabled: you should get a clear message, not a silent failure.
-• Cross-device continuation: play something on one device, pause, open Cassette on another, and accept the offer. The queue and the position must both be right. Then decline it once and confirm nothing is disturbed.
-• Airplane mode, the important one: download an album, turn on airplane mode WITHOUT turning off Wi-Fi, then open that album from Downloads. The title, the artist and the tracks must be there immediately — no placeholder rows. Same check on a downloaded playlist.
-• Still in airplane mode, pull to refresh an artist page that has already loaded: the biography and top songs must not disappear.
-• Swipe-to-change-track: swipe both ways, including on the first and last track of a queue, and with a single-track queue. The marquee should scroll title and subtitle in step.
-• Album sorts: switch between them on a large library and confirm the A–Z bar follows the order you picked.
-• macOS: ⌘L on a playing track, then check the star in the player bar and the one on the song row agree — both ways round.
+• Normal use first, non-regression: browse, play, download, search against your own server. Nothing in this release changes what happens when things work — if anything behaves differently from 1.13, that's a bug.
+• If you have a second server with an incomplete Subsonic implementation, point Cassette at it and open an artist or an album. You should get a message naming the actual problem, and no Retry button when retrying cannot help.
+• Turn your server off mid-session and open an album that isn't downloaded. That one is a connection failure, so the message should talk about reaching the server — and Retry SHOULD be there.
+• Internet radio with an unreachable station: the error there used to be raw technical text; it should now read like the rest of the app.

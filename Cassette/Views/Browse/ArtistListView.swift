@@ -65,7 +65,7 @@ struct ArtistListView: View {
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Artists",
                 subtitle: LocalizedStringKey(error.displayMessage),
-                action: .init(label: "Retry") { Task { await vm.load() } }
+                action: error.retryAction { Task { await vm.load() } }
             )
         } else if vm.indexes.isEmpty {
             EmptyStateView(

@@ -70,7 +70,7 @@ struct SongsListView: View {
                 systemImage: "exclamationmark.triangle",
                 title: "Unable to Load Songs",
                 subtitle: LocalizedStringKey(error.displayMessage),
-                action: .init(label: "Retry") { Task { await vm.load(sort: songSort) } }
+                action: error.retryAction { Task { await vm.load(sort: songSort) } }
             )
         } else if vm.displaySongs.isEmpty {
             EmptyStateView(

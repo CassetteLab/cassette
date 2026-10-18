@@ -18,11 +18,14 @@ struct RadioListView: View {
             if isLoading && stations.isEmpty {
                 LoadingStateView()
             } else if let error, stations.isEmpty {
+                // Mapped rather than shown raw: localizedDescription on a transport error is
+                // written for a developer, and it can't say whether retrying is worth offering.
+                let userError = UserFacingError.from(error)
                 EmptyStateView(
                     systemImage: "exclamationmark.triangle",
                     title: "Unable to Load Radios",
-                    subtitle: LocalizedStringKey(error.localizedDescription),
-                    action: .init(label: "Retry") { Task { await load(forceRefresh: true) } }
+                    subtitle: LocalizedStringKey(userError.displayMessage),
+                    action: userError.retryAction { Task { await load(forceRefresh: true) } }
                 )
             } else if stations.isEmpty {
                 EmptyStateView(

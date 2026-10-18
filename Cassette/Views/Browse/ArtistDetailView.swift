@@ -97,7 +97,7 @@ struct ArtistDetailView: View {
                         systemImage: "exclamationmark.triangle",
                         title: "Unable to Load Artist",
                         subtitle: LocalizedStringKey(error.displayMessage),
-                        action: .init(label: "Retry") { Task { await vm.load() } }
+                        action: error.retryAction { Task { await vm.load() } }
                     )
                 } else {
                     let albums = vm.artist?.album ?? []

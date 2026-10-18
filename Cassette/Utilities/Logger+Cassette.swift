@@ -46,4 +46,5 @@ extension Logger {
     nonisolated static let boot               = Logger(subsystem: "app.cassette.boot",               category: "Boot")
     nonisolated static let migration          = Logger(subsystem: "app.cassette.migration",          category: "Migration")
     nonisolated static let crossfade          = Logger(subsystem: "app.cassette.crossfade",          category: "Crossfade")
+    nonisolated static let carPlay            = Logger(subsystem: "app.cassette.carplay",            category: "CarPlay")
 }
