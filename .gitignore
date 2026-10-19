@@ -26,3 +26,8 @@ graphify-out/
 .DS_Store
 /*/.DS_Store
 /*/*/.DS_Store
+
+# AltStore ADP downloaded from api.altstore.io for hosting. Contains signed IPAs, each with an
+# embedded.mobileprovision — never versioned. Re-downloadable for 5 days via the ADP ID, and
+# the hosted copy lives on R2; see .claude/notes/altstore-pal.md.
+altstore-adp/
