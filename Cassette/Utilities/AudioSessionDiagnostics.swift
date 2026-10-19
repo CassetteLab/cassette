@@ -190,8 +190,15 @@ nonisolated enum AudioSessionLog {
     }
 
     /// The part of the session state that moves during an interruption: route and other audio.
+    ///
+    /// `hwRate` is what the hardware actually runs at, which is the only way to see resampling from
+    /// inside the app: the engine feeds a fixed 44100 Hz stream, so any other value here means iOS
+    /// is converting underneath. It belongs with the route because it changes with it — plugging in
+    /// a USB DAC or Bluetooth headphones can move it.
     static func activitySummary(_ session: AVAudioSession = .sharedInstance()) -> String {
         "route=\(describe(ports: session.currentRoute.outputs.map(\.portType.rawValue)))"
+            + " hwRate=\(Int(session.sampleRate))"
+            + " hwChannels=\(session.outputNumberOfChannels)"
             + " otherAudioPlaying=\(session.isOtherAudioPlaying)"
             + " secondaryAudioHint=\(session.secondaryAudioShouldBeSilencedHint)"
     }
