@@ -349,9 +349,12 @@ private struct QueueRow: View {
 }
 
 /// The iOS Up Next reorder list, re-housed from the (removed) QueueView sheet into FullPlayerView's
-/// inline queue surface. Native `List` + `.onMove` (always-on edit mode) — offset-based, so
-/// duplicate-safe — rendered transparently over the player's blurred background. Removal is via the row
-/// context menu (no edit-mode delete circles); tap-to-play stays in the queue surface.
+/// inline queue surface. Native `List` + `.onMove` — offset-based, so duplicate-safe — rendered
+/// transparently over the player's blurred background.
+///
+/// Not in edit mode: the system disables swipe actions there, and the rows carry them (favourite;
+/// remove, play next). Reordering is the List's own long-press-and-drag, which `.onMove` enables
+/// outside edit mode. Removal is also in the row's context menu.
 struct InlineQueueList: View {
     let playerState: PlayerState
     var contentColor: Color = .primary
@@ -380,6 +383,17 @@ struct InlineQueueList: View {
                     QueueRow(song: song, isCurrent: false, onRemove: { removeFromQueue(at: absoluteIndex) },
                              contentColor: contentColor, secondaryContentColor: secondaryContentColor,
                              loadArtwork: loadArtwork)
+                        // "Play Next" on a row already in the queue moves it up instead of adding a
+                        // copy — and is left out on the row that is already next.
+                        .songSwipeActions(
+                            song: song,
+                            queueActions: .moveToNext(offset == 0 ? nil : {
+                                moveToNext(from: absoluteIndex, currentIndex: currentIndex)
+                            }),
+                            removal: SongSwipeRemoval(title: "Remove from Queue", systemImage: "minus.circle") {
+                                removeFromQueue(at: absoluteIndex)
+                            }
+                        )
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .contentShape(Rectangle())
@@ -405,9 +419,14 @@ struct InlineQueueList: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            #if !os(macOS)
-            .environment(\.editMode, .constant(.active))
-            #endif
+        }
+    }
+
+    private func moveToNext(from index: Int, currentIndex: Int) {
+        Task {
+            HapticFeedback.light.trigger()
+            // `moveInQueue` takes an Array.move toOffset; moving up, that is the landing index.
+            await container?.playerService.moveInQueue(fromIndex: index, toIndex: currentIndex + 1)
         }
     }
 
