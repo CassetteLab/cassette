@@ -112,6 +112,16 @@ final class ArtworkImageCache {
     // Caps in-flight server cover fetches to prevent saturating the TCP connection pool.
     private let fetchGate = CoverFetchGate(limit: 4)
 
+    /// Work already running per cache key, so concurrent callers for the same cover share one
+    /// disk read and one server fetch instead of each doing the whole job.
+    ///
+    /// `load` has suspension points before anything is stored, so two callers arriving for the
+    /// same key both cleared the RAM check and both went to disk and to the network — logs showed
+    /// the same cover downloaded twice and burning two of the four `fetchGate` slots. The lookup
+    /// and the insert below both run on the main actor with no `await` between them, so the
+    /// second caller always sees the first one's task.
+    private var inFlight: [String: Task<PlatformImage?, Never>] = [:]
+
     // MARK: - Revalidation
     /// Per-cover `Last-Modified` + last-checked, so a cached cover is re-verified on a slow cadence.
     private let revalidationStore: CoverRevalidationStore
@@ -190,7 +200,6 @@ final class ArtworkImageCache {
         guard let coverArtId else { return nil }
 
         let key = cacheKey(id: coverArtId, tier: tier)
-        let maxDim = tier.decodePixels
 
         // 1. RAM hit.
         if let hit = cache[key] {
@@ -198,6 +207,28 @@ final class ArtworkImageCache {
             revalidateIfDue(coverArtId: coverArtId, tier: tier)
             return hit
         }
+
+        // 1b. Someone is already fetching this exact key — await their result.
+        if let running = inFlight[key] {
+            return await running.value
+        }
+
+        // Not a child task: cancelling the caller that happened to create it must not cancel
+        // work the other waiters are relying on.
+        let task = Task { [weak self] in
+            guard let self else { return nil as PlatformImage? }
+            return await self.fetchUncached(coverArtId: coverArtId, key: key, tier: tier)
+        }
+        inFlight[key] = task
+        let image = await task.value
+        // Only the creator clears the entry; waiters never touch the registry.
+        inFlight.removeValue(forKey: key)
+        return image
+    }
+
+    /// Disk then server, for a key proven absent from RAM. Always called through `inFlight`.
+    private func fetchUncached(coverArtId: String, key: String, tier: ArtworkTier) async -> PlatformImage? {
+        let maxDim = tier.decodePixels
 
         // 2. Disk hit — tiered file only (`{id}@thumb` / `{id}@hero`).
         //    Legacy untagged files (`{id}` with no suffix, full-res JPEGs written by
