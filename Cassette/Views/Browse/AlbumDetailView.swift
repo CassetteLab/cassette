@@ -68,6 +68,10 @@ struct AlbumDetailView: View {
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
     @State private var showThemeColorPicker = false
+    #if os(iOS)
+    /// Keeps one swiped track row open at a time.
+    @State private var swipeGroup = SwipeRevealGroup()
+    #endif
     /// The cover full-frame. Presented with the app's zoom transition, so it grows out of the
     /// hero rather than fading in over it.
     @State private var isCoverExpanded = false
@@ -349,6 +353,7 @@ struct AlbumDetailView: View {
             title: String(localized: "Theme colour")
         )
         #if os(iOS)
+        .environment(swipeGroup)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isThemed ? (theme.isLight ? .light : .dark) : nil, for: .navigationBar)
         #endif
@@ -688,7 +693,11 @@ struct AlbumSongRows: View {
             VStack(spacing: 0) {
                 SongRow(song: liveSong, index: index + 1, isFavorite: favoriteSongIds.contains("song:\(song.id)"), titleColor: titleColor, secondaryColor: secondaryColor, onDownload: downloadAction, onRemoveDownload: removeAction, isDownloading: isDownloading, onAddToPlaylist: onAddToPlaylist)
                     .padding(.horizontal, CassetteSpacing.l)
+                    .contentShape(Rectangle())
                     .onTapGesture { onTap(index) }
+                    // The tracklist is a LazyVStack, where `.swipeActions` does nothing — hence the
+                    // scroll-view presentation. Applied after the padding so the buttons run edge to edge.
+                    .songSwipeActions(song: liveSong, onDownload: downloadAction, presentation: .scrollView)
                 if index < songs.count - 1 {
                     Divider()
                         .padding(.leading, CassetteSpacing.l)
