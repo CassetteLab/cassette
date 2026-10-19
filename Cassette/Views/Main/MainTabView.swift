@@ -22,6 +22,15 @@ struct MainTabView: View {
         case playlists, albums, artists, songs, favorites, downloads
     }
 
+    #if os(iOS)
+    /// The sidebar layout is an iPad layout. Keyed on the idiom rather than the size class: an
+    /// iPhone Pro Max in landscape reports a regular width too, and the idiom never changes at
+    /// runtime, so the tab structure is never rebuilt under a live navigation stack.
+    @MainActor private static var usesSidebarLayout: Bool {
+        UIDevice.current.userInterfaceIdiom == .pad
+    }
+    #endif
+
     private var hasTrack: Bool {
         container?.playerState.currentTrack != nil || container?.playerState.isLiveStream == true
     }
@@ -98,27 +107,32 @@ struct MainTabView: View {
             }
 
             #if os(iOS)
-            TabSection("Library") {
-                Tab("Playlists", systemImage: "music.note.list", value: AppTab.playlists) {
-                    LibraryNavigationView(destination: .libraryPlaylists)
+            // iPad only. On iPhone the section has no sidebar to live in, and `.sidebarAdaptable`
+            // turns the compact tab bar into a hybrid of the two layouts — the iPhone keeps its
+            // plain tab bar and reaches the library from Home, as it did before iPad support.
+            if Self.usesSidebarLayout {
+                TabSection("Library") {
+                    Tab("Playlists", systemImage: "music.note.list", value: AppTab.playlists) {
+                        LibraryNavigationView(destination: .libraryPlaylists)
+                    }
+                    Tab("Albums", systemImage: "square.stack", value: AppTab.albums) {
+                        LibraryNavigationView(destination: .libraryAlbums)
+                    }
+                    Tab("Artists", systemImage: "music.mic", value: AppTab.artists) {
+                        LibraryNavigationView(destination: .libraryArtists)
+                    }
+                    Tab("Songs", systemImage: "music.note", value: AppTab.songs) {
+                        LibraryNavigationView(destination: .librarySongs)
+                    }
+                    Tab("Favorites", systemImage: "star.fill", value: AppTab.favorites) {
+                        LibraryNavigationView(destination: .libraryFavorites)
+                    }
+                    Tab("Downloads", systemImage: "arrow.down.circle.fill", value: AppTab.downloads) {
+                        LibraryNavigationView(destination: .libraryDownloads)
+                    }
                 }
-                Tab("Albums", systemImage: "square.stack", value: AppTab.albums) {
-                    LibraryNavigationView(destination: .libraryAlbums)
-                }
-                Tab("Artists", systemImage: "music.mic", value: AppTab.artists) {
-                    LibraryNavigationView(destination: .libraryArtists)
-                }
-                Tab("Songs", systemImage: "music.note", value: AppTab.songs) {
-                    LibraryNavigationView(destination: .librarySongs)
-                }
-                Tab("Favorites", systemImage: "star.fill", value: AppTab.favorites) {
-                    LibraryNavigationView(destination: .libraryFavorites)
-                }
-                Tab("Downloads", systemImage: "arrow.down.circle.fill", value: AppTab.downloads) {
-                    LibraryNavigationView(destination: .libraryDownloads)
-                }
+                .defaultVisibility(.hidden, for: .tabBar)
             }
-            .defaultVisibility(.hidden, for: .tabBar)
             #endif
 
             Tab(value: AppTab.search, role: .search) {
@@ -130,8 +144,7 @@ struct MainTabView: View {
             }
         }
         #if os(iOS)
-        .tabViewStyle(.sidebarAdaptable)
-        .defaultAdaptableTabBarPlacement(.sidebar)
+        .modifier(SidebarAdaptableTabStyle(isEnabled: Self.usesSidebarLayout))
         #endif
         .accentColor(.cassetteAccent)
 
@@ -159,6 +172,23 @@ struct MainTabView: View {
 }
 
 #if os(iOS)
+/// `.sidebarAdaptable` with the sidebar as the default placement on iPad; the system default
+/// style everywhere else.
+private struct SidebarAdaptableTabStyle: ViewModifier {
+    let isEnabled: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content
+                .tabViewStyle(.sidebarAdaptable)
+                .defaultAdaptableTabBarPlacement(.sidebar)
+        } else {
+            content
+        }
+    }
+}
+
 private struct LibraryNavigationView: View {
     let destination: HomeDestination
     @State private var path = NavigationPath()
