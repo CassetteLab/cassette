@@ -96,7 +96,17 @@ struct ExpandedCoverOverlay: View {
                 initialImage: initialImage
             )
             .frame(width: side, height: side)
-            .cassetteCoverStyle(cornerRadius: CassetteCornerRadius.large)
+            .clipShape(RoundedRectangle(cornerRadius: CassetteCornerRadius.large))
+            // Not `cassetteCoverStyle`: its edge follows the colour scheme (a shadow in light mode,
+            // an 8% white hairline in dark mode), and here the backdrop is the cover's own dominant
+            // colour, so in dark mode the artwork melted into it. The edge follows the backdrop
+            // instead, in every scheme: `contentColor` is already black on a light theme and white
+            // on a dark one, and the shadow lifts the cover off a backdrop of its own colour.
+            .overlay {
+                RoundedRectangle(cornerRadius: CassetteCornerRadius.large)
+                    .strokeBorder(contentColor.opacity(0.18), lineWidth: 1)
+            }
+            .shadow(color: .black.opacity(0.25), radius: 12, y: 4)
             .scaleEffect(scale * pinch)
             // Panning belongs to the zoomed cover only; unzoomed, a drag is the system's dismissal.
             .offset(
