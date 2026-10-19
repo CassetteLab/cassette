@@ -27,6 +27,7 @@ out of view bodies and service layer.
 - `NavigationTitle+Cassette.swift` — `navigationBarTitleDisplayModeInline/Large()` wrappers (no-op on macOS)
 - `ListStyles+Cassette.swift` — `cassetteSheetListStyle()` for cross-platform list styles in sheets
 - `NavigationTransitions+Cassette.swift` — `cassetteZoomTransition()` (zoom transition iOS 18+, no-op on macOS)
+- `ColorPicker+Cassette.swift` — `cassetteColorPicker()` (undimmed `UIColorPickerViewController` on iOS, `ColorPicker` sheet on macOS)
 
 ## Related
 
