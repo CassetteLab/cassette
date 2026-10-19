@@ -130,12 +130,14 @@ struct SongsListView: View {
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 // The A–Z jump bar only makes sense when sorted by title.
                 if songSort == .title && songs.count >= 20 {
+                    // Letters and targets come precomputed from the view model: scanning the whole
+                    // library here ran on every render of a list that can hold 200k songs.
                     AlphabetJumpBar(
-                        availableLetters: songs.availableAlphabetLetters(keyPath: \.title),
+                        availableLetters: Set(vm.titleLetterIndex.keys),
                         onLetterTap: { letter in
-                            if let id = firstAlphabetItemID(forLetter: letter, in: songs, keyPath: \.title) {
+                            if let index = vm.titleLetterIndex[letter] {
                                 withAnimation(.easeInOut(duration: 0.2)) {
-                                    proxy.scrollTo(id, anchor: .top)
+                                    proxy.scrollTo(index, anchor: .top)
                                 }
                             }
                         }
@@ -146,13 +148,32 @@ struct SongsListView: View {
         }
     }
 
-    /// Shuffle / Play / Download, laid out and sized exactly as the album and playlist headers:
-    /// 44pt Liquid Glass circles either side of the accent Play capsule. Those views take their
-    /// glyph colour from the cover's dominant colour; this list has no cover, so the glyph is
-    /// `.primary` and Play keeps its own accent defaults.
+    /// Play and Shuffle as two equal capsules, the list's own header rather than a copy of the
+    /// album and playlist ones: those take their colours from a cover, and this list has none.
+    /// Download-all keeps its icon-only button at the end, in the same accent tint.
     @ViewBuilder
     private func playShuffleHeader(_ vm: SongsListViewModel, _ songs: [DisplayableSong]) -> some View {
         HStack(spacing: CassetteSpacing.m) {
+            Button {
+                HapticFeedback.medium.trigger()
+                Task {
+                    guard !songs.isEmpty else { return }
+                    try? await container?.playerService.play(tracks: songs, startIndex: 0)
+                }
+            } label: {
+                Label("Play", systemImage: "play.fill")
+                    .labelStyle(.titleAndIcon)
+                    .font(.cassetteCellTitle)
+                    // White on the accent fill — `.borderedProminent` would pick its own foreground.
+                    .foregroundStyle(Color.cassetteAccentText)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, CassetteSpacing.xs)
+            }
+            .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
+            .tint(Color.cassetteAccent)
+            .disabled(songs.isEmpty || vm.isDownloadingAll)
+
             Button {
                 HapticFeedback.medium.trigger()
                 Task {
@@ -164,28 +185,22 @@ struct SongsListView: View {
                     }
                 }
             } label: {
-                Image(systemName: "shuffle")
+                Label("Shuffle", systemImage: "shuffle")
+                    .labelStyle(.titleAndIcon)
                     .font(.cassetteCellTitle)
-                    .foregroundStyle(.primary)
-                    .cassetteGlassButton(size: 44)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, CassetteSpacing.xs)
             }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .tint(Color.cassetteAccent)
             .disabled(songs.isEmpty)
-            .accessibilityLabel("Shuffle")
-
-            PlayButton(action: {
-                Task {
-                    guard !songs.isEmpty else { return }
-                    try? await container?.playerService.play(tracks: songs, startIndex: 0)
-                }
-            }, isDisabled: songs.isEmpty || vm.isDownloadingAll)
-            .frame(maxWidth: 220)
 
             downloadAllButton(vm)
         }
-        .buttonStyle(.borderless)
         .listRowSeparator(.hidden)
         .listRowBackground(Color.clear)
-        .padding(.vertical, 4)
+        .padding(.vertical, CassetteSpacing.s)
 
         // Progress is counted by a @Query keyed on the server id, so it can only be shown once
         // the active server is known.
@@ -202,9 +217,9 @@ struct SongsListView: View {
         }
     }
 
-    /// Icon-only "download everything in this list", styled like the album/playlist download
-    /// button: 44pt glass, `arrow.down.circle` when nothing is local and `.dotted` once some of
-    /// the list is. Those views offer a third, destructive state (a trash button wiping the
+    /// Icon-only "download everything in this list", tinted like the Shuffle capsule next to it:
+    /// `arrow.down.circle` when nothing is local and `.dotted` once some of the list is. The
+    /// album and playlist views offer a third, destructive state (a trash button wiping the
     /// album's downloads); deleting the whole library from a list header is not the same
     /// affordance, so here a fully-downloaded list simply disables the button.
     /// Icon-only means the accessibility label is all VoiceOver has to go on.
@@ -227,12 +242,14 @@ struct SongsListView: View {
                   ? "arrow.down.circle.dotted"
                   : "arrow.down.circle")
                 .font(.cassetteCellTitle)
-                .foregroundStyle(.primary)
                 // Swapped for a spinner in place, so the row doesn't resize mid-batch.
                 .opacity(vm.isDownloadingAll ? 0 : 1)
                 .overlay { if vm.isDownloadingAll { ProgressView().controlSize(.small) } }
-                .cassetteGlassButton(size: 44)
+                .padding(.vertical, CassetteSpacing.xs)
         }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .tint(Color.cassetteAccent)
         .disabled(vm.pendingDownloadCount == 0 || vm.isDownloadingAll)
         .accessibilityLabel(vm.isDownloadingAll ? Text("Downloading all songs") : Text("Download all songs"))
     }
@@ -290,7 +307,11 @@ private struct SongsListRows: View {
         // list can hold the whole library, and rebuilding them per row would make it quadratic.
         let downloadedSongIds = Set(downloadedTracks.map(\.songId))
         let favoriteIds = favoriteSongIds
-        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+        // Identified by position, not by `Array(songs.enumerated())`: that copied every song into
+        // a new array on each render, for a list that can hold the whole library. The positions
+        // are also what the A–Z jump bar scrolls to.
+        ForEach(songs.indices, id: \.self) { index in
+            let song = songs[index]
             let liveDownloaded = downloadedSongIds.contains(song.id)
             let isDownloading = downloadingIds.contains(song.id)
             SongRow(
@@ -308,8 +329,9 @@ private struct SongsListRows: View {
                 song: song.withDownloaded(liveDownloaded),
                 onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) }
             )
-            // The A-Z jump bar scrolls to these ids; keep them on the row itself.
-            .id(song.id)
+            // No `.id()` on the row: an explicit identity on every List row makes SwiftUI resolve
+            // all of them up front instead of lazily, which a 100k+ song library does not survive.
+            // The ForEach identity above is what `scrollTo` targets.
         }
     }
 }

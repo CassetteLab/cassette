@@ -94,7 +94,8 @@ struct AlphabetJumpBar: View {
 // MARK: - Helpers
 
 /// Returns the uppercased first letter of `name`, or "#" for names starting with a non-letter.
-func alphabetFirstLetter(of name: String) -> String {
+/// `nonisolated` so the Songs list can index a whole library off the main actor.
+nonisolated func alphabetFirstLetter(of name: String) -> String {
     guard let first = name.first else { return "#" }
     let upper = String(first).uppercased()
     return upper.first?.isLetter == true ? upper : "#"

@@ -13,6 +13,9 @@ import SwiftSonic
 final class SongsListViewModel {
     /// The sorted, display-ready list — populated once loading finishes (or when the sort changes).
     private(set) var displaySongs: [DisplayableSong] = []
+    /// First row index for each title initial, for the A–Z jump bar. Built off-main with
+    /// `displaySongs`: deriving it in the view meant a pass over the whole library on every render.
+    private(set) var titleLetterIndex: [String: Int] = [:]
     /// Live count while paging, for the progress indicator.
     private(set) var loadedCount = 0
     /// True while pages are still being fetched.
@@ -158,8 +161,16 @@ final class SongsListViewModel {
     private func recomputeDisplay() async {
         let raw = rawSongs
         let sort = currentSort
-        displaySongs = await Task.detached(priority: .userInitiated) {
-            sort.sorted(raw).map { DisplayableSong(from: $0) }
+        let (songs, letterIndex) = await Task.detached(priority: .userInitiated) {
+            let songs = sort.sorted(raw).map { DisplayableSong(from: $0) }
+            var letterIndex: [String: Int] = [:]
+            for (index, song) in songs.enumerated() {
+                let letter = alphabetFirstLetter(of: song.title)
+                if letterIndex[letter] == nil { letterIndex[letter] = index }
+            }
+            return (songs, letterIndex)
         }.value
+        displaySongs = songs
+        titleLetterIndex = letterIndex
     }
 }
