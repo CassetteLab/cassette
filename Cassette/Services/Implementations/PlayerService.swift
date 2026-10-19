@@ -56,7 +56,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var smartShuffleSnapshot: SmartShuffleSnapshot?
     private var liveStreamStallTask: Task<Void, Never>?
 
-    private var audioSessionConfigured = false
+    private var audioSessionConfigured: Bool
     #if os(iOS)
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
@@ -177,6 +177,19 @@ actor PlayerService: PlayerServiceProtocol {
         prefetchConfig.timeoutIntervalForResource = 300
         prefetchConfig.networkServiceType = .background
         self.prefetchSession = URLSession(configuration: prefetchConfig)
+
+        // Post the audio category here rather than on first play: taking it out of the
+        // playback path is what stops a failure from being retried on every track transition.
+        // Activation stays in `configureAudioSessionIfNeeded` — see `postPlaybackCategory`.
+        //
+        // Assigned exactly once, and the property declares no default so that this counts as
+        // initialisation. An actor's initializer is nonisolated, so assigning an isolated
+        // property again once `self` is fully formed is an error in the Swift 6 language mode.
+        #if os(iOS)
+        audioSessionConfigured = Self.postPlaybackCategory()
+        #else
+        audioSessionConfigured = false
+        #endif
 
         let playerConfig = AudioPlayerConfiguration(
             flushQueueOnSeek: true,
@@ -2399,21 +2412,34 @@ actor PlayerService: PlayerServiceProtocol {
 
 #if os(iOS)
 extension PlayerService {
+    /// Posts the `.playback` category on the shared session and reports whether it took.
+    ///
+    /// No options are passed, deliberately. `.playback` already routes to AirPlay and to
+    /// Bluetooth A2DP implicitly, and `.allowBluetoothHFP` is only legal with `.playAndRecord`
+    /// or `.record` — passing it with `.playback` makes the call fail with OSStatus -50 on every
+    /// device, which left the session unconfigured and re-attempted on every track transition.
+    ///
+    /// Does NOT activate the session: activation with `.playback` interrupts any other app's
+    /// audio, which must not happen merely because Cassette launched.
+    nonisolated static func postPlaybackCategory() -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback)
+            AudioSessionLog.log("[SESSION] setCategory ok \(AudioSessionLog.sessionSummary(session))")
+            return true
+        } catch {
+            AudioSessionLog.log("[SESSION] setCategory FAILED \(AudioSessionLog.describe(error: error)) \(AudioSessionLog.sessionSummary(session))")
+            return false
+        }
+    }
+
     func configureAudioSessionIfNeeded() {
         do {
             let session = AVAudioSession.sharedInstance()
+            // Normally a no-op: the category is posted once in `init` before the engine is built.
+            // Kept as a retry path for the rare case where that early call failed.
             if !audioSessionConfigured {
-                // .playback disables the silent switch and allows background audio.
-                // AirPlay + Bluetooth options enable wireless output without extra entitlements.
-                // The inner catch only logs and rethrows: the shared catch below cannot tell which call failed.
-                do {
-                    try session.setCategory(.playback, options: [.allowAirPlay, .allowBluetoothHFP])
-                } catch {
-                    AudioSessionLog.log("[SESSION] setCategory FAILED \(AudioSessionLog.describe(error: error)) \(AudioSessionLog.sessionSummary(session))")
-                    throw error
-                }
-                audioSessionConfigured = true
-                AudioSessionLog.log("[SESSION] setCategory ok \(AudioSessionLog.sessionSummary(session))")
+                audioSessionConfigured = Self.postPlaybackCategory()
             }
             // Always call setActive(true) — iOS may have deactivated the session during a
             // background interruption (phone call, Siri, other audio app) even after a
@@ -2427,7 +2453,8 @@ extension PlayerService {
             AudioSessionLog.log("[SESSION] setActive(true) ok origin=\(PlaybackCommandOrigin.current.rawValue) interruptionOpen=\(diagnosticInterruptionOpen) \(AudioSessionLog.activitySummary(session))")
         } catch let error as NSError {
             if error.code == -50 {
-                // Code=-50: another app holds the session — retry after short delay.
+                // Code=-50 on setActive: the session is momentarily busy (a route change or
+                // another app releasing it) — retry after a short delay.
                 Logger.player.warning("AVAudioSession setActive Code=-50, retrying in 0.5s")
                 sessionActivationRetryTask = Task {
                     try? await Task.sleep(for: .seconds(0.5))
