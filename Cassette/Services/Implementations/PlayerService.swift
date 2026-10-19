@@ -56,7 +56,7 @@ actor PlayerService: PlayerServiceProtocol {
     private var smartShuffleSnapshot: SmartShuffleSnapshot?
     private var liveStreamStallTask: Task<Void, Never>?
 
-    private var audioSessionConfigured = false
+    private var audioSessionConfigured: Bool
     #if os(iOS)
     private var interruptionObserver: NSObjectProtocol?
     private var routeChangeObserver: NSObjectProtocol?
@@ -181,8 +181,14 @@ actor PlayerService: PlayerServiceProtocol {
         // Post the audio category here rather than on first play: taking it out of the
         // playback path is what stops a failure from being retried on every track transition.
         // Activation stays in `configureAudioSessionIfNeeded` — see `postPlaybackCategory`.
+        //
+        // Assigned exactly once, and the property declares no default so that this counts as
+        // initialisation. An actor's initializer is nonisolated, so assigning an isolated
+        // property again once `self` is fully formed is an error in the Swift 6 language mode.
         #if os(iOS)
-        let categoryPosted = Self.postPlaybackCategory()
+        audioSessionConfigured = Self.postPlaybackCategory()
+        #else
+        audioSessionConfigured = false
         #endif
 
         let playerConfig = AudioPlayerConfiguration(
@@ -203,9 +209,6 @@ actor PlayerService: PlayerServiceProtocol {
         // Wire delegate after all stored properties are initialised.
         delegate.service = self
         player.delegate = delegate
-        #if os(iOS)
-        self.audioSessionConfigured = categoryPosted
-        #endif
     }
 
     /// Call from AppContainer after both PlayerService and NowPlayingService are created.
