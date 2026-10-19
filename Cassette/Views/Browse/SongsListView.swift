@@ -130,12 +130,14 @@ struct SongsListView: View {
             .safeAreaInset(edge: .trailing, spacing: 0) {
                 // The A–Z jump bar only makes sense when sorted by title.
                 if songSort == .title && songs.count >= 20 {
+                    // Letters and targets come precomputed from the view model: scanning the whole
+                    // library here ran on every render of a list that can hold 200k songs.
                     AlphabetJumpBar(
-                        availableLetters: songs.availableAlphabetLetters(keyPath: \.title),
+                        availableLetters: Set(vm.titleLetterIndex.keys),
                         onLetterTap: { letter in
-                            if let id = firstAlphabetItemID(forLetter: letter, in: songs, keyPath: \.title) {
+                            if let index = vm.titleLetterIndex[letter] {
                                 withAnimation(.easeInOut(duration: 0.2)) {
-                                    proxy.scrollTo(id, anchor: .top)
+                                    proxy.scrollTo(index, anchor: .top)
                                 }
                             }
                         }
@@ -290,7 +292,11 @@ private struct SongsListRows: View {
         // list can hold the whole library, and rebuilding them per row would make it quadratic.
         let downloadedSongIds = Set(downloadedTracks.map(\.songId))
         let favoriteIds = favoriteSongIds
-        ForEach(Array(songs.enumerated()), id: \.element.id) { index, song in
+        // Identified by position, not by `Array(songs.enumerated())`: that copied every song into
+        // a new array on each render, for a list that can hold the whole library. The positions
+        // are also what the A–Z jump bar scrolls to.
+        ForEach(songs.indices, id: \.self) { index in
+            let song = songs[index]
             let liveDownloaded = downloadedSongIds.contains(song.id)
             let isDownloading = downloadingIds.contains(song.id)
             SongRow(
@@ -308,8 +314,9 @@ private struct SongsListRows: View {
                 song: song.withDownloaded(liveDownloaded),
                 onDownload: (liveDownloaded || isDownloading) ? nil : { onDownload(song.id) }
             )
-            // The A-Z jump bar scrolls to these ids; keep them on the row itself.
-            .id(song.id)
+            // No `.id()` on the row: an explicit identity on every List row makes SwiftUI resolve
+            // all of them up front instead of lazily, which a 100k+ song library does not survive.
+            // The ForEach identity above is what `scrollTo` targets.
         }
     }
 }
