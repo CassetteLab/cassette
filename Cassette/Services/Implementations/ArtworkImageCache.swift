@@ -3,6 +3,7 @@
 // Licensed under the Mozilla Public License 2.0.
 // See LICENSE file in the project root for full license information.
 
+import CoreGraphics
 import Foundation
 import ImageIO
 import OSLog
@@ -41,6 +42,19 @@ nonisolated enum ArtworkTier: String, Sendable, CaseIterable {
     /// Decoded bytes once in RAM: 4 bytes per pixel, squared.
     var approximateBytes: Int {
         decodePixels * decodePixels * 4
+    }
+
+    /// Tiers holding strictly more pixels than this one, cheapest first.
+    ///
+    /// Used to satisfy a request from a bigger image already in hand instead of decoding the
+    /// same file again. Cheapest-first matters: a `thumb` should ride a `grid`, not a `hero`.
+    /// Only strictly larger tiers qualify — never upscale, which is what made grid cells blurry
+    /// when one tier served both rows and cells. The relation is strictly increasing, so a chain
+    /// of waits (thumb on grid on hero) can never cycle.
+    var largerTiers: [ArtworkTier] {
+        Self.allCases
+            .filter { $0.decodePixels > decodePixels }
+            .sorted { $0.decodePixels < $1.decodePixels }
     }
 }
 
@@ -215,15 +229,87 @@ final class ArtworkImageCache {
 
         // Not a child task: cancelling the caller that happened to create it must not cancel
         // work the other waiters are relying on.
-        let task = Task { [weak self] in
-            guard let self else { return nil as PlatformImage? }
-            return await self.fetchUncached(coverArtId: coverArtId, key: key, tier: tier)
-        }
+        let task = makeLoadTask(coverArtId: coverArtId, key: key, tier: tier)
         inFlight[key] = task
         let image = await task.value
         // Only the creator clears the entry; waiters never touch the registry.
         inFlight.removeValue(forKey: key)
         return image
+    }
+
+    /// Picks how to satisfy a key that is not in RAM and not already being fetched.
+    ///
+    /// Only the RAM case is decided here. A larger tier already decoded in memory is always
+    /// cheaper to resample than to read and decode the file again, with no suspension in
+    /// between, so it is free of the trap below.
+    ///
+    /// Riding a larger tier that is still *in flight* is deliberately NOT done here: our own
+    /// tiered file may be sitting on disk (2 ms) while the larger one still has to come down
+    /// from the server (200 ms+), and waiting would be slower than the status quo. That case is
+    /// reconsidered inside `fetchUncached`, once our own file is known to be missing.
+    private func makeLoadTask(coverArtId: String, key: String, tier: ArtworkTier) -> Task<PlatformImage?, Never> {
+        if let (big, larger) = largerTierInRAM(coverArtId: coverArtId, than: tier) {
+            return Task { [weak self] in
+                guard let self else { return nil as PlatformImage? }
+                if let small = await self.reuse(big, from: larger, for: key, coverArtId: coverArtId, tier: tier) {
+                    return small
+                }
+                return await self.fetchUncached(coverArtId: coverArtId, key: key, tier: tier)
+            }
+        }
+
+        return Task { [weak self] in
+            guard let self else { return nil as PlatformImage? }
+            return await self.fetchUncached(coverArtId: coverArtId, key: key, tier: tier)
+        }
+    }
+
+    /// Cheapest tier above `tier` whose image is decoded in RAM, touched so it is not evicted
+    /// from under us.
+    private func largerTierInRAM(coverArtId: String, than tier: ArtworkTier) -> (PlatformImage, ArtworkTier)? {
+        for larger in tier.largerTiers {
+            let largerKey = cacheKey(id: coverArtId, tier: larger)
+            if let big = cache[largerKey] {
+                touch(largerKey)
+                return (big, larger)
+            }
+        }
+        return nil
+    }
+
+    /// Cheapest tier above `tier` already being fetched. Worth waiting for only when the
+    /// alternative is a server round trip.
+    private func largerTierInFlight(coverArtId: String, than tier: ArtworkTier) -> (Task<PlatformImage?, Never>, ArtworkTier)? {
+        for larger in tier.largerTiers {
+            if let running = inFlight[cacheKey(id: coverArtId, tier: larger)] {
+                return (running, larger)
+            }
+        }
+        return nil
+    }
+
+    /// Downscales an image from a larger tier and stores it under `key`. Nil if it cannot be
+    /// resampled, which sends the caller back to a normal fetch.
+    private func reuse(
+        _ big: PlatformImage,
+        from larger: ArtworkTier,
+        for key: String,
+        coverArtId: String,
+        tier: ArtworkTier
+    ) async -> PlatformImage? {
+        let maxDim = tier.decodePixels
+        let t0 = CFAbsoluteTimeGetCurrent()
+        // Off the main actor: resampling a 1200 px image is milliseconds, but this runs in a
+        // process that also feeds an audio engine.
+        let small = await Task.detached(priority: .userInitiated) {
+            ArtworkImageCache.downscaled(big, maxDimension: maxDim)
+        }.value
+        guard let small else { return nil }
+        store(image: small, forKey: key)
+        let ms = Int((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+        Logger.artworkCache.debug("[REUSE] id=\(coverArtId, privacy: .public) tier=\(tier.rawValue, privacy: .public) from=\(larger.rawValue, privacy: .public) \(ms)ms (\(self.cache.count, privacy: .public) covers, \(self.totalCost / 1_048_576, privacy: .public) MB)")
+        revalidateIfDue(coverArtId: coverArtId, tier: tier)
+        return small
     }
 
     /// Disk then server, for a key proven absent from RAM. Always called through `inFlight`.
@@ -259,6 +345,19 @@ final class ArtworkImageCache {
                 revalidateIfDue(coverArtId: coverArtId, tier: tier)
                 return image
             }
+        }
+
+        // 2b. Our own file is missing, so the alternative is now a server round trip — and that
+        //     is the point where a larger tier becomes worth reusing. One may have landed in RAM
+        //     while we were hitting the disk, or still be on its way; either beats a download.
+        if let (big, larger) = largerTierInRAM(coverArtId: coverArtId, than: tier),
+           let small = await reuse(big, from: larger, for: key, coverArtId: coverArtId, tier: tier) {
+            return small
+        }
+        if let (running, larger) = largerTierInFlight(coverArtId: coverArtId, than: tier),
+           let big = await running.value,
+           let small = await reuse(big, from: larger, for: key, coverArtId: coverArtId, tier: tier) {
+            return small
         }
 
         // 3. Server fetch — gated to cap concurrency and protect the audio buffer.
@@ -455,6 +554,56 @@ final class ArtworkImageCache {
     ///
     /// `nonisolated` so it is callable from `Task.detached` without hopping to MainActor.
     /// Internal (not private) so `CoverArtView`'s local-base fallback decodes identically.
+    /// Resamples an already-decoded image so its longest side is `maxDimension`.
+    ///
+    /// Nil when the image is already that small or smaller — there is nothing to gain and
+    /// upscaling is never wanted — and nil on any failure, which sends the caller back to a
+    /// normal decode rather than showing something soft.
+    ///
+    /// The result is the same pixel size a direct decode would have produced, so this cannot
+    /// reintroduce the blur from one tier serving two sizes; only the resampling method differs
+    /// (Core Graphics here, ImageIO's DCT scaling there).
+    nonisolated static func downscaled(_ image: PlatformImage, maxDimension: Int) -> PlatformImage? {
+        guard maxDimension > 0 else { return nil }
+        #if canImport(UIKit)
+        guard let cgImage = image.cgImage else { return nil }
+        #else
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        #endif
+
+        let longest = max(cgImage.width, cgImage.height)
+        guard longest > maxDimension else { return nil }
+
+        let scale = Double(maxDimension) / Double(longest)
+        let width = max(1, Int((Double(cgImage.width) * scale).rounded()))
+        let height = max(1, Int((Double(cgImage.height) * scale).rounded()))
+
+        // sRGB and BGRA are forced rather than inherited: a source in an indexed, CMYK or
+        // 16-bit space is not a valid CGContext target and would fail here.
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil,
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: 0,
+                  space: colorSpace,
+                  bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+                      | CGBitmapInfo.byteOrder32Little.rawValue
+              )
+        else { return nil }
+
+        context.interpolationQuality = .high
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        guard let scaled = context.makeImage() else { return nil }
+
+        #if canImport(UIKit)
+        return UIImage(cgImage: scaled)
+        #else
+        return NSImage(cgImage: scaled, size: NSSize(width: width, height: height))
+        #endif
+    }
+
     nonisolated static func thumbnailImage(from data: Data, maxDimension: Int) -> PlatformImage? {
         let options: [CFString: Any] = [
             kCGImageSourceThumbnailMaxPixelSize: maxDimension,
