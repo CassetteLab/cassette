@@ -67,7 +67,7 @@ struct AlbumDetailView: View {
     @State private var heroHeight: CGFloat = 680
     @State private var showDeleteAlert = false
     @State private var songToAddToPlaylist: DisplayableSong?
-    @State private var showThemeColorSheet = false
+    @State private var showThemeColorPicker = false
     /// The cover full-frame. Presented with the app's zoom transition, so it grows out of the
     /// hero rather than fading in over it.
     @State private var isCoverExpanded = false
@@ -307,10 +307,10 @@ struct AlbumDetailView: View {
                     .disabled(displaySongs().isEmpty || !isOnline)
                     Divider()
                     // A ColorPicker cannot live inside a Menu — menu content is limited to buttons and
-                    // pickers — so the swatch moves to a sheet. Which is the better home anyway: "Reset to
-                    // cover colour" used to hide in a contextMenu on a toolbar item, where nobody long-presses.
+                    // pickers — so this opens the system picker directly, over an undimmed screen so the
+                    // eyedropper samples the cover's real colours. "Reset to cover colour" sits next to it.
                     Button("Theme colour", systemImage: "paintpalette") {
-                        showThemeColorSheet = true
+                        showThemeColorPicker = true
                     }
                     if colorExtractor.colorOverride(for: albumCoverId) != nil {
                         Button("Reset to cover colour", systemImage: "arrow.uturn.backward") {
@@ -337,19 +337,17 @@ struct AlbumDetailView: View {
             )
             .cassetteZoomTransition(sourceID: coverZoomID, in: coverZoom)
         }
-        .sheet(isPresented: $showThemeColorSheet) {
-            ThemeColorSheet(
-                color: Binding(
-                    get: { colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor },
-                    set: { newColor in
-                        colorExtractor.setColorOverride(newColor, forIds: albumThemeIds)
-                        dominantColor = newColor
-                    }
-                ),
-                hasOverride: colorExtractor.colorOverride(for: albumCoverId) != nil,
-                onReset: resetThemeColor
-            )
-        }
+        .cassetteColorPicker(
+            isPresented: $showThemeColorPicker,
+            selection: Binding(
+                get: { colorExtractor.cachedColor(for: albumCoverId) ?? dominantColor },
+                set: { newColor in
+                    colorExtractor.setColorOverride(newColor, forIds: albumThemeIds)
+                    dominantColor = newColor
+                }
+            ),
+            title: String(localized: "Theme colour")
+        )
         #if os(iOS)
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbarColorScheme(theme.isThemed ? (theme.isLight ? .light : .dark) : nil, for: .navigationBar)
@@ -698,46 +696,5 @@ struct AlbumSongRows: View {
             }
             #endif
         }
-    }
-}
-
-
-// MARK: - Theme colour sheet
-
-/// Host for the album's theme-colour override. A ColorPicker cannot be placed inside a Menu, so the
-/// overflow menu opens this instead — which also gives "Reset to cover colour" a visible home rather
-/// than the long-press-only contextMenu it used to live in.
-private struct ThemeColorSheet: View {
-    @Binding var color: Color
-    let hasOverride: Bool
-    let onReset: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    ColorPicker("Theme colour", selection: $color, supportsOpacity: false)
-                } footer: {
-                    Text("Overrides the colour taken from the cover, here and anywhere else this album appears.")
-                }
-                if hasOverride {
-                    Section {
-                        Button("Reset to cover colour", systemImage: "arrow.uturn.backward", role: .destructive) {
-                            onReset()
-                            dismiss()
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Theme colour")
-            .navigationBarTitleDisplayModeInline()
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .presentationDetents([.height(260)])
     }
 }
