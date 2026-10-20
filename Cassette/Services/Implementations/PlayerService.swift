@@ -1434,7 +1434,7 @@ actor PlayerService: PlayerServiceProtocol {
 
     // MARK: - Session persistence
 
-    private func continuePlayback(
+    func continuePlayback(
         queue: [DisplayableSong],
         currentIndex: Int,
         position: TimeInterval,
@@ -1444,8 +1444,11 @@ actor PlayerService: PlayerServiceProtocol {
         guard queue.indices.contains(currentIndex) else { return }
         // Re-checked here, next to the mutation it guards: between the caller's check and this
         // actor running, the user can press play — and then we would stop what they just started.
-        let isPaused = await MainActor.run { state.playbackState == .paused }
-        guard isPaused else {
+        // A device without a saved session is idle until its first local playback.
+        let canContinue = await MainActor.run {
+            state.playbackState == .idle || state.playbackState == .paused
+        }
+        guard canContinue else {
             Logger.player.debug("Playback continuation skipped: playback started locally")
             return
         }

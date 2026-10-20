@@ -153,7 +153,7 @@ struct CassetteApp: App {
             #endif
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
-            // Single trigger for cross-device continuation. The paused check lives inside the
+            // Single trigger for cross-device continuation. The idle/paused check lives inside the
             // actor, next to the mutation it guards.
             if newPhase == .active, let c = container {
                 Task { _ = await c.playerService.restoreFromOtherDevice() }
