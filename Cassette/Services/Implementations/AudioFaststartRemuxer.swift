@@ -250,7 +250,7 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
     ) -> [String] {
         var types: [String] = []
         var offset: UInt64 = 0
-        while offset + 8 <= total, types.count < limit {
+        while offset <= total, total - offset >= 8, types.count < limit {
             guard let header = read(offset, 8), header.count == 8 else { break }
             var size = UInt64(header[0]) << 24 | UInt64(header[1]) << 16 | UInt64(header[2]) << 8 | UInt64(header[3])
             let type = String(bytes: header[4..<8], encoding: .ascii) ?? "????"
@@ -264,7 +264,9 @@ nonisolated struct AudioFaststartRemuxer: Sendable {
             }
             types.append(type)
             guard size >= headerLength else { break }
-            offset += size
+            let (next, overflow) = offset.addingReportingOverflow(size)
+            guard !overflow else { break }
+            offset = next
         }
         return types
     }

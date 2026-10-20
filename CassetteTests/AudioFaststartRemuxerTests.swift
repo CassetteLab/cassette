@@ -181,6 +181,16 @@ struct AudioFaststartRemuxerTests {
         #expect(AudioFaststartRemuxer.topLevelBoxTypes(in: toEnd) == ["ftyp", "moov", "mdat"])
     }
 
+    @Test("parser stops on a largesize that overflows the offset")
+    func stopsOnOverflowingLargesize() {
+        let hostile = Data(box("ftyp", payload: 8) + [0, 0, 0, 1] + Array("mdat".utf8) + [UInt8](repeating: 0xFF, count: 8) + [UInt8](repeating: 0, count: 16))
+        #expect(AudioFaststartRemuxer.topLevelBoxTypes(in: hostile) == ["ftyp", "mdat"])
+
+        // Lands 3 bytes short of UInt64.max without overflowing, so the next header check must not add to it.
+        let nearMax = Data(box("ftyp", payload: 8) + [0, 0, 0, 1] + Array("mdat".utf8) + [UInt8](repeating: 0xFF, count: 7) + [0xEC] + [UInt8](repeating: 0, count: 16))
+        #expect(AudioFaststartRemuxer.topLevelBoxTypes(in: nearMax) == ["ftyp", "mdat"])
+    }
+
     // MARK: - topLevelBoxTypes(atPath:) (file scanner, seeks past mdat)
 
     @Test("file scanner reads box order from disk and classifies mdat-first as needsRemux")
