@@ -188,4 +188,28 @@ struct StreamStallTests {
         #expect(UserFacingError.from(CassetteError.serverUnreachable) == .serverUnreachable)
         #expect(UserFacingError.from(CassetteError.offlineUnavailable(songId: "1")) == .contentUnavailableOffline)
     }
+
+    // MARK: - Resume
+
+    @Test("resume starts a stopped or failed track again instead of resuming a dead engine")
+    func resumeRestartsDeadEngine() {
+        #expect(PlayerService.resumeRestartsSource(engineState: .stopped, source: stream))
+        #expect(PlayerService.resumeRestartsSource(engineState: .error, source: stream))
+        #expect(PlayerService.resumeRestartsSource(engineState: .ready, source: stream))
+        #expect(PlayerService.resumeRestartsSource(engineState: .stopped, source: .downloaded(file)))
+    }
+
+    @Test("resume of a paused engine resumes it")
+    func resumeKeepsPausedEngine() {
+        #expect(!PlayerService.resumeRestartsSource(engineState: .paused, source: stream))
+        #expect(!PlayerService.resumeRestartsSource(engineState: .playing, source: stream))
+        #expect(!PlayerService.resumeRestartsSource(engineState: .bufferring, source: stream))
+    }
+
+    @Test("resume never restarts without a source or for radio")
+    func resumeIgnoresRadioAndEmpty() {
+        let radio = MediaSource.liveStream(URL(string: "https://radio.example/live")!, customHeaders: [:], stationId: "r")
+        #expect(!PlayerService.resumeRestartsSource(engineState: .stopped, source: radio))
+        #expect(!PlayerService.resumeRestartsSource(engineState: .stopped, source: nil))
+    }
 }

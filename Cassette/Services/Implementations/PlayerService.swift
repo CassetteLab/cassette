@@ -60,7 +60,8 @@ actor PlayerService: PlayerServiceProtocol {
     /// Bumped whenever the watchdog stops (pause, stop, a new track), so a stream failure that was
     /// being handled across an await sees that a user command took over meanwhile.
     private var streamWatchGeneration = 0
-    /// Set when a stream failure stopped the engine, so a late second failure report is ignored.
+    /// Set when a stream failure stopped the engine: a late second failure report is ignored,
+    /// and the next resume() starts the track again.
     private var restartAfterStreamFailure = false
 
     private var audioSessionConfigured: Bool
@@ -714,6 +715,16 @@ actor PlayerService: PlayerServiceProtocol {
         }
     }
 
+    /// Whether resume() has to start the current source again: the engine has nothing to resume
+    /// once it was stopped or failed, and `audioPlayer.resume()` would stay silent.
+    nonisolated static func resumeRestartsSource(engineState: AudioPlayerState, source: MediaSource?) -> Bool {
+        guard let source, !source.isLiveStream else { return false }
+        switch engineState {
+        case .ready, .stopped, .error: return true
+        default: return false
+        }
+    }
+
     private func startStreamStallWatchdog() {
         stopStreamStallWatchdog()
         guard case .stream = currentSource else { return }
@@ -1290,8 +1301,14 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         // Cold-restore path: session activation was deferred at launch, so the player was never
-        // started. Start fresh now that the user has explicitly triggered playback.
-        if audioPlayer.state == .ready, let source = currentSource {
+        // started — or a stream failure stopped the engine. Start fresh now that the user has
+        // explicitly triggered playback.
+        if Self.resumeRestartsSource(engineState: audioPlayer.state, source: currentSource), let source = currentSource {
+            if pendingRestoreInfo == nil {
+                let position = await MainActor.run { state.position }
+                pendingRestoreInfo = (seekTime: position, pause: false)
+            }
+            restartAfterStreamFailure = false
             if let info = pendingRestoreInfo, info.pause {
                 pendingRestoreInfo = (seekTime: info.seekTime, pause: false)
             }
