@@ -49,6 +49,7 @@ struct MainTabView: View {
                 }
                 .fullScreenCover(isPresented: $showingFullPlayer) {
                     FullPlayerView()
+                        .toastOverlay()
                         .cassetteZoomTransition(sourceID: fullPlayerZoomID, in: playerZoom)
                 }
         } else {
@@ -78,6 +79,7 @@ struct MainTabView: View {
                 }
                 .fullScreenCover(isPresented: $showingFullPlayer) {
                     FullPlayerView()
+                        .toastOverlay()
                         .cassetteZoomTransition(sourceID: fullPlayerZoomID, in: playerZoom)
                 }
         }
@@ -88,6 +90,7 @@ struct MainTabView: View {
             }
             .sheet(isPresented: $showingFullPlayer) {
                 FullPlayerView()
+                    .toastOverlay()
             }
         #endif
     }

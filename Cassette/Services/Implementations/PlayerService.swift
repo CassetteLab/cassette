@@ -287,7 +287,7 @@ actor PlayerService: PlayerServiceProtocol {
         do {
             source = try await mediaResolver.resolve(songId: song.id, serverId: serverId)
         } catch let e as CassetteError {
-            await MainActor.run { state.playbackState = .error(e) }
+            await reportPlaybackError(e)
             throw e
         } catch {
             await MainActor.run { state.playbackState = .idle }
@@ -618,6 +618,16 @@ actor PlayerService: PlayerServiceProtocol {
                 style: .error,
                 duration: 5.0
             )
+        }
+    }
+
+    // MARK: - Playback Errors
+
+    /// Sets the error state and tells the user; callers of play() only log.
+    private func reportPlaybackError(_ error: CassetteError) async {
+        await MainActor.run {
+            state.playbackState = .error(error)
+            toastService.show(UserFacingError.from(error).displayMessage, style: .error, duration: 5.0)
         }
     }
 
