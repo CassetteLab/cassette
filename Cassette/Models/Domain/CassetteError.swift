@@ -31,6 +31,8 @@ nonisolated enum CassetteError: Error, Sendable {
     case artistTracksUnavailable
     /// An operation exceeded its allowed time budget and was cancelled.
     case timeout
+    /// The network is up, but the music server does not answer.
+    case serverUnreachable
 }
 
 extension CassetteError: LocalizedError {
@@ -72,6 +74,8 @@ extension CassetteError: LocalizedError {
             return String(localized: "Unable to load tracks for this artist. Please check your connection and try again.")
         case .timeout:
             return String(localized: "The operation timed out. Please check your connection and try again.")
+        case .serverUnreachable:
+            return String(localized: "Couldn't reach your server.")
         }
     }
 }

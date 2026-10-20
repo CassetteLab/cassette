@@ -55,6 +55,13 @@ actor PlayerService: PlayerServiceProtocol {
     /// inside that state, where writing it back would feed observation into itself.
     private var smartShuffleSnapshot: SmartShuffleSnapshot?
     private var liveStreamStallTask: Task<Void, Never>?
+    private let streamStallTiming: StreamStallTiming
+    private var streamStallTask: Task<Void, Never>?
+    /// Bumped whenever the watchdog stops (pause, stop, a new track), so a stream failure that was
+    /// being handled across an await sees that a user command took over meanwhile.
+    private var streamWatchGeneration = 0
+    /// Set when a stream failure stopped the engine, so a late second failure report is ignored.
+    private var restartAfterStreamFailure = false
 
     private var audioSessionConfigured: Bool
     #if os(iOS)
@@ -151,9 +158,11 @@ actor PlayerService: PlayerServiceProtocol {
         crossfadeSettings: CrossfadeSettings,
         toastService: ToastService,
         statsService: StatsService,
-        listenBrainzService: ListenBrainzService
+        listenBrainzService: ListenBrainzService,
+        streamStallTiming: StreamStallTiming = StreamStallTiming()
     ) {
         self.state = state
+        self.streamStallTiming = streamStallTiming
         self.mediaResolver = mediaResolver
         self.serverService = serverService
         self.sessionService = sessionService
@@ -383,6 +392,7 @@ actor PlayerService: PlayerServiceProtocol {
         liveStreamStallTask = nil
         let startingPosition = pendingRestoreInfo?.seekTime ?? 0
         currentSource = source
+        restartAfterStreamFailure = false
         pendingRestoreInfo = nil
         // Starting a new track can interrupt a muted parking play (end-of-queue rewind)
         // without going through resume()/stop() — cancel the deferred pause and unmute,
@@ -432,6 +442,7 @@ actor PlayerService: PlayerServiceProtocol {
         enqueuePlaybackReport(.playing, track: song, position: startingPosition)
 
         startProgressTimer()
+        startStreamStallWatchdog()
 
         let artworkURL = await resolveArtworkURL(for: song)
         Logger.player.debug("[TRANSITION] attempting credentials fetch for NowPlaying headers")
@@ -491,9 +502,11 @@ actor PlayerService: PlayerServiceProtocol {
         }
 
         stopProgressTimer()
+        stopStreamStallWatchdog()
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
         currentSource = source
+        restartAfterStreamFailure = false
         pendingRestoreInfo = nil
         // Same recovery as startPlayback(): a radio start can interrupt a muted
         // parking play — cancel the deferred pause and unmute before playing.
@@ -618,6 +631,196 @@ actor PlayerService: PlayerServiceProtocol {
                 style: .error,
                 duration: 5.0
             )
+        }
+    }
+
+    // MARK: - Stream Stall
+
+    /// How long a playing stream may stand still. Injected so tests never wait on the real clock.
+    nonisolated struct StreamStallTiming: Equatable, Sendable {
+        /// A started stream that stops moving counts as failed after this long.
+        var timeout: Duration = .seconds(15)
+        /// A stream that has not started yet. A non-faststart m4a needs several range requests
+        /// before its first sample, 6 to over 11 s on Wi-Fi.
+        var startTimeout: Duration = .seconds(30)
+        /// A stream that has not started is opened again once after this long.
+        var restartAfter: Duration = .seconds(12)
+        /// How often the watchdog samples the engine.
+        var interval: Duration = .seconds(1)
+    }
+
+    nonisolated struct StreamStallWatch: Equatable, Sendable {
+        var lastProgress: TimeInterval?
+        var stalledFor: Duration = .zero
+    }
+
+    nonisolated enum StreamStallStep: Equatable, Sendable {
+        case wait
+        /// AudioStreaming drops a failed first request without retrying or reporting it.
+        case restartSource
+        case failOffline
+        case failUnreachable
+    }
+
+    /// AudioStreaming retries an unreachable server forever without reporting it, so a playing stream
+    /// that does not move counts as failed: at once when the device is offline, else after `timing.timeout`
+    /// (`timing.startTimeout` before its first sample).
+    nonisolated static func streamStallTick(
+        _ watch: StreamStallWatch,
+        progress: TimeInterval,
+        isPlaying: Bool,
+        isOnline: Bool,
+        elapsed: Duration,
+        timing: StreamStallTiming
+    ) -> (watch: StreamStallWatch, step: StreamStallStep) {
+        guard isPlaying, let last = watch.lastProgress, abs(progress - last) < 0.05 else {
+            return (StreamStallWatch(lastProgress: progress), .wait)
+        }
+        let before = watch.stalledFor
+        let stalledFor = before + elapsed
+        let next = StreamStallWatch(lastProgress: last, stalledFor: stalledFor)
+        if !isOnline { return (next, .failOffline) }
+        let neverStarted = progress < 0.05
+        if stalledFor >= (neverStarted ? timing.startTimeout : timing.timeout) { return (next, .failUnreachable) }
+        if neverStarted, before < timing.restartAfter, stalledFor >= timing.restartAfter {
+            return (next, .restartSource)
+        }
+        return (next, .wait)
+    }
+
+    nonisolated enum StreamFailureAction: Equatable, Sendable {
+        case ignore
+        /// The stream moved again (a seek, or data arrived) while the failure was handled: watch it afresh.
+        case watchAgain
+        case playLocal
+        case stop
+    }
+
+    nonisolated static func streamFailureAction(
+        source: MediaSource?,
+        alreadyStopped: Bool,
+        playbackState: PlaybackState,
+        interrupted: Bool,
+        progressMoved: Bool,
+        localCopy: MediaSource?
+    ) -> StreamFailureAction {
+        guard case .stream = source, !alreadyStopped else { return .ignore }
+        // A pause or stop, before or while the failure was handled, is the user's: start no audio, show no error.
+        if interrupted || playbackState == .paused || playbackState == .idle { return .ignore }
+        if progressMoved { return .watchAgain }
+        switch localCopy {
+        case .downloaded?, .cached?: return .playLocal
+        default: return .stop
+        }
+    }
+
+    private func startStreamStallWatchdog() {
+        stopStreamStallWatchdog()
+        guard case .stream = currentSource else { return }
+        let timing = streamStallTiming
+        streamStallTask = Task { [weak self] in
+            var watch = StreamStallWatch()
+            var lastTick = ContinuousClock.now
+            while !Task.isCancelled {
+                try? await Task.sleep(for: timing.interval)
+                guard !Task.isCancelled, let self else { return }
+                let (isPlaying, isOnline) = await self.streamStallSample()
+                let now = ContinuousClock.now
+                let tick = Self.streamStallTick(
+                    watch,
+                    progress: self.audioPlayer.progress,
+                    isPlaying: isPlaying,
+                    isOnline: isOnline,
+                    elapsed: now - lastTick,
+                    timing: timing
+                )
+                lastTick = now
+                watch = tick.watch
+                switch tick.step {
+                case .wait:
+                    continue
+                case .restartSource:
+                    await self.restartStalledStream()
+                case .failOffline:
+                    await self.handleStreamFailure(reason: "offline")
+                    return
+                case .failUnreachable:
+                    await self.handleStreamFailure(reason: "no progress")
+                    return
+                }
+            }
+        }
+    }
+
+    private func streamStallSample() async -> (isPlaying: Bool, isOnline: Bool) {
+        await MainActor.run { (state.playbackState == .playing, serverService.state.isOnline) }
+    }
+
+    private func stopStreamStallWatchdog() {
+        streamStallTask?.cancel()
+        streamStallTask = nil
+        streamWatchGeneration &+= 1
+    }
+
+    /// Opens the current stream again; a pending start position is applied once it plays.
+    /// No await before play(): a pause or stop that got the actor first has cleared `streamStallTask`
+    /// (and cancelled the watchdog calling this), so the check below is final.
+    private func restartStalledStream() async {
+        guard !Task.isCancelled, streamStallTask != nil else { return }
+        guard case .stream = currentSource, let source = currentSource, audioPlayer.progress < 0.05 else { return }
+        Logger.player.notice("[STALL] stream has not started — opening it again")
+        audioPlayer.play(url: source.url, headers: source.customHeaders)
+    }
+
+    /// Continues the current track from its download or cache file, or stops it with a visible error.
+    private func handleStreamFailure(reason: String) async {
+        guard case .stream(let streamURL, _) = currentSource, !restartAfterStreamFailure else { return }
+        let generation = streamWatchGeneration
+        let progressBefore = audioPlayer.progress
+        let (track, serverId, position, isOnline, playbackState) = await MainActor.run {
+            (state.currentTrack, serverService.state.activeServer?.id, state.position, serverService.state.isOnline, state.playbackState)
+        }
+        guard let track, let serverId else { return }
+        let localCopy = try? await mediaResolver.resolve(songId: track.id, serverId: serverId)
+        // No await from here to the effects below: a skip, pause, stop or second failure report that
+        // ran during the awaits above owns the engine now.
+        guard case .stream(let currentURL, _) = currentSource, currentURL == streamURL else { return }
+        let action = Self.streamFailureAction(
+            source: currentSource,
+            alreadyStopped: restartAfterStreamFailure,
+            playbackState: playbackState,
+            interrupted: generation != streamWatchGeneration,
+            progressMoved: abs(audioPlayer.progress - progressBefore) >= 0.05,
+            localCopy: localCopy
+        )
+        switch action {
+        case .ignore:
+            return
+        case .watchAgain:
+            Logger.player.notice("[STALL] stream of '\(track.id, privacy: .public)' moved again while its failure was handled — watching it again")
+            startStreamStallWatchdog()
+        case .playLocal:
+            guard let localCopy else { return }
+            Logger.player.notice("[STALL] stream of '\(track.id, privacy: .public)' failed (\(reason, privacy: .public)) — continuing from local copy at \(position, format: .fixed(precision: 1))s")
+            currentSource = localCopy
+            stopStreamStallWatchdog()
+            pendingRestoreInfo = (seekTime: position, pause: false)
+            audioPlayer.play(url: localCopy.url, headers: localCopy.customHeaders)
+            // A network error put the engine, and with it playbackState, into .error first.
+            await MainActor.run { state.playbackState = .playing }
+        case .stop:
+            Logger.player.error("[STALL] stream of '\(track.id, privacy: .public)' failed (\(reason, privacy: .public)) — stopping")
+            restartAfterStreamFailure = true
+            stopStreamStallWatchdog()
+            stopProgressTimer()
+            finalizePlaySegment()
+            audioPlayer.stop()
+            await reportPlaybackError(isOnline ? .serverUnreachable : .offlineUnavailable(songId: track.id))
+            await pushPositionSnapshot(rate: 0.0)
+            await saveSession()
+            if let ws = widgetSyncService {
+                Task { [weak ws] in await ws?.onPlayStateChanged(isPlaying: false, currentSong: track) }
+            }
         }
     }
 
@@ -1033,6 +1236,7 @@ actor PlayerService: PlayerServiceProtocol {
         logPlaybackCommand("pause")
         cancelFadeTasks()
         finalizePlaySegment()
+        stopStreamStallWatchdog()
         audioPlayer.pause()
         #if os(iOS)
         sessionActivationRetryTask?.cancel()
@@ -1106,6 +1310,7 @@ actor PlayerService: PlayerServiceProtocol {
         await MainActor.run { state.playbackState = .playing }
         await pushPositionSnapshot(rate: 1.0)
         startProgressTimer()
+        startStreamStallWatchdog()
         startPositionSaveTimer()
         await saveSession()
         let (resumeTrack, resumePosition) = await MainActor.run { (state.currentTrack, state.position) }
@@ -1168,6 +1373,8 @@ actor PlayerService: PlayerServiceProtocol {
         }
         liveStreamStallTask?.cancel()
         liveStreamStallTask = nil
+        stopStreamStallWatchdog()
+        restartAfterStreamFailure = false
         audioPlayer.stop()
         let (stoppedTrack, stoppedPosition) = await MainActor.run { (state.currentTrack, state.position) }
         if let stoppedTrack {
@@ -1685,6 +1892,9 @@ actor PlayerService: PlayerServiceProtocol {
     }
 
     func handleNetworkRestored() async {
+        if case .stream = currentSource, streamStallTask != nil, await MainActor.run(body: { state.playbackState == .playing }) {
+            await restartStalledStream()
+        }
         // Don't race with an in-progress session restore; prepareCurrentTrackForRestoration
         // sets isRestoringSession before its first await so this check is reliable.
         guard !isRestoringSession else {
@@ -2267,6 +2477,8 @@ actor PlayerService: PlayerServiceProtocol {
         if isLive {
             let name = await MainActor.run { state.currentRadio?.name ?? "" }
             await handleLiveStreamFailure(stationName: name, error: nil)
+        } else if case .networkError = error, case .stream = currentSource {
+            await handleStreamFailure(reason: "network error")
         } else {
             await MainActor.run { state.playbackState = .error(.timeout) }
         }
