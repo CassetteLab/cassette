@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/MathieuDubart/swiftsonic",
       "state" : {
-        "revision" : "9ba4b2eb7fcc841a6a6887c96929565b66f8fa90",
-        "version" : "0.9.0"
+        "revision" : "ab64756ba41ea68522f9fcb7a4b2045884737004",
+        "version" : "0.9.1"
       }
     },
     {
