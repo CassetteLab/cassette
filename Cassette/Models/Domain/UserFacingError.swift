@@ -121,7 +121,7 @@ nonisolated enum UserFacingError: LocalizedError, Identifiable, Sendable {
                 return .contentUnavailableOffline
             case .downloadFailed:
                 return .downloadFailed
-            case .connectionFailed, .serverNotConfigured, .serverNotFound:
+            case .connectionFailed, .serverNotConfigured, .serverNotFound, .serverUnreachable:
                 return .serverUnreachable
             default:
                 return .unexpected
