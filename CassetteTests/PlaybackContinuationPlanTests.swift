@@ -93,3 +93,42 @@ struct PlaybackContinuationPlanTests {
         #expect(PlaybackContinuationPreference.isEnabled(defaults: defaults) == true)
     }
 }
+
+@Suite("Playback continuation adoption", .serialized)
+struct PlaybackContinuationAdoptionTests {
+    @Test("an idle or paused device adopts the remote song without playing", arguments: [PlaybackState.idle, .paused])
+    func inactiveDeviceAdoptsQueue(initialState: PlaybackState) async throws {
+        let container = try AppContainer(inMemory: true)
+        let player = try #require(container.playerService as? PlayerService)
+        container.playerState.playbackState = initialState
+        let songs = [Song(id: "remote", title: "Remote song", duration: 180)].map { DisplayableSong(from: $0) }
+
+        try await player.continuePlayback(
+            queue: songs, currentIndex: 0, position: 42, shouldResume: false, repeatMode: .off
+        )
+
+        #expect(container.playerState.queue.map(\.id) == ["remote"])
+        #expect(container.playerState.currentTrack?.id == "remote")
+        #expect(container.playerState.position == 42)
+        #expect(container.playerState.playbackState == .paused)
+    }
+
+    @Test("local playback blocks remote adoption", arguments: [PlaybackState.playing, .loading])
+    func activeDeviceKeepsQueue(initialState: PlaybackState) async throws {
+        let container = try AppContainer(inMemory: true)
+        let player = try #require(container.playerService as? PlayerService)
+        let local = DisplayableSong(from: Song(id: "local", title: "Local song", duration: 180))
+        container.playerState.queue = [local]
+        container.playerState.currentTrack = local
+        container.playerState.playbackState = initialState
+
+        try await player.continuePlayback(
+            queue: [DisplayableSong(from: Song(id: "remote", title: "Remote song", duration: 180))],
+            currentIndex: 0, position: 42, shouldResume: false, repeatMode: .off
+        )
+
+        #expect(container.playerState.queue.map(\.id) == ["local"])
+        #expect(container.playerState.currentTrack?.id == "local")
+        #expect(container.playerState.playbackState == initialState)
+    }
+}
