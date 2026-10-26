@@ -46,11 +46,14 @@ actor LibraryService: LibraryServiceProtocol {
         return scope
     }
 
-    /// Drops the cached scope so the next request re-reads it. Called when the user changes the
-    /// selection; the client cache is deliberately left alone, since the server has not changed.
-    func reloadMusicFolderScope() {
-        hasResolvedMusicFolderId = false
-        Logger.library.info("Music folder scope invalidated — will re-read on next request")
+    /// Seed the new scope before publishing the selection to views, so their reloads cannot
+    /// race cache invalidation and fetch the previous library.
+    func reloadMusicFolderScope(_ folderId: String?) async {
+        cachedMusicFolderId = folderId
+        hasResolvedMusicFolderId = true
+        artistNameIndex = nil
+        artistInfoCache = [:]
+        Logger.library.info("Music folder scope updated")
     }
 
     private func client() async throws -> SwiftSonicClient {

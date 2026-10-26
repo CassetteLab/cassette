@@ -27,7 +27,7 @@ struct MusicFolderScopePicker: View {
     }
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading) {
             if folders.count > 1 {
                 Menu {
                     Picker("Library", selection: selectionBinding) {
@@ -69,15 +69,16 @@ struct MusicFolderScopePicker: View {
         }
     }
 
-    /// Persists the choice, then drops the library service's cached scope so the next request
-    /// carries the new one. Playback is deliberately untouched: changing what you browse should
-    /// not stop what you are listening to.
+    /// Seeds the new scope before publishing the choice so view reloads use the new library.
+    /// Playback is deliberately untouched: changing what you browse should not stop playback.
     private func apply(_ folderId: String?) async {
         guard let container, let serverId = activeServer?.id else { return }
+        let previousId = selectedId
         do {
+            await container.libraryService.reloadMusicFolderScope(folderId)
             try await container.serverService.setMusicFolderScope(serverId: serverId, folderId: folderId)
-            await container.libraryService.reloadMusicFolderScope()
         } catch {
+            await container.libraryService.reloadMusicFolderScope(previousId)
             Logger.library.error("Could not change library scope: \(error, privacy: .public)")
             container.toastService.showError(String(localized: "Could not change library."))
         }

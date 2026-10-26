@@ -26,7 +26,7 @@ struct ArtistsListMacOS: View {
                 ArtistSortMenu(sort: $artistSort)
             }
         }
-        .task(id: container?.serverState.isOnline) {
+        .task(id: container?.serverState.libraryLoadKey) {
             guard let svc = container?.libraryService else { return }
             if vm == nil { vm = ArtistListViewModel(libraryService: svc) }
             guard container?.serverState.isOnline == true else { return }

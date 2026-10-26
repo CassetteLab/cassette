@@ -18,6 +18,7 @@ final class MockServerService: ServerServiceProtocol {
     var testConnectionError: (any Error)? = nil
     var addServerError: (any Error)? = nil
     var addServerCalled = false
+    var clientOverride: SwiftSonicClient?
 
     func testConnection(
         url: String, username: String, password: String,
@@ -45,7 +46,10 @@ final class MockServerService: ServerServiceProtocol {
     func setAudioMuseConfig(serverId: UUID, urlString: String?, token: String?) async throws {}
     func testConnection() async throws {}
     func loadPersistedState() async {}
-    func makeSwiftSonicClient() async throws -> SwiftSonicClient { throw CassetteError.notImplemented }
+    func makeSwiftSonicClient() async throws -> SwiftSonicClient {
+        if let clientOverride { return clientOverride }
+        throw CassetteError.notImplemented
+    }
     func activeCredentials() async throws -> ServerCredentials { throw CassetteError.notImplemented }
 }
 
