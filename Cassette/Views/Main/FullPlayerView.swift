@@ -743,14 +743,22 @@ struct FullPlayerView: View {
 
     private func queueStatusLine(_ playerState: PlayerState) -> some View {
         let upNextCount = max(playerState.queue.count - playerState.currentIndex - 1, 0)
-        var bits: [String] = ["\(upNextCount) up next"]
+        // This line is assembled from Strings and joined, so SwiftUI cannot localize it on its own:
+        // every fragment has to go through the catalog explicitly.
+        var bits: [String] = [
+            String(localized: "\(upNextCount) up next", comment: "Player status line: number of tracks queued after the current one")
+        ]
         if playerState.repeatMode == .all {
-            bits.append("Repeating all")
+            bits.append(String(localized: "Repeating all", comment: "Player status line: repeat-all is on"))
         } else if playerState.repeatMode == .one {
-            bits.append("Repeating one")
+            bits.append(String(localized: "Repeating one", comment: "Player status line: repeat-one is on"))
         }
-        if playerState.isShuffled { bits.append("Shuffled") }
-        if playerState.isAutoExtendEnabled { bits.append("Auto-extend on") }
+        if playerState.isShuffled {
+            bits.append(String(localized: "Shuffled", comment: "Player status line: shuffle is on"))
+        }
+        if playerState.isAutoExtendEnabled {
+            bits.append(String(localized: "Auto-extend on", comment: "Player status line: endless play is on"))
+        }
         return Text(bits.joined(separator: " · "))
             .font(.cassetteCaption)
             .foregroundStyle(vm.secondaryContentColor)

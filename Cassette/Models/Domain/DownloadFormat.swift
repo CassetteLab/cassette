@@ -23,9 +23,11 @@ nonisolated enum DownloadFormat: String, CaseIterable, Identifiable, Sendable {
     static let `default`: DownloadFormat = .original
 
     /// Display label for the Settings picker.
+    /// Localized so the picker follows the app language; the bitrate labels stay as-is
+    /// because they read the same in every language.
     var displayName: String {
         switch self {
-        case .original:  return "Original"
+        case .original:  return String(localized: "Original", comment: "Download format picker: the server's original file, no transcoding")
         case .mp3_320:   return "MP3 320 kbps"
         case .mp3_192:   return "MP3 192 kbps"
         case .opus_128:  return "Opus 128 kbps"

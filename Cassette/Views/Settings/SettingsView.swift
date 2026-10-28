@@ -287,7 +287,10 @@ struct CacheSectionView: View {
 
     private func usageDescription(maxTracks: Int) -> String {
         let bytesString = ByteCountFormatter.string(fromByteCount: usedBytes, countStyle: .file)
-        return "\(bytesString) · \(trackCount)/\(maxTracks) tracks"
+        // The noun goes through the catalog so the line follows the app language; the numbers
+        // stay outside so languages that do not pluralize nouns read naturally.
+        let noun = String(localized: "tracks", comment: "Cache usage: number of tracks held in the cache")
+        return "\(bytesString) · \(trackCount)/\(maxTracks) \(noun)"
     }
 
     private func refreshUsage() async {

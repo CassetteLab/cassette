@@ -4748,7 +4748,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "使用 Smart Shuffle 自动延长"
+            "value" : "使用智能随机播放自动延长"
           }
         },
         "zh-Hant" : {
@@ -5268,7 +5268,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "缓存曲目让最近播放的音乐即时加载，无需重新从服务器获取。缓存为自动滑动窗口 — 达到上限时会替换最早的曲目。"
+            "value" : "缓存曲目让最近播放的音乐即时加载，无需重新从服务器获取。缓存会自动滚动替换，达到上限时替换最早的曲目。"
           }
         },
         "zh-Hant" : {
@@ -5684,7 +5684,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cassette Wrapped"
+            "value" : "Cassette 年度回顾"
           }
         },
         "zh-Hant" : {
@@ -5736,7 +5736,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Cassette Wrapped %@"
+            "value" : "Cassette 年度回顾 %@"
           }
         },
         "zh-Hant" : {
@@ -8339,7 +8339,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法启动 Instant Mix。"
+            "value" : "无法启动相似连播。"
           }
         },
         "zh-Hant" : {
@@ -14698,7 +14698,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Instant Mix"
+            "value" : "相似连播"
           }
         },
         "zh-Hant" : {
@@ -18858,7 +18858,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这首歌没有 Instant Mix 数据 — 将继续播放你的音乐库。"
+            "value" : "这首歌没有相似连播数据 — 将继续播放你的音乐库。"
           }
         },
         "zh-Hant" : {
@@ -19794,7 +19794,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未找到用于 Instant Mix 的相似曲目。你的服务器可能尚无此项的相似度数据。"
+            "value" : "未找到用于相似连播的相似曲目。你的服务器可能尚无此项的相似度数据。"
           }
         },
         "zh-Hant" : {
@@ -20158,7 +20158,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "暂无 Wrapped 播放列表。"
+            "value" : "暂无年度回顾播放列表。"
           }
         },
         "zh-Hant" : {
@@ -22659,7 +22659,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "防止削波"
+            "value" : "防止破音"
           }
         },
         "zh-Hant" : {
@@ -25597,7 +25597,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "分享你的 Wrapped"
+            "value" : "分享你的年度回顾"
           }
         },
         "zh-Hant" : {
@@ -26481,7 +26481,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Smart Shuffle"
+            "value" : "智能随机播放"
           }
         },
         "zh-Hant" : {
@@ -27423,7 +27423,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从你自己的服务器流播你的音乐库。\n无需订阅。远离科技巨头。"
+            "value" : "从你自己的服务器串流播放你的音乐库。\n无需订阅。远离科技巨头。"
           }
         },
         "zh-Hant" : {
@@ -29425,7 +29425,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此连接仅用于心情播放列表。Instant Mix 和相似歌曲功能使用你服务器自带的 AudioMuse 插件，二者独立。"
+            "value" : "此连接仅用于心情播放列表。相似连播和相似歌曲功能使用你服务器自带的 AudioMuse 插件，二者独立。"
           }
         },
         "zh-Hant" : {
@@ -30387,7 +30387,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Token"
+            "value" : "令牌"
           }
         },
         "zh-Hant" : {
@@ -33959,7 +33959,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Wrapped"
+            "value" : "年度回顾"
           }
         },
         "zh-Hant" : {
@@ -34375,7 +34375,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的 %lld Wrapped"
+            "value" : "你的 %lld 年度回顾"
           }
         },
         "zh-Hant" : {
@@ -34635,7 +34635,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的音乐库太小，无法使用 Smart Shuffle。请先尝试下载更多音乐或播放一些曲目。"
+            "value" : "你的音乐库太小，无法使用智能随机播放。请先尝试下载更多音乐或播放一些曲目。"
           }
         },
         "zh-Hant" : {
@@ -35467,7 +35467,7 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的 %lld Wrapped 将于 12 月 28 日推出。"
+            "value" : "你的 %lld 年度回顾将于 12 月 28 日推出。"
           }
         },
         "zh-Hant" : {
@@ -35630,6 +35630,294 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "your-username"
+          }
+        }
+      }
+    },
+    "Original" : {
+      "comment" : "Download format picker: the server's original file, no transcoding",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始质量"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始品質"
+          }
+        }
+      }
+    },
+    "Match stream format" : {
+      "comment" : "Cache format picker: cache the same format the server streams",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与串流格式一致"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "與串流格式一致"
+          }
+        }
+      }
+    },
+    "Off" : {
+      "comment" : "Crossfade duration: crossfade disabled",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉"
+          }
+        }
+      }
+    },
+    "%@ s" : {
+      "comment" : "Crossfade duration value in seconds",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 秒"
+          }
+        }
+      }
+    },
+    "%lld up next" : {
+      "comment" : "Player status line: number of tracks queued after the current one",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接下来还有 %lld 首"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接下來還有 %lld 首"
+          }
+        }
+      }
+    },
+    "Repeating all" : {
+      "comment" : "Player status line: repeat-all is on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "列表循环"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "清單循環"
+          }
+        }
+      }
+    },
+    "Repeating one" : {
+      "comment" : "Player status line: repeat-one is on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "单曲循环"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "單曲循環"
+          }
+        }
+      }
+    },
+    "Shuffled" : {
+      "comment" : "Player status line: shuffle is on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "随机播放中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隨機播放中"
+          }
+        }
+      }
+    },
+    "Auto-extend on" : {
+      "comment" : "Player status line: endless play is on",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已开启自动延长"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已開啟自動延長"
+          }
+        }
+      }
+    },
+    "No Downloads" : {
+      "comment" : "Add-music sheet: nothing downloaded",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有下载"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有下載"
+          }
+        }
+      }
+    },
+    "No Results" : {
+      "comment" : "Add-music sheet: no search results",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有结果"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有結果"
+          }
+        }
+      }
+    },
+    "Loading albums…" : {
+      "comment" : "Skeleton placeholder while albums load",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加载专辑…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入專輯…"
+          }
+        }
+      }
+    },
+    "%lld tracks (incomplete)" : {
+      "comment" : "Downloaded playlist row: some tracks are still missing",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 首曲目（未下载完）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 首曲目（未下載完）"
+          }
+        }
+      }
+    },
+    "No similar tracks found for an Instant Mix yet." : {
+      "comment" : "Toast: the instant mix came back empty",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂未找到可用于相似连播的曲目。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暫未找到可用於相似連播的曲目。"
+          }
+        }
+      }
+    },
+    "Keychain delete failed (OSStatus %lld)." : {
+      "comment" : "Error: keychain delete failed",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "钥匙串删除失败（OSStatus %lld）。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鑰匙圈刪除失敗（OSStatus %lld）。"
+          }
+        }
+      }
+    },
+    "Smart Shuffle unavailable — try playing some tracks first or download more music for offline use." : {
+      "comment" : "Toast: smart shuffle needs more listening data",
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智能随机播放暂不可用 — 请先播放一些曲目，或下载更多音乐以便离线使用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "智慧隨機播放暫不可用 — 請先播放一些曲目，或下載更多音樂以便離線使用。"
           }
         }
       }

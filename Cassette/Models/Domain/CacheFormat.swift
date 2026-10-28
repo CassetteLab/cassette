@@ -18,9 +18,11 @@ nonisolated enum CacheFormat: String, CaseIterable, Identifiable, Sendable {
     var id: String { rawValue }
 
     /// Display label for Settings UI.
+    /// Localized so the picker follows the app language; the codec/bitrate labels stay as-is
+    /// because they read the same in every language.
     var displayName: String {
         switch self {
-        case .matchStream:  return "Match stream format"
+        case .matchStream:  return String(localized: "Match stream format", comment: "Cache format picker: cache the same format the server streams")
         case .flacOriginal: return "FLAC"
         case .mp3_320:      return "MP3 320 kbps"
         case .mp3_192:      return "MP3 192 kbps"

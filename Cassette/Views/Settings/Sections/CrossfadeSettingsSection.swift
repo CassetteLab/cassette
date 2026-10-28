@@ -57,6 +57,12 @@ struct CrossfadeSettingsSection: View {
     }
 
     private func crossfadeDurationLabel(_ seconds: Double) -> String {
-        seconds == 0 ? "Off" : "\(String(format: "%.1f", seconds)) s"
+        // "Off" and the unit both go through the catalog: a language that writes the duration as
+        // "1.5 秒" should not be stuck with the English "s".
+        guard seconds > 0 else {
+            return String(localized: "Off", comment: "Crossfade duration: crossfade disabled")
+        }
+        let value = String(format: "%.1f", seconds)
+        return String(localized: "\(value) s", comment: "Crossfade duration value in seconds")
     }
 }

@@ -268,7 +268,7 @@ private struct AddMusicSongPicker: View {
                     ForEach(songs) { AddMusicSongRow(song: $0) }
                 }
             } else {
-                AddMusicPhaseView(phase: phase, emptyText: "No songs")
+                AddMusicPhaseView(phase: phase, emptyText: "No Songs")
             }
         }
         .navigationTitle(title)
@@ -312,7 +312,7 @@ private struct AddMusicAlbumList: View {
     var body: some View {
         List {
             if albums.isEmpty {
-                AddMusicPhaseView(phase: phase, emptyText: "No albums")
+                AddMusicPhaseView(phase: phase, emptyText: "No Albums")
             } else {
                 ForEach(albums) { album in
                     NavigationLink(value: AddMusicRoute.albumSongs(id: album.id, name: album.name)) {
@@ -354,7 +354,7 @@ private struct AddMusicArtistList: View {
     var body: some View {
         List {
             if artists.isEmpty {
-                AddMusicPhaseView(phase: phase, emptyText: "No artists")
+                AddMusicPhaseView(phase: phase, emptyText: "No Artists")
             } else {
                 ForEach(artists) { artist in
                     NavigationLink(value: AddMusicRoute.artistAlbums(id: artist.id, name: artist.name)) {
@@ -405,7 +405,7 @@ private struct AddMusicArtistAlbumList: View {
                 }
             }
             if albums.isEmpty {
-                AddMusicPhaseView(phase: phase, emptyText: "No albums")
+                AddMusicPhaseView(phase: phase, emptyText: "No Albums")
             } else {
                 Section {
                     ForEach(albums) { album in
@@ -446,7 +446,7 @@ private struct AddMusicPlaylistList: View {
     var body: some View {
         List {
             if playlists.isEmpty {
-                AddMusicPhaseView(phase: phase, emptyText: "No playlists")
+                AddMusicPhaseView(phase: phase, emptyText: "No Playlists")
             } else {
                 ForEach(playlists) { playlist in
                     NavigationLink(value: AddMusicRoute.playlistSongs(id: playlist.id, name: playlist.name)) {
@@ -486,7 +486,7 @@ private struct AddMusicDownloadsList: View {
     var body: some View {
         List {
             if songs.isEmpty {
-                AddMusicPhaseView(phase: .empty, emptyText: "No downloads")
+                AddMusicPhaseView(phase: .empty, emptyText: "No Downloads")
             } else {
                 Section {
                     Button {
@@ -546,10 +546,10 @@ private struct AddMusicSearchResults: View {
                     }
                 }
                 if (result.album?.isEmpty ?? true) && (result.artist?.isEmpty ?? true) && songs.isEmpty {
-                    AddMusicPhaseView(phase: .empty, emptyText: "No results")
+                    AddMusicPhaseView(phase: .empty, emptyText: "No Results")
                 }
             } else {
-                AddMusicPhaseView(phase: phase, emptyText: "No results")
+                AddMusicPhaseView(phase: phase, emptyText: "No Results")
             }
         }
         .task(id: query) { await search() }
