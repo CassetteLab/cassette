@@ -244,7 +244,6 @@ struct PlaylistDetailMacOS: View {
                 Image(systemName: vm.sort == nil ? "arrow.up.arrow.down" : "arrow.up.arrow.down.circle.fill")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .cassetteGlassButton(size: 28)
             }
             .buttonStyle(.borderless)
             .menuIndicator(.hidden)
@@ -261,7 +260,6 @@ struct PlaylistDetailMacOS: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .semibold))
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .help("Back")
@@ -281,7 +279,6 @@ struct PlaylistDetailMacOS: View {
                 Image(systemName: "plus")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .cassetteGlassButton(size: 28)
             }
             .buttonStyle(.borderless)
             .disabled(vm?.isOffline == true || container?.serverState.isOnline != true || vm?.playlistDetail == nil)
@@ -296,7 +293,6 @@ struct PlaylistDetailMacOS: View {
                 Image(systemName: "pencil")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .cassetteGlassButton(size: 28)
             }
             .buttonStyle(.borderless)
             .disabled(vm?.isOffline == true || container?.serverState.isOnline != true || vm?.playlistDetail == nil)
@@ -312,7 +308,6 @@ struct PlaylistDetailMacOS: View {
                     Image(systemName: "xmark.circle")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .help("Cancel Download")
@@ -325,7 +320,6 @@ struct PlaylistDetailMacOS: View {
                     Image(systemName: "arrow.down.circle.fill")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .help("Remove Download")
@@ -338,7 +332,6 @@ struct PlaylistDetailMacOS: View {
                     Image(systemName: "arrow.down.circle.dotted")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
@@ -350,7 +343,6 @@ struct PlaylistDetailMacOS: View {
                     Image(systemName: "arrow.down.circle")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
@@ -366,7 +358,6 @@ struct PlaylistDetailMacOS: View {
                 Image(systemName: "trash")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.red)
-                    .cassetteGlassButton(size: 28)
             }
             .buttonStyle(.borderless)
             .help("Delete Playlist")

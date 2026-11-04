@@ -138,7 +138,6 @@ struct AlbumDetailMacOS: View {
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 14, weight: .semibold))
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .help("Back")
@@ -154,7 +153,6 @@ struct AlbumDetailMacOS: View {
                     Image(systemName: "xmark.circle")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.primary)
-                        .cassetteGlassButton(size: 28)
                 }
                 .buttonStyle(.borderless)
                 .help("Cancel Download")
@@ -168,7 +166,6 @@ struct AlbumDetailMacOS: View {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.primary)
-                            .cassetteGlassButton(size: 28)
                     }
                     .buttonStyle(.borderless)
                     .disabled(true)
@@ -180,7 +177,6 @@ struct AlbumDetailMacOS: View {
                         Image(systemName: "arrow.down.circle.dotted")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.primary)
-                            .cassetteGlassButton(size: 28)
                     }
                     .buttonStyle(.borderless)
                     .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
@@ -192,7 +188,6 @@ struct AlbumDetailMacOS: View {
                         Image(systemName: "arrow.down.circle")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.primary)
-                            .cassetteGlassButton(size: 28)
                     }
                     .buttonStyle(.borderless)
                     .disabled(vm?.isOffline == true || container?.serverState.isOnline != true)
