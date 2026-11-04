@@ -77,4 +77,5 @@ extension Notification.Name {
     static let cassetteNavigateToArtist   = Notification.Name("cassetteNavigateToArtist")
     static let cassetteNavigateToPlaylist = Notification.Name("cassetteNavigateToPlaylist")
     static let cassettePlaylistDeleted    = Notification.Name("cassette.playlistDeleted")
+    static let cassetteNavigateBack       = Notification.Name("cassette.navigateBack")
 }

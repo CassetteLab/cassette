@@ -250,6 +250,7 @@ struct BottomPlayerBar: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .frame(width: 18, height: 18)
         .disabled(noTrack)
     }
 
@@ -264,6 +265,8 @@ struct BottomPlayerBar: View {
                     Image(systemName: "shuffle")
                         .font(.system(size: 12))
                         .foregroundStyle(playerState?.isShuffled == true ? Color.cassetteAccent : .secondary)
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(noTrack)
@@ -275,6 +278,8 @@ struct BottomPlayerBar: View {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(!hasContent ? .quaternary : .primary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!hasContent)
@@ -287,6 +292,8 @@ struct BottomPlayerBar: View {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(!hasContent ? .quaternary : .primary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(!hasContent)
@@ -302,6 +309,8 @@ struct BottomPlayerBar: View {
                     Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
                         .font(.system(size: 12))
                         .foregroundStyle(playerState?.repeatMode != .off ? Color.cassetteAccent : .secondary)
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(noTrack)
@@ -329,6 +338,7 @@ struct BottomPlayerBar: View {
                     .font(.system(size: 18))
                     .foregroundStyle(!hasContent ? .secondary : .primary)
                     .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
@@ -404,7 +414,8 @@ struct BottomPlayerBar: View {
                     .font(.system(size: 12))
                     .foregroundStyle(showVolumeSlider ? Color.cassetteAccent : .primary.opacity(0.8))
                     .contentTransition(.symbolEffect(.replace))
-                    .frame(width: 16, height: 16)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -421,6 +432,8 @@ struct BottomPlayerBar: View {
                     .font(.system(size: 12))
                     .foregroundStyle(isFavorite ? Color.cassetteAccent : .primary.opacity(0.8))
                     .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack || container?.serverState.isOnline != true)
@@ -433,6 +446,8 @@ struct BottomPlayerBar: View {
                 Image(systemName: "quote.bubble")
                     .font(.system(size: 12))
                     .foregroundStyle(.primary.opacity(0.8))
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -443,6 +458,8 @@ struct BottomPlayerBar: View {
                 Image(systemName: "list.bullet.indent")
                     .font(.system(size: 12))
                     .foregroundStyle(showQueue ? Color.cassetteAccent : .primary.opacity(0.8))
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .popover(isPresented: $showQueue, arrowEdge: .top) {

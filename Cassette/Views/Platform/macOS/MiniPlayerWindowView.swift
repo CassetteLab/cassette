@@ -120,6 +120,8 @@ struct MiniPlayerWindowView: View {
                 Image(systemName: "backward.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(noTrack ? .quaternary : .primary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -132,6 +134,8 @@ struct MiniPlayerWindowView: View {
                 Image(systemName: "forward.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(noTrack ? .quaternary : .primary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -157,7 +161,8 @@ struct MiniPlayerWindowView: View {
                 Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 16))
                     .foregroundStyle(noTrack ? .secondary : .primary)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 20, height: 20)
+                    .contentShape(Rectangle())
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)

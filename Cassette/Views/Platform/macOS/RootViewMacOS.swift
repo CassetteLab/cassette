@@ -145,6 +145,10 @@ struct RootViewMacOS: View {
                 selection = .section(.home)
                 navigationPath.append(HomeDestination.playlistById(id: id, name: name, coverArtId: coverArtId, hasZoomSource: false))
             }
+            .onReceive(NotificationCenter.default.publisher(for: .cassetteNavigateBack)) { _ in
+                guard !isShowingFullPlayer, !navigationPath.isEmpty else { return }
+                navigationPath.removeLast()
+            }
     }
 
     // MARK: - Playback
@@ -433,11 +437,81 @@ private struct FreshReleasesSidebarView: View {
 private struct MainWindowConfigurator: NSViewRepresentable {
     let isFullPlayerVisible: Bool
 
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        weak var window: NSWindow?
+        var eventMonitor: Any?
+        var navigationMonitors: [Any] = []
+        var scrollAccumX: CGFloat = 0
+        var scrollAccumY: CGFloat = 0
+
+        deinit {
+            if let monitor = eventMonitor { NSEvent.removeMonitor(monitor) }
+            navigationMonitors.forEach { NSEvent.removeMonitor($0) }
+        }
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
+        let coordinator = context.coordinator
         DispatchQueue.main.async {
             guard let window = view.window else { return }
+            coordinator.window = window
             window.setFrameAutosaveName("CassetteMainWindow")
+        }
+        // Logi Options+ "Back" and similar mouse software send NSEvent.EventType.swipe
+        // rather than otherMouseDown. deltaX > 0 is a rightward (back) swipe.
+        let swipeBackMonitor = NSEvent.addLocalMonitorForEvents(matching: .swipe) { event in
+            guard event.deltaX > 0 else { return event }
+            NotificationCenter.default.post(name: .cassetteNavigateBack, object: nil)
+            return nil
+        }
+        // The 2-finger "swipe between pages" trackpad gesture arrives as scrollWheel events,
+        // not NSEvent.EventType.swipe (which is 3-finger only in most configurations).
+        // We track accumulated horizontal delta during a gesture and fire when the motion
+        // is primarily rightward (back), never consuming the event so lists scroll normally.
+        let scrollBackMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak coordinator] event in
+            guard let window = event.window, window === coordinator?.window else { return event }
+            guard event.hasPreciseScrollingDeltas else { return event }
+            switch event.phase {
+            case .began:
+                coordinator?.scrollAccumX = 0
+                coordinator?.scrollAccumY = 0
+            case .changed:
+                coordinator?.scrollAccumX += event.scrollingDeltaX
+                coordinator?.scrollAccumY += event.scrollingDeltaY
+            case .ended:
+                let x = coordinator?.scrollAccumX ?? 0
+                let dy = abs(coordinator?.scrollAccumY ?? 0)
+                coordinator?.scrollAccumX = 0
+                coordinator?.scrollAccumY = 0
+                if x > 60, x > dy * 2 {
+                    NotificationCenter.default.post(name: .cassetteNavigateBack, object: nil)
+                }
+            default: break
+            }
+            return event
+        }
+        coordinator.navigationMonitors = [swipeBackMonitor, scrollBackMonitor].compactMap { $0 }
+
+        coordinator.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak coordinator] event in
+            guard event.clickCount == 2,
+                  let window = event.window,
+                  window === coordinator?.window else { return event }
+            guard event.locationInWindow.y > window.frame.height - 52 else { return event }
+            switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") ?? "Maximize" {
+            case "None": return event
+            case "Minimize": window.miniaturize(nil)
+            case "Fill":
+                if window.responds(to: Selector(("_zoomFill:"))) {
+                    window.perform(Selector(("_zoomFill:")), with: nil)
+                } else {
+                    window.zoom(nil)
+                }
+            default: window.zoom(nil)
+            }
+            return nil
         }
         return view
     }
