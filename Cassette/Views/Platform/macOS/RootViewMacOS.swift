@@ -433,11 +433,42 @@ private struct FreshReleasesSidebarView: View {
 private struct MainWindowConfigurator: NSViewRepresentable {
     let isFullPlayerVisible: Bool
 
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        weak var window: NSWindow?
+        var eventMonitor: Any?
+
+        deinit {
+            if let monitor = eventMonitor { NSEvent.removeMonitor(monitor) }
+        }
+    }
+
     func makeNSView(context: Context) -> NSView {
         let view = NSView()
+        let coordinator = context.coordinator
         DispatchQueue.main.async {
             guard let window = view.window else { return }
+            coordinator.window = window
             window.setFrameAutosaveName("CassetteMainWindow")
+        }
+        coordinator.eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak coordinator] event in
+            guard event.clickCount == 2,
+                  let window = event.window,
+                  window === coordinator?.window else { return event }
+            guard event.locationInWindow.y > window.frame.height - 52 else { return event }
+            switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") ?? "Maximize" {
+            case "None": return event
+            case "Minimize": window.miniaturize(nil)
+            case "Fill":
+                if window.responds(to: Selector(("_zoomFill:"))) {
+                    window.perform(Selector(("_zoomFill:")), with: nil)
+                } else {
+                    window.zoom(nil)
+                }
+            default: window.zoom(nil)
+            }
+            return nil
         }
         return view
     }

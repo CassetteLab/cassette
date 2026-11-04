@@ -150,6 +150,7 @@ struct FullPlayerExpandedView: View {
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Close")
@@ -160,6 +161,7 @@ struct FullPlayerExpandedView: View {
                 } label: {
                     Image(systemName: "pip.enter")
                         .font(.system(size: 14, weight: .semibold))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Mini Player")
@@ -189,6 +191,7 @@ struct FullPlayerExpandedView: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.white)
                         .frame(width: 16, height: 16)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
@@ -419,6 +422,8 @@ struct FullPlayerExpandedView: View {
                 } label: {
                     Image(systemName: isFavorite ? "star.fill" : "star")
                         .foregroundStyle(isFavorite ? .white : .white.opacity(0.55))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(noTrack)
@@ -450,12 +455,14 @@ struct FullPlayerExpandedView: View {
             Image(systemName: "ellipsis")
                 .font(.system(size: 14))
                 .foregroundStyle(Color.white.opacity(0.8))
+                .contentShape(Rectangle())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .foregroundStyle(Color.white.opacity(0.8))
         .tint(Color.white)
         .fixedSize()
+        .frame(width: 18, height: 18)
         .disabled(noTrack)
     }
 
@@ -509,6 +516,8 @@ struct FullPlayerExpandedView: View {
             } label: {
                 Image(systemName: "shuffle")
                     .foregroundStyle(playerState?.isShuffled == true ? playerAccent : Color.white.opacity(0.5))
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -518,6 +527,8 @@ struct FullPlayerExpandedView: View {
             } label: {
                 Image(systemName: "backward.fill")
                     .foregroundStyle(noTrack ? .quaternary : .primary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -529,6 +540,8 @@ struct FullPlayerExpandedView: View {
             } label: {
                 Image(systemName: "forward.fill")
                     .foregroundStyle(noTrack ? .quaternary : .primary)
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -542,6 +555,8 @@ struct FullPlayerExpandedView: View {
             } label: {
                 Image(systemName: playerState?.repeatMode.systemImage ?? "repeat")
                     .foregroundStyle(playerState?.repeatMode != .off ? playerAccent : Color.white.opacity(0.5))
+                    .frame(width: 30, height: 30)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(noTrack)
@@ -568,6 +583,7 @@ struct FullPlayerExpandedView: View {
                     .font(.system(size: 38))
                     .foregroundStyle(noTrack ? .secondary : .primary)
                     .frame(width: 52, height: 52)
+                    .contentShape(Rectangle())
                     .contentTransition(.symbolEffect(.replace))
             }
             .buttonStyle(.plain)
@@ -633,6 +649,7 @@ struct FullPlayerExpandedView: View {
                         .padding(6)
                         .background(selectedPanel == .lyrics ? CassetteColors.accentBackground : .clear)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(noTrack || isLiveStream)
@@ -645,6 +662,7 @@ struct FullPlayerExpandedView: View {
                         .padding(6)
                         .background(selectedPanel == .queue ? CassetteColors.accentBackground : .clear)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
