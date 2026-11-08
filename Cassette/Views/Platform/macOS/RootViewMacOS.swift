@@ -22,6 +22,11 @@ struct RootViewMacOS: View {
 
     var body: some View {
         commandHandlers(mainContent)
+            .background {
+                SpacebarPlayPauseMonitorView()
+                    .frame(width: 0, height: 0)
+                    .allowsHitTesting(false)
+            }
     }
 
     private var mainContent: some View {
@@ -81,6 +86,10 @@ struct RootViewMacOS: View {
     /// Split out of `body`: with every command handler inline, the chain grew past what the
     /// type checker will solve in reasonable time.
     private func commandHandlers(_ content: some View) -> some View {
+        navigationCommandHandlers(playbackCommandHandlers(content))
+    }
+
+    private func playbackCommandHandlers(_ content: some View) -> some View {
         content
             .onReceive(NotificationCenter.default.publisher(for: .cassetteTogglePlayPause)) { _ in
                 Task { await handleTogglePlayPause() }
@@ -107,10 +116,7 @@ struct RootViewMacOS: View {
                 Task { await toggleCurrentTrackFavorite() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .cassetteToggleRepeat)) { _ in
-                Task {
-                    guard let container else { return }
-                    await container.playerService.setRepeatMode(container.playerState.repeatMode.next)
-                }
+                Task { await handleToggleRepeat() }
             }
             .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayer)) { _ in
                 withAnimation { isShowingFullPlayer = true }
@@ -118,6 +124,10 @@ struct RootViewMacOS: View {
             .onReceive(NotificationCenter.default.publisher(for: .cassetteOpenFullPlayerLyrics)) { _ in
                 withAnimation { isShowingFullPlayer = true }
             }
+    }
+
+    private func navigationCommandHandlers(_ content: some View) -> some View {
+        content
             .onReceive(NotificationCenter.default.publisher(for: .cassetteSelectAlbums)) { _ in
                 selection = .section(.albums)
             }
@@ -190,6 +200,12 @@ struct RootViewMacOS: View {
         } else {
             await container.playerService.resume()
         }
+    }
+
+    private func handleToggleRepeat() async {
+        guard let container else { return }
+        let nextMode = container.playerState.repeatMode.next
+        await container.playerService.setRepeatMode(nextMode)
     }
 
     // MARK: - Sidebar
