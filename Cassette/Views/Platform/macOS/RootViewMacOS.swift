@@ -33,12 +33,6 @@ struct RootViewMacOS: View {
                 sidebarContent
             } detail: {
                 detailContent
-                    // Content margins rather than a safeAreaInset: an inset shrinks the scroll
-                    // view, leaving a strip that belongs to no scroll view and answers neither
-                    // click nor scroll wheel. Margins keep the scroll view full height and inset
-                    // its content instead. Verified to propagate from here into the Lists nested
-                    // inside the NavigationStack below.
-                    .contentMargins(.bottom, CassetteMacOSLayout.playerBarReservedHeight, for: .scrollContent)
             }
             .navigationSplitViewStyle(.balanced)
             .overlay(alignment: .bottom) {
@@ -320,31 +314,39 @@ struct RootViewMacOS: View {
                     detailView(for: selection ?? .section(.home))
                 }
             }
+            // Apply clearance to the screen inside the stack: navigation destinations do not
+            // inherit a scroll margin or safe-area padding placed outside NavigationStack.
+            // Safe-area padding keeps Lists full height while letting their last row scroll
+            // above the floating player, including lists nested beneath a fixed detail hero.
+            .safeAreaPadding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
             .navigationDestination(for: HomeDestination.self) { destination in
-                switch destination {
-                case .album(let album):
-                    AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
-                case .artist(let artist):
-                    ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
-                case .playlist(let playlist):
-                    PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
-                case .downloadedAlbum(let display):
-                    AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
-                case .albumById(let id, let name, _, let coverArtId, _):
-                    AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
-                case .playlistById(let id, let name, let coverArtId, _):
-                    PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
-                case .offlineAlbum(let album):
-                    AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
-                case .offlineArtist(let artist):
-                    OfflineArtistAlbumsView(artist: artist)
-                case .artistById(let id, let name, let coverArtId):
-                    ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
-                case .artistBestOf(let id, let name, let coverArtId):
-                    ArtistBestOfView(artistId: id, artistName: name, coverArtId: coverArtId)
-                default:
-                    EmptyView()
+                Group {
+                    switch destination {
+                    case .album(let album):
+                        AlbumDetailMacOS(albumId: album.id, albumName: album.name, coverArtId: album.coverArt)
+                    case .artist(let artist):
+                        ArtistDetailMacOS(artistId: artist.id, artistName: artist.name, coverArtId: artist.coverArt)
+                    case .playlist(let playlist):
+                        PlaylistDetailMacOS(playlistId: playlist.id, name: playlist.name, coverArtId: playlist.coverArt)
+                    case .downloadedAlbum(let display):
+                        AlbumDetailMacOS(albumId: display.albumId, albumName: display.name, coverArtId: display.coverArtId)
+                    case .albumById(let id, let name, _, let coverArtId, _):
+                        AlbumDetailMacOS(albumId: id, albumName: name, coverArtId: coverArtId)
+                    case .playlistById(let id, let name, let coverArtId, _):
+                        PlaylistDetailMacOS(playlistId: id, name: name, coverArtId: coverArtId)
+                    case .offlineAlbum(let album):
+                        AlbumDetailMacOS(albumId: album.albumId, albumName: album.albumName, coverArtId: album.coverArtId)
+                    case .offlineArtist(let artist):
+                        OfflineArtistAlbumsView(artist: artist)
+                    case .artistById(let id, let name, let coverArtId):
+                        ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
+                    case .artistBestOf(let id, let name, let coverArtId):
+                        ArtistBestOfView(artistId: id, artistName: name, coverArtId: coverArtId)
+                    default:
+                        EmptyView()
+                    }
                 }
+                .safeAreaPadding(.bottom, CassetteMacOSLayout.playerBarReservedHeight)
             }
         }
     }
