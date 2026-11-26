@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 #if os(macOS)
+import AppKit
 import SwiftUI
 
 struct CassetteCommands: Commands {
@@ -22,6 +23,8 @@ struct CassetteCommands: Commands {
             Button("Play / Pause") {
                 NotificationCenter.default.post(name: .cassetteTogglePlayPause, object: nil)
             }
+            // Keep the menu's native key-equivalent hint; RootViewMacOS also observes Space
+            // before focused controls consume the key event.
             .keyboardShortcut(.space, modifiers: [])
 
             Divider()
@@ -79,6 +82,55 @@ struct CassetteCommands: Commands {
                 NotificationCenter.default.post(name: .cassetteFocusSearch, object: nil)
             }
             .keyboardShortcut("f", modifiers: .command)
+        }
+    }
+}
+
+/// Captures bare Space before focused controls consume the key event. Text editing is left alone.
+struct SpacebarPlayPauseMonitorView: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.start()
+        return NSView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.stop()
+    }
+
+    @MainActor
+    final class Coordinator {
+        private var monitor: Any?
+
+        func start() {
+            guard monitor == nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                let modifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+                guard event.charactersIgnoringModifiers == " ",
+                      event.modifierFlags.intersection(modifiers).isEmpty,
+                      !Self.isTextInputFocused(for: event) else {
+                    return event
+                }
+                guard !event.isARepeat else { return nil }
+                NotificationCenter.default.post(name: .cassetteTogglePlayPause, object: nil)
+                return nil
+            }
+        }
+
+        func stop() {
+            guard let monitor else { return }
+            NSEvent.removeMonitor(monitor)
+            self.monitor = nil
+        }
+
+        private static func isTextInputFocused(for event: NSEvent) -> Bool {
+            let responder = event.window?.firstResponder ?? NSApp.keyWindow?.firstResponder
+            return responder is NSTextView || responder is NSTextField || responder is NSComboBox
         }
     }
 }
