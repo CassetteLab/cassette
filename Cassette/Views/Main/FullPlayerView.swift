@@ -937,13 +937,18 @@ private struct TrackInfoSection: View {
             if let track = playerState.currentTrack,
                let albumId = track.albumId,
                let albumName = track.albumName {
-                #if os(macOS)
-                AlbumDetailMacOS(albumId: albumId, albumName: albumName, coverArtId: track.coverArtId)
-                #else
                 NavigationStack {
+                    #if os(macOS)
+                    AlbumDetailMacOS(albumId: albumId, albumName: albumName, coverArtId: track.coverArtId)
+                        .navigationDestination(for: HomeDestination.self) { destination in
+                            if case let .artistById(id, name, coverArtId) = destination {
+                                ArtistDetailMacOS(artistId: id, artistName: name, coverArtId: coverArtId)
+                            }
+                        }
+                    #else
                     AlbumDetailView(albumId: albumId, albumName: albumName, coverArtId: track.coverArtId)
+                    #endif
                 }
-                #endif
             }
         }
         .sheet(item: $songToAddToPlaylist) { song in

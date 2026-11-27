@@ -56,7 +56,7 @@ struct AlbumDetailMacOS: View {
             DetailHeroView(
                 coverArtId: vm.coverArtId ?? coverArtId,
                 title: vm.albumName.isEmpty ? albumName : vm.albumName,
-                primaryLine: vm.artistName,
+                primaryLine: { albumArtist(vm) },
                 secondaryLine: secondaryLine(vm: vm),
                 primaryAction: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
@@ -116,6 +116,22 @@ struct AlbumDetailMacOS: View {
             .refreshable { await vm.load() }
             .sheet(item: $songToAddToPlaylist) { song in
                 AddToPlaylistSheet(song: song)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func albumArtist(_ vm: AlbumDetailViewModel) -> some View {
+        if let name = vm.artistName, !name.isEmpty {
+            if let id = vm.artistId, !id.isEmpty, !vm.isOffline {
+                NavigationLink(value: HomeDestination.artistById(id: id, name: name, coverArtId: nil)) {
+                    Text(name)
+                        .foregroundStyle(Color.cassetteAccent)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text(name)
+                    .foregroundStyle(.secondary)
             }
         }
     }
