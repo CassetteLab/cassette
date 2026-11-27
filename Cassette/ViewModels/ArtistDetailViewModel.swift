@@ -198,6 +198,7 @@ final class ArtistDetailViewModel {
     /// guarded by the service's 15s timeout, so this loads in the background.
     func loadArtistInfo() async {
         guard !isOffline else { isLoadingArtistInfo = false; return }
+        isLoadingArtistInfo = biography == nil
         defer { isLoadingArtistInfo = false }
         do {
             let info = try await libraryService.getArtistInfo(forArtistID: artistId, count: 20)

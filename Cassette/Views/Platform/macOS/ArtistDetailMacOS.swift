@@ -61,8 +61,8 @@ struct ArtistDetailMacOS: View {
                 )
             }
             await vm?.load()
-            await vm?.loadSimilarArtists()
             await vm?.loadArtistInfo()
+            await vm?.loadSimilarArtists()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
@@ -105,7 +105,10 @@ struct ArtistDetailMacOS: View {
             // Cross-fade the skeleton into the bio smoothly when it resolves.
             .animation(.easeInOut(duration: 0.35), value: vm.isLoadingArtistInfo)
         }
-        .refreshable { await vm.load() }
+        .refreshable {
+            await vm.load()
+            await vm.loadArtistInfo()
+        }
     }
 
     // MARK: - Albums grid
