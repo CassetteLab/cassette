@@ -6,10 +6,10 @@
 #if os(macOS)
 import SwiftUI
 
-struct DetailHeroView: View {
+struct DetailHeroView<PrimaryLine: View>: View {
     let coverArtId: String?
     let title: String
-    let primaryLine: String?
+    @ViewBuilder let primaryLine: () -> PrimaryLine
     let secondaryLine: String?
     let primaryAction: () -> Void
     let secondaryAction: () -> Void
@@ -50,12 +50,9 @@ struct DetailHeroView: View {
                     .font(.system(size: 28, weight: .bold))
                     .lineLimit(2)
 
-                if let primaryLine {
-                    Text(primaryLine)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.cassetteAccent)
-                        .lineLimit(1)
-                }
+                primaryLine()
+                    .font(.system(size: 16, weight: .medium))
+                    .lineLimit(1)
 
                 if let secondaryLine {
                     Text(secondaryLine)

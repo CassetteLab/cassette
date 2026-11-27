@@ -112,7 +112,12 @@ struct PlaylistDetailMacOS: View {
             DetailHeroView(
                 coverArtId: vm.coverArtId ?? coverArtId,
                 title: vm.name.isEmpty ? name : vm.name,
-                primaryLine: vm.owner,
+                primaryLine: {
+                    if let owner = vm.owner {
+                        Text(owner)
+                            .foregroundStyle(Color.cassetteAccent)
+                    }
+                },
                 secondaryLine: songs.isEmpty ? nil : String(localized: "\(songs.count) tracks"),
                 primaryAction: {
                     Task { try? await container?.playerService.play(tracks: songs, startIndex: 0) }
