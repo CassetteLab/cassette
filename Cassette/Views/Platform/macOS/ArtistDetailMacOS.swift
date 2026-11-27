@@ -30,6 +30,10 @@ struct ArtistDetailMacOS: View {
     /// Discography layout: false = 2-row horizontal scroll (default), true = vertical grid.
     @AppStorage("cassette.artistAlbumsGrid") private var artistAlbumsGrid = false
 
+    private let albumCardWidth: CGFloat = 180
+    private let albumCardSpacing = CassetteSpacing.xxl
+    private var biographyMaxWidth: CGFloat { 3 * albumCardWidth + 2 * albumCardSpacing }
+
     private var effectiveCoverArtId: String? { vm?.artist?.coverArt ?? coverArtId }
 
     var body: some View {
@@ -57,8 +61,8 @@ struct ArtistDetailMacOS: View {
                 )
             }
             await vm?.load()
-            await vm?.loadSimilarArtists()
             await vm?.loadArtistInfo()
+            await vm?.loadSimilarArtists()
         }
         .sheet(item: $selectedOutOfLibraryArtist) { rec in
             OutOfLibraryArtistSheet(
@@ -78,10 +82,12 @@ struct ArtistDetailMacOS: View {
                 // Biography — a 3-line skeleton while it loads, then the bio fades in (or collapses if none).
                 if vm.isLoadingArtistInfo {
                     ArtistBioSkeleton()
+                        .frame(maxWidth: biographyMaxWidth, alignment: .leading)
                         .padding(.horizontal, 32)
                         .transition(.opacity)
                 } else if let bio = vm.biography {
                     ArtistBioView(bio: bio, lastFmURL: vm.lastFmURL)
+                        .frame(maxWidth: biographyMaxWidth, alignment: .leading)
                         .padding(.horizontal, 32)
                         .transition(.opacity)
                 }
@@ -99,7 +105,10 @@ struct ArtistDetailMacOS: View {
             // Cross-fade the skeleton into the bio smoothly when it resolves.
             .animation(.easeInOut(duration: 0.35), value: vm.isLoadingArtistInfo)
         }
-        .refreshable { await vm.load() }
+        .refreshable {
+            await vm.load()
+            await vm.loadArtistInfo()
+        }
     }
 
     // MARK: - Albums grid
@@ -144,11 +153,11 @@ struct ArtistDetailMacOS: View {
                 .padding(.horizontal, 32)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHGrid(rows: albumGridRows, alignment: .top, spacing: 24) {
+                    LazyHGrid(rows: albumGridRows, alignment: .top, spacing: albumCardSpacing) {
                         ForEach(albumSort.sorted(albums)) { album in
                             NavigationLink(value: HomeDestination.album(album)) {
                                 AlbumGridCell(album: album)
-                                    .frame(width: 180)
+                                    .frame(width: albumCardWidth)
                             }
                             .buttonStyle(.plain)
                         }

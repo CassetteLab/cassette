@@ -4,6 +4,7 @@
 // See LICENSE file in the project root for full license information.
 
 import Foundation
+import NaturalLanguage
 import SwiftSonic
 import OSLog
 
@@ -197,10 +198,11 @@ final class ArtistDetailViewModel {
     /// guarded by the service's 15s timeout, so this loads in the background.
     func loadArtistInfo() async {
         guard !isOffline else { isLoadingArtistInfo = false; return }
+        isLoadingArtistInfo = biography == nil
         defer { isLoadingArtistInfo = false }
         do {
             let info = try await libraryService.getArtistInfo(forArtistID: artistId, count: 20)
-            let cleaned = info.biography?.strippingArtistBioMarkup
+            let cleaned = info.biography?.formattedArtistBiography
             biography = (cleaned?.isEmpty ?? true) ? nil : cleaned
             lastFmURL = info.lastFmUrl.flatMap(URL.init(string:))
         } catch {
@@ -232,9 +234,8 @@ final class ArtistDetailViewModel {
 }
 
 private extension String {
-    /// Turns a Last.fm/MusicBrainz biography into plain text: drops HTML tags and the
-    /// trailing "Read more on Last.fm" link that Subsonic servers pass through verbatim.
-    var strippingArtistBioMarkup: String {
+    /// Converts the server biography to readable plain text and removes the Last.fm read-more link.
+    var formattedArtistBiography: String {
         var text = self
 
         // Cut the Last.fm read-more tail (everything from the last <a ...>Read more…</a>)
@@ -243,12 +244,37 @@ private extension String {
             text = String(text[..<range.lowerBound])
         }
 
+        // Preserve block and line breaks before stripping the remaining markup.
+        text = text.replacingOccurrences(of: #"(?i)</p\s*>[ \t\r\n]*"#, with: "\n\n", options: .regularExpression)
+        text = text.replacingOccurrences(of: #"(?i)<br\s*/?\s*>"#, with: "\n", options: .regularExpression)
         // Strip remaining tags and decode the few entities Last.fm emits
         text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
         for (entity, char) in ["&amp;": "&", "&quot;": "\"", "&#39;": "'", "&lt;": "<", "&gt;": ">", "&apos;": "'"] {
             text = text.replacingOccurrences(of: entity, with: char)
         }
 
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.paragraphsForUnbrokenBiography
+    }
+
+    private var paragraphsForUnbrokenBiography: String {
+        let targetLength = 350
+        let minimumTailLength = targetLength / 2
+        guard count >= targetLength + minimumTailLength, !contains(where: \.isNewline) else { return self }
+
+        let tokenizer = NLTokenizer(unit: .sentence)
+        tokenizer.string = self
+        var paragraphStart = startIndex
+        var paragraphs: [String] = []
+        tokenizer.enumerateTokens(in: startIndex..<endIndex) { sentence, _ in
+            let end = sentence.upperBound
+            if self[paragraphStart..<end].count >= targetLength, self[end...].count >= minimumTailLength {
+                paragraphs.append(self[paragraphStart..<end].trimmingCharacters(in: .whitespaces))
+                paragraphStart = end
+            }
+            return true
+        }
+        paragraphs.append(self[paragraphStart...].trimmingCharacters(in: .whitespaces))
+        return paragraphs.joined(separator: "\n\n")
     }
 }

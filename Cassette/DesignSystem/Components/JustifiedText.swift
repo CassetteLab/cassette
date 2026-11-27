@@ -82,7 +82,9 @@ private struct Backing: NSViewRepresentable {
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView field: NSTextField, context: Context) -> CGSize? {
         let width = proposal.width ?? 0
-        guard width > 0 else { return nil }
+        // SwiftUI probes the minimum width with a zero proposal. Returning nil here
+        // falls back to the label's single-line intrinsic width and widens the entire layout.
+        guard width > 0 else { return .zero }
         field.preferredMaxLayoutWidth = width
         return CGSize(width: width, height: ceil(field.intrinsicContentSize.height))
     }
